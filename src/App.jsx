@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "./supabaseClient.js";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const GOAL_COLORS = { "Muscle Gain":"#E8C547","Fat Loss":"#FF6B6B","Strength":"#4ECDC4","Endurance":"#A78BFA","General Fitness":"#6EE7B7" };
 const LIFT_FIELDS = [{key:"benchPress",label:"Bench"},{key:"squat",label:"Squat"},{key:"deadlift",label:"Deadlift"},{key:"ohp",label:"OHP"}];
@@ -82,6 +83,45 @@ function getPRs(progress){
 const prs={};
 LIFT_FIELDS.forEach(({key})=>{ let best=0; progress.forEach(p=>{ if(p[key]>best) best=p[key]; }); if(best>0) prs[key]=best; });
 return prs;
+}
+function normalizeInjuries(injuries){
+if(!injuries) return [];
+if(Array.isArray(injuries)) return injuries;
+if(typeof injuries === "string") return injuries.split(";").map(i=>i.trim()).filter(Boolean);
+return [];
+}
+function getClientColor(goal,id){
+if(GOAL_COLORS[goal]) return GOAL_COLORS[goal];
+const seed = String(id||"").split("").reduce((sum,ch)=>sum+ch.charCodeAt(0),0);
+return COLORS[seed % COLORS.length];
+}
+function mapDbClient(row){
+return {
+  id: row.id,
+  name: row.name || "",
+  goal: row.goal || "General Fitness",
+  age: row.age ?? 0,
+  weight: row.weight_kg ?? 0,
+  phone: row.phone || "",
+  email: row.email || "",
+  injuries: normalizeInjuries(row.injuries),
+  notes: row.notes || "",
+  sessions: row.sessions_conducted ?? 0,
+  sessionsBooked: row.sessions_booked ?? 0,
+  trials: row.trials ?? 0,
+  created_at: row.created_at,
+  joinDate: row.created_at ? new Date(row.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+  avatar: row.name ? row.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2) : "??",
+  color: getClientColor(row.goal, row.id),
+  photo: row.photo || null,
+  packages: row.packages || [],
+  checkIns: row.checkIns || [],
+  schedule: row.schedule || [],
+  progress: row.progress || [],
+  measurements: row.measurements || {},
+  program: row.program || null,
+  waitlist: false,
+};
 }
 // ── Tiny Sparkline ────────────────────────────────────────────────────────────
 function Spark({data,field,color}){
@@ -620,7 +660,7 @@ const w=window.open("","_blank");w.document.write(html);w.document.close();setTi
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App(){
-const [clients,setClients]=useState(SEED);
+const [clients,setClients]=useState([]);
 const [waitlist,setWaitlist]=useState(WAITLIST);
 const [selected,setSelected]=useState(null);
 const [appView,setAppView]=useState("clients");
@@ -628,17 +668,88 @@ const [tab,setTab]=useState("overview");
 const [modal,setModal]=useState(null);
 const [recapSession,setRecapSession]=useState(null);
 const photoRef=useRef();
+const createdClientColors=useRef({});
 const sc=clients.find(c=>c.id===selected);
-const patch=(id,p)=>setClients(prev=>prev.map(c=>c.id===id?{...c,...p}:c));
+const fetchClients = async () => {
+  const { data, error } = await supabase.from("clients").select("*").order("created_at", { ascending: true });
+  if(error){ console.error("Supabase fetch error:", error); return; }
+  if(data) setClients(data.map(row=>{ const client = mapDbClient(row); const override = createdClientColors.current[row.id]; if(override) client.color = override; return client; }));
+};
+const createClientOnDb = async (data) => {
+  const selectedColor = data.color || getClientColor(data.goal, data.name);
+  const payload = {
+    name: data.name,
+    goal: data.goal,
+    age: Number(data.age),
+    weight_kg: Number(data.weight),
+    phone: data.phone || "",
+    email: data.email || "",
+    injuries: Array.isArray(data.injuries) ? data.injuries.join(";") : data.injuries || "",
+    notes: data.notes || "",
+    sessions_booked: Number(data.sessionsBooked || 0),
+    sessions_conducted: Number(data.sessions || 0),
+    trials: Number(data.trials || 0),
+  };
+  const { data: created, error } = await supabase.from("clients").insert(payload).select();
+  if(error){ console.error("Supabase insert error:", error); return; }
+  if(created?.[0]?.id){ createdClientColors.current[created[0].id] = selectedColor; }
+  await fetchClients();
+};
+const updateClientOnDb = async (id, updates) => {
+  const payload = {};
+  if(updates.name != null) payload.name = updates.name;
+  if(updates.goal != null) payload.goal = updates.goal;
+  if(updates.age != null) payload.age = Number(updates.age);
+  if(updates.weight != null) payload.weight_kg = Number(updates.weight);
+  if(updates.phone != null) payload.phone = updates.phone;
+  if(updates.email != null) payload.email = updates.email;
+  if(updates.injuries != null) payload.injuries = Array.isArray(updates.injuries) ? updates.injuries.join(";") : updates.injuries;
+  if(updates.notes != null) payload.notes = updates.notes;
+  if(updates.sessions != null) payload.sessions_conducted = Number(updates.sessions);
+  if(updates.sessionsBooked != null) payload.sessions_booked = Number(updates.sessionsBooked);
+  if(updates.trials != null) payload.trials = Number(updates.trials);
+  if(Object.keys(payload).length === 0) return;
+  const { error } = await supabase.from("clients").update(payload).eq("id", id);
+  if(error){ console.error("Supabase update error:", error); return; }
+  await fetchClients();
+};
+const deleteClient = async (id) => {
+  const { error } = await supabase.from("clients").delete().eq("id", id);
+  if(error){ console.error("Supabase delete error:", error); return; }
+  await fetchClients();
+};
+const patch = async (id, p) => {
+  setClients(prev=>prev.map(c=>c.id===id?{...c,...p}:c));
+  await updateClientOnDb(id, p);
+};
+useEffect(()=>{ fetchClients(); }, []);
 const openClient=id=>{setSelected(id);setAppView("client");setTab("overview");};
 const goBack=()=>{setAppView("clients");setSelected(null);};
 const saveProgram=prog=>{const weekLogs=Array.from({length:prog.totalWeeks},(_,i)=>makeWeek(i+1,prog.days));patch(selected,{program:{...prog,weekLogs}});setModal(null);};
 const saveAI=prog=>{patch(selected,{program:prog});setModal(null);};
 const updateProgram=p=>patch(selected,{program:p});
 const saveProgress=entry=>{const c=clients.find(x=>x.id===selected);patch(selected,{progress:[...(c.progress||[]),entry],weight:entry.weight,sessions:(c.sessions||0)+1,measurements:{...(c.measurements||{}),waist:entry.waist||c.measurements?.waist,chest:entry.chest||c.measurements?.chest,arms:entry.arms||c.measurements?.arms,bodyFat:entry.bodyFat||c.measurements?.bodyFat}});setModal(null);};
-const addClient=data=>{const initials=data.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);setClients(p=>[...p,{id:Date.now(),name:data.name,age:Number(data.age),goal:data.goal,weight:Number(data.weight),joinDate:new Date().toISOString().split("T")[0],avatar:initials,color:data.color,photo:null,photos:[],packages:[],injuries:[],checkIns:[],schedule:[],progress:[],measurements:{},notes:"",program:null,sessions:0}]);setModal(null);};
+const addClient=async data=>{
+  const payload = {
+    name: data.name,
+    goal: data.goal,
+    age: Number(data.age),
+    weight_kg: Number(data.weight),
+    phone: data.phone || "",
+    email: data.email || "",
+    injuries: Array.isArray(data.injuries) ? data.injuries.join(";") : data.injuries || "",
+    notes: data.notes || "",
+    sessions_booked: Number(data.sessionsBooked || 0),
+    sessions_conducted: Number(data.sessions || 0),
+    trials: Number(data.trials || 0),
+  };
+  const { error } = await supabase.from("clients").insert(payload);
+  if(error){ console.error("Supabase insert error:", error); return; }
+  await fetchClients();
+  setModal(null);
+};
 const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>patch(selected,{photo:ev.target.result});r.readAsDataURL(f);};
-const promoteFromWaitlist=p=>{const initials=p.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);const color=COLORS[Math.floor(Math.random()*COLORS.length)];setClients(prev=>[...prev,{id:Date.now(),name:p.name,age:0,goal:p.goal,weight:0,joinDate:new Date().toISOString().split("T")[0],avatar:initials,color,photo:null,photos:[],packages:[],injuries:[],checkIns:[],schedule:[],progress:[],measurements:{},notes:p.email,program:null,sessions:0}]);setWaitlist(w=>w.filter(x=>x.id!==p.id));};
+const promoteFromWaitlist=async p=>{const color=COLORS[Math.floor(Math.random()*COLORS.length)];await createClientOnDb({name:p.name,age:0,goal:p.goal,weight:0,color,phone:"",email:p.email,injuries:[],notes:p.email,sessions:0,sessionsBooked:0,trials:0});setWaitlist(w=>w.filter(x=>x.id!==p.id));};
 const totalRev=clients.flatMap(c=>c.packages||[]).filter(p=>p.paid).reduce((a,p)=>a+p.price,0);
 const totalSessions=clients.reduce((a,c)=>a+(c.sessions||0),0);
 const bookedSessions=clients.reduce((a,c)=>a+(c.schedule?.length||0),0);
