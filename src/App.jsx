@@ -1046,6 +1046,15 @@ const saveProfilePhoto=async photoData=>{
     packages: c.packages || [],
   });
 };
+const deleteClient = async (id) => {
+  if (!window.confirm("Delete this client permanently?")) return;
+
+  await supabase.from("client_data").delete().eq("client_id", id);
+  await supabase.from("clients").delete().eq("id", id);
+
+  await fetchClients();
+  setSelected(null);
+};
 const addClient=async data=>{
   const payload = {
     name: data.name,
@@ -1064,6 +1073,31 @@ const addClient=async data=>{
   if(error){ console.error("Supabase insert error:", error); return; }
   await fetchClients();
   setModal(null);
+};
+const deleteClient = async (clientId) => {
+  if (!window.confirm("Delete this client permanently?")) return;
+
+  await supabase
+    .from("client_data")
+    .delete()
+    .eq("client_id", clientId);
+
+  const { error } = await supabase
+    .from("clients")
+    .delete()
+    .eq("id", clientId);
+
+  if (error) {
+    console.error("FAILED TO DELETE CLIENT", error);
+    alert("Failed to delete client");
+    return;
+  }
+
+  await fetchClients();
+
+  if (selected?.id === clientId) {
+    setSelected(null);
+  }
 };
 const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>saveProfilePhoto(ev.target.result);r.readAsDataURL(f);};
 const promoteFromWaitlist=async p=>{const color=COLORS[Math.floor(Math.random()*COLORS.length)];await createClientOnDb({name:p.name,age:0,goal:p.goal,weight:0,color,phone:"",email:p.email,injuries:[],notes:p.email,sessions:0,sessionsBooked:0,trials:0});setWaitlist(w=>w.filter(x=>x.id!==p.id));};
@@ -1169,6 +1203,19 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 </div>
 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
 <button onClick={()=>exportPDF(sc)} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#aaa",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>⬇ PDF</button>
+<button
+  onClick={() => deleteClient(sc.id)}
+  style={{
+    background:"#8B0000",
+    color:"#fff",
+    border:"none",
+    borderRadius:8,
+    padding:"7px 12px",
+    cursor:"pointer"
+  }}
+>
+  Delete
+</button>
 {sc.program&&<button onClick={()=>{const s=getLatestSession();if(s)setRecapSession(s);}} style={{background:"#A78BFA22",border:"1px solid #A78BFA44",color:"#A78BFA",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>✦ Recap</button>}
 <button onClick={()=>setModal("progress")} style={{background:sc.color,color:"#000",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ LOG</button>
 </div>
@@ -1229,7 +1276,11 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 <input id="injInput" placeholder="Add injury or limitation..." style={{flex:1,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:12,outline:"none"}} onKeyDown={e=>{if(e.key==="Enter"&&e.target.value){saveInjuries([...(sc.injuries||[]),e.target.value]);e.target.value=""}}}/>
 </div>
 </div>
-<textarea value={sc.notes} onChange={e=>patch(selected,{notes:e.target.value})} placeholder="Coaching notes, observations, goals..." style={{width:"100%",minHeight:240,background:"#161616",border:"1px solid #222",borderRadius:10,padding:14,color:"#ccc",fontSize:14,lineHeight:1.6,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif"}}/>
+<textarea value={sc.notes} onChange={(e) => {
+  const updated = { ...selected, notes: e.target.value };
+  patch(selected, { notes: e.target.value });
+  saveClientDataSection(selected.id, "overview", updated);
+}} placeholder="Coaching notes, observations, goals..." style={{width:"100%",minHeight:240,background:"#161616",border:"1px solid #222",borderRadius:10,padding:14,color:"#ccc",fontSize:14,lineHeight:1.6,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif"}}/>
 </div>}
 </>)}
 </div>
