@@ -1,1387 +1,154 @@
-
-import { useState, useRef, useEffect, Fragment } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
-// ── Constants ─────────────────────────────────────────────────────────────────
-const GOAL_COLORS = { "Muscle Gain":"#E8C547","Fat Loss":"#FF6B6B","Strength":"#4ECDC4","Endurance":"#A78BFA","General Fitness":"#6EE7B7","Mobility":"#60A5FA","Rehab":"#F472B6","Lifestyle":"#FB923C" };
-const GOAL_OPTIONS = ["Fat Loss","Muscle Gain","Strength","Endurance","Mobility","General Fitness","Rehab","Lifestyle"];
-const DEFAULT_PROFILE = {goals:[],injuries:[],medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""};
-const DEFAULT_NUTRITION = {calories:"",protein:"",carbs:"",fats:"",notes:"",days:["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>({day,meals:{breakfast:[],lunch:[],dinner:[],snacks:[]}}))};
-const LIFT_FIELDS = [{key:"benchPress",label:"Bench"},{key:"squat",label:"Squat"},{key:"deadlift",label:"Deadlift"},{key:"ohp",label:"OHP"}];
-const MEAS_FIELDS = [{key:"waist",label:"Waist"},{key:"chest",label:"Chest"},{key:"arms",label:"Arms"},{key:"hips",label:"Hips"},{key:"thighs",label:"Thighs"},{key:"bodyFat",label:"Body Fat %"}];
+ 
+const GOALS = ["Fat Loss", "Muscle Gain", "Strength", "Endurance", "Mobility", "General Fitness", "Rehab", "Lifestyle"];
+const FITNESS_CHECKS = ["Cardiovascular Strength", "Squat", "Push Strength", "Pull Strength", "Core Strength", "Mobility", "Flexibility Fitness"];
+const BOOKING_TYPES = { client: "Client Session", trial: "Free Trial", consultation: "Consultation", assessment: "Physical Assessment" };
+const TYPE_COLORS = { client: "#54d6ff", trial: "#ff3b3b", consultation: "#ffd166", assessment: "#b794f4" };
+const TIMES = ["5:30 AM", "6:00 AM", "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const CLIENT_COLORS = ["#e8c547", "#00e5ff", "#ff9f43", "#9b5de5", "#00f5d4", "#f15bb5", "#90be6d", "#f94144", "#577590"];
+ 
 const EXERCISE_LIBRARY = [
-"Rack Pulls","Barbell Deadlift","Romanian Deadlift","Good Morning","Hip Thrust","Trap Bar Deadlift","Deficit Deadlift","Sumo Deadlift","Block Pulls",
-"Flat Barbell Bench Press","Incline DB Chest Press","Dumbbell Fly","Cable Crossover","Push-Up","Decline Bench Press","Machine Chest Press","Smith Machine Bench","Guillotine Press",
-"Squat","Front Squat","Goblet Squat","Leg Press","Leg Extension","Lying Leg Curl","Lunge","Bulgarian Split Squat","Hack Squat","V-Squat","Pendulum Squat",
-"Pull-Up","Neutral Grip Lat Pulldown","Seated Row","Machine Rows","Dumbbell Row","Face Pull","Chest-Supported Row","Pendlay Row","T-Bar Row","Seal Row",
-"Overhead Press","DB Shoulder Press","Arnold Press","Cable Lateral Raises","DB Lateral Raises","Shrug","Machine Shoulder Press","Pike Push-Up","Landmine Press",
-"Bicep Curl","Incline DB Curl","Hammer Curl","EZ Tricep Extension","Tricep Pushdown","Skull Crusher","Dips","Preacher Curl","Machine Curl","Rope Curl","Cable Curl",
-"Sled Push","Farmer's Carry","Battle Ropes","Box Jump","Burpee","SkiErg","Elliptical","Rower","Stair Climber","Assault Bike","VersaClimber",
-"Plank","Bird Dog","Dead Bug","Russian Twist","Hanging Leg Raise","Cable Wood Chop","Pallof Press","Ab Wheel","Machine Crunch","Decline Sit-Ups",
-"Cat-Cow","90/90 Hip Rotation","Band Pass Throughs","Thoracic Rotation","Med Ball Throw","Foam Rolling","Band Pull-Aparts","Stretching",
-"Bag Punches","Interval Treadmill Walk","Swimming","Rowing Machine","Kickboxing","Jump Rope","Shadow Boxing",
+  "Dead Hang", "Rack Pulls", "Barbell Deadlift", "Romanian Deadlift", "Hip Thrust", "Trap Bar Deadlift", "Flat Barbell Bench Press", "Incline DB Chest Press", "Push-Up", "Squat", "Front Squat", "Goblet Squat", "Leg Press", "Lunge", "Bulgarian Split Squat", "Pull-Up", "Neutral Grip Lat Pulldown", "Seated Row", "Dumbbell Row", "Face Pull", "Overhead Press", "DB Shoulder Press", "Cable Lateral Raises", "Bicep Curl", "Hammer Curl", "Tricep Pushdown", "Sled Push", "Farmer's Carry", "Battle Ropes", "SkiErg", "Elliptical", "Rower", "Stair Climber", "Assault Bike", "Plank", "Bird Dog", "Dead Bug", "Russian Twist", "Hanging Leg Raise", "Pallof Press", "Cat-Cow", "90/90 Hip Rotation", "Band Pass Throughs", "Thoracic Rotation", "Swimming", "Jump Rope"
 ];
-const COLORS = ["#E8C547","#FF6B6B","#4ECDC4","#A78BFA","#6EE7B7","#FB923C","#60A5FA","#F472B6"];
-// ── Seed Data ─────────────────────────────────────────────────────────────────
-const SEED = [
-{ id:1, name:"Marcus Reid", age:34, goal:"Muscle Gain", weight:83.9, joinDate:"2026-01-10", avatar:"MR", color:"#E8C547", photo:null,
-packages:[{id:101,name:"10 Session Pack",total:10,used:7,price:800,paid:true}],
-injuries:["Lower back – avoid heavy deadlifts"], checkIns:[true,true,true,false,true,true,true,false,true,true,true,true],
-photos:[],
-progress:[
-{date:"Jan",weight:83.9,benchPress:185,squat:225,deadlift:275,ohp:115,waist:34,chest:42,arms:15,bodyFat:18},
-{date:"Feb",weight:85.3,benchPress:195,squat:245,deadlift:295,ohp:120,waist:34,chest:43,arms:15.5,bodyFat:17.5},
-{date:"Mar",weight:86.6,benchPress:205,squat:265,deadlift:315,ohp:125,waist:33.5,chest:43.5,arms:16,bodyFat:17},
-{date:"Apr",weight:87.5,benchPress:215,squat:280,deadlift:335,ohp:130,waist:33,chest:44,arms:16.5,bodyFat:16.5},
-{date:"May",weight:88.0,benchPress:225,squat:295,deadlift:355,ohp:135,waist:33,chest:44.5,arms:17,bodyFat:16},
-],
-measurements:{waist:33,chest:44.5,arms:17,hips:38,thighs:24,bodyFat:16},
-notes:"Great consistency. Increase bench by 10lbs next cycle.", program:null,
-schedule:[{day:"Mon",time:"07:00"},{day:"Wed",time:"07:00"},{day:"Fri",time:"08:00"}],
-sessions:0,
-waitlist:false,
-},
-{ id:2, name:"Sofia Vargas", age:28, goal:"Fat Loss", weight:67.1, joinDate:"2026-02-03", avatar:"SV", color:"#FF6B6B", photo:null,
-packages:[{id:201,name:"Monthly Unlimited",total:20,used:18,price:600,paid:true}],
-injuries:[], checkIns:[true,true,false,true,true,true,false,false,true,true],
-photos:[],
-progress:[
-{date:"Feb",weight:67.1,benchPress:65,squat:95,deadlift:115,ohp:45,waist:29,chest:36,arms:12,bodyFat:28},
-{date:"Mar",weight:65.8,benchPress:70,squat:105,deadlift:125,ohp:50,waist:28.5,chest:35.5,arms:12,bodyFat:27},
-{date:"Apr",weight:64.4,benchPress:75,squat:115,deadlift:135,ohp:55,waist:28,chest:35,arms:12.5,bodyFat:26},
-{date:"May",weight:63.5,benchPress:80,squat:125,deadlift:145,ohp:60,waist:27.5,chest:34.5,arms:12.5,bodyFat:25},
-],
-measurements:{waist:27.5,chest:34.5,arms:12.5,hips:37,thighs:22,bodyFat:25},
-notes:"Down 8lbs. Cardio twice weekly. Watch nutrition on weekends.", program:null,
-schedule:[{day:"Tue",time:"18:00"},{day:"Thu",time:"18:00"},{day:"Sat",time:"10:00"}],
-sessions:0,
-waitlist:false,
-},
-{ id:3, name:"Derek Osei", age:41, goal:"Strength", weight:95.3, joinDate:"2025-11-15", avatar:"DO", color:"#4ECDC4", photo:null,
-packages:[{id:301,name:"5 Session Pack",total:5,used:2,price:450,paid:false}],
-injuries:["Right shoulder – avoid overhead pressing above 90°"],
-checkIns:[true,true,true,true,true,true,true,true,true,true,true,true],
-photos:[],
-progress:[
-{date:"Nov",weight:97.5,benchPress:225,squat:315,deadlift:405,ohp:155,waist:36,chest:46,arms:17,bodyFat:22},
-{date:"Dec",weight:96.6,benchPress:245,squat:335,deadlift:425,ohp:160,waist:35.5,chest:46,arms:17.5,bodyFat:21},
-{date:"Jan",weight:96.2,benchPress:265,squat:355,deadlift:445,ohp:165,waist:35,chest:46.5,arms:17.5,bodyFat:20.5},
-{date:"Feb",weight:95.7,benchPress:275,squat:375,deadlift:465,ohp:170,waist:35,chest:47,arms:18,bodyFat:20},
-{date:"Mar",weight:95.3,benchPress:285,squat:395,deadlift:485,ohp:175,waist:34.5,chest:47,arms:18,bodyFat:19.5},
-{date:"Apr",weight:95.3,benchPress:295,squat:405,deadlift:495,ohp:180,waist:34.5,chest:47.5,arms:18.5,bodyFat:19},
-],
-measurements:{waist:34.5,chest:47.5,arms:18.5,hips:40,thighs:26,bodyFat:19},
-notes:"Deadlift PR incoming. Focus on hip hinge mechanics.", program:null,
-schedule:[{day:"Mon",time:"06:00"},{day:"Wed",time:"06:00"},{day:"Fri",time:"06:00"},{day:"Sat",time:"09:00"}],
-sessions:0,
-waitlist:false,
-},
+ 
+const FOOD_DB = [
+  { k: ["egg", "boiled egg"], cal: 78, protein: 6, carbs: 1, fat: 5, unit: "1 egg" },
+  { k: ["egg white"], cal: 17, protein: 4, carbs: 0, fat: 0, unit: "1 egg white" },
+  { k: ["chicken", "chicken breast"], cal: 165, protein: 31, carbs: 0, fat: 4, unit: "100g" },
+  { k: ["fish", "tilapia"], cal: 128, protein: 26, carbs: 0, fat: 3, unit: "100g" },
+  { k: ["salmon"], cal: 208, protein: 20, carbs: 0, fat: 13, unit: "100g" },
+  { k: ["beef", "ground beef"], cal: 250, protein: 26, carbs: 0, fat: 15, unit: "100g" },
+  { k: ["rice"], cal: 130, protein: 3, carbs: 28, fat: 0, unit: "100g cooked" },
+  { k: ["potato", "potatoes"], cal: 87, protein: 2, carbs: 20, fat: 0, unit: "100g" },
+  { k: ["pasta", "spaghetti"], cal: 158, protein: 6, carbs: 31, fat: 1, unit: "100g cooked" },
+  { k: ["oats", "oatmeal"], cal: 389, protein: 17, carbs: 66, fat: 7, unit: "100g dry" },
+  { k: ["banana"], cal: 105, protein: 1, carbs: 27, fat: 0, unit: "1 medium" },
+  { k: ["avocado"], cal: 160, protein: 2, carbs: 9, fat: 15, unit: "100g" },
+  { k: ["chapati", "roti"], cal: 180, protein: 5, carbs: 30, fat: 5, unit: "1 piece" },
+  { k: ["milk"], cal: 61, protein: 3, carbs: 5, fat: 3, unit: "100ml" },
+  { k: ["whey", "protein powder"], cal: 120, protein: 24, carbs: 3, fat: 2, unit: "1 scoop" },
+  { k: ["broccoli"], cal: 35, protein: 3, carbs: 7, fat: 0, unit: "100g" },
+  { k: ["bread"], cal: 80, protein: 3, carbs: 15, fat: 1, unit: "1 slice" },
 ];
-const WAITLIST = [
-{id:901,name:"James Park",goal:"Muscle Gain",email:"james@email.com",date:"2026-05-20"},
-{id:902,name:"Aisha Nwosu",goal:"Fat Loss",email:"aisha@email.com",date:"2026-05-28"},
-];
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function makeWeek(n,days){ return { weekNum:n, days:days.map(d=>({...d,date:"",sessionData:d.exercises.map(ex=>({name:ex.name,sets:Array.from({length:ex.numSets||3},()=>({weight:"",reps:"",rpe:""})),})),metrics:{maxHR:"",avgHR:"",kcal:""},notes:"",rpeAvg:"",})) }; }
-function calc1RM(w,r){ return r===1?w:Math.round(w*(1+r/30)); }
-function getPRs(progress){
-const prs={};
-LIFT_FIELDS.forEach(({key})=>{ let best=0; progress.forEach(p=>{ if(p[key]>best) best=p[key]; }); if(best>0) prs[key]=best; });
-return prs;
+ 
+function cls(...x){return x.filter(Boolean).join(" ");}
+function uid(){return Math.random().toString(36).slice(2) + Date.now().toString(36);}
+function clientColor(client, index=0){return client.color || CLIENT_COLORS[index % CLIENT_COLORS.length];}
+function initials(name="?"){return name.split(" ").filter(Boolean).map(w=>w[0]).join("").slice(0,2).toUpperCase() || "?";}
+function to12(time){
+  if(!time) return ""; if(/[AP]M/i.test(time)) return time.toUpperCase();
+  const [h,m="00"] = String(time).split(":"); let hour = Number(h); if(Number.isNaN(hour)) return time;
+  const ap = hour >= 12 ? "PM" : "AM"; hour = hour % 12 || 12; return `${hour}:${m.padStart(2,"0")} ${ap}`;
 }
-function normalizeInjuries(injuries){
-if(!injuries) return [];
-if(Array.isArray(injuries)) return injuries;
-if(typeof injuries === "string") return injuries.split(";").map(i=>i.trim()).filter(Boolean);
-return [];
+function blankProfile(client={}){return { goals: Array.isArray(client.goals)?client.goals:(client.goal?[client.goal]:[]), injuries:"", medicalIssues:"", barriers:"", sleep:"", neat:"", work:"", vegetarian:false, lactoseIntolerant:false, glutenIntolerant:false, allergies:"", notes: client.notes || "" };}
+function blankNutrition(){return { targets:{calories:"", protein:"", carbs:"", fats:""}, planNotes:"", logs:{} };}
+function blankProgram(client){return { name:`${client.name || "Client"} Program`, totalWeeks:4, days:[{id:uid(), name:"Day 1", exercises:[{id:uid(), name:"Squat", sets:3, reps:"8-10", weight:""},{id:uid(), name:"Dead Hang", sets:3, reps:"30 sec", weight:"bodyweight"}]}], logs:[] };}
+function blankTrial(){return { id: uid(), name:"", phone:"", email:"", type:"consultation", profile: blankProfile(), consultation:{goalReason:"", experience:"", availability:"", budget:"", notes:""}, assessments:[{id:uid(), date:new Date().toISOString().slice(0,10), checks:Object.fromEntries(FITNESS_CHECKS.map(c=>[c,{score:"", notes:""}]))}], createdAt:new Date().toISOString() };}
+ 
+async function loadSection(clientId, section){const {data,error}=await supabase.from("client_data").select("data").eq("client_id",clientId).eq("section",section).maybeSingle(); if(error){console.warn(section,error);} return data?.data || null;}
+async function saveSection(clientId, section, data){const {error}=await supabase.from("client_data").upsert({client_id:clientId,section,data},{onConflict:"client_id,section"}); if(error) throw error;}
+async function loadTrainerData(userId, section){const {data,error}=await supabase.from("trainer_data").select("data").eq("trainer_id",userId).eq("section",section).maybeSingle(); if(error){console.warn(section,error);} return data?.data || null;}
+async function saveTrainerData(userId, section, data){const {error}=await supabase.from("trainer_data").upsert({trainer_id:userId,section,data},{onConflict:"trainer_id,section"}); if(error) throw error;}
+ 
+function estimateFood(text="", amountRaw="1"){
+  const q = text.toLowerCase(); const hit = FOOD_DB.find(f=>f.k.some(k=>q.includes(k)));
+  const amount = Number(amountRaw) || 1; if(!hit) return {calories:0,protein:0,carbs:0,fats:0, note:"Unknown food. Add calories manually."};
+  return { calories:Math.round(hit.cal*amount), protein:Math.round(hit.protein*amount), carbs:Math.round(hit.carbs*amount), fats:Math.round(hit.fat*amount), note:`Estimate based on ${amount} × ${hit.unit}` };
+}
+function aiFoodSuggestions(profile, targets){
+  const vegetarian = profile?.vegetarian; const lactose = profile?.lactoseIntolerant; const gluten = profile?.glutenIntolerant;
+  const protein = vegetarian ? "lentils, chickpeas, tofu, eggs, Greek yogurt if tolerated" : "chicken breast, fish, lean beef, eggs, whey if tolerated";
+  const carbs = gluten ? "rice, potatoes, oats marked gluten-free, fruits" : "rice, potatoes, pasta, chapati, oats, fruits";
+  const avoid = [lactose&&"milk/whey unless lactose-free", gluten&&"regular bread/chapati/pasta", profile?.allergies&&`allergies: ${profile.allergies}`].filter(Boolean).join("; ");
+  return `To hit ${targets?.calories||"your"} kcal and ${targets?.protein||"your"}g protein: build each meal around ${protein}. Use ${carbs} for carbs. Add vegetables to lunch and dinner. Avoid ${avoid || "nothing specific listed"}.`;
+}
+function progressionAdvice(program){
+  const logs = program?.logs || []; if(!logs.length) return "No workout logs yet. Log at least one session to get progression advice.";
+  const last = logs[logs.length-1]; const hard = (last.exercises||[]).filter(e=>Number(e.rpe)>=9).length;
+  if(hard>1) return "Last session looked heavy. Keep the same load next time or reduce 5% and improve control.";
+  return "Progression suggestion: if all working sets were completed with good form and RPE below 8, add 2.5kg upper body or 5kg lower body next time.";
 }
  
-function normalizeGoals(goal){
-if(!goal) return [];
-if(Array.isArray(goal)) return goal.filter(Boolean);
-if(typeof goal === "string") return goal.split(/[;,]/).map(g=>g.trim()).filter(Boolean);
-return [];
-}
-function primaryGoal(client){ return normalizeGoals(client.goals || client.goal)[0] || "General Fitness"; }
-function goalLabel(client){ const gs=normalizeGoals(client.goals || client.goal); return gs.length?gs.join(" + "):"General Fitness"; }
-function goalDbValue(data){ const gs=normalizeGoals(data.goals || data.goal); return gs.length?gs.join("; "):(data.goal || "General Fitness"); }
-function profileFromClient(client){ return {...DEFAULT_PROFILE, goals:normalizeGoals(client.goals || client.goal), injuries:normalizeInjuries(client.injuries), notes:client.notes || "", ...(client.profile || {})}; }
-function emptyNutrition(){ return JSON.parse(JSON.stringify(DEFAULT_NUTRITION)); }
-function normalizeNutrition(nutrition){ const base=emptyNutrition(); if(!nutrition) return base; return {...base,...nutrition,days:Array.isArray(nutrition.days)&&nutrition.days.length?nutrition.days:base.days}; }
-function loadStored(key, fallback){ try{ const raw=localStorage.getItem(key); return raw?JSON.parse(raw):fallback; }catch(e){ return fallback; } }
-function storeLocal(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.warn("Local save failed", key, e); } }
+function Field({label,children}){return <label className="field"><span>{label}</span>{children}</label>}
+function Button({children,onClick,kind="dark",type="button",disabled}){return <button type={type} disabled={disabled} onClick={onClick} className={cls("btn",kind)}>{children}</button>}
+function Pill({children,color}){return <span className="pill" style={{borderColor:color,color}}>{children}</span>}
  
-function getClientColor(goal,id){
-if(GOAL_COLORS[goal]) return GOAL_COLORS[goal];
-const seed = String(id||"").split("").reduce((sum,ch)=>sum+ch.charCodeAt(0),0);
-return COLORS[seed % COLORS.length];
-}
-function mapDbClient(row, sections={}){
-const client = {
-  id: row.id,
-  name: row.name || "",
-  goal: row.goal || "General Fitness",
-  goals: normalizeGoals(row.goal || "General Fitness"),
-  age: row.age ?? 0,
-  weight: row.weight_kg ?? 0,
-  phone: row.phone || "",
-  email: row.email || "",
-  injuries: normalizeInjuries(row.injuries),
-  notes: row.notes || "",
-  sessions: row.sessions_conducted ?? 0,
-  sessionsBooked: row.sessions_booked ?? 0,
-  trials: row.trials ?? 0,
-  created_at: row.created_at,
-  joinDate: row.created_at ? new Date(row.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-  avatar: row.name ? row.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2) : "??",
-  color: getClientColor(normalizeGoals(row.goal)[0] || row.goal, row.id),
-  photo: row.photo || null,
-  packages: row.packages || [],
-  checkIns: row.checkIns || [],
-  schedule: row.schedule || [],
-  progress: row.progress || [],
-  measurements: row.measurements || {},
-  program: row.program || null,
-  nutrition: row.nutrition || null,
-  profile: null,
-  photos: row.photos || [],
-  waitlist: false,
-};
-if(sections.progress){
-  client.progress = sections.progress.progress || client.progress;
-  client.measurements = sections.progress.measurements || client.measurements;
-}
-if(sections.sessions){
-  client.sessions = sections.sessions.sessions ?? client.sessions;
-  client.schedule = sections.sessions.schedule || client.schedule;
-  client.checkIns = sections.sessions.checkIns || client.checkIns;
-}
-if(sections.details){
-  client.notes = sections.details.notes ?? client.notes;
-  client.injuries = normalizeInjuries(sections.details.injuries) || client.injuries;
-  client.photo = sections.details.photo ?? client.photo;
-  client.packages = sections.details.packages || client.packages;
-  client.photos = sections.details.photos || client.photos || [];
-  if(sections.details.goals) client.goals = normalizeGoals(sections.details.goals);
-  if(sections.details.profile) client.profile = sections.details.profile;
-}
-if(sections.profile){
-  client.profile = sections.profile;
-  client.goals = normalizeGoals(sections.profile.goals || client.goals);
-  client.injuries = normalizeInjuries(sections.profile.injuries || client.injuries);
-  client.notes = sections.profile.notes ?? client.notes;
-}
-if(sections.program){
-  client.program = sections.program;
-}
-if(sections.nutrition){
-  client.nutrition = normalizeNutrition(sections.nutrition);
-}
-return client;
-}
-async function saveClientDataSection(clientId, section, data) {
-  if(!clientId || !section) return;
-  console.log("TRYING TO SAVE CLIENT DATA", clientId, section, data);
-  const { error } = await supabase.from("client_data").upsert(
-    { client_id: clientId, section, data },
-    { onConflict: ["client_id", "section"], returning: "minimal" }
-  );
-  if(error){
-    console.error("FAILED TO SAVE CLIENT DATA", clientId, section, error);
-    return;
+function AuthGate({onReady}){
+  const [mode,setMode]=useState("signin"); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [name,setName]=useState(""); const [role,setRole]=useState("trainer"); const [err,setErr]=useState("");
+  async function submit(e){e.preventDefault(); setErr("");
+    try{
+      if(mode==="signup"){
+        const {data,error}=await supabase.auth.signUp({email,password}); if(error) throw error;
+        if(data.user){await supabase.from("profiles").upsert({user_id:data.user.id,name:name||email.split("@")[0],role});}
+      } else { const {error}=await supabase.auth.signInWithPassword({email,password}); if(error) throw error; }
+      const {data:{session}}=await supabase.auth.getSession(); if(session) onReady(session.user);
+    }catch(e){setErr(e.message || "Login failed");}
   }
-  console.log("SAVED CLIENT DATA SUCCESS", section);
-}
-function mergeClientDataIntoClient(client, rows) {
-  if(!rows?.length) return client;
-  let merged = { ...client };
-  rows.forEach((row) => {
-    if(!row?.section || row.data == null) return;
-    const data = row.data;
-    switch(row.section){
-      case "program":
-        merged.program = data;
-        break;
-      case "nutrition":
-        merged.nutrition = normalizeNutrition(data);
-        break;
-      case "profile":
-        merged.profile = data;
-        merged.goals = normalizeGoals(data.goals || merged.goals);
-        merged.injuries = normalizeInjuries(data.injuries || merged.injuries);
-        merged.notes = data.notes ?? merged.notes;
-        break;
-      case "transformPhotos":
-        merged.photos = Array.isArray(data.photos) ? data.photos : [];
-        break;
-      case "progress":
-        if(Array.isArray(data.progress)) merged.progress = data.progress;
-        if(data.measurements) merged.measurements = data.measurements;
-        if(data.weight != null) merged.weight = data.weight;
-        if(data.sessions != null) merged.sessions = data.sessions;
-        if(data.sessionsBooked != null) merged.sessionsBooked = data.sessionsBooked;
-        if(data.trials != null) merged.trials = data.trials;
-        break;
-      case "sessions":
-        if(Array.isArray(data.schedule)) merged.schedule = data.schedule;
-        if(data.sessions != null) merged.sessions = data.sessions;
-        if(data.sessionsBooked != null) merged.sessionsBooked = data.sessionsBooked;
-        if(data.trials != null) merged.trials = data.trials;
-        if(data.checkIns != null) merged.checkIns = data.checkIns;
-        break;
-      case "details":
-        if(data.notes != null) merged.notes = data.notes;
-        if(data.injuries != null) merged.injuries = normalizeInjuries(data.injuries);
-        if(data.photo != null) merged.photo = data.photo;
-        if(Array.isArray(data.packages)) merged.packages = data.packages;
-        if(Array.isArray(data.photos)) merged.photos = data.photos;
-        if(data.profile) merged.profile = data.profile;
-        if(data.goals) merged.goals = normalizeGoals(data.goals);
-        break;
-    }
-  });
-  return merged;
-}
-async function persistClientDataSections(client, changes) {
-  if(!client?.id) return;
-  const tasks = [];
-  if(changes.program != null) tasks.push(saveClientDataSection(client.id, "program", client.program || {}));
-  if(changes.nutrition != null) tasks.push(saveClientDataSection(client.id, "nutrition", normalizeNutrition(client.nutrition)));
- if(changes.profile != null || changes.goals != null || changes.medicalIssues != null || changes.barriers != null || changes.sleep != null || changes.neat != null || changes.work != null) tasks.push(saveClientDataSection(client.id, "profile", profileFromClient(client)));
- if(changes.photos != null) tasks.push(saveClientDataSection(client.id, "transformPhotos", {photos: client.photos || []}));
-  if(changes.progress != null || changes.measurements != null || changes.weight != null || changes.sessions != null || changes.sessionsBooked != null || changes.trials != null) {
-    tasks.push(saveClientDataSection(client.id, "progress", {
-      progress: client.progress || [],
-      measurements: client.measurements || {},
-      weight: client.weight ?? 0,
-      sessions: client.sessions ?? 0,
-      sessionsBooked: client.sessionsBooked ?? 0,
-      trials: client.trials ?? 0,
-    }));
-  }
-  if(changes.schedule != null || changes.sessions != null || changes.sessionsBooked != null || changes.trials != null || changes.checkIns != null) {
-    tasks.push(saveClientDataSection(client.id, "sessions", {
-      schedule: client.schedule || [],
-      sessions: client.sessions ?? 0,
-      sessionsBooked: client.sessionsBooked ?? 0,
-      trials: client.trials ?? 0,
-      checkIns: client.checkIns || [],
-    }));
-  }
-  if(changes.notes != null || changes.injuries != null || changes.photo != null || changes.packages != null) {
-    tasks.push(saveClientDataSection(client.id, "details", {
-      notes: client.notes || "",
-      injuries: client.injuries || [],
-      photo: client.photo || null,
-      packages: client.packages || [],
-    }));
-  }
-  if(tasks.length === 0) return;
-  await Promise.all(tasks);
-}
-function generateSmartProgram(client, days, weeks, extra) {
-  const injuries = normalizeInjuries(client.injuries || []);
-  const lowerBack = injuries.some(i => /lower back|back/i.test(i.toLowerCase())) || (extra||"").toLowerCase().includes("lower back");
-  const goal = client.goal || "General Fitness";
-  const goalConfig = {
-    Strength: {
-      rep: "4-6",
-      sets: 4,
-      main: ["Squat","Flat Barbell Bench Press","Overhead Press","Pull-Up","Pendlay Row","Front Squat","DB Shoulder Press"],
-      accessories: ["Face Pull","Hammer Curl","Tricep Pushdown","Shrug","Cable Lateral Raises"],
-      finishers: ["Farmer's Carry","Battle Ropes"],
-    },
-    "Muscle Gain": {
-      rep: "8-12",
-      sets: 4,
-      main: ["Squat","Flat Barbell Bench Press","Incline DB Chest Press","Overhead Press","Pull-Up","Dumbbell Row","Leg Press"],
-      accessories: ["Cable Crossover","DB Lateral Raises","Hammer Curl","Tricep Pushdown","Chest-Supported Row","Face Pull"],
-      finishers: ["Jump Rope","Rowing Machine"],
-    },
-    "Fat Loss": {
-      rep: "10-15",
-      sets: 3,
-      main: ["Squat","Push-Up","Pull-Up","Leg Press","Dumbbell Row","Cable Wood Chop"],
-      accessories: ["Battle Ropes","Burpee","Jump Rope","Box Jump","Rowing Machine","Assault Bike"],
-      finishers: ["Sled Push","Shadow Boxing"],
-    },
-    Endurance: {
-      rep: "12-18",
-      sets: 3,
-      main: ["Goblet Squat","Push-Up","Pull-Up","Rowing Machine","Elliptical","Stair Climber","Jump Rope"],
-      accessories: ["Band Pull-Aparts","Cable Wood Chop","Machine Crunch","Plank"],
-      finishers: ["Swimming","VersaClimber"],
-    },
-    "General Fitness": {
-      rep: "8-14",
-      sets: 3,
-      main: ["Squat","Push-Up","Pull-Up","Lunge","Dumbbell Row","Plank","Cable Wood Chop"],
-      accessories: ["Band Pull-Aparts","Russian Twist","Machine Crunch","Face Pull","DB Shoulder Press"],
-      finishers: ["Jump Rope","Battle Ropes"],
-    },
-  };
-  const config = goalConfig[goal] || goalConfig["General Fitness"];
-  const blocked = lowerBack ? ["Barbell Deadlift","Romanian Deadlift","Good Morning","Rack Pulls","Sumo Deadlift","Block Pulls","Deficit Deadlift","Heavy Deadlift"] : [];
-  const coreStability = ["Dead Bug","Bird Dog","Plank","Side Plank","Pallof Press","Glute Bridge"];
-  const dayNames = {
-    Strength: ["Lower Strength","Upper Strength","Power","Recovery","Strength Finish"],
-    "Muscle Gain": ["Push","Pull","Legs","Upper Hypertrophy","Full Body"],
-    "Fat Loss": ["Strength & Sweat","Upper Burn","Lower Burn","Metabolic Circuit","Core & Conditioning"],
-    Endurance: ["Circuit","Endurance","Strength","Conditioning","Recovery"],
-    "General Fitness": ["Full Body 1","Full Body 2","Full Body 3","Core","Conditioning"],
-  };
-  const names = (dayNames[goal] || dayNames["General Fitness"]).slice(0, days);
-  const choose = (pool, count) => {
-    const source = pool.filter(ex => !blocked.includes(ex));
-    const selected = [];
-    const copy = [...source];
-    while(selected.length < count && copy.length){
-      const idx = Math.floor(Math.random() * copy.length);
-      selected.push(copy.splice(idx,1)[0]);
-    }
-    return selected;
-  };
-  const makeDay = (index) => {
-    const target = 5;
-    const chosen = [];
-    chosen.push(...choose(config.main, 2));
-    if(lowerBack) chosen.push(...choose(coreStability, 1));
-    chosen.push(...choose(config.accessories, target - chosen.length - (goal === "Fat Loss" ? 1 : 0)));
-    if(goal === "Fat Loss") chosen.push(...choose(config.finishers, 1));
-    const unique = [...new Set(chosen)].slice(0, target);
-    return {
-      name: names[index] || `Day ${index+1}`,
-      exercises: unique.map((name) => ({ name, numSets: config.sets, reps: config.rep, weight: "" })),
-    };
-  };
-  return {
-    name: `${client.name} ${goal} Program`,
-    totalWeeks: weeks,
-    days: names.map((_, index) => makeDay(index)),
-  };
-}
-// ── Tiny Sparkline ────────────────────────────────────────────────────────────
-function Spark({data,field,color}){
-if(!data||data.length<2)return null;
-const vals=data.map(d=>d[field]).filter(v=>v!=null);
-if(vals.length<2)return null;
-const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
-const W=100,H=36,p=3;
-const pts=vals.map((v,i)=>`${p+(i/(vals.length-1))*(W-p*2)},${H-p-((v-mn)/rng)*(H-p*2)}`);
-return(<svg width={W} height={H} style={{overflow:"visible"}}><polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><circle cx={pts[pts.length-1].split(",")[0]} cy={pts[pts.length-1].split(",")[1]} r="3" fill={color}/></svg>);
-}
-// ── Chart ─────────────────────────────────────────────────────────────────────
-function Chart({data,color}){
-const [field,setField]=useState("weight");
-if(!data||data.length<2)return <div style={{color:"#444",fontSize:13}}>Not enough data yet.</div>;
-const fields=[{key:"weight",label:"Weight"},...LIFT_FIELDS,{key:"bodyFat",label:"Body Fat %"},...MEAS_FIELDS.filter(f=>f.key!=="bodyFat")];
-const pts=data.filter(d=>d[field]!=null);
-if(pts.length<2)return <div style={{color:"#444",fontSize:13}}>No data for this metric.</div>;
-const vals=pts.map(d=>d[field]);
-const mn=Math.min(...vals)-2,mx=Math.max(...vals)+2,rng=mx-mn||1;
-const W=380,H=130,px=44,py=14;
-const mapped=pts.map((d,i)=>({x:px+(i/(pts.length-1))*(W-px-10),y:py+((mx-d[field])/rng)*(H-py*2),v:d[field],l:d.date}));
-const poly=mapped.map(p=>`${p.x},${p.y}`).join(" ");
-return(<div>
-<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-{fields.map(f=><button key={f.key} onClick={()=>setField(f.key)} style={{background:field===f.key?color:"#1a1a1a",color:field===f.key?"#000":"#555",border:`1px solid ${field===f.key?color:"#222"}`,borderRadius:20,padding:"3px 11px",fontSize:11,cursor:"pointer",fontWeight:600}}>{f.label}</button>)}
-</div>
-<svg width={W} height={H} style={{overflow:"visible",maxWidth:"100%"}}>
-{[0,.5,1].map(t=>{const y=py+t*(H-py*2);return(<g key={t}><line x1={px} x2={W-10} y1={y} y2={y} stroke="#1e1e1e"/><text x={px-6} y={y+4} fontSize="10" fill="#444" textAnchor="end">{Math.round(mx-t*rng)}</text></g>);})}
-<polyline points={`${mapped[0].x},${H-py} ${poly} ${mapped[mapped.length-1].x},${H-py}`} fill={color} fillOpacity=".07" stroke="none"/>
-<polyline points={poly} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-{mapped.map((p,i)=><g key={i}><circle cx={p.x} cy={p.y} r="4" fill={color}/><text x={p.x} y={H} fontSize="10" fill="#444" textAnchor="middle">{p.l}</text></g>)}
-</svg>
-</div>);
-}
-// ── Rest Timer ────────────────────────────────────────────────────────────
-function RestTimer(){
-const [secs,setSecs]=useState(90);
-const [running,setRunning]=useState(false);
-const [remaining,setRemaining]=useState(null);
-const ref=useRef(null);
-useEffect(()=>{
-if(running&&remaining>0){ ref.current=setTimeout(()=>setRemaining(r=>r-1),1000); }
-else if(remaining===0){ setRunning(false); }
-return()=>clearTimeout(ref.current);
-},[running,remaining]);
-const start=()=>{setRemaining(secs);setRunning(true);};
-const stop=()=>{setRunning(false);setRemaining(null);};
-const pct=remaining!=null?((secs-remaining)/secs)*100:0;
-return(
-<div style={{background:"#0e0e0e",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",gap:16,marginBottom:14}}>
-<div style={{position:"relative",width:52,height:52,flexShrink:0}}>
-<svg width="52" height="52" style={{transform:"rotate(-90deg)"}}>
-<circle cx="26" cy="26" r="22" fill="none" stroke="#1e1e1e" strokeWidth="4"/>
-<circle cx="26" cy="26" r="22" fill="none" stroke="#4ECDC4" strokeWidth="4" strokeDasharray={`${2*Math.PI*22}`} strokeDashoffset={`${2*Math.PI*22*(1-pct/100)}`} strokeLinecap="round"/>
-</svg>
-<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,fontFamily:"monospace"}}>{remaining!=null?remaining:secs}</div>
-</div>
-<div style={{flex:1}}>
-<div style={{fontSize:11,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>REST TIMER</div>
-<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{[30,60,90,120,180].map(s=><button key={s} onClick={()=>{setSecs(s);setRemaining(null);setRunning(false);}} style={{background:secs===s?"#1e1e1e":"transparent",border:`1px solid ${secs===s?"#333":"#1e1e1e"}`,color:secs===s?"#fff":"#444",borderRadius:6,padding:"3px 8px",fontSize:11,cursor:"pointer"}}>{s}s</button>)}
-</div>
-</div>
-{!running?<button onClick={start} style={{background:"#4ECDC4",color:"#000",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>START</button>
-:<button onClick={stop} style={{background:"#FF6B6B",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>STOP</button>}
-</div>
-);
-}
-// ── Session Tracker ───────────────────────────────────────────────────────────
-function SessionTracker({client,onUpdate}){
-const prog=client.program;
-const [wk,setWk]=useState(0);
-const [dy,setDy]=useState(0);
-if(!prog)return null;
-const logs=prog.weekLogs||Array.from({length:prog.totalWeeks},(_,i)=>makeWeek(i+1,prog.days));
-const week=logs[wk]; const day=week?.days[dy];
-const patch=fn=>{ const u=fn(logs); onUpdate({...prog,weekLogs:u}); };
-const setVal=(ei,si,f,v)=>patch(ls=>ls.map((w2,wi)=>wi!==wk?w2:{...w2,days:w2.days.map((d2,di)=>di!==dy?d2:{...d2,sessionData:d2.sessionData.map((ex,xi)=>xi!==ei?ex:{...ex,sets:ex.sets.map((s,j)=>j!==si?s:{...s,[f]:v})})})}));
-const setMeta=(f,v)=>patch(ls=>ls.map((w2,wi)=>wi!==wk?w2:{...w2,days:w2.days.map((d2,di)=>di!==dy?d2:{...d2,[f]:v})}));
-const hasData=(wi,di)=>{const d=logs[wi]?.days[di];return d&&(d.date||d.notes||d.sessionData.some(e=>e.sets.some(s=>s.weight||s.reps)));};
-return(<div>
-<div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
-{logs.map((_,i)=><button key={i} onClick={()=>{setWk(i);setDy(0);}} style={{background:wk===i?client.color:"#1a1a1a",color:wk===i?"#000":"#555",border:`1px solid ${wk===i?client.color:"#222"}`,borderRadius:8,padding:"5px 13px",cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>WK {i+1}</button>)}
-</div>
-<div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-{week?.days.map((d,i)=><button key={i} onClick={()=>setDy(i)} style={{background:dy===i?client.color+"22":"#111",color:dy===i?client.color:hasData(wk,i)?"#aaa":"#444",border:`1px solid ${dy===i?client.color:hasData(wk,i)?"#333":"#1e1e1e"}`,borderRadius:8,padding:"5px 13px",cursor:"pointer",fontWeight:600,fontSize:12,position:"relative"}}>
-{d.name}{hasData(wk,i)&&<span style={{position:"absolute",top:-4,right:-4,width:8,height:8,background:client.color,borderRadius:"50%",border:"2px solid #0a0a0a"}}/>}
-</button>)}
-</div>
-{day&&(<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,overflow:"hidden"}}>
-<div style={{padding:"12px 18px",borderBottom:"1px solid #1e1e1e",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-<div><div style={{fontSize:15,fontWeight:700}}>{day.name}</div><div style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>WEEK {wk+1}</div></div>
-<input type="date" value={day.date} onChange={e=>setMeta("date",e.target.value)} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"5px 10px",color:"#aaa",fontSize:12,outline:"none"}}/>
-</div>
-<RestTimer/>
-<div style={{padding:"0 18px 8px"}}>
-{day.sessionData.length===0&&<div style={{color:"#333",fontSize:13,textAlign:"center",padding:"24px 0"}}>No exercises — edit program to add some.</div>}
-{day.sessionData.map((ex,ei)=>{
-const best=ex.sets.filter(s=>s.weight&&s.reps).map(s=>calc1RM(Number(s.weight),Number(s.reps)));
-const est1RM=best.length?Math.max(...best):null;
-return(<div key={ei} style={{borderBottom:"1px solid #191919",padding:"12px 0"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-<div style={{fontSize:13,fontWeight:700,color:client.color}}>{ex.name}</div>
-{est1RM&&<div style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>Est. 1RM: <span style={{color:"#aaa"}}>{est1RM}kg</span></div>}
-</div>
-<div style={{display:"grid",gridTemplateColumns:"40px 1fr 1fr 70px",gap:5,marginBottom:4}}>
-{["SET","WEIGHT","REPS","RPE"].map(h=><div key={h} style={{fontSize:9,color:"#444",fontFamily:"monospace"}}>{h}</div>)}
-</div>
-{ex.sets.map((s,si)=><div key={si} style={{display:"grid",gridTemplateColumns:"40px 1fr 1fr 70px",gap:5,marginBottom:5}}>
-<div style={{fontSize:11,color:"#444",paddingTop:7,fontFamily:"monospace"}}>S{si+1}</div>
-<input placeholder="kg" value={s.weight} onChange={e=>setVal(ei,si,"weight",e.target.value)} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"5px 8px",color:"#fff",fontSize:13,outline:"none"}}/>
-<input placeholder="reps" value={s.reps} onChange={e=>setVal(ei,si,"reps",e.target.value)} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"5px 8px",color:"#fff",fontSize:13,outline:"none"}}/>
-<select value={s.rpe} onChange={e=>setVal(ei,si,"rpe",e.target.value)} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"5px 4px",color:s.rpe?"#fff":"#444",fontSize:12,outline:"none"}}>
-<option value="">RPE</option>{[6,6.5,7,7.5,8,8.5,9,9.5,10].map(r=><option key={r} value={r}>{r}</option>)}
-</select>
-</div>)}
-</div>);
-})}
-</div>
-<div style={{padding:"14px 18px",background:"#0e0e0e",borderTop:"1px solid #191919"}}>
-<div style={{fontSize:10,color:"#444",fontFamily:"monospace",letterSpacing:1,marginBottom:8}}>METRIC DATA</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
-{[{l:"MAX HR",f:"maxHR",p:"bpm"},{l:"AVG HR",f:"avgHR",p:"bpm"},{l:"KCAL",f:"kcal",p:"cal"}].map(({l,f,p})=><div key={f}><div style={{fontSize:9,color:"#444",fontFamily:"monospace",marginBottom:3}}>{l}</div><input placeholder={p} value={day.metrics[f]} onChange={e=>setMeta("metrics",{...day.metrics,[f]:e.target.value})} style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:7,padding:"6px 8px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>)}
-</div>
-<div style={{fontSize:10,color:"#444",fontFamily:"monospace",marginBottom:5}}>SESSION NOTES</div>
-<textarea value={day.notes} onChange={e=>setMeta("notes",e.target.value)} placeholder="Notes, cues, observations..." style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:8,padding:10,color:"#ccc",fontSize:13,outline:"none",resize:"vertical",minHeight:64,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,boxSizing:"border-box"}}/>
-</div>
-</div>)}
-</div>);
+  return <div className="auth"><div className="authCard"><div className="eyebrow">FORGE COACH</div><h1>{mode==="signup"?"Create Account":"Welcome Back"}</h1><p>Trainer and client portal login.</p><form onSubmit={submit}>
+    {mode==="signup"&&<><Field label="Name"><input value={name} onChange={e=>setName(e.target.value)} /></Field><Field label="Account Type"><select value={role} onChange={e=>setRole(e.target.value)}><option value="trainer">Trainer</option><option value="client">Client</option></select></Field></>}
+    <Field label="Email"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required /></Field><Field label="Password"><input type="password" value={password} onChange={e=>setPassword(e.target.value)} required /></Field>
+    {err&&<div className="error">{err}</div>}<Button kind="gold" type="submit">{mode==="signup"?"Create Account":"Log In"}</Button></form><button className="link" onClick={()=>setMode(mode==="signin"?"signup":"signin")}>{mode==="signin"?"Create new account":"I already have an account"}</button></div></div>
 }
  
-// ── AI Program Generator ──────────────────────────────────────────────────────
-function AIProgram({client,onSave,onClose}){
-const [extra,setExtra]=useState("");
-const [days,setDays]=useState(4);
-const [weeks,setWeeks]=useState(4);
-const [loading,setLoading]=useState(false);
-const [err,setErr]=useState("");
-const go=async()=>{
-setLoading(true);setErr("");
-try{
-const program = generateSmartProgram(client, days, weeks, extra);
-onSave(program);
-}catch(e){
-  console.error("Program generation error:", e);
-  setErr("Generation failed — try again.");
-}
-setLoading(false);
-};
-return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,padding:28,width:"100%",maxWidth:460}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
-<div><div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>✦ AI PROGRAM GENERATOR</div><div style={{fontSize:12,color:"#555",marginTop:2}}>{client.name} · {client.goal}</div></div>
-<button onClick={onClose} style={{background:"#1e1e1e",border:"none",color:"#888",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:16}}>✕</button>
-</div>
-{client.injuries?.length>0&&<div style={{background:"#2a1010",border:"1px solid #FF6B6B44",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#FF6B6B"}}>⚠ {client.injuries.join(" · ")}</div>}
-<div style={{background:"#161616",border:"1px solid #1e1e1e",borderRadius:10,padding:12,marginBottom:14,fontSize:12,color:"#666",lineHeight:1.6}}>
-body: <span style={{color:GOAL_COLORS[client.goal]}}>{client.goal}</span> · Age: {client.age} · {client.weight}kg{client.notes&&<><br/>{client.notes}</>}
-</div>
-<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>DAYS PER WEEK</div><div style={{display:"flex",gap:6}}>{[2,3,4,5,6].map(d=><button key={d} onClick={()=>setDays(d)} style={{background:days===d?client.color:"#1a1a1a",color:days===d?"#000":"#555",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:14,fontFamily:"'Bebas Neue',sans-serif"}}>{d}</button>)}</div></div>
-<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>WEEKS</div><div style={{display:"flex",gap:6}}>{[2,4,6,8,12].map(w=><button key={w} onClick={()=>setWeeks(w)} style={{background:weeks===w?client.color:"#1a1a1a",color:weeks===w?"#000":"#555",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:14,fontFamily:"'Bebas Neue',sans-serif"}}>{w}</button>)}</div></div>
-<div style={{marginBottom:18}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>EXTRA DETAILS</div><textarea value={extra} onChange={e=>setExtra(e.target.value)} placeholder="Equipment restrictions, preferences, injuries..." style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:8,padding:10,color:"#ccc",fontSize:13,outline:"none",resize:"vertical",minHeight:72,fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"}}/></div>
-{err&&<div style={{color:"#FF6B6B",fontSize:12,marginBottom:10}}>{err}</div>}
-<button onClick={go} disabled={loading} style={{width:"100%",background:loading?"#222":client.color,color:loading?"#555":"#000",border:"none",borderRadius:10,padding:"13px 0",fontWeight:800,fontSize:15,cursor:loading?"not-allowed":"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>{loading?"✦ GENERATING...":"✦ GENERATE PROGRAM"}</button>
-</div>
-</div>);
+function CoachDashboard({user,profile,onLogout}){
+  const [clients,setClients]=useState([]); const [selected,setSelected]=useState(null); const [calendar,setCalendar]=useState([]); const [trials,setTrials]=useState([]); const [view,setView]=useState("clients"); const [loading,setLoading]=useState(true);
+  useEffect(()=>{refresh();},[]);
+  async function refresh(){setLoading(true); const {data:rows=[]}=await supabase.from("clients").select("*").or(`trainer_id.eq.${user.id},trainer_id.is.null`).order("created_at",{ascending:false});
+    const enriched=[]; for(const [i,c] of rows.entries()){ const [prof,nut,photos,program]=await Promise.all([loadSection(c.id,"profile"),loadSection(c.id,"nutrition"),loadSection(c.id,"transformPhotos"),loadSection(c.id,"program")]); enriched.push({...c,weight:c.weight_kg||c.weight||0, goals:prof?.goals || (c.goal?[c.goal]:[]), profile:prof||blankProfile(c), nutrition:nut||blankNutrition(), transformPhotos:photos||[], program:program||blankProgram(c), color:c.color||CLIENT_COLORS[i%CLIENT_COLORS.length]}); }
+    setClients(enriched); setCalendar((await loadTrainerData(user.id,"calendar")) || []); setTrials((await loadTrainerData(user.id,"trials")) || []); setLoading(false); }
+  async function saveClient(updated){setClients(p=>p.map(c=>c.id===updated.id?updated:c)); await supabase.from("clients").update({name:updated.name,age:updated.age,goal:(updated.profile?.goals||updated.goals||[]).join(" + "),weight_kg:Number(updated.weight)||0,color:updated.color,trainer_id:user.id}).eq("id",updated.id); await Promise.all([saveSection(updated.id,"profile",updated.profile),saveSection(updated.id,"nutrition",updated.nutrition),saveSection(updated.id,"transformPhotos",updated.transformPhotos),saveSection(updated.id,"program",updated.program)]); }
+  async function addClient(){const name=prompt("Client name?"); if(!name) return; const color=CLIENT_COLORS[clients.length%CLIENT_COLORS.length]; const {data,error}=await supabase.from("clients").insert({name,age:0,goal:"General Fitness",weight_kg:0,trainer_id:user.id,color}).select().single(); if(error){alert(error.message);return;} await saveSection(data.id,"profile",blankProfile({goal:"General Fitness"})); refresh();}
+  async function deleteClient(c){if(!confirm(`Delete ${c.name}?`)) return; await supabase.from("client_data").delete().eq("client_id",c.id); await supabase.from("clients").delete().eq("id",c.id); setSelected(null); refresh();}
+  async function saveCalendar(next){setCalendar(next); await saveTrainerData(user.id,"calendar",next);}
+  async function saveTrials(next){setTrials(next); await saveTrainerData(user.id,"trials",next);}
+  async function convertTrial(t){const color=CLIENT_COLORS[clients.length%CLIENT_COLORS.length]; const {data,error}=await supabase.from("clients").insert({name:t.name,phone:t.phone,email:t.email,age:0,goal:(t.profile?.goals||[]).join(" + ")||"General Fitness",weight_kg:0,trainer_id:user.id,color}).select().single(); if(error){alert(error.message);return;} await saveSection(data.id,"profile",t.profile||blankProfile()); await saveSection(data.id,"nutrition",blankNutrition()); await saveSection(data.id,"program",blankProgram(data)); await saveTrials(trials.filter(x=>x.id!==t.id)); refresh(); }
+  function recurringToCalendar(){const add=[]; clients.forEach(c=>(c.schedule||[]).forEach(s=>add.push({id:uid(), day:s.day||s.dayName||"Monday", time:to12(s.time), clientId:c.id, name:c.name, type:"client", color:c.color, recurring:true}))); saveCalendar([...calendar.filter(b=>!b.recurring),...add]);}
+  if(loading)return <div className="page"><h1>Loading Forge...</h1></div>;
+  if(selected)return <ClientDetail user={user} client={selected} clients={clients} onBack={()=>{setSelected(null);refresh();}} onSave={saveClient} onDelete={deleteClient}/>;
+  return <div className="page"><header className="hero"><div><div className="eyebrow">PERSONAL TRAINING</div><h1>Coach {profile?.name || user.email}</h1></div><div className="actions"><Button onClick={()=>setView("clients")}>Clients</Button><Button onClick={()=>setView("trials")}>Trials <b>{trials.length}</b></Button><Button onClick={()=>setView("calendar")}>📅 Calendar</Button><Button kind="gold" onClick={addClient}>+ New Client</Button><Button onClick={onLogout}>Logout</Button></div></header>
+    <div className="stats"><div><b>{clients.length}</b><span>Clients</span></div><div><b>{calendar.filter(b=>b.type==="client").length}</b><span>Booked Sessions</span></div><div><b>{trials.length}</b><span>Trials</span></div><div><b>{calendar.length}</b><span>Calendar Bookings</span></div></div>
+    {view==="clients"&&<div className="clientList">{clients.map((c,i)=><div key={c.id} className="clientCard" onClick={()=>setSelected(c)}><div className="avatar" style={{borderColor:clientColor(c,i),color:clientColor(c,i)}}>{c.photo?<img src={c.photo}/>:initials(c.name)}</div><div className="grow"><h2>{c.name}</h2><div>{c.age?`Age ${c.age}`:"Age not set"} <Pill color={clientColor(c,i)}>{(c.profile?.goals||c.goals||["General Fitness"]).join(" + ")}</Pill></div><small>{c.program?.name || "No program yet"}</small></div><div className="weight"><b>{c.weight||0}</b><span>KG</span></div></div>)}</div>}
+    {view==="calendar"&&<Calendar clients={clients} calendar={calendar} onSave={saveCalendar} onAuto={recurringToCalendar}/>} {view==="trials"&&<Trials trials={trials} onSave={saveTrials} onConvert={convertTrial}/>} </div>
 }
  
-// ── AI Session Recap ──────────────────────────────────────────────────────────
-function AIRecap({client,session,onClose}){
-const [recap,setRecap]=useState("");
-const [loading,setLoading]=useState(true);
-useEffect(()=>{
-const go=async()=>{
-try{
-const exSummary=session.sessionData.map(ex=>{
-const sets=ex.sets.filter(s=>s.weight||s.reps).map((s,i)=>`Set ${i+1}: ${s.weight||"?"}kg × ${s.reps||"?"} reps${s.rpe?` @ RPE ${s.rpe}`:""}`).join(", ");
-return `${ex.name}: ${sets||"no data"}`;
-}).join("\n");
-const prompt=`Write a friendly, motivating session recap message to send to a personal training client.\nClient: ${client.name}, Goal: ${client.goal}\nSession: ${session.name}, Date: ${session.date||"today"}\nExercises:\n${exSummary}\nMetrics: Max HR ${session.metrics?.maxHR||"?"}, Avg HR ${session.metrics?.avgHR||"?"}, Kcal ${session.metrics?.kcal||"?"}\nNotes: ${session.notes||"None"}\n\nWrite 3-4 sentences. Be specific about what they did well. Mention one thing to focus on next session. Keep it warm and personal. Start with "Hi ${client.name}," `;
-const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
-const data=await res.json();
-setRecap(data.content.map(b=>b.text||"").join(""));
-}catch(e){setRecap("Could not generate recap. Please try again.");}
-setLoading(false);
-};go();
-},[client,session]);
-return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,padding:28,width:"100%",maxWidth:480}}>
-<div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:4}}>SESSION RECAP</div>
-<div style={{fontSize:12,color:"#555",marginBottom:18}}>{client.name} · {session.name}</div>
-{loading?<div style={{color:"#555",fontSize:13,padding:"20px 0",textAlign:"center"}}>✦ Writing recap...</div>
-:<><textarea value={recap} onChange={e=>setRecap(e.target.value)} style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:10,padding:14,color:"#ccc",fontSize:14,outline:"none",resize:"vertical",minHeight:160,fontFamily:"'DM Sans',sans-serif",lineHeight:1.7,boxSizing:"border-box"}}/><div style={{display:"flex",gap:10,marginTop:14}}><button onClick={()=>{navigator.clipboard.writeText(recap);}} style={{flex:1,background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#aaa",borderRadius:8,padding:"10px 0",cursor:"pointer",fontSize:13,fontWeight:600}}>Copy</button><button onClick={onClose} style={{flex:1,background:client.color,color:"#000",border:"none",borderRadius:8,padding:"10px 0",cursor:"pointer",fontWeight:800,fontSize:13,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>DONE</button></div></>}
-</div>
-</div>);
-}
+function ClientDetail({client,onBack,onSave,onDelete}){const [tab,setTab]=useState("profile"); const [c,setC]=useState(client); const tabs=["profile","program","nutrition","progress","transform","calendar"];
+  function patch(x){setC(p=>({...p,...x}));} async function save(){await onSave(c); alert("Saved");}
+  return <div className="page"><header className="clientHero"><Button onClick={onBack}>← Back</Button><div className="avatar big" style={{borderColor:c.color,color:c.color}}>{c.photo?<img src={c.photo}/>:initials(c.name)}</div><div className="grow"><input className="titleInput" value={c.name} onChange={e=>patch({name:e.target.value})}/><div className="chips">{(c.profile?.goals||[]).map(g=><Pill key={g} color={c.color}>{g}</Pill>)}</div></div><Button kind="gold" onClick={save}>Save</Button><Button kind="danger" onClick={()=>onDelete(c)}>Delete</Button></header>
+  <nav className="tabs">{tabs.map(t=><button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{({profile:"📋 Profile",program:"💪 Program",nutrition:"🥗 Nutrition",progress:"📈 Progress",transform:"📸 Transform",calendar:"📅 Schedule"})[t]}</button>)}</nav>
+  {tab==="profile"&&<ProfileTab c={c} patch={patch}/>} {tab==="program"&&<ProgramTab c={c} patch={patch}/>} {tab==="nutrition"&&<NutritionTab c={c} patch={patch}/>} {tab==="progress"&&<ProgressTab c={c}/>} {tab==="transform"&&<TransformTab c={c} patch={patch}/>} {tab==="calendar"&&<ScheduleTab c={c} patch={patch}/>}</div>}
  
-// ── Program Builder ───────────────────────────────────────────────────────────
-function ProgramBuilder({client,onSave,onClose}){
-const [name,setName]=useState(client.program?.name||`${client.name}'s Program`);
-const [weeks,setWeeks]=useState(client.program?.totalWeeks||4);
-const [days,setDays]=useState(client.program?.days||[{name:"Day 1 – Push",exercises:[]},{name:"Day 2 – Pull",exercises:[]},{name:"Day 3 – Legs",exercises:[]},{name:"Day 4 – Cardio/Core",exercises:[]}]);
-const [search,setSearch]=useState("");
-const [active,setActive]=useState(0);
-const filtered=EXERCISE_LIBRARY.filter(e=>e.toLowerCase().includes(search.toLowerCase()));
-const addEx=ex=>setDays(p=>p.map((d,i)=>i===active?{...d,exercises:[...d.exercises,{name:ex,numSets:3,reps:"8-10",weight:""}]}:d));
-const updEx=(di,ei,f,v)=>setDays(p=>p.map((d,i)=>i===di?{...d,exercises:d.exercises.map((e,j)=>j===ei?{...e,[f]:v}:e)}:d));
-const remEx=(di,ei)=>setDays(p=>p.map((d,i)=>i===di?{...d,exercises:d.exercises.filter((_,j)=>j!==ei)}:d));
-return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,width:"100%",maxWidth:820,maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column"}}>
-<div style={{padding:"16px 22px",borderBottom:"1px solid #1e1e1e",display:"flex",gap:12,alignItems:"center"}}>
-<div style={{flex:1}}>
-<input value={name} onChange={e=>setName(e.target.value)} style={{background:"transparent",border:"none",color:"#fff",fontSize:18,fontWeight:700,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,width:"100%",outline:"none"}}/>
-<div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
-<span style={{fontSize:11,color:"#555"}}>Weeks:</span>
-{[2,4,6,8,12].map(w=><button key={w} onClick={()=>setWeeks(w)} style={{background:weeks===w?client.color:"#1e1e1e",color:weeks===w?"#000":"#555",border:"none",borderRadius:6,padding:"2px 9px",cursor:"pointer",fontSize:12,fontWeight:700}}>{w}</button>)}
-</div>
-</div>
-<button onClick={()=>onSave({name,totalWeeks:weeks,days})} style={{background:client.color,color:"#000",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SAVE</button>
-<button onClick={onClose} style={{background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"9px 13px",cursor:"pointer",fontSize:16}}>✕</button>
-</div>
-<div style={{display:"flex",flex:1,overflow:"hidden"}}>
-<div style={{width:250,borderRight:"1px solid #1e1e1e",display:"flex",flexDirection:"column"}}>
-<div style={{padding:"10px 14px",borderBottom:"1px solid #1e1e1e"}}>
-<div style={{fontSize:10,color:"#555",letterSpacing:1,marginBottom:7,fontFamily:"monospace"}}>DAYS</div>
-{days.map((d,i)=><div key={i} onClick={()=>setActive(i)} style={{padding:"7px 11px",borderRadius:8,cursor:"pointer",marginBottom:3,background:i===active?client.color+"22":"transparent",border:`1px solid ${i===active?client.color:"transparent"}`,color:i===active?client.color:"#555",fontSize:12,fontWeight:600}}>{d.name}</div>)}
-<button onClick={()=>{setDays(p=>[...p,{name:`Day ${p.length+1}`,exercises:[]}]);setActive(days.length);}} style={{marginTop:5,width:"100%",padding:"5px 0",background:"#1a1a1a",border:"1px dashed #2a2a2a",borderRadius:8,color:"#444",cursor:"pointer",fontSize:12}}>+ Add Day</button>
-</div>
-<div style={{padding:"10px 14px",flex:1,overflowY:"auto"}}>
-<div style={{fontSize:10,color:"#555",letterSpacing:1,marginBottom:7,fontFamily:"monospace"}}>ADD EXERCISE</div>
-<input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:12,outline:"none",marginBottom:6,boxSizing:"border-box"}}/>
-{filtered.map(ex=><button key={ex} onClick={()=>addEx(ex)} style={{display:"block",width:"100%",background:"transparent",border:"none",color:"#777",textAlign:"left",padding:"5px 7px",borderRadius:6,cursor:"pointer",fontSize:12}} onMouseEnter={e=>{e.currentTarget.style.background="#1e1e1e";e.currentTarget.style.color="#fff";}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#777"}}>+ {ex}</button>)}
-</div>
-</div>
-<div style={{flex:1,overflowY:"auto",padding:18}}>
-<input value={days[active]?.name||""} onChange={e=>setDays(p=>p.map((d,i)=>i===active?{...d,name:e.target.value}:d))} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 11px",color:"#fff",fontSize:14,fontWeight:700,outline:"none",marginBottom:14}}/>
-{days[active]?.exercises.length===0&&<div style={{color:"#2a2a2a",fontSize:14,textAlign:"center",marginTop:60}}>Add exercises from the left panel</div>}
-{days[active]?.exercises.map((ex,ei)=><div key={ei} style={{background:"#161616",border:"1px solid #222",borderRadius:10,padding:"11px 14px",display:"grid",gridTemplateColumns:"1fr 55px 75px 85px 28px",gap:7,alignItems:"center",marginBottom:7}}>
-<div style={{color:"#fff",fontSize:13,fontWeight:600}}>{ex.name}</div>
-{[{l:"SETS",f:"numSets",t:"number"},{l:"REPS",f:"reps",t:"text"},{l:"WEIGHT",f:"weight",t:"text",p:"kg"}].map(({l,f,t,p})=><div key={f}><div style={{fontSize:9,color:"#444",marginBottom:2,fontFamily:"monospace"}}>{l}</div><input type={t} value={ex[f]} placeholder={p} onChange={e=>updEx(active,ei,f,e.target.value)} style={{width:"100%",background:"#1e1e1e",border:"1px solid #2a2a2a",borderRadius:6,padding:"4px 5px",color:"#fff",fontSize:12,outline:"none",textAlign:"center"}}/></div>)}
-<button onClick={()=>remEx(active,ei)} style={{background:"transparent",border:"none",color:"#333",cursor:"pointer",fontSize:15,padding:0}}>✕</button>
-</div>)}
-</div>
-</div>
-</div>
-</div>);
-}
+function ProfileTab({c,patch}){const p=c.profile||blankProfile(c); const set=(k,v)=>patch({profile:{...p,[k]:v}}); const toggleGoal=g=>set("goals",p.goals?.includes(g)?p.goals.filter(x=>x!==g):[...(p.goals||[]),g]);
+return <section className="grid2"><div className="panel"><h2>Client Profile</h2><Field label="Age"><input type="number" value={c.age||""} onChange={e=>patch({age:e.target.value})}/></Field><Field label="Weight KG"><input type="number" value={c.weight||""} onChange={e=>patch({weight:e.target.value})}/></Field><div className="goalGrid">{GOALS.map(g=><button key={g} className={p.goals?.includes(g)?"goal on":"goal"} onClick={()=>toggleGoal(g)}>{g}</button>)}</div><Field label="Injuries"><textarea value={p.injuries||""} onChange={e=>set("injuries",e.target.value)}/></Field><Field label="Medical Issues"><textarea value={p.medicalIssues||""} onChange={e=>set("medicalIssues",e.target.value)}/></Field><Field label="Barriers"><textarea value={p.barriers||""} onChange={e=>set("barriers",e.target.value)}/></Field></div><div className="panel"><h2>Lifestyle + Nutrition Flags</h2><Field label="Sleep"><input value={p.sleep||""} onChange={e=>set("sleep",e.target.value)} placeholder="Example: 6 hours, broken sleep"/></Field><Field label="NEAT / Daily Activity"><input value={p.neat||""} onChange={e=>set("neat",e.target.value)} placeholder="Steps, active job, sedentary..."/></Field><Field label="Work Schedule"><input value={p.work||""} onChange={e=>set("work",e.target.value)} placeholder="Shifts, days off, travel..."/></Field><label className="check"><input type="checkbox" checked={!!p.vegetarian} onChange={e=>set("vegetarian",e.target.checked)}/> Vegetarian</label><label className="check"><input type="checkbox" checked={!!p.lactoseIntolerant} onChange={e=>set("lactoseIntolerant",e.target.checked)}/> Lactose intolerant</label><label className="check"><input type="checkbox" checked={!!p.glutenIntolerant} onChange={e=>set("glutenIntolerant",e.target.checked)}/> Gluten intolerant</label><Field label="Allergies"><input value={p.allergies||""} onChange={e=>set("allergies",e.target.value)}/></Field><Field label="Coach Notes"><textarea value={p.notes||""} onChange={e=>set("notes",e.target.value)}/></Field></div></section>}
  
-// ── Packages & Billing ────────────────────────────────────────────────────────
-function PackagesTab({client,onUpdate}){
-const pkgs=client.packages||[];
-const [adding,setAdding]=useState(false);
-const [form,setForm]=useState({name:"10 Session Pack",total:10,price:"",paid:false});
-const save=()=>{ onUpdate([...pkgs,{id:Date.now(),...form,total:Number(form.total),price:Number(form.price),used:0}]); setAdding(false); setForm({name:"10 Session Pack",total:10,price:"",paid:false}); };
-const toggle=(id)=>onUpdate(pkgs.map(p=>p.id===id?{...p,paid:!p.paid}:p));
-const addSession=(id)=>onUpdate(pkgs.map(p=>p.id===id&&p.used<p.total?{...p,used:p.used+1}:p));
-const del=(id)=>onUpdate(pkgs.filter(p=>p.id!==id));
-const totalRev=pkgs.filter(p=>p.paid).reduce((a,p)=>a+p.price,0);
-const outstanding=pkgs.filter(p=>!p.paid).reduce((a,p)=>a+p.price,0);
-return(<div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}>
-<div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif",color:"#6EE7B7"}}>${totalRev.toLocaleString()}</div>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>PAID REVENUE</div>
-</div>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}>
-<div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif",color:outstanding>0?"#FF6B6B":"#444"}}>${outstanding.toLocaleString()}</div>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>OUTSTANDING</div>
-</div>
-</div>
-{pkgs.map(p=>{
-const rem=p.total-p.used; const pct=(p.used/p.total)*100;
-return(<div key={p.id} style={{background:"#111",border:`1px solid ${p.paid?"#1e1e1e":"#FF6B6B44"}`,borderRadius:12,padding:"14px 16px",marginBottom:10}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-<div><div style={{fontWeight:700,fontSize:14}}>{p.name}</div><div style={{fontSize:12,color:"#555",marginTop:2}}>${p.price} · {p.used}/{p.total} sessions used</div></div>
-<div style={{display:"flex",gap:7,alignItems:"center"}}>
-<span style={{fontSize:11,background:p.paid?"#6EE7B722":"#FF6B6B22",color:p.paid?"#6EE7B7":"#FF6B6B",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>toggle(p.id)}>{p.paid?"PAID":"UNPAID"}</span>
-<button onClick={()=>del(p.id)} style={{background:"transparent",border:"none",color:"#333",cursor:"pointer",fontSize:14}}>✕</button>
-</div>
-</div>
-<div style={{background:"#1a1a1a",borderRadius:20,height:6,marginBottom:8}}><div style={{background:client.color,borderRadius:20,height:6,width:`${pct}%`,transition:"width 0.3s"}}/></div>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<span style={{fontSize:11,color:rem>0?"#aaa":"#FF6B6B"}}>{rem>0?`${rem} sessions remaining`:"Package complete"}</span>
-{rem>0&&<button onClick={()=>addSession(p.id)} style={{background:client.color+"22",color:client.color,border:`1px solid ${client.color}44`,borderRadius:7,padding:"4px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>+ Use Session</button>}
-</div>
-</div>);
-})}
-{adding?(<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:12,padding:16,marginBottom:10}}>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-<div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>PACKAGE NAME</div><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
-<div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>SESSIONS</div><input type="number" value={form.total} onChange={e=>setForm(f=>({...f,total:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
-<div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>PRICE ($)</div><input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
-<div style={{display:"flex",alignItems:"flex-end"}}><label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:"#aaa"}}><input type="checkbox" checked={form.paid} onChange={e=>setForm(f=>({...f,paid:e.target.checked}))} style={{width:16,height:16}}/>Already paid</label></div>
-</div>
-<div style={{display:"flex",gap:8}}><button onClick={save} style={{flex:1,background:client.color,color:"#000",border:"none",borderRadius:8,padding:"9px 0",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD PACKAGE</button><button onClick={()=>setAdding(false)} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"9px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div>
-</div>):(<button onClick={()=>setAdding(true)} style={{width:"100%",background:"#111",border:"1px dashed #2a2a2a",borderRadius:12,padding:"12px 0",color:"#555",cursor:"pointer",fontSize:13}}>+ Add Package</button>)}
-</div>);
-}
+function ProgramTab({c,patch}){const program=c.program||blankProgram(c); const [search,setSearch]=useState(""); const filtered=EXERCISE_LIBRARY.filter(e=>e.toLowerCase().includes(search.toLowerCase())); const setProgram=p=>patch({program:p});
+  const addDay=()=>setProgram({...program,days:[...(program.days||[]),{id:uid(),name:`Day ${(program.days||[]).length+1}`,exercises:[]}]}); const delDay=id=>setProgram({...program,days:program.days.filter(d=>d.id!==id)});
+  const updDay=(id,change)=>setProgram({...program,days:program.days.map(d=>d.id===id?{...d,...change}:d)}); const addEx=(dayId,name)=>updDay(dayId,{exercises:[...(program.days.find(d=>d.id===dayId)?.exercises||[]),{id:uid(),name,sets:3,reps:"8-10",weight:""}]});
+  const updEx=(dayId,exId,change)=>updDay(dayId,{exercises:program.days.find(d=>d.id===dayId).exercises.map(e=>e.id===exId?{...e,...change}:e)}); const delEx=(dayId,exId)=>updDay(dayId,{exercises:program.days.find(d=>d.id===dayId).exercises.filter(e=>e.id!==exId)});
+return <section className="panel"><div className="row"><h2>Program Builder</h2><Button kind="gold" onClick={addDay}>+ Add Day</Button></div><Field label="Program Name"><input value={program.name||""} onChange={e=>setProgram({...program,name:e.target.value})}/></Field><Field label="Exercise Search"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search. Dead Hang is included."/></Field><div className="miniList">{filtered.slice(0,10).map(ex=><span key={ex}>{ex}</span>)}</div>{program.days?.map(day=><div className="dayCard" key={day.id}><div className="row"><input className="dayName" value={day.name} onChange={e=>updDay(day.id,{name:e.target.value})}/><Button kind="danger" onClick={()=>delDay(day.id)}>Delete Whole Day</Button></div><div className="row"><select onChange={e=>{if(e.target.value)addEx(day.id,e.target.value); e.target.value="";}}><option value="">Add exercise...</option>{EXERCISE_LIBRARY.map(e=><option key={e}>{e}</option>)}</select></div>{day.exercises?.map(ex=><div className="exercise" key={ex.id}><b>{ex.name}</b><input value={ex.sets} onChange={e=>updEx(day.id,ex.id,{sets:e.target.value})}/><input value={ex.reps} onChange={e=>updEx(day.id,ex.id,{reps:e.target.value})}/><input value={ex.weight} onChange={e=>updEx(day.id,ex.id,{weight:e.target.value})}/><button onClick={()=>delEx(day.id,ex.id)}>✕</button></div>)}</div>)}<div className="aiBox">🤖 {progressionAdvice(program)}</div></section>}
  
-// ── Schedule Tab ──────────────────────────────────────────────────────────────
-function ScheduleTab({client,onUpdate}){
-const schedule=client.schedule||[];
-const checkIns=client.checkIns||[];
-const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-const streak=()=>{ let s=0; for(let i=checkIns.length-1;i>=0;i--){ if(checkIns[i])s++;else break; } return s; };
-const [adding,setAdding]=useState(false);
-const [form,setForm]=useState({day:"Mon",time:"08:00"});
-return(<div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}><div style={{fontSize:28,fontFamily:"'Bebas Neue',sans-serif",color:client.color}}>{streak()}</div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>CURRENT STREAK</div></div>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}><div style={{fontSize:28,fontFamily:"'Bebas Neue',sans-serif"}}>{checkIns.filter(Boolean).length}</div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>SESSIONS ATTENDED</div></div>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}><div style={{fontSize:28,fontFamily:"'Bebas Neue',sans-serif"}}>{checkIns.length?Math.round((checkIns.filter(Boolean).length/checkIns.length)*100):0}%</div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>ATTENDANCE</div></div>
-</div>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px",marginBottom:14}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:10}}>CHECK-IN HISTORY</div>
-<div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-{checkIns.map((c,i)=><div key={i} style={{width:24,height:24,borderRadius:6,background:c?client.color+"33":"#1a1a1a",border:`1px solid ${c?client.color+"66":"#222"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10}}>{c?"✓":""}</div>)}
-<div onClick={()=>onUpdate({checkIns:[...checkIns,true]})} style={{width:24,height:24,borderRadius:6,background:"#1a1a1a",border:"1px dashed #333",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:14,color:"#555"}}>+</div>
-</div>
-</div>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>RECURRING SCHEDULE</div>
-<button onClick={()=>setAdding(true)} style={{background:client.color+"22",color:client.color,border:`1px solid ${client.color}44`,borderRadius:7,padding:"4px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>+ Add</button>
-</div>
-{schedule.map((s,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"#161616",borderRadius:8,marginBottom:6}}>
-<span style={{fontWeight:600,fontSize:13}}>{s.day}</span><span style={{color:"#888",fontSize:13}}>{s.time}</span>
-<button onClick={()=>onUpdate({schedule:schedule.filter((_,j)=>j!==i)})} style={{background:"transparent",border:"none",color:"#333",cursor:"pointer",fontSize:14}}>✕</button>
-</div>)}
-{adding&&<div style={{display:"flex",gap:8,marginTop:8}}>
-<select value={form.day} onChange={e=>setForm(f=>({...f,day:e.target.value}))} style={{flex:1,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none"}}>
-{DAYS.map(d=><option key={d}>{d}</option>)}
-</select>
-<input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{flex:1,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none"}}/>
-<button onClick={()=>{onUpdate({schedule:[...schedule,form]});setAdding(false);}} style={{background:client.color,color:"#000",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:13}}>✓</button>
-<button onClick={()=>setAdding(false)} style={{background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:13}}>✕</button>
-</div>}
-</div>
-</div>);
-}
+function NutritionTab({c,patch,clientMode=false}){const nutrition=c.nutrition||blankNutrition(); const profile=c.profile||{}; const today=new Date().toISOString().slice(0,10); const [date,setDate]=useState(today); const [meal,setMeal]=useState("breakfast"); const [item,setItem]=useState(""); const [amount,setAmount]=useState("1"); const log=nutrition.logs?.[date] || {breakfast:[],lunch:[],dinner:[]}; const totals=[...log.breakfast,...log.lunch,...log.dinner].reduce((a,f)=>({calories:a.calories+Number(f.calories||0),protein:a.protein+Number(f.protein||0),carbs:a.carbs+Number(f.carbs||0),fats:a.fats+Number(f.fats||0)}),{calories:0,protein:0,carbs:0,fats:0});
+  function updateNutrition(n){patch({nutrition:n});} function setTarget(k,v){updateNutrition({...nutrition,targets:{...nutrition.targets,[k]:v}});} function addFood(){if(!item)return; const est=estimateFood(item,amount); const food={id:uid(),item,amount,meal,...est}; const nextLog={...log,[meal]:[...log[meal],food]}; updateNutrition({...nutrition,logs:{...(nutrition.logs||{}),[date]:nextLog}}); setItem(""); setAmount("1");} function delFood(mealName,id){const nextLog={...log,[mealName]:log[mealName].filter(f=>f.id!==id)}; updateNutrition({...nutrition,logs:{...(nutrition.logs||{}),[date]:nextLog}});}
+return <section className="grid2"><div className="panel"><h2>Nutrition Tracker</h2>{!clientMode&&<div className="macroGrid">{[["calories","Calories"],["protein","Protein"],["carbs","Carbs"],["fats","Fats"]].map(([k,l])=><Field key={k} label={l}><input value={nutrition.targets?.[k]||""} onChange={e=>setTarget(k,e.target.value)}/></Field>)}</div>}<div className="macroSummary"><div><b>{totals.calories}</b><span>kcal</span></div><div><b>{totals.protein}</b><span>protein</span></div><div><b>{totals.carbs}</b><span>carbs</span></div><div><b>{totals.fats}</b><span>fats</span></div></div><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><div className="tabs small">{["breakfast","lunch","dinner"].map(m=><button className={meal===m?"active":""} key={m} onClick={()=>setMeal(m)}>{m}</button>)}</div><div className="row"><input placeholder="Food item e.g. chicken breast" value={item} onChange={e=>setItem(e.target.value)}/><input placeholder="amount" value={amount} onChange={e=>setAmount(e.target.value)}/><Button kind="gold" onClick={addFood}>Log</Button></div>{["breakfast","lunch","dinner"].map(m=><div key={m} className="meal"><h3>{m}</h3>{log[m].map(f=><div key={f.id} className="food"><span>{f.item} × {f.amount}</span><b>{f.calories} kcal</b><button onClick={()=>delFood(m,f.id)}>✕</button><small>{f.note}</small></div>)}</div>)}</div><div className="panel"><h2>AI Food Coach</h2><div className="aiBox">🤖 {aiFoodSuggestions(profile,nutrition.targets)}</div><Field label="Coach Meal Plan Notes"><textarea value={nutrition.planNotes||""} onChange={e=>updateNutrition({...nutrition,planNotes:e.target.value})}/></Field></div></section>}
  
-// ── Body / Measurements ───────────────────────────────────────────────────────
-function BodyTab({client,onUpdate}){
-const m=client.measurements||{};
-const [editing,setEditing]=useState(false);
-const [form,setForm]=useState({...m});
-return(<div>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>BODY MEASUREMENTS</div>
-{!editing?<button onClick={()=>setEditing(true)} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"6px 13px",cursor:"pointer",fontSize:12}}>Update</button>
-:<div style={{display:"flex",gap:7}}><button onClick={()=>{onUpdate(form);setEditing(false);}} style={{background:client.color,color:"#000",border:"none",borderRadius:8,padding:"6px 13px",cursor:"pointer",fontWeight:700,fontSize:12}}>Save</button><button onClick={()=>setEditing(false)} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"6px 13px",cursor:"pointer",fontSize:12}}>Cancel</button></div>}
-</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20}}>
-{MEAS_FIELDS.map(({key,label})=><div key={key} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"13px 15px"}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:5}}>{label.toUpperCase()}</div>
-{editing?<input type="number" step="0.5" value={form[key]||""} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))} style={{width:"100%",background:"#1e1e1e",border:"1px solid #2a2a2a",borderRadius:6,padding:"5px 7px",color:"#fff",fontSize:18,fontFamily:"'Bebas Neue',sans-serif",outline:"none"}}/>
-:<div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif",color:m[key]?"#fff":"#2a2a2a"}}>{m[key]||"—"}<span style={{fontSize:11,color:"#555"}}>{key==="bodyFat"?" %":" in"}</span></div>}
-</div>)}
-</div>
-{client.progress?.length>=2&&<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:20}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:14}}>TRENDS</div><Chart data={client.progress} color={client.color}/></div>}
-</div>);
-}
+function ProgressTab({c}){const program=c.program||{}; const deadHangLogs=(program.logs||[]).flatMap(l=>(l.exercises||[]).filter(e=>/dead hang/i.test(e.name||""))).slice(-5); return <section className="panel"><h2>Progress</h2><div className="stats"><div><b>{c.weight||0}</b><span>KG</span></div><div><b>{(program.logs||[]).length}</b><span>Workout Logs</span></div><div><b>{deadHangLogs.length}</b><span>Dead Hang Logs</span></div></div><h3>Dead Hang Progress</h3>{deadHangLogs.length?deadHangLogs.map((x,i)=><div className="exercise" key={i}><b>{x.name}</b><span>{x.reps||""}</span><span>{x.weight||""}</span><span>RPE {x.rpe||"-"}</span></div>):<p>No Dead Hang logs yet.</p>}</section>}
+function TransformTab({c,patch}){const photos=c.transformPhotos||[]; function upload(e){const file=e.target.files?.[0]; if(!file)return; const r=new FileReader(); r.onload=()=>patch({transformPhotos:[...photos,{id:uid(),url:r.result,date:new Date().toISOString().slice(0,10),type:"Progress",weight:c.weight||"",notes:""}]}); r.readAsDataURL(file);} function upd(id,change){patch({transformPhotos:photos.map(p=>p.id===id?{...p,...change}:p)});} return <section className="panel"><div className="row"><h2>Transform Photos</h2><input type="file" accept="image/*" onChange={upload}/></div><div className="photoGrid">{photos.map(p=><div className="photo" key={p.id}><img src={p.url}/><input value={p.type} onChange={e=>upd(p.id,{type:e.target.value})}/><input type="date" value={p.date} onChange={e=>upd(p.id,{date:e.target.value})}/><input placeholder="Weight" value={p.weight} onChange={e=>upd(p.id,{weight:e.target.value})}/><button onClick={()=>patch({transformPhotos:photos.filter(x=>x.id!==p.id)})}>Delete</button></div>)}</div></section>}
+function ScheduleTab({c,patch}){const schedule=c.schedule||[]; const add=()=>patch({schedule:[...schedule,{id:uid(),day:"Monday",time:"6:00 AM"}]}); const upd=(id,change)=>patch({schedule:schedule.map(s=>s.id===id?{...s,...change}:s)}); return <section className="panel"><div className="row"><h2>Recurring Schedule</h2><Button kind="gold" onClick={add}>+ Add</Button></div>{schedule.map(s=><div className="exercise" key={s.id}><select value={s.day} onChange={e=>upd(s.id,{day:e.target.value})}>{DAYS.map(d=><option key={d}>{d}</option>)}</select><select value={to12(s.time)} onChange={e=>upd(s.id,{time:e.target.value})}>{TIMES.map(t=><option key={t}>{t}</option>)}</select><button onClick={()=>patch({schedule:schedule.filter(x=>x.id!==s.id)})}>✕</button></div>)}</section>}
  
+function Calendar({clients,calendar,onSave,onAuto}){const [edit,setEdit]=useState(null); const add=(day,time)=>setEdit({id:uid(),day,time,type:"trial",name:"",clientId:"",color:TYPE_COLORS.trial}); const save=b=>{const client=clients.find(c=>String(c.id)===String(b.clientId)); const full={...b,name:client?.name||b.name,color:b.type==="trial"?TYPE_COLORS.trial:(client?.color||TYPE_COLORS[b.type])}; onSave(calendar.some(x=>x.id===b.id)?calendar.map(x=>x.id===b.id?full:x):[...calendar,full]); setEdit(null);};
+return <section className="panel"><div className="row"><h2>Weekly Calendar</h2><Button onClick={onAuto}>Auto-add Recurring Clients</Button></div><div className="calendar"><div></div>{DAYS.map(d=><b key={d}>{d.slice(0,3)}</b>)}{TIMES.map(t=><><strong key={t}>{t}</strong>{DAYS.map(d=>{const b=calendar.find(x=>x.day===d&&to12(x.time)===t); return <div key={d+t} className="slot" onClick={()=>b?setEdit(b):add(d,t)}>{b&&<span style={{background:b.color}}>{b.name||BOOKING_TYPES[b.type]}<small>{BOOKING_TYPES[b.type]}</small></span>}</div>})}</>)}</div>{edit&&<BookingModal booking={edit} clients={clients} onClose={()=>setEdit(null)} onSave={save} onDelete={()=>{onSave(calendar.filter(x=>x.id!==edit.id));setEdit(null);}}/>}</section>}
+function BookingModal({booking,clients,onSave,onClose,onDelete}){const [b,setB]=useState(booking); return <div className="modal"><div className="modalCard"><h2>Booking</h2><Field label="Type"><select value={b.type} onChange={e=>setB({...b,type:e.target.value})}>{Object.entries(BOOKING_TYPES).map(([k,v])=><option value={k} key={k}>{v}</option>)}</select></Field>{b.type==="client"&&<Field label="Client"><select value={b.clientId||""} onChange={e=>setB({...b,clientId:e.target.value})}><option value="">Select client</option>{clients.map(c=><option value={c.id} key={c.id}>{c.name}</option>)}</select></Field>}<Field label="Name"><input value={b.name||""} onChange={e=>setB({...b,name:e.target.value})}/></Field><Field label="Day"><select value={b.day} onChange={e=>setB({...b,day:e.target.value})}>{DAYS.map(d=><option key={d}>{d}</option>)}</select></Field><Field label="Time"><select value={to12(b.time)} onChange={e=>setB({...b,time:e.target.value})}>{TIMES.map(t=><option key={t}>{t}</option>)}</select></Field><div className="row"><Button kind="gold" onClick={()=>onSave(b)}>Save</Button><Button kind="danger" onClick={onDelete}>Delete</Button><Button onClick={onClose}>Cancel</Button></div></div></div>}
  
-// ── Client Profile ───────────────────────────────────────────────────────────
-function MultiGoalPicker({goals,onChange,color}){
-const current=normalizeGoals(goals);
-const toggle=g=>onChange(current.includes(g)?current.filter(x=>x!==g):[...current,g]);
-return(<div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{GOAL_OPTIONS.map(g=><button key={g} type="button" onClick={()=>toggle(g)} style={{background:current.includes(g)?(GOAL_COLORS[g]||color):"#161616",color:current.includes(g)?"#000":"#777",border:`1px solid ${current.includes(g)?(GOAL_COLORS[g]||color):"#2a2a2a"}`,borderRadius:20,padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:800}}>{g}</button>)}</div>);
-}
-function ClientProfileTab({client,onSave}){
-const [form,setForm]=useState(profileFromClient(client));
-useEffect(()=>setForm(profileFromClient(client)),[client.id]);
-const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-const save=()=>onSave({...form,injuries:normalizeInjuries(form.injuries),goals:normalizeGoals(form.goals)});
-const fields=[{k:"medicalIssues",l:"Medical Issues",p:"High BP, diabetes, medication, cleared conditions..."},{k:"barriers",l:"Barriers",p:"Time, motivation, pain, travel, nutrition compliance..."},{k:"sleep",l:"Sleep",p:"Hours, quality, bedtime, wake time..."},{k:"neat",l:"NEAT / Daily Activity",p:"Steps, standing hours, active job, sedentary work..."},{k:"work",l:"Work Schedule",p:"Shifts, busy days, travel, stressful periods..."}];
-return(<div style={{background:"linear-gradient(180deg,#111,#0d0d0d)",border:"1px solid #1e1e1e",borderRadius:16,padding:22}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}><div><div style={{fontSize:18,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>CLIENT PROFILE</div><div style={{fontSize:12,color:"#555"}}>Goals, risks, lifestyle, and coaching context</div></div><button onClick={save} style={{background:client.color,color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:900,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SAVE PROFILE</button></div>
-<div style={{marginBottom:16}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:8}}>GOALS - MULTI SELECT</div><MultiGoalPicker goals={form.goals} onChange={v=>set("goals",v)} color={client.color}/></div>
-<div style={{marginBottom:16}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>INJURIES / LIMITATIONS</div><textarea value={Array.isArray(form.injuries)?form.injuries.join("; "):form.injuries||""} onChange={e=>set("injuries",e.target.value)} placeholder="Lower back pain; knee pain; shoulder limitation..." style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:10,padding:12,color:"#eee",minHeight:70,outline:"none",fontFamily:"'DM Sans',sans-serif"}}/></div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>{fields.map(({k,l,p})=><div key={k} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:13}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>{l.toUpperCase()}</div><textarea value={form[k]||""} onChange={e=>set(k,e.target.value)} placeholder={p} style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:9,padding:10,color:"#ddd",minHeight:88,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif",fontSize:13,lineHeight:1.5}}/></div>)}</div>
-<div style={{marginTop:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>COACH NOTES</div><textarea value={form.notes||""} onChange={e=>set("notes",e.target.value)} placeholder="Coaching notes, observations, communication style, follow-up reminders..." style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:10,padding:12,color:"#ddd",minHeight:150,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif",fontSize:14,lineHeight:1.6}}/></div>
-</div>);
-}
+function Trials({trials,onSave,onConvert}){const [active,setActive]=useState(null); const add=()=>setActive(blankTrial()); const save=t=>{onSave(trials.some(x=>x.id===t.id)?trials.map(x=>x.id===t.id?t:x):[...trials,t]); setActive(null);}; return <section className="panel"><div className="row"><h2>Trials</h2><Button kind="gold" onClick={add}>+ New Trial</Button></div>{trials.map(t=><div className="clientCard" key={t.id}><div className="avatar" style={{borderColor:TYPE_COLORS.trial,color:TYPE_COLORS.trial}}>{initials(t.name)}</div><div className="grow"><h2>{t.name||"Unnamed Trial"}</h2><small>{t.type} · {(t.profile?.goals||[]).join(" + ")}</small></div><Button onClick={()=>setActive(t)}>Edit</Button><Button kind="gold" onClick={()=>onConvert(t)}>Convert</Button></div>)}{active&&<TrialModal trial={active} onClose={()=>setActive(null)} onSave={save}/>}</section>}
+function TrialModal({trial,onSave,onClose}){const [t,setT]=useState(trial); const [tab,setTab]=useState("consultation"); const p=t.profile||blankProfile(); const toggleGoal=g=>setT({...t,profile:{...p,goals:p.goals?.includes(g)?p.goals.filter(x=>x!==g):[...(p.goals||[]),g]}}); const updCheck=(ai,check,field,value)=>setT({...t,assessments:t.assessments.map((a,i)=>i===ai?{...a,checks:{...a.checks,[check]:{...a.checks[check],[field]:value}}}:a)}); return <div className="modal"><div className="modalCard wide"><div className="row"><h2>Trial Forms</h2><Button onClick={onClose}>✕</Button></div><div className="tabs small"><button className={tab==="consultation"?"active":""} onClick={()=>setTab("consultation")}>Consultation</button><button className={tab==="assessment"?"active":""} onClick={()=>setTab("assessment")}>Physical Assessment</button></div><div className="grid2"><Field label="Name"><input value={t.name} onChange={e=>setT({...t,name:e.target.value})}/></Field><Field label="Phone"><input value={t.phone} onChange={e=>setT({...t,phone:e.target.value})}/></Field><Field label="Email"><input value={t.email} onChange={e=>setT({...t,email:e.target.value})}/></Field><Field label="Trial Type"><select value={t.type} onChange={e=>setT({...t,type:e.target.value})}><option value="consultation">Consultation</option><option value="assessment">Physical Assessment</option></select></Field></div><div className="goalGrid">{GOALS.map(g=><button key={g} className={p.goals?.includes(g)?"goal on":"goal"} onClick={()=>toggleGoal(g)}>{g}</button>)}</div>{tab==="consultation"?<div className="grid2"><Field label="Goal Reason"><textarea value={t.consultation.goalReason} onChange={e=>setT({...t,consultation:{...t.consultation,goalReason:e.target.value}})}/></Field><Field label="Experience"><textarea value={t.consultation.experience} onChange={e=>setT({...t,consultation:{...t.consultation,experience:e.target.value}})}/></Field><Field label="Availability"><input value={t.consultation.availability} onChange={e=>setT({...t,consultation:{...t.consultation,availability:e.target.value}})}/></Field><Field label="Notes"><textarea value={t.consultation.notes} onChange={e=>setT({...t,consultation:{...t.consultation,notes:e.target.value}})}/></Field></div>:<div>{t.assessments.map((a,ai)=><div className="dayCard" key={a.id}><Field label="Assessment Date"><input type="date" value={a.date} onChange={e=>setT({...t,assessments:t.assessments.map((x,i)=>i===ai?{...x,date:e.target.value}:x)})}/></Field>{FITNESS_CHECKS.map(ch=><div className="exercise" key={ch}><b>{ch}</b><input placeholder="Score" value={a.checks[ch]?.score||""} onChange={e=>updCheck(ai,ch,"score",e.target.value)}/><input placeholder="Notes" value={a.checks[ch]?.notes||""} onChange={e=>updCheck(ai,ch,"notes",e.target.value)}/></div>)}</div>)}<Button onClick={()=>setT({...t,assessments:[...t.assessments,{id:uid(),date:new Date().toISOString().slice(0,10),checks:Object.fromEntries(FITNESS_CHECKS.map(c=>[c,{score:"",notes:""}]))}]})}>+ Add Assessment Day</Button></div>}<Button kind="gold" onClick={()=>onSave(t)}>Save Trial</Button></div></div>}
  
-// ── Nutrition Planner ────────────────────────────────────────────────────────
-function NutritionTab({client,onSave}){
-const [plan,setPlan]=useState(normalizeNutrition(client.nutrition));
-useEffect(()=>setPlan(normalizeNutrition(client.nutrition)),[client.id]);
-const setMacro=(k,v)=>setPlan(p=>({...p,[k]:v}));
-const addFood=(dayIndex,meal)=>setPlan(p=>({...p,days:p.days.map((d,i)=>i!==dayIndex?d:{...d,meals:{...d.meals,[meal]:[...(d.meals?.[meal]||[]),{id:Date.now(),food:"",portion:"",calories:"",protein:"",carbs:"",fats:""}]}})}));
-const updateFood=(dayIndex,meal,id,k,v)=>setPlan(p=>({...p,days:p.days.map((d,i)=>i!==dayIndex?d:{...d,meals:{...d.meals,[meal]:(d.meals?.[meal]||[]).map(f=>f.id===id?{...f,[k]:v}:f)}})}));
-const removeFood=(dayIndex,meal,id)=>setPlan(p=>({...p,days:p.days.map((d,i)=>i!==dayIndex?d:{...d,meals:{...d.meals,[meal]:(d.meals?.[meal]||[]).filter(f=>f.id!==id)}})}));
-const mealNames=["breakfast","lunch","dinner","snacks"];
-const dayTotals=d=>mealNames.flatMap(m=>d.meals?.[m]||[]).reduce((a,f)=>({calories:a.calories+Number(f.calories||0),protein:a.protein+Number(f.protein||0),carbs:a.carbs+Number(f.carbs||0),fats:a.fats+Number(f.fats||0)}),{calories:0,protein:0,carbs:0,fats:0});
-return(<div>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>NUTRITION PROGRAM</div><div style={{fontSize:12,color:"#555"}}>Meal plan structure: targets, portions, macros, daily meals</div></div><button onClick={()=>onSave(plan)} style={{background:client.color,color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:900,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SAVE NUTRITION</button></div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>{[{k:"calories",l:"Calories",u:"kcal"},{k:"protein",l:"Protein",u:"g"},{k:"carbs",l:"Carbs",u:"g"},{k:"fats",l:"Fats",u:"g"}].map(x=><div key={x.k} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:13}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>{x.l.toUpperCase()}</div><input value={plan[x.k]||""} onChange={e=>setMacro(x.k,e.target.value)} placeholder={x.u} style={{width:"100%",marginTop:6,background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px 9px",color:"#fff",fontSize:18,fontFamily:"'Bebas Neue',sans-serif",outline:"none"}}/></div>)}</div>
-<textarea value={plan.notes||""} onChange={e=>setMacro("notes",e.target.value)} placeholder="Nutrition rules: water, cheat day, food swaps, allergies, preparation instructions..." style={{width:"100%",background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:13,color:"#ddd",minHeight:80,outline:"none",fontFamily:"'DM Sans',sans-serif",marginBottom:14}}/>
-{plan.days.map((d,di)=>{const totals=dayTotals(d);return <div key={d.day} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:15,marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:17,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>{d.day}</div><div style={{fontSize:11,color:"#777"}}>{totals.calories} kcal · P {totals.protein}g · C {totals.carbs}g · F {totals.fats}g</div></div>{mealNames.map(meal=><div key={meal} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}><div style={{fontSize:10,color:client.color,fontFamily:"monospace",letterSpacing:1}}>{meal.toUpperCase()}</div><button onClick={()=>addFood(di,meal)} style={{background:client.color+"22",border:`1px solid ${client.color}44`,color:client.color,borderRadius:7,padding:"3px 9px",cursor:"pointer",fontSize:11}}>+ food</button></div>{(d.meals?.[meal]||[]).map(f=><div key={f.id} style={{display:"grid",gridTemplateColumns:"1.6fr 1fr .7fr .6fr .6fr .6fr 26px",gap:6,marginBottom:5}}>{[{k:"food",p:"Food"},{k:"portion",p:"Portion"},{k:"calories",p:"kcal"},{k:"protein",p:"P"},{k:"carbs",p:"C"},{k:"fats",p:"F"}].map(inp=><input key={inp.k} value={f[inp.k]||""} onChange={e=>updateFood(di,meal,f.id,inp.k,e.target.value)} placeholder={inp.p} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"7px 8px",color:"#eee",fontSize:12,outline:"none"}}/>)}<button onClick={()=>removeFood(di,meal,f.id)} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer"}}>✕</button></div>)}</div>)}</div>})}
-</div>);
-}
+function ClientPortal({user,profile,onLogout}){const [client,setClient]=useState(null); const [loading,setLoading]=useState(true); useEffect(()=>{load();},[]); async function load(){const {data:c}=await supabase.from("clients").select("*").eq("client_auth_id",user.id).maybeSingle(); if(c){const [prof,nut,photos,program]=await Promise.all([loadSection(c.id,"profile"),loadSection(c.id,"nutrition"),loadSection(c.id,"transformPhotos"),loadSection(c.id,"program")]); setClient({...c,weight:c.weight_kg||0,profile:prof||blankProfile(c),nutrition:nut||blankNutrition(),transformPhotos:photos||[],program:program||blankProgram(c),color:c.color||"#e8c547"});} setLoading(false);} async function save(next){setClient(next); await Promise.all([saveSection(next.id,"nutrition",next.nutrition),saveSection(next.id,"transformPhotos",next.transformPhotos),saveSection(next.id,"program",next.program)]);} if(loading)return <div className="page"><h1>Loading...</h1></div>; if(!client)return <div className="page"><h1>Client profile not linked yet.</h1><p>Ask your coach to connect your login to your client profile.</p><Button onClick={onLogout}>Logout</Button></div>; return <div className="page"><header className="hero"><div><div className="eyebrow">CLIENT PORTAL</div><h1>Welcome, {client.name}</h1></div><Button onClick={onLogout}>Logout</Button></header><div className="grid2"><NutritionTab c={client} clientMode patch={x=>save({...client,...x})}/><ClientWorkoutLog client={client} onSave={save}/></div><TransformTab c={client} patch={x=>save({...client,...x})}/></div>}
+function ClientWorkoutLog({client,onSave}){const [day,setDay]=useState(client.program?.days?.[0]?.id||""); const selected=client.program?.days?.find(d=>d.id===day)||client.program?.days?.[0]; const [notes,setNotes]=useState(""); function log(){const entry={id:uid(),date:new Date().toISOString().slice(0,10),dayName:selected?.name,notes,exercises:(selected?.exercises||[]).map(e=>({...e,rpe:""}))}; onSave({...client,program:{...client.program,logs:[...(client.program?.logs||[]),entry]}}); setNotes(""); alert("Workout logged");} return <section className="panel"><h2>Log Workout</h2><select value={day} onChange={e=>setDay(e.target.value)}>{client.program?.days?.map(d=><option value={d.id} key={d.id}>{d.name}</option>)}</select>{selected?.exercises?.map(e=><div className="exercise" key={e.id}><b>{e.name}</b><span>{e.sets} sets</span><span>{e.reps}</span><span>{e.weight}</span></div>)}<Field label="Workout Notes"><textarea value={notes} onChange={e=>setNotes(e.target.value)}/></Field><Button kind="gold" onClick={log}>Log Session</Button></section>}
  
-// ── Transform Photos ─────────────────────────────────────────────────────────
-function PhotosTab({client,onUpdate}){
-const photos=client.photos||[];
-const ref=useRef();
-const upload=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>onUpdate({photos:[...photos,{id:Date.now(),src:ev.target.result,date:new Date().toLocaleDateString(),type:"Progress",label:""}]});reader.readAsDataURL(file);};
-const del=id=>onUpdate({photos:photos.filter(p=>p.id!==id)});
-const upd=(id,k,v)=>onUpdate({photos:photos.map(p=>p.id===id?{...p,[k]:v}:p)});
-return(<div><input ref={ref} type="file" accept="image/*" style={{display:"none"}} onChange={upload}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>TRANSFORM PHOTOS</div><div style={{fontSize:12,color:"#555"}}>Before, progress and after photos - saved after refresh</div></div><button onClick={()=>ref.current.click()} style={{background:client.color,color:"#000",border:"none",borderRadius:9,padding:"9px 15px",cursor:"pointer",fontWeight:900,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ ADD PHOTO</button></div>{photos.length===0&&<div style={{background:"#111",border:"1px dashed #2a2a2a",borderRadius:14,padding:"54px 0",textAlign:"center",color:"#333",cursor:"pointer"}} onClick={()=>ref.current.click()}><div style={{fontSize:40,marginBottom:10}}>📸</div><div>Add before / after / progress photos</div></div>}<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>{photos.map(p=><div key={p.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:13,overflow:"hidden"}}><img src={p.src} alt="" style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",display:"block"}}/><div style={{padding:12,display:"grid",gap:7}}><select value={p.type||"Progress"} onChange={e=>upd(p.id,"type",e.target.value)} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"7px 8px",color:"#eee"}}><option>Before</option><option>Progress</option><option>After</option></select><input value={p.label||""} onChange={e=>upd(p.id,"label",e.target.value)} placeholder={p.date} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"7px 8px",color:"#eee"}}/><button onClick={()=>del(p.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",textAlign:"right"}}>Remove</button></div></div>)}</div>{photos.length>=2&&<div style={{marginTop:18,background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:16}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:12}}>TRANSFORMATION VIEW</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{[photos[0],photos[photos.length-1]].map((p,i)=><div key={i}><img src={p.src} alt="" style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:10}}/><div style={{fontSize:11,color:"#555",textAlign:"center",marginTop:6}}>{i===0?"START":"LATEST"} · {p.type}</div></div>)}</div></div>}</div>);
-}
+export default function App(){const [user,setUser]=useState(null); const [profile,setProfile]=useState(null); useEffect(()=>{supabase.auth.getSession().then(({data})=>setUser(data.session?.user||null)); const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user||null)); return()=>subscription.unsubscribe();},[]); useEffect(()=>{if(user)loadProfile();},[user]); async function loadProfile(){const {data}=await supabase.from("profiles").select("*").eq("user_id",user.id).maybeSingle(); if(!data){await supabase.from("profiles").upsert({user_id:user.id,name:user.email?.split("@")[0],role:"trainer"}); setProfile({name:user.email?.split("@")[0],role:"trainer"});} else setProfile(data);} async function logout(){await supabase.auth.signOut(); setUser(null); setProfile(null);} if(!user)return <><Style/><AuthGate onReady={setUser}/></>; if(!profile)return <><Style/><div className="page">Loading profile...</div></>; return <><Style/>{profile.role==="client"?<ClientPortal user={user} profile={profile} onLogout={logout}/>:<CoachDashboard user={user} profile={profile} onLogout={logout}/>}</>}
  
-// ── Weekly Calendar ──────────────────────────────────────────────────────────
-function CalendarTab({clients,bookings,setBookings}){
-const [form,setForm]=useState({day:"Monday",time:"06:00",name:"",type:"Client Session",clientId:""});
-const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const times=["05:30","06:00","07:00","08:00","09:00","10:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
-const saveBookings=next=>{setBookings(next);storeLocal("forgeCalendar",next);};
-const add=()=>{const client=clients.find(c=>String(c.id)===String(form.clientId));const name=form.name || client?.name || "Free Slot";saveBookings([...bookings,{id:Date.now(),...form,name,color:client?.color || (form.type==="Free Trial"?"#FF1E1E":"#E8C547")}]);setForm({...form,name:"",clientId:""});};
-const remove=id=>saveBookings(bookings.filter(b=>b.id!==id));
-const at=(day,time)=>bookings.filter(b=>b.day===day&&b.time===time);
-return(<div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>MY CALENDAR</div><div style={{fontSize:12,color:"#555"}}>Book clients, free trials and consultations. Empty cells show available time.</div></div></div><div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:14,marginBottom:14}}><div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr) auto",gap:8}}><select value={form.day} onChange={e=>setForm(f=>({...f,day:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}>{days.map(d=><option key={d}>{d}</option>)}</select><select value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}>{times.map(t=><option key={t}>{t}</option>)}</select><select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select><select value={form.clientId} onChange={e=>setForm(f=>({...f,clientId:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}><option value="">No client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Name / trial" style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}/><button onClick={add} style={{background:"#E8C547",color:"#000",border:"none",borderRadius:8,padding:"8px 13px",fontWeight:900,cursor:"pointer"}}>BOOK</button></div></div><div style={{overflowX:"auto",border:"1px solid #1e1e1e",borderRadius:14}}><div style={{display:"grid",gridTemplateColumns:"84px repeat(7,150px)",minWidth:1134,background:"#080808"}}><div style={{background:"#050505",padding:10,fontWeight:800,fontSize:12}}>TIME</div>{days.map(d=><div key={d} style={{background:"#050505",padding:10,fontWeight:800,textAlign:"center",borderLeft:"1px solid #222"}}>{d.slice(0,3).toUpperCase()}</div>)}{times.map(t=><Fragment key={t}><div style={{padding:10,borderTop:"1px solid #1e1e1e",fontWeight:800,color:"#ddd"}}>{t}</div>{days.map(d=><div key={d+t} style={{minHeight:62,padding:5,borderTop:"1px solid #1e1e1e",borderLeft:"1px solid #1e1e1e",background:"#050505"}}>{at(d,t).map(b=><div key={b.id} style={{background:b.color||"#4ECDC4",color:"#000",borderRadius:8,padding:"6px 7px",fontSize:12,fontWeight:900,marginBottom:4,position:"relative"}}><div>{b.name}</div><div style={{fontSize:9,opacity:.75}}>{b.type}</div><button onClick={()=>remove(b.id)} style={{position:"absolute",right:4,top:2,background:"transparent",border:"none",cursor:"pointer",fontWeight:900}}>×</button></div>)}</div>)}</Fragment>)}</div></div></div>);
-}
-// ── Sessions Dashboard ─────────────────────────────────────────────────────────
-function RevenueDash({clients}){
-const all=clients.flatMap(c=>(c.packages||[]).map(p=>({...p,client:c})));
-const paid=all.filter(p=>p.paid); const unpaid=all.filter(p=>!p.paid);
-const sessionsConducted=clients.reduce((a,c)=>a+(c.sessions||0),0);
-const bookedSessions=clients.reduce((a,c)=>a+(c.schedule?.length||0),0);
-const activeClients=clients.filter(c=>(c.packages||[]).some(p=>p.used<p.total)).length;
-return(<div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
-{[{label:"Sessions Conducted",value:sessionsConducted,color:"#6EE7B7"},{label:"Booked Sessions",value:bookedSessions,color:bookedSessions>0?"#FF6B6B":"#555"},{label:"Active Packages",value:all.filter(p=>p.used<p.total).length,color:"#E8C547"}].map(({label,value,color})=><div key={label} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px 18px"}}><div style={{fontSize:28,fontFamily:"'Bebas Neue',sans-serif",color}}>{value}</div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>{label.toUpperCase()}</div></div>)}
-</div>
-<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px 18px",marginBottom:14}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:12}}>ALL PACKAGES</div>
-{all.length===0&&<div style={{color:"#333",fontSize:13}}>No packages yet. Add them from individual client profiles.</div>}
-{all.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid #161616"}}>
-<div style={{display:"flex",alignItems:"center",gap:10}}>
-<div style={{width:8,height:8,borderRadius:"50%",background:p.client.color,flexShrink:0}}/>
-<div><div style={{fontSize:13,fontWeight:600}}>{p.client.name}</div><div style={{fontSize:11,color:"#555"}}>{p.name} · {p.used}/{p.total} sessions</div></div>
-</div>
-<div style={{textAlign:"right"}}>
-<div style={{fontSize:14,fontWeight:700}}>${p.price}</div>
-<span style={{fontSize:10,background:p.paid?"#6EE7B722":"#FF6B6B22",color:p.paid?"#6EE7B7":"#FF6B6B",padding:"1px 7px",borderRadius:20,fontWeight:600}}>{p.paid?"PAID":"UNPAID"}</span>
-</div>
-</div>)}
-</div>
-{unpaid.length>0&&<div style={{background:"#1a0a0a",border:"1px solid #FF6B6B33",borderRadius:12,padding:"14px 16px"}}>
-<div style={{fontSize:10,color:"#FF6B6B",fontFamily:"monospace",letterSpacing:1,marginBottom:10}}>OUTSTANDING INVOICES</div>
-{unpaid.map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",color:"#aaa"}}><span>{p.client.name} — {p.name}</span><span style={{color:"#FF6B6B",fontWeight:700}}>${p.price}</span></div>)}
-</div>}
-</div>);
-}
- 
- 
-// ── Trials Panel ─────────────────────────────────────────────────────────────
-function WaitlistPanel({waitlist,setWaitlist,onPromote}){
-const [adding,setAdding]=useState(false);
-const [form,setForm]=useState({name:"",email:"",phone:"",goals:["Fat Loss"],injuries:"",medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""});
-const saveWaitlist=next=>{setWaitlist(next);storeLocal("forgeTrials",next);};
-const add=()=>{if(!form.name)return;saveWaitlist([...waitlist,{id:Date.now(),...form,date:new Date().toLocaleDateString()}]);setAdding(false);setForm({name:"",email:"",phone:"",goals:["Fat Loss"],injuries:"",medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""});};
-const remove=id=>saveWaitlist(waitlist.filter(x=>x.id!==id));
-const update=(id,k,v)=>saveWaitlist(waitlist.map(x=>x.id===id?{...x,[k]:v}:x));
-return(<div>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>TRIALS</div><div style={{fontSize:12,color:"#555"}}>{waitlist.length} trial requests. Trial profile copies into client profile when promoted.</div></div><button onClick={()=>setAdding(true)} style={{background:"#E8C547",border:"none",color:"#000",borderRadius:9,padding:"10px 15px",cursor:"pointer",fontSize:13,fontWeight:900,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ ADD TRIAL</button></div>
-{waitlist.length===0&&<div style={{color:"#333",fontSize:13,textAlign:"center",padding:"35px 0",background:"#111",border:"1px dashed #2a2a2a",borderRadius:14}}>No trial requests</div>}
-{waitlist.map(p=><div key={p.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:15,marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div><div style={{fontWeight:800,fontSize:15}}>{p.name}</div><div style={{fontSize:11,color:"#555",marginTop:3}}>{normalizeGoals(p.goals || p.goal).join(" + ")} · {p.email || "no email"} · Added {p.date}</div></div><div style={{display:"flex",gap:7}}><button onClick={()=>onPromote(p)} style={{background:"#E8C54722",color:"#E8C547",border:"1px solid #E8C54744",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:800}}>Promote</button><button onClick={()=>remove(p.id)} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer",fontSize:16}}>✕</button></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:12}}>{[{k:"injuries",l:"Injuries"},{k:"medicalIssues",l:"Medical"},{k:"barriers",l:"Barriers"},{k:"sleep",l:"Sleep"},{k:"neat",l:"NEAT"},{k:"work",l:"Work"}].map(x=><div key={x.k}><div style={{fontSize:9,color:"#555",fontFamily:"monospace",marginBottom:3}}>{x.l.toUpperCase()}</div><textarea value={p[x.k]||""} onChange={e=>update(p.id,x.k,e.target.value)} style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:8,padding:8,color:"#ddd",fontSize:12,minHeight:52}}/></div>)}</div></div>)}
-{adding&&<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:14,padding:16,marginTop:12}}><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>{[{l:"Name",k:"name",t:"text"},{l:"Email",k:"email",t:"email"},{l:"Phone",k:"phone",t:"text"}].map(({l,k,t})=><div key={k}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{l.toUpperCase()}</div><input type={t} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 9px",color:"#fff",fontSize:13,outline:"none"}}/></div>)}</div><div style={{marginBottom:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:6}}>GOALS</div><MultiGoalPicker goals={form.goals} onChange={v=>setForm(f=>({...f,goals:v}))} color="#E8C547"/></div><div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:12}}>{[{k:"injuries",l:"Injuries"},{k:"medicalIssues",l:"Medical Issues"},{k:"barriers",l:"Barriers"},{k:"sleep",l:"Sleep"},{k:"neat",l:"NEAT / Activity"},{k:"work",l:"Work"},{k:"notes",l:"Notes"}].map(x=><div key={x.k}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{x.l.toUpperCase()}</div><textarea value={form[x.k]} onChange={e=>setForm(f=>({...f,[x.k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:9,color:"#fff",fontSize:13,minHeight:58}}/></div>)}</div><div style={{display:"flex",gap:8}}><button onClick={add} style={{flex:1,background:"#E8C547",color:"#000",border:"none",borderRadius:8,padding:"10px 0",fontWeight:900,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD TRIAL</button><button onClick={()=>setAdding(false)} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"10px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div></div>}
-</div>);
-}
-// ── Add Progress Modal ────────────────────────────────────────────────────────
-function AddProgress({client,onSave,onClose}){
-const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const last=client.progress?.at(-1)||{};
-const [form,setForm]=useState({date:months[new Date().getMonth()],weight:client.weight,benchPress:last.benchPress||0,squat:last.squat||0,deadlift:last.deadlift||0,ohp:last.ohp||0,waist:last.waist||0,chest:last.chest||0,arms:last.arms||0,bodyFat:last.bodyFat||0});
-return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,padding:26,width:"100%",maxWidth:380,maxHeight:"90vh",overflowY:"auto"}}>
-<div style={{fontSize:18,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:4}}>LOG PROGRESS</div>
-<div style={{color:"#555",fontSize:12,marginBottom:16}}>{client.name}</div>
-<div style={{fontSize:10,color:"#444",fontFamily:"monospace",marginBottom:5}}>MONTH</div>
-<select value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none",marginBottom:12}}>
-{months.map(m=><option key={m}>{m}</option>)}
-</select>
-<div style={{fontSize:10,color:"#444",fontFamily:"monospace",marginBottom:8}}>BODYWEIGHT (kg) & LIFTS (kg)</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-{[{l:"Weight",k:"weight"},{l:"Bench Press",k:"benchPress"},{l:"Squat",k:"squat"},{l:"Deadlift",k:"deadlift"},{l:"OHP",k:"ohp"}].map(({l,k})=><div key={k}><div style={{fontSize:10,color:"#555",marginBottom:3}}>{l}</div><input type="number" value={form[k]} onChange={e=>setForm(f=>({...f,[k]:Number(e.target.value)}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"6px 8px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>)}
-</div>
-<div style={{fontSize:10,color:"#444",fontFamily:"monospace",marginBottom:8}}>MEASUREMENTS</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
-{[{l:"Waist (in)",k:"waist"},{l:"Chest (in)",k:"chest"},{l:"Arms (in)",k:"arms"},{l:"Body Fat %",k:"bodyFat"}].map(({l,k})=><div key={k}><div style={{fontSize:10,color:"#555",marginBottom:3}}>{l}</div><input type="number" step="0.5" value={form[k]} onChange={e=>setForm(f=>({...f,[k]:Number(e.target.value)}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"6px 8px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>)}
-</div>
-<div style={{display:"flex",gap:8}}><button onClick={()=>onSave(form)} style={{flex:1,background:client.color,color:"#000",border:"none",borderRadius:8,padding:"10px 0",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SAVE</button><button onClick={onClose} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"10px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div>
-</div>
-</div>);
-}
- 
- 
-// ── Add Client Modal ─────────────────────────────────────────────────────────
-function AddClient({onSave,onClose}){
-const [form,setForm]=useState({name:"",age:"",goals:["Muscle Gain"],weight:"",color:COLORS[0],phone:"",email:"",injuries:"",medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""});
-return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,padding:26,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto"}}>
-<div style={{fontSize:24,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:6}}>NEW CLIENT</div><div style={{fontSize:12,color:"#555",marginBottom:16}}>Create a client with profile data from day one.</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>{[{l:"Full Name",k:"name",t:"text"},{l:"Age",k:"age",t:"number"},{l:"Starting Weight (kg)",k:"weight",t:"number"},{l:"Phone",k:"phone",t:"text"},{l:"Email",k:"email",t:"email"}].map(({l,k,t})=><div key={k} style={{marginBottom:8}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:3}}>{l.toUpperCase()}</div><input type={t} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 9px",color:"#fff",fontSize:13,outline:"none"}}/></div>)}</div>
-<div style={{margin:"5px 0 14px"}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:7}}>GOALS</div><MultiGoalPicker goals={form.goals} onChange={v=>setForm(f=>({...f,goals:v}))} color={form.color}/></div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:14}}>{[{k:"injuries",l:"Injuries"},{k:"medicalIssues",l:"Medical Issues"},{k:"barriers",l:"Barriers"},{k:"sleep",l:"Sleep"},{k:"neat",l:"NEAT / Activity"},{k:"work",l:"Work"},{k:"notes",l:"Notes"}].map(x=><div key={x.k}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{x.l.toUpperCase()}</div><textarea value={form[x.k]} onChange={e=>setForm(f=>({...f,[x.k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:9,color:"#fff",fontSize:13,minHeight:60}}/></div>)}</div>
-<div style={{marginBottom:18}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:7}}>COLOR</div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{COLORS.map(c=><div key={c} onClick={()=>setForm(f=>({...f,color:c}))} style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"3px solid #fff":"3px solid transparent"}}/>)}</div></div>
-<div style={{display:"flex",gap:8}}><button onClick={()=>form.name&&onSave(form)} style={{flex:1,background:form.color,color:"#000",border:"none",borderRadius:8,padding:"11px 0",fontWeight:900,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD CLIENT</button><button onClick={onClose} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"11px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div>
-</div></div>);
-}
-// ── PDF Export ────────────────────────────────────────────────────────────────
-function exportPDF(client){
-const p=client.progress||[]; const m=client.measurements||{}; const prog=client.program;
-const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${client.name} Report</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
-body{font-family:'DM Sans',sans-serif;background:#fff;color:#111;margin:0;padding:32px;max-width:800px;}
-h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;margin:0 0 6px;}
-h2{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin:28px 0 10px;border-bottom:2px solid #eee;padding-bottom:4px;}
-h3{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;margin:14px 0 6px;color:#444;}
-.tag{display:inline-block;background:#f0f0f0;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-right:6px;}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
-.card{background:#f8f8f8;border-radius:8px;padding:12px 14px;}
-.card .v{font-family:'Bebas Neue',sans-serif;font-size:22px;}
-.card .l{font-size:10px;color:#888;letter-spacing:1px;margin-top:2px;}
-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px;}
-th{background:#f0f0f0;padding:7px 10px;text-align:left;font-size:10px;letter-spacing:1px;color:#666;}
-td{padding:7px 10px;border-bottom:1px solid #f0f0f0;}
-.ex{display:flex;justify-content:space-between;padding:6px 10px;background:#fafafa;border-radius:6px;margin-bottom:4px;font-size:13px;}
-.wh{background:#111;color:#fff;padding:7px 12px;border-radius:6px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;margin:10px 0 5px;}
-.nb{background:#f8f8f8;border-radius:8px;padding:12px 16px;font-size:13px;color:#444;line-height:1.6;}
-.footer{margin-top:40px;font-size:11px;color:#bbb;border-top:1px solid #eee;padding-top:12px;}
-</style></head><body>
-<h1>${client.name}</h1>
-<div style="margin-bottom:18px"><span class="tag">${client.goal}</span><span class="tag">Age ${client.age}</span><span class="tag">${client.weight} kg</span><span class="tag">Since ${client.joinDate}</span></div>
-${p.length>0?`<h2>Progress History</h2><table><tr><th>MONTH</th><th>WEIGHT</th><th>BENCH</th><th>SQUAT</th><th>DEADLIFT</th><th>OHP</th><th>BODY FAT</th></tr>${p.map(r=>`<tr><td>${r.date}</td><td>${r.weight}kg</td><td>${r.benchPress||"—"}</td><td>${r.squat||"—"}</td><td>${r.deadlift||"—"}</td><td>${r.ohp||"—"}</td><td>${r.bodyFat||"—"}%</td></tr>`).join("")}</table>`:""}
-${Object.keys(m).length>0?`<h2>Measurements</h2><div class="grid">${Object.entries(m).map(([k,v])=>`<div class="card"><div class="v">${v||"—"}</div><div class="l">${k.toUpperCase()}</div></div>`).join("")}</div>`:""}
-${client.notes?`<h2>Coach Notes</h2><div class="nb">${client.notes}</div>`:""}
-${prog?`<h2>Program: ${prog.name}</h2><p style="font-size:12px;color:#888">${prog.totalWeeks} Weeks · ${prog.days.length} Days/Week</p>${prog.days.map(d=>`<h3>${d.name}</h3>${d.exercises.map(ex=>`<div class="ex"><span>${ex.name}</span><span style="color:#888">${ex.numSets}×${ex.reps}</span></div>`).join("")}`).join("")}${prog.weekLogs&&prog.weekLogs.some(w=>w.days.some(d=>d.date||d.notes))?`<h2>Session Logs</h2>${prog.weekLogs.map((wk,wi)=>`<div class="wh">WEEK ${wi+1}</div>${wk.days.map(d=>{const has=d.date||d.notes||d.sessionData.some(e=>e.sets.some(s=>s.weight));if(!has)return"";return`<div style="margin-bottom:12px"><strong>${d.name}</strong>${d.date?` <span style="color:#888;font-size:12px">· ${d.date}</span>`:""}<table><tr><th>EXERCISE</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>S5</th></tr>${d.sessionData.map(ex=>`<tr><td>${ex.name}</td>${ex.sets.map(s=>`<td>${s.weight?`${s.weight}×${s.reps||"?"}`:""}</td>`).join("")}${Array(Math.max(0,5-ex.sets.length)).fill("<td></td>").join("")}</tr>`).join("")}</table>${d.metrics?.maxHR||d.metrics?.kcal?`<div style="font-size:11px;color:#888">HR: ${d.metrics.maxHR||"?"}/${d.metrics.avgHR||"?"} bpm · Kcal: ${d.metrics.kcal||"?"}</div>`:""}${d.notes?`<div style="font-size:12px;color:#666;font-style:italic;margin-top:4px">${d.notes}</div>`:""}</div>`;}).join("")}`).join("")}`:""}` :""}
-<div class="footer">Generated by PT Tracker · ${new Date().toLocaleDateString()}</div>
-</body></html>`;
-const w=window.open("","_blank");w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
-}
- 
-// ── Main App ──────────────────────────────────────────────────────────────────
-export default function App(){
-const [clients,setClients]=useState([]);
-const [waitlist,setWaitlist]=useState(()=>loadStored("forgeTrials", WAITLIST));
-const [calendarBookings,setCalendarBookings]=useState(()=>loadStored("forgeCalendar", []));
-const [selected,setSelected]=useState(null);
-const [appView,setAppView]=useState("clients");
-const [tab,setTab]=useState("overview");
-const [modal,setModal]=useState(null);
-const [recapSession,setRecapSession]=useState(null);
-const photoRef=useRef();
-const createdClientColors=useRef({});
-const sc=clients.find(c=>c.id===selected);
-const fetchClients = async () => {
-  const [{ data: clientsData, error: clientsError }, { data: clientDataRows, error: clientDataError }] = await Promise.all([
-    supabase.from("clients").select("*").order("created_at", { ascending: true }),
-    supabase.from("client_data").select("*"),
-  ]);
-  if(clientsError){ console.error("Supabase fetch clients error:", clientsError); return; }
-  if(clientDataError){ console.error("Supabase fetch client_data error:", clientDataError); }
-  if(clientsData) {
-    setClients(clientsData.map(row => {
-      const client = mapDbClient(row);
-      const merged = mergeClientDataIntoClient(client, clientDataRows?.filter(r => r.client_id === row.id));
-      const override = createdClientColors.current[row.id];
-      if(override) merged.color = override;
-      return merged;
-    }));
-  }
-};
-const createClientOnDb = async (data) => {
-  const selectedColor = data.color || getClientColor(normalizeGoals(data.goals || data.goal)[0], data.name);
-  const payload = {
-    name: data.name,
-    goal: goalDbValue(data),
-    age: Number(data.age),
-    weight_kg: Number(data.weight),
-    phone: data.phone || "",
-    email: data.email || "",
-    injuries: Array.isArray(data.injuries) ? data.injuries.join(";") : data.injuries || "",
-    notes: data.notes || "",
-    sessions_booked: Number(data.sessionsBooked || 0),
-    sessions_conducted: Number(data.sessions || 0),
-    trials: Number(data.trials || 0),
-  };
-  const { data: created, error } = await supabase.from("clients").insert(payload).select();
-  if(error){ console.error("Supabase insert error:", error); return; }
-  if(created?.[0]?.id){ createdClientColors.current[created[0].id] = selectedColor; }
-  await fetchClients();
-};
-const updateClientOnDb = async (id, updates) => {
-  const payload = {};
-  if(updates.name != null) payload.name = updates.name;
-  if(updates.goal != null || updates.goals != null) payload.goal = goalDbValue(updates);
-  if(updates.age != null) payload.age = Number(updates.age);
-  if(updates.weight != null) payload.weight_kg = Number(updates.weight);
-  if(updates.phone != null) payload.phone = updates.phone;
-  if(updates.email != null) payload.email = updates.email;
-  if(updates.injuries != null) payload.injuries = Array.isArray(updates.injuries) ? updates.injuries.join(";") : updates.injuries;
-  if(updates.notes != null) payload.notes = updates.notes;
-  if(updates.sessions != null) payload.sessions_conducted = Number(updates.sessions);
-  if(updates.sessionsBooked != null) payload.sessions_booked = Number(updates.sessionsBooked);
-  if(updates.trials != null) payload.trials = Number(updates.trials);
-  if(Object.keys(payload).length === 0) return;
-  const { error } = await supabase.from("clients").update(payload).eq("id", id);
-  if(error){ console.error("Supabase update error:", error); return; }
-  await fetchClients();
-};
-const patch = async (id, p) => {
-  let updatedClient;
-  setClients(prev=>prev.map(c=>c.id===id?updatedClient={...c,...p}:c));
-  if(!updatedClient?.id){
-    console.error("Unable to persist client_data: missing client id", id, p);
-  }
-  await Promise.all([
-    updateClientOnDb(id, p),
-    updatedClient ? persistClientDataSections(updatedClient, p) : Promise.resolve(),
-  ]);
-};
-useEffect(()=>{ fetchClients(); }, []);
-const openClient=id=>{setSelected(id);setAppView("client");setTab("overview");};
-const goBack=()=>{setAppView("clients");setSelected(null);};
-const saveProgram=async prog=>{
-  const weekLogs = Array.from({length:prog.totalWeeks},(_,i)=>makeWeek(i+1,prog.days));
-  const program = {...prog,weekLogs};
-  patch(selected,{program});
-  const client = clients.find(x=>x.id===selected);
-  if(client?.id) await saveClientDataSection(client.id, "program", program);
-  setModal(null);
-};
-const saveAI=async prog=>{
-  patch(selected,{program:prog});
-  const client = clients.find(x=>x.id===selected);
-  if(client?.id) await saveClientDataSection(client.id, "program", prog);
-  setModal(null);
-};
-const updateProgram=async p=>{
-  patch(selected,{program:p});
-  const client = clients.find(x=>x.id===selected);
-  if(client?.id) await saveClientDataSection(client.id, "program", p);
-};
-const saveProgress=async entry=>{
-  const c=clients.find(x=>x.id===selected);
-  if(!c) return;
-  const updatedProgress=[...(c.progress||[]),entry];
-  const updatedMeasurements={...(c.measurements||{}),waist:entry.waist||c.measurements?.waist,chest:entry.chest||c.measurements?.chest,arms:entry.arms||c.measurements?.arms,bodyFat:entry.bodyFat||c.measurements?.bodyFat};
-  const updatedData={
-    progress: updatedProgress,
-    measurements: updatedMeasurements,
-    weight: entry.weight,
-    sessions: (c.sessions||0)+1,
-  };
-  patch(selected,{progress:updatedProgress,weight:entry.weight,sessions:(c.sessions||0)+1,measurements:updatedMeasurements});
-  if(c.id) await saveClientDataSection(c.id, "progress", updatedData);
-  setModal(null);
-};
-const saveSchedule=async p=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,p);
-  await saveClientDataSection(c.id, "sessions", {
-    schedule: p.schedule ?? c.schedule ?? [],
-    sessions: p.sessions ?? c.sessions ?? 0,
-    sessionsBooked: p.sessionsBooked ?? c.sessionsBooked ?? 0,
-    trials: p.trials ?? c.trials ?? 0,
-    checkIns: p.checkIns ?? c.checkIns ?? [],
-  });
-};
-const saveMeasurements=async m=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,{measurements:m});
-  await saveClientDataSection(c.id, "progress", {
-    progress: c.progress ?? [],
-    measurements: m,
-    weight: c.weight ?? 0,
-    sessions: c.sessions ?? 0,
-    sessionsBooked: c.sessionsBooked ?? 0,
-    trials: c.trials ?? 0,
-  });
-};
-const savePhotos=async photos=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,{photos});
-  await saveClientDataSection(c.id, "transformPhotos", {photos: photos || []});
-  await saveClientDataSection(c.id, "details", {
-    notes: c.notes || "", injuries: c.injuries || [], photo: c.photo || null, packages: c.packages || [], photos: photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
-  });
-};
-const savePackages=async pkgs=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,{packages:pkgs});
-  await saveClientDataSection(c.id, "details", {
-    notes: c.notes || "",
-    injuries: c.injuries || [],
-    photo: c.photo || null,
-    packages: pkgs || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
-  });
-};
-const saveNotes=async notes=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,{notes});
-  await saveClientDataSection(c.id, "details", {
-    notes: notes || "",
-    injuries: c.injuries || [],
-    photo: c.photo || null,
-    packages: c.packages || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
-  });
-};
-const saveInjuries=async injuries=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,{injuries});
-  await saveClientDataSection(c.id, "details", {
-    notes: c.notes || "",
-    injuries: injuries || [],
-    photo: c.photo || null,
-    packages: c.packages || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
-  });
-};
-const saveProfilePhoto=async photoData=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  patch(selected,{photo:photoData});
-  await saveClientDataSection(c.id, "details", {
-    notes: c.notes || "",
-    injuries: c.injuries || [],
-    photo: photoData || null,
-    packages: c.packages || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
-  });
-};
-const saveClientProfile=async profile=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  const clean={...profile,goals:normalizeGoals(profile.goals),injuries:normalizeInjuries(profile.injuries)};
-  patch(selected,{profile:clean,goals:clean.goals,goal:clean.goals.join("; ") || "General Fitness",injuries:clean.injuries,notes:clean.notes || ""});
-  await updateClientOnDb(c.id,{goals:clean.goals,injuries:clean.injuries,notes:clean.notes || ""});
-  await saveClientDataSection(c.id,"profile",clean);
-  await saveClientDataSection(c.id,"details",{notes:clean.notes||"",injuries:clean.injuries||[],photo:c.photo||null,packages:c.packages||[],photos:c.photos||[],profile:clean,goals:clean.goals});
-};
-const saveNutrition=async nutrition=>{
-  const c = clients.find(x=>x.id===selected);
-  if(!c) return;
-  const clean=normalizeNutrition(nutrition);
-  patch(selected,{nutrition:clean});
-  await saveClientDataSection(c.id,"nutrition",clean);
-};
-const addClient=async data=>{
-  const payload = {
-    name: data.name,
-    goal: goalDbValue(data),
-    age: Number(data.age),
-    weight_kg: Number(data.weight),
-    phone: data.phone || "",
-    email: data.email || "",
-    injuries: Array.isArray(data.injuries) ? data.injuries.join(";") : data.injuries || "",
-    notes: data.notes || "",
-    sessions_booked: Number(data.sessionsBooked || 0),
-    sessions_conducted: Number(data.sessions || 0),
-    trials: Number(data.trials || 0),
-  };
-  const { data: created, error } = await supabase.from("clients").insert(payload).select();
-  if(error){ console.error("Supabase insert error:", error); return; }
-  const newId = created?.[0]?.id;
-  if(newId){
-    await saveClientDataSection(newId, "profile", {
-      goals: normalizeGoals(data.goals || data.goal),
-      injuries: normalizeInjuries(data.injuries),
-      medicalIssues: data.medicalIssues || "",
-      barriers: data.barriers || "",
-      sleep: data.sleep || "",
-      neat: data.neat || "",
-      work: data.work || "",
-      notes: data.notes || "",
-    });
-  }
-  await fetchClients();
-  setModal(null);
-};
-const deleteClient = async (clientId) => {
-  if (!window.confirm("Delete this client permanently?")) return;
- 
-  await supabase
-    .from("client_data")
-    .delete()
-    .eq("client_id", clientId);
- 
-  const { error } = await supabase
-    .from("clients")
-    .delete()
-    .eq("id", clientId);
- 
-  if (error) {
-    console.error("FAILED TO DELETE CLIENT", error);
-    alert("Failed to delete client");
-    return;
-  }
- 
-  await fetchClients();
- 
-  if (selected === clientId) {
-    setSelected(null);
-  }
-};
-const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>saveProfilePhoto(ev.target.result);r.readAsDataURL(f);};
-const promoteFromWaitlist=async p=>{
-  const color=COLORS[Math.floor(Math.random()*COLORS.length)];
-  const payload={name:p.name,age:0,goals:normalizeGoals(p.goals || p.goal),weight:0,color,phone:p.phone||"",email:p.email||"",injuries:p.injuries||"",notes:p.notes||"",medicalIssues:p.medicalIssues||"",barriers:p.barriers||"",sleep:p.sleep||"",neat:p.neat||"",work:p.work||"",sessions:0,sessionsBooked:0,trials:1};
-  const { data: created, error } = await supabase.from("clients").insert({name:payload.name,goal:goalDbValue(payload),age:0,weight_kg:0,phone:payload.phone,email:payload.email,injuries:payload.injuries,notes:payload.notes,sessions_booked:0,sessions_conducted:0,trials:1}).select();
-  if(error){ console.error("Promote trial failed", error); alert("Failed to promote trial"); return; }
-  const newId=created?.[0]?.id;
-  if(newId){
-    await saveClientDataSection(newId,"profile",{goals:payload.goals,injuries:normalizeInjuries(payload.injuries),medicalIssues:payload.medicalIssues,barriers:payload.barriers,sleep:payload.sleep,neat:payload.neat,work:payload.work,notes:payload.notes});
-  }
-  const next=waitlist.filter(x=>x.id!==p.id);
-  setWaitlist(next); storeLocal("forgeTrials", next);
-  await fetchClients();
-};
-const totalRev=clients.flatMap(c=>c.packages||[]).filter(p=>p.paid).reduce((a,p)=>a+p.price,0);
-const totalSessions=clients.reduce((a,c)=>a+(c.sessions||0),0);
-const bookedSessions=clients.reduce((a,c)=>a+(c.schedule?.length||0),0);
-const outstanding=clients.flatMap(c=>c.packages||[]).filter(p=>!p.paid).reduce((a,p)=>a+p.price,0);
-const getLatestSession=()=>{
-if(!sc?.program?.weekLogs)return null;
-for(let wi=sc.program.weekLogs.length-1;wi>=0;wi--){
-for(let di=sc.program.days.length-1;di>=0;di--){
-const d=sc.program.weekLogs[wi]?.days[di];
-if(d&&(d.date||d.sessionData.some(e=>e.sets.some(s=>s.weight))))return d;
-}
-}
-return null;
-};
-return(<>
-<style>{`
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:#0a0a0a;font-family:'DM Sans',sans-serif;color:#fff;}
-::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:#111;}::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px;}
-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
-input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.4);}
-input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.4);}
-`}</style>
-<input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
-<div style={{minHeight:"100vh",background:"#0a0a0a",maxWidth:920,margin:"0 auto",padding:20}}>
-{appView==="clients"&&(<>
-<div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:28}}>
-<div><div style={{fontSize:11,color:"#444",letterSpacing:3,fontFamily:"monospace",marginBottom:3}}>PERSONAL TRAINING</div><div style={{fontSize:46,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:2,lineHeight:1}}>MY CLIENTS</div></div>
-<div style={{display:"flex",gap:8}}>
-<button onClick={()=>setAppView("waitlist")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600,position:"relative"}}>Trials{waitlist.length>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#FF6B6B",borderRadius:"50%",width:18,height:18,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{waitlist.length}</span>}</button>
-<button onClick={()=>setAppView("calendar")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>📅 Calendar</button>
-<button onClick={()=>setModal("addClient")} style={{background:"#E8C547",color:"#000",border:"none",borderRadius:9,padding:"10px 18px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ NEW CLIENT</button>
-</div>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:24}}>
-{[{l:"Clients",v:clients.length},{l:"Booked Sessions",v:bookedSessions,warn:bookedSessions>0},{l:"Trials",v:waitlist.length},{l:"Calendar Bookings",v:calendarBookings.length}].map(({l,v,warn})=><div key={l} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}><div style={{fontSize:24,fontFamily:"'Bebas Neue',sans-serif",color:warn?"#FF6B6B":"#fff"}}>{v}</div><div style={{fontSize:10,color:"#555",letterSpacing:1,fontFamily:"monospace"}}>{l.toUpperCase()}</div></div>)}
-</div>
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{clients.map(c=>{
-const delta=c.progress.length>=2?c.progress.at(-1).weight-c.progress.at(-2).weight:0;
-const pkg=c.packages?.find(p=>p.used<p.total);
-const rem=pkg?pkg.total-pkg.used:null;
-const hasInj=c.injuries?.length>0;
-return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:13,padding:"14px 18px",cursor:"pointer",transition:"all 0.15s",display:"grid",gridTemplateColumns:"auto 1fr auto auto",gap:14,alignItems:"center"}} onMouseEnter={e=>{e.currentTarget.style.border=`1px solid ${c.color}44`;e.currentTarget.style.background="#141414";}} onMouseLeave={e=>{e.currentTarget.style.border="1px solid #1e1e1e";e.currentTarget.style.background="#111";}}>
-<div style={{width:46,height:46,borderRadius:"50%",overflow:"hidden",border:`2px solid ${c.color}`,flexShrink:0}}>
-{c.photo?<img src={c.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:c.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:13,color:c.color,fontFamily:"'Bebas Neue',sans-serif"}}>{c.avatar}</div>}
-</div>
-<div>
-<div style={{display:"flex",alignItems:"center",gap:7}}>
-<span style={{fontWeight:700,fontSize:14}}>{c.name}</span>
-{hasInj&&<span title={c.injuries.join(", ")} style={{fontSize:11,color:"#FF6B6B"}}>⚠</span>}
-{c.packages?.some(p=>!p.paid)&&<span style={{fontSize:10,background:"#FF6B6B22",color:"#FF6B6B",padding:"1px 7px",borderRadius:20,fontWeight:600}}>UNPAID</span>}
-</div>
-<div style={{display:"flex",gap:7,marginTop:3,flexWrap:"wrap"}}>
-<span style={{fontSize:11,color:"#555"}}>Age {c.age}</span>
-<span style={{fontSize:11,background:GOAL_COLORS[primaryGoal(c)]+"22",color:GOAL_COLORS[primaryGoal(c)],padding:"1px 8px",borderRadius:20,fontWeight:600}}>{goalLabel(c)}</span>
-{rem!=null&&<span style={{fontSize:11,color:"#555"}}>{rem} sessions left</span>}
-{c.program&&<span style={{fontSize:11,color:"#444"}}>📋 {c.program.name}</span>}
-</div>
-</div>
-<div style={{opacity:.7}}><Spark data={c.progress} field="weight" color={c.color}/></div>
-<div style={{textAlign:"right"}}>
-<div style={{fontSize:19,fontFamily:"'Bebas Neue',sans-serif"}}>{c.weight}<span style={{fontSize:11,color:"#555"}}> kg</span></div>
-{delta!==0&&<div style={{fontSize:11,color:delta<0?"#4ECDC4":"#FF6B6B",fontWeight:600}}>{delta>0?"+":""}{delta.toFixed(1)} kg</div>}
-</div>
-</div>);
-})}
-</div>
-</>)}
-{appView==="revenue"&&(<>
-<div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
-<button onClick={()=>setAppView("clients")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:18}}>←</button>
-<div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SESSIONS DASHBOARD</div>
-</div>
-<RevenueDash clients={clients}/>
-</>) }
- 
-{appView==="calendar"&&(<>
-<div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
-<button onClick={()=>setAppView("clients")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:18}}>←</button>
-<div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>CALENDAR</div>
-</div>
-<CalendarTab clients={clients} bookings={calendarBookings} setBookings={setCalendarBookings}/>
-</>) }
-{appView==="waitlist"&&(<>
-<div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
-<button onClick={()=>setAppView("clients")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:18}}>←</button>
-<div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>TRIALS</div>
-</div>
-<WaitlistPanel waitlist={waitlist} setWaitlist={setWaitlist} onPromote={promoteFromWaitlist}/>
-</>)}
-{appView==="client"&&sc&&(<>
-<div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22}}>
-<button onClick={goBack} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:18}}>←</button>
-<div onClick={()=>photoRef.current.click()} title="Click to upload photo" style={{width:54,height:54,borderRadius:"50%",overflow:"hidden",border:`2px solid ${sc.color}`,cursor:"pointer",flexShrink:0,position:"relative"}}>
-{sc.photo?<img src={sc.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:sc.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:15,color:sc.color,fontFamily:"'Bebas Neue',sans-serif"}}>{sc.avatar}</div>}
-</div>
-<div style={{flex:1}}>
-<div style={{display:"flex",alignItems:"center",gap:8}}>
-<div style={{fontSize:26,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>{sc.name}</div>
-{sc.injuries?.length>0&&<span title={sc.injuries.join(", ")} style={{fontSize:12,color:"#FF6B6B",cursor:"help"}}>⚠ Injury flag</span>}
-</div>
-<div style={{display:"flex",gap:7,marginTop:2,flexWrap:"wrap"}}>
-<span style={{fontSize:11,color:"#555"}}>Age {sc.age}</span>
-<span style={{fontSize:11,background:GOAL_COLORS[primaryGoal(sc)]+"22",color:GOAL_COLORS[primaryGoal(sc)],padding:"1px 8px",borderRadius:20,fontWeight:600}}>{goalLabel(sc)}</span>
-</div>
-</div>
-<div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-<button onClick={()=>exportPDF(sc)} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#aaa",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>⬇ PDF</button>
-<button
-  onClick={() => deleteClient(sc.id)}
-  style={{
-    background:"#8B0000",
-    color:"#fff",
-    border:"none",
-    borderRadius:8,
-    padding:"7px 12px",
-    cursor:"pointer"
-  }}
->
-  Delete
-</button>
-{sc.program&&<button onClick={()=>{const s=getLatestSession();if(s)setRecapSession(s);}} style={{background:"#A78BFA22",border:"1px solid #A78BFA44",color:"#A78BFA",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>✦ Recap</button>}
-<button onClick={()=>setModal("progress")} style={{background:sc.color,color:"#000",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ LOG</button>
-</div>
-</div>
-{sc.injuries?.length>0&&<div style={{background:"#1a0808",border:"1px solid #FF6B6B33",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#FF6B6B"}}>⚠ {sc.injuries.join(" · ")}</div>}
-<div style={{display:"flex",gap:3,marginBottom:18,background:"#111",border:"1px solid #1e1e1e",borderRadius:10,padding:3,overflowX:"auto"}}>
-{["overview","profile","nutrition","progress","body","photos","program","schedule","packages"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,minWidth:70,background:tab===t?sc.color:"transparent",color:tab===t?"#000":"#555",border:"none",borderRadius:7,padding:"7px 4px",cursor:"pointer",fontWeight:700,fontSize:10,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:.5,transition:"all 0.15s",whiteSpace:"nowrap"}}>{t.toUpperCase()}</button>)}
-</div>
-{tab==="overview"&&<div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
-{[{l:"Weight",v:`${sc.weight} kg`},{l:"Sessions",v:sc.sessions||0},{l:"Streak",v:(() => { let s=0; const ci=sc.checkIns||[]; for(let i=ci.length-1;i>=0;i--){if(ci[i])s++;else break;} return `${s} 🔥`; })()}].map(({l,v})=><div key={l} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"13px 15px"}}><div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif"}}>{v}</div><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>{l.toUpperCase()}</div></div>)}
-</div>
-{sc.progress.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:14}}>
-{LIFT_FIELDS.map(({key,label})=>{const val=sc.progress.at(-1)[key];const prev=sc.progress.length>=2?sc.progress.at(-2)[key]:null;const d=val&&prev?val-prev:0;const prs=getPRs(sc.progress);const isPR=val&&val>=prs[key];return(<div key={key} style={{background:"#111",border:`1px solid ${isPR?sc.color+"44":"#1e1e1e"}`,borderRadius:12,padding:"13px 15px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",color:sc.color}}>{val||"—"}<span style={{fontSize:11,color:"#555"}}> kg</span></div><div style={{fontSize:11,color:"#555"}}>{label}{isPR&&<span style={{marginLeft:6,color:"#E8C547",fontSize:10}}>🏆 PR</span>}</div></div>{d!==0&&<div style={{fontSize:12,color:d>0?"#6EE7B7":"#FF6B6B",fontWeight:700}}>{d>0?"+":""}{d}</div>}</div>);})}
-</div>}
-{sc.progress.length>=2&&<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:18}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:10}}>WEIGHT TREND</div><Spark data={sc.progress} field="weight" color={sc.color}/></div>}
-</div>}
-{tab==="progress"&&<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:22}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:14}}>PROGRESS CHARTS</div>
-<Chart data={sc.progress} color={sc.color}/>
-{sc.progress.length>0&&<div style={{marginTop:22}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:8}}>HISTORY</div>
-{[...sc.progress].reverse().map((p,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"55px repeat(5,1fr)",gap:6,padding:"7px 10px",background:"#161616",borderRadius:8,fontSize:12,marginBottom:4}}>
-<span style={{color:"#555"}}>{p.date}</span><span>{p.weight}kg</span><span style={{color:"#777"}}>B:{p.benchPress||"—"}</span><span style={{color:"#777"}}>S:{p.squat||"—"}</span><span style={{color:"#777"}}>D:{p.deadlift||"—"}</span><span style={{color:"#777"}}>BF:{p.bodyFat||"—"}%</span>
-</div>)}
-</div>}
-</div>}
-{tab==="body"&&<BodyTab client={sc} onUpdate={saveMeasurements}/>}
-{tab==="profile"&&<ClientProfileTab client={sc} onSave={saveClientProfile}/>}
-{tab==="nutrition"&&<NutritionTab client={sc} onSave={saveNutrition}/>}
-{tab==="photos"&&<PhotosTab client={sc} onUpdate={p=>savePhotos(p.photos||[])}/>}
-{tab==="program"&&<div>
-{sc.program?(<>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
-<div><div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>{sc.program.name}</div><div style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{sc.program.totalWeeks} WEEKS · {sc.program.days.length} DAYS/WEEK</div></div>
-<div style={{display:"flex",gap:7}}>
-<button onClick={()=>setModal("aiProgram")} style={{background:"#1a1a1a",border:`1px solid ${sc.color}44`,color:sc.color,borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>✦ Regenerate</button>
-<button onClick={()=>setModal("program")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12}}>Edit</button>
-</div>
-</div>
-<SessionTracker client={sc} onUpdate={updateProgram}/>
-</>):(<div style={{textAlign:"center",padding:"60px 0"}}>
-<div style={{fontSize:44,marginBottom:14}}>📋</div>
-<div style={{fontSize:15,fontWeight:600,marginBottom:7}}>No program yet</div>
-<div style={{color:"#555",fontSize:13,marginBottom:22}}>Build manually or generate with AI</div>
-<div style={{display:"flex",gap:10,justifyContent:"center"}}>
-<button onClick={()=>setModal("aiProgram")} style={{background:sc.color,color:"#000",border:"none",borderRadius:10,padding:"11px 22px",fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>✦ AI GENERATE</button>
-<button onClick={()=>setModal("program")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:10,padding:"11px 22px",fontWeight:700,fontSize:13,cursor:"pointer"}}>Build Manually</button>
-</div>
-</div>)}
-</div>}
-{tab==="schedule"&&<ScheduleTab client={sc} onUpdate={saveSchedule}/>}
-{tab==="packages"&&<PackagesTab client={sc} onUpdate={savePackages}/>}
-{tab==="notes"&&<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:22}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:10}}>COACH NOTES</div>
-<div style={{marginBottom:14}}>
-<div style={{fontSize:11,color:"#555",marginBottom:6}}>Injuries / Limitations</div>
-{(sc.injuries||[]).map((inj,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#1a0808",border:"1px solid #FF6B6B22",borderRadius:8,marginBottom:5,fontSize:12,color:"#FF6B6B"}}>{inj}<button onClick={()=>saveInjuries(sc.injuries.filter((_,j)=>j!==i))} style={{background:"transparent",border:"none",color:"#FF6B6B44",cursor:"pointer",fontSize:14}}>✕</button></div>)}
-<div style={{display:"flex",gap:7,marginTop:6}}>
-<input id="injInput" placeholder="Add injury or limitation..." style={{flex:1,background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:12,outline:"none"}} onKeyDown={e=>{if(e.key==="Enter"&&e.target.value){saveInjuries([...(sc.injuries||[]),e.target.value]);e.target.value=""}}}/>
-</div>
-</div>
-<textarea value={sc.notes} onChange={(e) => {
-  patch(selected, { notes: e.target.value });
-  saveNotes(e.target.value);
-}} placeholder="Coaching notes, observations, goals..." style={{width:"100%",minHeight:240,background:"#161616",border:"1px solid #222",borderRadius:10,padding:14,color:"#ccc",fontSize:14,lineHeight:1.6,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif"}}/>
-</div>}
-</>)}
-</div>
-{modal==="addClient"&&<AddClient onSave={addClient} onClose={()=>setModal(null)}/>}
-{modal==="progress"&&sc&&<AddProgress client={sc} onSave={saveProgress} onClose={()=>setModal(null)}/>}
-{modal==="program"&&sc&&<ProgramBuilder client={sc} onSave={saveProgram} onClose={()=>setModal(null)}/>}
-{modal==="aiProgram"&&sc&&<AIProgram client={sc} onSave={saveAI} onClose={()=>setModal(null)}/>}
-{recapSession&&sc&&<AIRecap client={sc} session={recapSession} onClose={()=>setRecapSession(null)}/>}
-</>);
-}
+function Style(){return <style>{`
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+:root{--bg:#070707;--card:#111;--line:#242424;--text:#f8f8f8;--muted:#9a9a9a;--gold:#e8c547;--red:#ff4d4d;--blue:#4cc9f0}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#1b1b1b,#070707 42%);color:var(--text);font-family:Inter,system-ui;min-height:100vh}button,input,select,textarea{font:inherit}input,select,textarea{width:100%;background:#171717;border:1px solid #333;color:#fff;border-radius:12px;padding:11px;outline:none}textarea{min-height:90px}.page{max-width:1200px;margin:0 auto;padding:34px 20px 80px}.hero,.clientHero{display:flex;gap:18px;align-items:center;justify-content:space-between;margin-bottom:28px}.eyebrow{letter-spacing:.38em;color:#777;font-size:13px}.hero h1{font-family:'Bebas Neue';font-size:70px;line-height:.9;margin:14px 0}.actions,.row,.chips{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.btn{border:1px solid #333;background:#171717;color:#ddd;border-radius:14px;padding:12px 18px;font-weight:800;cursor:pointer}.btn.gold{background:var(--gold);color:#090909;border-color:var(--gold)}.btn.danger{background:#a30000;color:white;border-color:#d00000}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:30px}.stats>div{background:linear-gradient(180deg,#151515,#101010);border:1px solid var(--line);border-radius:24px;padding:28px;text-align:center}.stats b{font-family:'Bebas Neue';font-size:44px}.stats span{display:block;color:#777;letter-spacing:.25em;text-transform:uppercase;font-size:12px}.clientList{display:grid;gap:16px}.clientCard{display:flex;align-items:center;gap:20px;background:linear-gradient(135deg,#141414,#0f0f0f);border:1px solid var(--line);border-radius:26px;padding:24px;cursor:pointer}.clientCard:hover{border-color:#555}.avatar{width:74px;height:74px;border:4px solid var(--gold);border-radius:50%;display:grid;place-items:center;font-weight:900;overflow:hidden;background:#222}.avatar.big{width:96px;height:96px}.avatar img{width:100%;height:100%;object-fit:cover}.grow{flex:1}.clientCard h2{margin:0 0 8px;font-size:26px}.weight b{font-family:'Bebas Neue';font-size:42px}.weight span{color:#999;margin-left:3px}.pill{display:inline-flex;border:1px solid var(--gold);background:#e8c54722;border-radius:999px;padding:7px 12px;margin-left:7px;font-weight:800}.panel{background:linear-gradient(180deg,#121212,#0e0e0e);border:1px solid var(--line);border-radius:26px;padding:24px;margin-bottom:22px}.panel h2{font-family:'Bebas Neue';font-size:36px;letter-spacing:.05em;margin:0 0 18px}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.field{display:block;margin-bottom:14px}.field span{display:block;color:#aaa;font-size:12px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:7px}.goalGrid{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.goal{background:#171717;border:1px solid #333;color:#ddd;border-radius:999px;padding:10px 14px}.goal.on{background:#e8c547;color:#090909;border-color:#e8c547;font-weight:900}.tabs{display:flex;gap:8px;overflow:auto;border-bottom:1px solid #222;margin-bottom:22px}.tabs button{white-space:nowrap;background:transparent;border:0;color:#888;padding:18px 16px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.tabs button.active{color:var(--gold);border-bottom:3px solid var(--gold)}.tabs.small{border:0;margin:10px 0}.tabs.small button{background:#171717;border:1px solid #333;border-radius:12px;padding:10px 13px}.titleInput{font-family:'Bebas Neue';font-size:52px;background:transparent;border:0;padding:0}.dayCard{background:#151515;border:1px solid #292929;border-radius:20px;padding:18px;margin:15px 0}.dayName{font-size:22px;font-weight:900}.exercise,.food{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:10px;align-items:center;background:#101010;border:1px solid #242424;border-radius:14px;padding:10px;margin:8px 0}.exercise button,.food button{background:transparent;border:0;color:#ff6b6b;font-weight:900}.miniList{display:flex;gap:8px;flex-wrap:wrap}.miniList span{background:#1d1d1d;color:#aaa;border-radius:999px;padding:7px 10px}.macroGrid,.macroSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.macroSummary div{border:1px solid #333;border-radius:20px;padding:18px;text-align:center}.macroSummary b{font-family:'Bebas Neue';font-size:34px}.macroSummary span{display:block;color:#aaa}.meal h3{text-transform:capitalize;color:var(--gold)}.food{grid-template-columns:2fr 1fr auto}.food small{grid-column:1/-1;color:#777}.aiBox{background:#0b1b1f;border:1px solid #164e63;color:#c2f4ff;padding:16px;border-radius:18px;line-height:1.6;margin:16px 0}.photoGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}.photo{background:#151515;border:1px solid #333;border-radius:20px;padding:12px}.photo img{width:100%;height:180px;object-fit:cover;border-radius:14px;margin-bottom:8px}.calendar{display:grid;grid-template-columns:88px repeat(7,minmax(120px,1fr));overflow:auto}.calendar>b,.calendar>strong,.slot{border:1px solid #252525;min-height:52px;padding:8px}.calendar>b{position:sticky;top:0;background:#151515;text-align:center}.calendar>strong{color:#eee}.slot span{display:block;color:#111;border-radius:12px;padding:8px;font-weight:900}.slot small{display:block;font-size:10px;color:#222}.modal{position:fixed;inset:0;background:#000b;display:grid;place-items:center;z-index:20;padding:18px}.modalCard{background:#111;border:1px solid #333;border-radius:24px;padding:24px;width:min(520px,100%);max-height:90vh;overflow:auto}.modalCard.wide{width:min(900px,100%)}.auth{min-height:100vh;display:grid;place-items:center;padding:20px}.authCard{width:min(460px,100%);background:#111;border:1px solid #333;border-radius:30px;padding:34px}.authCard h1{font-family:'Bebas Neue';font-size:56px;margin:10px 0}.link{background:transparent;border:0;color:var(--gold);margin-top:16px}.error{background:#3b0b0b;color:#ffb3b3;padding:12px;border-radius:12px;margin:10px 0}.check{display:block;margin:10px 0;color:#ddd}.check input{width:auto;margin-right:8px}@media(max-width:760px){.page{padding:22px 14px}.hero,.clientHero{align-items:flex-start;flex-direction:column}.hero h1{font-size:58px}.stats,.grid2,.macroGrid,.macroSummary{grid-template-columns:1fr 1fr}.clientCard{padding:18px}.avatar{width:62px;height:62px}.exercise{grid-template-columns:1fr 70px}.calendar{grid-template-columns:72px repeat(7,110px)}}
+`}</style>}
