@@ -1,7 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+
+import { useState, useRef, useEffect, Fragment } from "react";
 import { supabase } from "./supabaseClient.js";
 // ── Constants ─────────────────────────────────────────────────────────────────
-const GOAL_COLORS = { "Muscle Gain":"#E8C547","Fat Loss":"#FF6B6B","Strength":"#4ECDC4","Endurance":"#A78BFA","General Fitness":"#6EE7B7" };
+const GOAL_COLORS = { "Muscle Gain":"#E8C547","Fat Loss":"#FF6B6B","Strength":"#4ECDC4","Endurance":"#A78BFA","General Fitness":"#6EE7B7","Mobility":"#60A5FA","Rehab":"#F472B6","Lifestyle":"#FB923C" };
+const GOAL_OPTIONS = ["Fat Loss","Muscle Gain","Strength","Endurance","Mobility","General Fitness","Rehab","Lifestyle"];
+const DEFAULT_PROFILE = {goals:[],injuries:[],medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""};
+const DEFAULT_NUTRITION = {calories:"",protein:"",carbs:"",fats:"",notes:"",days:["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day=>({day,meals:{breakfast:[],lunch:[],dinner:[],snacks:[]}}))};
 const LIFT_FIELDS = [{key:"benchPress",label:"Bench"},{key:"squat",label:"Squat"},{key:"deadlift",label:"Deadlift"},{key:"ohp",label:"OHP"}];
 const MEAS_FIELDS = [{key:"waist",label:"Waist"},{key:"chest",label:"Chest"},{key:"arms",label:"Arms"},{key:"hips",label:"Hips"},{key:"thighs",label:"Thighs"},{key:"bodyFat",label:"Body Fat %"}];
 const EXERCISE_LIBRARY = [
@@ -90,6 +94,22 @@ if(Array.isArray(injuries)) return injuries;
 if(typeof injuries === "string") return injuries.split(";").map(i=>i.trim()).filter(Boolean);
 return [];
 }
+ 
+function normalizeGoals(goal){
+if(!goal) return [];
+if(Array.isArray(goal)) return goal.filter(Boolean);
+if(typeof goal === "string") return goal.split(/[;,]/).map(g=>g.trim()).filter(Boolean);
+return [];
+}
+function primaryGoal(client){ return normalizeGoals(client.goals || client.goal)[0] || "General Fitness"; }
+function goalLabel(client){ const gs=normalizeGoals(client.goals || client.goal); return gs.length?gs.join(" + "):"General Fitness"; }
+function goalDbValue(data){ const gs=normalizeGoals(data.goals || data.goal); return gs.length?gs.join("; "):(data.goal || "General Fitness"); }
+function profileFromClient(client){ return {...DEFAULT_PROFILE, goals:normalizeGoals(client.goals || client.goal), injuries:normalizeInjuries(client.injuries), notes:client.notes || "", ...(client.profile || {})}; }
+function emptyNutrition(){ return JSON.parse(JSON.stringify(DEFAULT_NUTRITION)); }
+function normalizeNutrition(nutrition){ const base=emptyNutrition(); if(!nutrition) return base; return {...base,...nutrition,days:Array.isArray(nutrition.days)&&nutrition.days.length?nutrition.days:base.days}; }
+function loadStored(key, fallback){ try{ const raw=localStorage.getItem(key); return raw?JSON.parse(raw):fallback; }catch(e){ return fallback; } }
+function storeLocal(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.warn("Local save failed", key, e); } }
+ 
 function getClientColor(goal,id){
 if(GOAL_COLORS[goal]) return GOAL_COLORS[goal];
 const seed = String(id||"").split("").reduce((sum,ch)=>sum+ch.charCodeAt(0),0);
@@ -100,6 +120,7 @@ const client = {
   id: row.id,
   name: row.name || "",
   goal: row.goal || "General Fitness",
+  goals: normalizeGoals(row.goal || "General Fitness"),
   age: row.age ?? 0,
   weight: row.weight_kg ?? 0,
   phone: row.phone || "",
@@ -112,7 +133,7 @@ const client = {
   created_at: row.created_at,
   joinDate: row.created_at ? new Date(row.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
   avatar: row.name ? row.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2) : "??",
-  color: getClientColor(row.goal, row.id),
+  color: getClientColor(normalizeGoals(row.goal)[0] || row.goal, row.id),
   photo: row.photo || null,
   packages: row.packages || [],
   checkIns: row.checkIns || [],
@@ -121,6 +142,8 @@ const client = {
   measurements: row.measurements || {},
   program: row.program || null,
   nutrition: row.nutrition || null,
+  profile: null,
+  photos: row.photos || [],
   waitlist: false,
 };
 if(sections.progress){
@@ -137,12 +160,21 @@ if(sections.details){
   client.injuries = normalizeInjuries(sections.details.injuries) || client.injuries;
   client.photo = sections.details.photo ?? client.photo;
   client.packages = sections.details.packages || client.packages;
+  client.photos = sections.details.photos || client.photos || [];
+  if(sections.details.goals) client.goals = normalizeGoals(sections.details.goals);
+  if(sections.details.profile) client.profile = sections.details.profile;
+}
+if(sections.profile){
+  client.profile = sections.profile;
+  client.goals = normalizeGoals(sections.profile.goals || client.goals);
+  client.injuries = normalizeInjuries(sections.profile.injuries || client.injuries);
+  client.notes = sections.profile.notes ?? client.notes;
 }
 if(sections.program){
   client.program = sections.program;
 }
 if(sections.nutrition){
-  client.nutrition = sections.nutrition;
+  client.nutrition = normalizeNutrition(sections.nutrition);
 }
 return client;
 }
@@ -170,7 +202,16 @@ function mergeClientDataIntoClient(client, rows) {
         merged.program = data;
         break;
       case "nutrition":
-        merged.nutrition = data;
+        merged.nutrition = normalizeNutrition(data);
+        break;
+      case "profile":
+        merged.profile = data;
+        merged.goals = normalizeGoals(data.goals || merged.goals);
+        merged.injuries = normalizeInjuries(data.injuries || merged.injuries);
+        merged.notes = data.notes ?? merged.notes;
+        break;
+      case "transformPhotos":
+        merged.photos = Array.isArray(data.photos) ? data.photos : [];
         break;
       case "progress":
         if(Array.isArray(data.progress)) merged.progress = data.progress;
@@ -192,6 +233,9 @@ function mergeClientDataIntoClient(client, rows) {
         if(data.injuries != null) merged.injuries = normalizeInjuries(data.injuries);
         if(data.photo != null) merged.photo = data.photo;
         if(Array.isArray(data.packages)) merged.packages = data.packages;
+        if(Array.isArray(data.photos)) merged.photos = data.photos;
+        if(data.profile) merged.profile = data.profile;
+        if(data.goals) merged.goals = normalizeGoals(data.goals);
         break;
     }
   });
@@ -201,7 +245,9 @@ async function persistClientDataSections(client, changes) {
   if(!client?.id) return;
   const tasks = [];
   if(changes.program != null) tasks.push(saveClientDataSection(client.id, "program", client.program || {}));
-  if(changes.nutrition != null) tasks.push(saveClientDataSection(client.id, "nutrition", client.nutrition || {}));
+  if(changes.nutrition != null) tasks.push(saveClientDataSection(client.id, "nutrition", normalizeNutrition(client.nutrition)));
+ if(changes.profile != null || changes.goals != null || changes.medicalIssues != null || changes.barriers != null || changes.sleep != null || changes.neat != null || changes.work != null) tasks.push(saveClientDataSection(client.id, "profile", profileFromClient(client)));
+ if(changes.photos != null) tasks.push(saveClientDataSection(client.id, "transformPhotos", {photos: client.photos || []}));
   if(changes.progress != null || changes.measurements != null || changes.weight != null || changes.sessions != null || changes.sessionsBooked != null || changes.trials != null) {
     tasks.push(saveClientDataSection(client.id, "progress", {
       progress: client.progress || [],
@@ -443,7 +489,7 @@ return(<div key={ei} style={{borderBottom:"1px solid #191919",padding:"12px 0"}}
 </div>)}
 </div>);
 }
-
+ 
 // ── AI Program Generator ──────────────────────────────────────────────────────
 function AIProgram({client,onSave,onClose}){
 const [extra,setExtra]=useState("");
@@ -480,7 +526,7 @@ body: <span style={{color:GOAL_COLORS[client.goal]}}>{client.goal}</span> · Age
 </div>
 </div>);
 }
-
+ 
 // ── AI Session Recap ──────────────────────────────────────────────────────────
 function AIRecap({client,session,onClose}){
 const [recap,setRecap]=useState("");
@@ -509,7 +555,7 @@ return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zInde
 </div>
 </div>);
 }
-
+ 
 // ── Program Builder ───────────────────────────────────────────────────────────
 function ProgramBuilder({client,onSave,onClose}){
 const [name,setName]=useState(client.program?.name||`${client.name}'s Program`);
@@ -560,7 +606,7 @@ return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zInde
 </div>
 </div>);
 }
-
+ 
 // ── Packages & Billing ────────────────────────────────────────────────────────
 function PackagesTab({client,onUpdate}){
 const pkgs=client.packages||[];
@@ -611,7 +657,7 @@ return(<div key={p.id} style={{background:"#111",border:`1px solid ${p.paid?"#1e
 </div>):(<button onClick={()=>setAdding(true)} style={{width:"100%",background:"#111",border:"1px dashed #2a2a2a",borderRadius:12,padding:"12px 0",color:"#555",cursor:"pointer",fontSize:13}}>+ Add Package</button>)}
 </div>);
 }
-
+ 
 // ── Schedule Tab ──────────────────────────────────────────────────────────────
 function ScheduleTab({client,onUpdate}){
 const schedule=client.schedule||[];
@@ -653,7 +699,7 @@ return(<div>
 </div>
 </div>);
 }
-
+ 
 // ── Body / Measurements ───────────────────────────────────────────────────────
 function BodyTab({client,onUpdate}){
 const m=client.measurements||{};
@@ -675,44 +721,68 @@ return(<div>
 {client.progress?.length>=2&&<div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:20}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:14}}>TRENDS</div><Chart data={client.progress} color={client.color}/></div>}
 </div>);
 }
-
-// ── Photo Comparison ──────────────────────────────────────────────────────────
+ 
+ 
+// ── Client Profile ───────────────────────────────────────────────────────────
+function MultiGoalPicker({goals,onChange,color}){
+const current=normalizeGoals(goals);
+const toggle=g=>onChange(current.includes(g)?current.filter(x=>x!==g):[...current,g]);
+return(<div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{GOAL_OPTIONS.map(g=><button key={g} type="button" onClick={()=>toggle(g)} style={{background:current.includes(g)?(GOAL_COLORS[g]||color):"#161616",color:current.includes(g)?"#000":"#777",border:`1px solid ${current.includes(g)?(GOAL_COLORS[g]||color):"#2a2a2a"}`,borderRadius:20,padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:800}}>{g}</button>)}</div>);
+}
+function ClientProfileTab({client,onSave}){
+const [form,setForm]=useState(profileFromClient(client));
+useEffect(()=>setForm(profileFromClient(client)),[client.id]);
+const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+const save=()=>onSave({...form,injuries:normalizeInjuries(form.injuries),goals:normalizeGoals(form.goals)});
+const fields=[{k:"medicalIssues",l:"Medical Issues",p:"High BP, diabetes, medication, cleared conditions..."},{k:"barriers",l:"Barriers",p:"Time, motivation, pain, travel, nutrition compliance..."},{k:"sleep",l:"Sleep",p:"Hours, quality, bedtime, wake time..."},{k:"neat",l:"NEAT / Daily Activity",p:"Steps, standing hours, active job, sedentary work..."},{k:"work",l:"Work Schedule",p:"Shifts, busy days, travel, stressful periods..."}];
+return(<div style={{background:"linear-gradient(180deg,#111,#0d0d0d)",border:"1px solid #1e1e1e",borderRadius:16,padding:22}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}><div><div style={{fontSize:18,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>CLIENT PROFILE</div><div style={{fontSize:12,color:"#555"}}>Goals, risks, lifestyle, and coaching context</div></div><button onClick={save} style={{background:client.color,color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:900,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SAVE PROFILE</button></div>
+<div style={{marginBottom:16}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:8}}>GOALS - MULTI SELECT</div><MultiGoalPicker goals={form.goals} onChange={v=>set("goals",v)} color={client.color}/></div>
+<div style={{marginBottom:16}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>INJURIES / LIMITATIONS</div><textarea value={Array.isArray(form.injuries)?form.injuries.join("; "):form.injuries||""} onChange={e=>set("injuries",e.target.value)} placeholder="Lower back pain; knee pain; shoulder limitation..." style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:10,padding:12,color:"#eee",minHeight:70,outline:"none",fontFamily:"'DM Sans',sans-serif"}}/></div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>{fields.map(({k,l,p})=><div key={k} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:13}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>{l.toUpperCase()}</div><textarea value={form[k]||""} onChange={e=>set(k,e.target.value)} placeholder={p} style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:9,padding:10,color:"#ddd",minHeight:88,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif",fontSize:13,lineHeight:1.5}}/></div>)}</div>
+<div style={{marginTop:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>COACH NOTES</div><textarea value={form.notes||""} onChange={e=>set("notes",e.target.value)} placeholder="Coaching notes, observations, communication style, follow-up reminders..." style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:10,padding:12,color:"#ddd",minHeight:150,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif",fontSize:14,lineHeight:1.6}}/></div>
+</div>);
+}
+ 
+// ── Nutrition Planner ────────────────────────────────────────────────────────
+function NutritionTab({client,onSave}){
+const [plan,setPlan]=useState(normalizeNutrition(client.nutrition));
+useEffect(()=>setPlan(normalizeNutrition(client.nutrition)),[client.id]);
+const setMacro=(k,v)=>setPlan(p=>({...p,[k]:v}));
+const addFood=(dayIndex,meal)=>setPlan(p=>({...p,days:p.days.map((d,i)=>i!==dayIndex?d:{...d,meals:{...d.meals,[meal]:[...(d.meals?.[meal]||[]),{id:Date.now(),food:"",portion:"",calories:"",protein:"",carbs:"",fats:""}]}})}));
+const updateFood=(dayIndex,meal,id,k,v)=>setPlan(p=>({...p,days:p.days.map((d,i)=>i!==dayIndex?d:{...d,meals:{...d.meals,[meal]:(d.meals?.[meal]||[]).map(f=>f.id===id?{...f,[k]:v}:f)}})}));
+const removeFood=(dayIndex,meal,id)=>setPlan(p=>({...p,days:p.days.map((d,i)=>i!==dayIndex?d:{...d,meals:{...d.meals,[meal]:(d.meals?.[meal]||[]).filter(f=>f.id!==id)}})}));
+const mealNames=["breakfast","lunch","dinner","snacks"];
+const dayTotals=d=>mealNames.flatMap(m=>d.meals?.[m]||[]).reduce((a,f)=>({calories:a.calories+Number(f.calories||0),protein:a.protein+Number(f.protein||0),carbs:a.carbs+Number(f.carbs||0),fats:a.fats+Number(f.fats||0)}),{calories:0,protein:0,carbs:0,fats:0});
+return(<div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>NUTRITION PROGRAM</div><div style={{fontSize:12,color:"#555"}}>Meal plan structure: targets, portions, macros, daily meals</div></div><button onClick={()=>onSave(plan)} style={{background:client.color,color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:900,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SAVE NUTRITION</button></div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>{[{k:"calories",l:"Calories",u:"kcal"},{k:"protein",l:"Protein",u:"g"},{k:"carbs",l:"Carbs",u:"g"},{k:"fats",l:"Fats",u:"g"}].map(x=><div key={x.k} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:13}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>{x.l.toUpperCase()}</div><input value={plan[x.k]||""} onChange={e=>setMacro(x.k,e.target.value)} placeholder={x.u} style={{width:"100%",marginTop:6,background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px 9px",color:"#fff",fontSize:18,fontFamily:"'Bebas Neue',sans-serif",outline:"none"}}/></div>)}</div>
+<textarea value={plan.notes||""} onChange={e=>setMacro("notes",e.target.value)} placeholder="Nutrition rules: water, cheat day, food swaps, allergies, preparation instructions..." style={{width:"100%",background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:13,color:"#ddd",minHeight:80,outline:"none",fontFamily:"'DM Sans',sans-serif",marginBottom:14}}/>
+{plan.days.map((d,di)=>{const totals=dayTotals(d);return <div key={d.day} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:15,marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:17,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>{d.day}</div><div style={{fontSize:11,color:"#777"}}>{totals.calories} kcal · P {totals.protein}g · C {totals.carbs}g · F {totals.fats}g</div></div>{mealNames.map(meal=><div key={meal} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}><div style={{fontSize:10,color:client.color,fontFamily:"monospace",letterSpacing:1}}>{meal.toUpperCase()}</div><button onClick={()=>addFood(di,meal)} style={{background:client.color+"22",border:`1px solid ${client.color}44`,color:client.color,borderRadius:7,padding:"3px 9px",cursor:"pointer",fontSize:11}}>+ food</button></div>{(d.meals?.[meal]||[]).map(f=><div key={f.id} style={{display:"grid",gridTemplateColumns:"1.6fr 1fr .7fr .6fr .6fr .6fr 26px",gap:6,marginBottom:5}}>{[{k:"food",p:"Food"},{k:"portion",p:"Portion"},{k:"calories",p:"kcal"},{k:"protein",p:"P"},{k:"carbs",p:"C"},{k:"fats",p:"F"}].map(inp=><input key={inp.k} value={f[inp.k]||""} onChange={e=>updateFood(di,meal,f.id,inp.k,e.target.value)} placeholder={inp.p} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"7px 8px",color:"#eee",fontSize:12,outline:"none"}}/>)}<button onClick={()=>removeFood(di,meal,f.id)} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer"}}>✕</button></div>)}</div>)}</div>})}
+</div>);
+}
+ 
+// ── Transform Photos ─────────────────────────────────────────────────────────
 function PhotosTab({client,onUpdate}){
 const photos=client.photos||[];
 const ref=useRef();
-const upload=e=>{
-const file=e.target.files[0];if(!file)return;
-const reader=new FileReader();
-reader.onload=ev=>onUpdate({photos:[...photos,{id:Date.now(),src:ev.target.result,date:new Date().toLocaleDateString(),label:""}]});
-reader.readAsDataURL(file);
-};
+const upload=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>onUpdate({photos:[...photos,{id:Date.now(),src:ev.target.result,date:new Date().toLocaleDateString(),type:"Progress",label:""}]});reader.readAsDataURL(file);};
 const del=id=>onUpdate({photos:photos.filter(p=>p.id!==id)});
-const updLabel=(id,label)=>onUpdate({photos:photos.map(p=>p.id===id?{...p,label}:p)});
-return(<div>
-<input ref={ref} type="file" accept="image/*" style={{display:"none"}} onChange={upload}/>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1}}>PROGRESS PHOTOS</div>
-<button onClick={()=>ref.current.click()} style={{background:client.color,color:"#000",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ ADD PHOTO</button>
-</div>
-{photos.length===0&&<div style={{background:"#111",border:"1px dashed #2a2a2a",borderRadius:12,padding:"50px 0",textAlign:"center",color:"#333",cursor:"pointer"}} onClick={()=>ref.current.click()}><div style={{fontSize:36,marginBottom:10}}>📷</div><div>Tap to add progress photos</div></div>}
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>
-{photos.map(p=><div key={p.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,overflow:"hidden"}}>
-<img src={p.src} alt="" style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",display:"block"}}/>
-<div style={{padding:"10px 12px"}}>
-<input value={p.label} onChange={e=>updLabel(p.id,e.target.value)} placeholder={p.date} style={{background:"transparent",border:"none",color:"#888",fontSize:12,outline:"none",width:"100%"}}/>
-<button onClick={()=>del(p.id)} style={{background:"transparent",border:"none",color:"#333",cursor:"pointer",fontSize:12,float:"right"}}>Remove</button>
-</div>
-</div>)}
-</div>
-{photos.length>=2&&<div style={{marginTop:20,background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:16}}>
-<div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:12}}>BEFORE / AFTER</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-{[photos[0],photos[photos.length-1]].map((p,i)=><div key={i}><img src={p.src} alt="" style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:10}}/><div style={{fontSize:11,color:"#555",textAlign:"center",marginTop:5}}>{i===0?"BEFORE":"LATEST"} · {p.date}</div></div>)}
-</div>
-</div>}
-</div>);
+const upd=(id,k,v)=>onUpdate({photos:photos.map(p=>p.id===id?{...p,[k]:v}:p)});
+return(<div><input ref={ref} type="file" accept="image/*" style={{display:"none"}} onChange={upload}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>TRANSFORM PHOTOS</div><div style={{fontSize:12,color:"#555"}}>Before, progress and after photos - saved after refresh</div></div><button onClick={()=>ref.current.click()} style={{background:client.color,color:"#000",border:"none",borderRadius:9,padding:"9px 15px",cursor:"pointer",fontWeight:900,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ ADD PHOTO</button></div>{photos.length===0&&<div style={{background:"#111",border:"1px dashed #2a2a2a",borderRadius:14,padding:"54px 0",textAlign:"center",color:"#333",cursor:"pointer"}} onClick={()=>ref.current.click()}><div style={{fontSize:40,marginBottom:10}}>📸</div><div>Add before / after / progress photos</div></div>}<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>{photos.map(p=><div key={p.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:13,overflow:"hidden"}}><img src={p.src} alt="" style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",display:"block"}}/><div style={{padding:12,display:"grid",gap:7}}><select value={p.type||"Progress"} onChange={e=>upd(p.id,"type",e.target.value)} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"7px 8px",color:"#eee"}}><option>Before</option><option>Progress</option><option>After</option></select><input value={p.label||""} onChange={e=>upd(p.id,"label",e.target.value)} placeholder={p.date} style={{background:"#161616",border:"1px solid #222",borderRadius:7,padding:"7px 8px",color:"#eee"}}/><button onClick={()=>del(p.id)} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",textAlign:"right"}}>Remove</button></div></div>)}</div>{photos.length>=2&&<div style={{marginTop:18,background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:16}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:12}}>TRANSFORMATION VIEW</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{[photos[0],photos[photos.length-1]].map((p,i)=><div key={i}><img src={p.src} alt="" style={{width:"100%",aspectRatio:"3/4",objectFit:"cover",borderRadius:10}}/><div style={{fontSize:11,color:"#555",textAlign:"center",marginTop:6}}>{i===0?"START":"LATEST"} · {p.type}</div></div>)}</div></div>}</div>);
 }
-
+ 
+// ── Weekly Calendar ──────────────────────────────────────────────────────────
+function CalendarTab({clients,bookings,setBookings}){
+const [form,setForm]=useState({day:"Monday",time:"06:00",name:"",type:"Client Session",clientId:""});
+const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const times=["05:30","06:00","07:00","08:00","09:00","10:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
+const saveBookings=next=>{setBookings(next);storeLocal("forgeCalendar",next);};
+const add=()=>{const client=clients.find(c=>String(c.id)===String(form.clientId));const name=form.name || client?.name || "Free Slot";saveBookings([...bookings,{id:Date.now(),...form,name,color:client?.color || (form.type==="Free Trial"?"#FF1E1E":"#E8C547")}]);setForm({...form,name:"",clientId:""});};
+const remove=id=>saveBookings(bookings.filter(b=>b.id!==id));
+const at=(day,time)=>bookings.filter(b=>b.day===day&&b.time===time);
+return(<div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>MY CALENDAR</div><div style={{fontSize:12,color:"#555"}}>Book clients, free trials and consultations. Empty cells show available time.</div></div></div><div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:14,marginBottom:14}}><div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr) auto",gap:8}}><select value={form.day} onChange={e=>setForm(f=>({...f,day:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}>{days.map(d=><option key={d}>{d}</option>)}</select><select value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}>{times.map(t=><option key={t}>{t}</option>)}</select><select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select><select value={form.clientId} onChange={e=>setForm(f=>({...f,clientId:e.target.value}))} style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}><option value="">No client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Name / trial" style={{background:"#161616",border:"1px solid #222",borderRadius:8,padding:"8px",color:"#fff"}}/><button onClick={add} style={{background:"#E8C547",color:"#000",border:"none",borderRadius:8,padding:"8px 13px",fontWeight:900,cursor:"pointer"}}>BOOK</button></div></div><div style={{overflowX:"auto",border:"1px solid #1e1e1e",borderRadius:14}}><div style={{display:"grid",gridTemplateColumns:"84px repeat(7,150px)",minWidth:1134,background:"#080808"}}><div style={{background:"#050505",padding:10,fontWeight:800,fontSize:12}}>TIME</div>{days.map(d=><div key={d} style={{background:"#050505",padding:10,fontWeight:800,textAlign:"center",borderLeft:"1px solid #222"}}>{d.slice(0,3).toUpperCase()}</div>)}{times.map(t=><Fragment key={t}><div style={{padding:10,borderTop:"1px solid #1e1e1e",fontWeight:800,color:"#ddd"}}>{t}</div>{days.map(d=><div key={d+t} style={{minHeight:62,padding:5,borderTop:"1px solid #1e1e1e",borderLeft:"1px solid #1e1e1e",background:"#050505"}}>{at(d,t).map(b=><div key={b.id} style={{background:b.color||"#4ECDC4",color:"#000",borderRadius:8,padding:"6px 7px",fontSize:12,fontWeight:900,marginBottom:4,position:"relative"}}><div>{b.name}</div><div style={{fontSize:9,opacity:.75}}>{b.type}</div><button onClick={()=>remove(b.id)} style={{position:"absolute",right:4,top:2,background:"transparent",border:"none",cursor:"pointer",fontWeight:900}}>×</button></div>)}</div>)}</Fragment>)}</div></div></div>);
+}
 // ── Sessions Dashboard ─────────────────────────────────────────────────────────
 function RevenueDash({clients}){
 const all=clients.flatMap(c=>(c.packages||[]).map(p=>({...p,client:c})));
@@ -744,33 +814,23 @@ return(<div>
 </div>}
 </div>);
 }
-
-// ── Trials Panel ──────────────────────────────────────────────────────────────────
+ 
+ 
+// ── Trials Panel ─────────────────────────────────────────────────────────────
 function WaitlistPanel({waitlist,setWaitlist,onPromote}){
 const [adding,setAdding]=useState(false);
-const [form,setForm]=useState({name:"",goal:"Muscle Gain",email:""});
-const add=()=>{if(!form.name)return;setWaitlist(w=>[...w,{id:Date.now(),...form,date:new Date().toLocaleDateString()}]);setAdding(false);setForm({name:"",goal:"Muscle Gain",email:""});};
+const [form,setForm]=useState({name:"",email:"",phone:"",goals:["Fat Loss"],injuries:"",medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""});
+const saveWaitlist=next=>{setWaitlist(next);storeLocal("forgeTrials",next);};
+const add=()=>{if(!form.name)return;saveWaitlist([...waitlist,{id:Date.now(),...form,date:new Date().toLocaleDateString()}]);setAdding(false);setForm({name:"",email:"",phone:"",goals:["Fat Loss"],injuries:"",medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""});};
+const remove=id=>saveWaitlist(waitlist.filter(x=>x.id!==id));
+const update=(id,k,v)=>saveWaitlist(waitlist.map(x=>x.id===id?{...x,[k]:v}:x));
 return(<div>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-<div><div style={{fontSize:11,color:"#555",fontFamily:"monospace",letterSpacing:1}}>TRIALS</div><div style={{fontSize:11,color:"#444",marginTop:2}}>{waitlist.length} trial requests</div></div>
-<button onClick={()=>setAdding(true)} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:12}}>+ Add Trial</button>
-</div>
-{waitlist.length===0&&<div style={{color:"#2a2a2a",fontSize:13,textAlign:"center",padding:"30px 0"}}>No trial requests</div>}
-{waitlist.map(p=><div key={p.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"13px 15px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<div><div style={{fontWeight:600,fontSize:14}}>{p.name}</div><div style={{fontSize:11,color:"#555",marginTop:2}}>{p.goal} · {p.email} · Added {p.date}</div></div>
-<div style={{display:"flex",gap:7}}>
-<button onClick={()=>onPromote(p)} style={{background:"#E8C54722",color:"#E8C547",border:"1px solid #E8C54744",borderRadius:7,padding:"5px 11px",cursor:"pointer",fontSize:12,fontWeight:600}}>Promote</button>
-<button onClick={()=>setWaitlist(w=>w.filter(x=>x.id!==p.id))} style={{background:"transparent",border:"none",color:"#333",cursor:"pointer",fontSize:14}}>✕</button>
-</div>
-</div>)}
-{adding&&<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:12,padding:16,marginTop:10}}>
-{[{l:"Name",k:"name",t:"text"},{l:"Email",k:"email",t:"email"}].map(({l,k,t})=><div key={k} style={{marginBottom:10}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{l.toUpperCase()}</div><input type={t} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>)}
-<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>GOAL</div><select value={form.goal} onChange={e=>setForm(f=>({...f,goal:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none"}}>{Object.keys(GOAL_COLORS).map(g=><option key={g}>{g}</option>)}</select></div>
-<div style={{display:"flex",gap:8}}><button onClick={add} style={{flex:1,background:"#E8C547",color:"#000",border:"none",borderRadius:8,padding:"9px 0",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD</button><button onClick={()=>setAdding(false)} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"9px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div>
-</div>}
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>TRIALS</div><div style={{fontSize:12,color:"#555"}}>{waitlist.length} trial requests. Trial profile copies into client profile when promoted.</div></div><button onClick={()=>setAdding(true)} style={{background:"#E8C547",border:"none",color:"#000",borderRadius:9,padding:"10px 15px",cursor:"pointer",fontSize:13,fontWeight:900,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ ADD TRIAL</button></div>
+{waitlist.length===0&&<div style={{color:"#333",fontSize:13,textAlign:"center",padding:"35px 0",background:"#111",border:"1px dashed #2a2a2a",borderRadius:14}}>No trial requests</div>}
+{waitlist.map(p=><div key={p.id} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:14,padding:15,marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}><div><div style={{fontWeight:800,fontSize:15}}>{p.name}</div><div style={{fontSize:11,color:"#555",marginTop:3}}>{normalizeGoals(p.goals || p.goal).join(" + ")} · {p.email || "no email"} · Added {p.date}</div></div><div style={{display:"flex",gap:7}}><button onClick={()=>onPromote(p)} style={{background:"#E8C54722",color:"#E8C547",border:"1px solid #E8C54744",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:800}}>Promote</button><button onClick={()=>remove(p.id)} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer",fontSize:16}}>✕</button></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:12}}>{[{k:"injuries",l:"Injuries"},{k:"medicalIssues",l:"Medical"},{k:"barriers",l:"Barriers"},{k:"sleep",l:"Sleep"},{k:"neat",l:"NEAT"},{k:"work",l:"Work"}].map(x=><div key={x.k}><div style={{fontSize:9,color:"#555",fontFamily:"monospace",marginBottom:3}}>{x.l.toUpperCase()}</div><textarea value={p[x.k]||""} onChange={e=>update(p.id,x.k,e.target.value)} style={{width:"100%",background:"#161616",border:"1px solid #222",borderRadius:8,padding:8,color:"#ddd",fontSize:12,minHeight:52}}/></div>)}</div></div>)}
+{adding&&<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:14,padding:16,marginTop:12}}><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>{[{l:"Name",k:"name",t:"text"},{l:"Email",k:"email",t:"email"},{l:"Phone",k:"phone",t:"text"}].map(({l,k,t})=><div key={k}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{l.toUpperCase()}</div><input type={t} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 9px",color:"#fff",fontSize:13,outline:"none"}}/></div>)}</div><div style={{marginBottom:12}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:6}}>GOALS</div><MultiGoalPicker goals={form.goals} onChange={v=>setForm(f=>({...f,goals:v}))} color="#E8C547"/></div><div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:12}}>{[{k:"injuries",l:"Injuries"},{k:"medicalIssues",l:"Medical Issues"},{k:"barriers",l:"Barriers"},{k:"sleep",l:"Sleep"},{k:"neat",l:"NEAT / Activity"},{k:"work",l:"Work"},{k:"notes",l:"Notes"}].map(x=><div key={x.k}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{x.l.toUpperCase()}</div><textarea value={form[x.k]} onChange={e=>setForm(f=>({...f,[x.k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:9,color:"#fff",fontSize:13,minHeight:58}}/></div>)}</div><div style={{display:"flex",gap:8}}><button onClick={add} style={{flex:1,background:"#E8C547",color:"#000",border:"none",borderRadius:8,padding:"10px 0",fontWeight:900,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD TRIAL</button><button onClick={()=>setAdding(false)} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"10px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div></div>}
 </div>);
 }
-
 // ── Add Progress Modal ────────────────────────────────────────────────────────
 function AddProgress({client,onSave,onClose}){
 const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -796,21 +856,21 @@ return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zInde
 </div>
 </div>);
 }
-
-// ── Add Client Modal ──────────────────────────────────────────────────────────
+ 
+ 
+// ── Add Client Modal ─────────────────────────────────────────────────────────
 function AddClient({onSave,onClose}){
-const [form,setForm]=useState({name:"",age:"",goal:"Muscle Gain",weight:"",color:COLORS[0]});
-return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center"}}>
-<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,padding:26,width:340}}>
-<div style={{fontSize:20,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:18}}>NEW CLIENT</div>
-{[{l:"Full Name",k:"name",t:"text"},{l:"Age",k:"age",t:"number"},{l:"Starting Weight (kg)",k:"weight",t:"number"}].map(({l,k,t})=><div key={k} style={{marginBottom:11}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:3}}>{l.toUpperCase()}</div><input type={t} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>)}
-<div style={{marginBottom:11}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:3}}>GOAL</div><select value={form.goal} onChange={e=>setForm(f=>({...f,goal:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"7px 9px",color:"#fff",fontSize:13,outline:"none"}}>{Object.keys(GOAL_COLORS).map(g=><option key={g}>{g}</option>)}</select></div>
+const [form,setForm]=useState({name:"",age:"",goals:["Muscle Gain"],weight:"",color:COLORS[0],phone:"",email:"",injuries:"",medicalIssues:"",barriers:"",sleep:"",neat:"",work:"",notes:""});
+return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"#111",border:"1px solid #2a2a2a",borderRadius:16,padding:26,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto"}}>
+<div style={{fontSize:24,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:6}}>NEW CLIENT</div><div style={{fontSize:12,color:"#555",marginBottom:16}}>Create a client with profile data from day one.</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>{[{l:"Full Name",k:"name",t:"text"},{l:"Age",k:"age",t:"number"},{l:"Starting Weight (kg)",k:"weight",t:"number"},{l:"Phone",k:"phone",t:"text"},{l:"Email",k:"email",t:"email"}].map(({l,k,t})=><div key={k} style={{marginBottom:8}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:3}}>{l.toUpperCase()}</div><input type={t} value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:"8px 9px",color:"#fff",fontSize:13,outline:"none"}}/></div>)}</div>
+<div style={{margin:"5px 0 14px"}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:7}}>GOALS</div><MultiGoalPicker goals={form.goals} onChange={v=>setForm(f=>({...f,goals:v}))} color={form.color}/></div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:14}}>{[{k:"injuries",l:"Injuries"},{k:"medicalIssues",l:"Medical Issues"},{k:"barriers",l:"Barriers"},{k:"sleep",l:"Sleep"},{k:"neat",l:"NEAT / Activity"},{k:"work",l:"Work"},{k:"notes",l:"Notes"}].map(x=><div key={x.k}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",marginBottom:4}}>{x.l.toUpperCase()}</div><textarea value={form[x.k]} onChange={e=>setForm(f=>({...f,[x.k]:e.target.value}))} style={{width:"100%",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:8,padding:9,color:"#fff",fontSize:13,minHeight:60}}/></div>)}</div>
 <div style={{marginBottom:18}}><div style={{fontSize:10,color:"#555",fontFamily:"monospace",letterSpacing:1,marginBottom:7}}>COLOR</div><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{COLORS.map(c=><div key={c} onClick={()=>setForm(f=>({...f,color:c}))} style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"3px solid #fff":"3px solid transparent"}}/>)}</div></div>
-<div style={{display:"flex",gap:8}}><button onClick={()=>form.name&&onSave(form)} style={{flex:1,background:form.color,color:"#000",border:"none",borderRadius:8,padding:"10px 0",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD CLIENT</button><button onClick={onClose} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"10px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div>
-</div>
-</div>);
+<div style={{display:"flex",gap:8}}><button onClick={()=>form.name&&onSave(form)} style={{flex:1,background:form.color,color:"#000",border:"none",borderRadius:8,padding:"11px 0",fontWeight:900,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>ADD CLIENT</button><button onClick={onClose} style={{flex:1,background:"#1e1e1e",color:"#888",border:"none",borderRadius:8,padding:"11px 0",cursor:"pointer",fontSize:13}}>Cancel</button></div>
+</div></div>);
 }
-
 // ── PDF Export ────────────────────────────────────────────────────────────────
 function exportPDF(client){
 const p=client.progress||[]; const m=client.measurements||{}; const prog=client.program;
@@ -844,11 +904,12 @@ ${prog?`<h2>Program: ${prog.name}</h2><p style="font-size:12px;color:#888">${pro
 </body></html>`;
 const w=window.open("","_blank");w.document.write(html);w.document.close();setTimeout(()=>w.print(),600);
 }
-
+ 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App(){
 const [clients,setClients]=useState([]);
-const [waitlist,setWaitlist]=useState(WAITLIST);
+const [waitlist,setWaitlist]=useState(()=>loadStored("forgeTrials", WAITLIST));
+const [calendarBookings,setCalendarBookings]=useState(()=>loadStored("forgeCalendar", []));
 const [selected,setSelected]=useState(null);
 const [appView,setAppView]=useState("clients");
 const [tab,setTab]=useState("overview");
@@ -875,10 +936,10 @@ const fetchClients = async () => {
   }
 };
 const createClientOnDb = async (data) => {
-  const selectedColor = data.color || getClientColor(data.goal, data.name);
+  const selectedColor = data.color || getClientColor(normalizeGoals(data.goals || data.goal)[0], data.name);
   const payload = {
     name: data.name,
-    goal: data.goal,
+    goal: goalDbValue(data),
     age: Number(data.age),
     weight_kg: Number(data.weight),
     phone: data.phone || "",
@@ -897,7 +958,7 @@ const createClientOnDb = async (data) => {
 const updateClientOnDb = async (id, updates) => {
   const payload = {};
   if(updates.name != null) payload.name = updates.name;
-  if(updates.goal != null) payload.goal = updates.goal;
+  if(updates.goal != null || updates.goals != null) payload.goal = goalDbValue(updates);
   if(updates.age != null) payload.age = Number(updates.age);
   if(updates.weight != null) payload.weight_kg = Number(updates.weight);
   if(updates.phone != null) payload.phone = updates.phone;
@@ -989,12 +1050,9 @@ const savePhotos=async photos=>{
   const c = clients.find(x=>x.id===selected);
   if(!c) return;
   patch(selected,{photos});
+  await saveClientDataSection(c.id, "transformPhotos", {photos: photos || []});
   await saveClientDataSection(c.id, "details", {
-    notes: c.notes || "",
-    injuries: c.injuries || [],
-    photo: c.photo || null,
-    packages: c.packages || [],
-    photos: photos || [],
+    notes: c.notes || "", injuries: c.injuries || [], photo: c.photo || null, packages: c.packages || [], photos: photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
   });
 };
 const savePackages=async pkgs=>{
@@ -1005,7 +1063,7 @@ const savePackages=async pkgs=>{
     notes: c.notes || "",
     injuries: c.injuries || [],
     photo: c.photo || null,
-    packages: pkgs || [],
+    packages: pkgs || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
   });
 };
 const saveNotes=async notes=>{
@@ -1016,7 +1074,7 @@ const saveNotes=async notes=>{
     notes: notes || "",
     injuries: c.injuries || [],
     photo: c.photo || null,
-    packages: c.packages || [],
+    packages: c.packages || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
   });
 };
 const saveInjuries=async injuries=>{
@@ -1027,7 +1085,7 @@ const saveInjuries=async injuries=>{
     notes: c.notes || "",
     injuries: injuries || [],
     photo: c.photo || null,
-    packages: c.packages || [],
+    packages: c.packages || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
   });
 };
 const saveProfilePhoto=async photoData=>{
@@ -1038,13 +1096,29 @@ const saveProfilePhoto=async photoData=>{
     notes: c.notes || "",
     injuries: c.injuries || [],
     photo: photoData || null,
-    packages: c.packages || [],
+    packages: c.packages || [], photos: c.photos || [], profile: c.profile || null, goals: c.goals || normalizeGoals(c.goal)
   });
+};
+const saveClientProfile=async profile=>{
+  const c = clients.find(x=>x.id===selected);
+  if(!c) return;
+  const clean={...profile,goals:normalizeGoals(profile.goals),injuries:normalizeInjuries(profile.injuries)};
+  patch(selected,{profile:clean,goals:clean.goals,goal:clean.goals.join("; ") || "General Fitness",injuries:clean.injuries,notes:clean.notes || ""});
+  await updateClientOnDb(c.id,{goals:clean.goals,injuries:clean.injuries,notes:clean.notes || ""});
+  await saveClientDataSection(c.id,"profile",clean);
+  await saveClientDataSection(c.id,"details",{notes:clean.notes||"",injuries:clean.injuries||[],photo:c.photo||null,packages:c.packages||[],photos:c.photos||[],profile:clean,goals:clean.goals});
+};
+const saveNutrition=async nutrition=>{
+  const c = clients.find(x=>x.id===selected);
+  if(!c) return;
+  const clean=normalizeNutrition(nutrition);
+  patch(selected,{nutrition:clean});
+  await saveClientDataSection(c.id,"nutrition",clean);
 };
 const addClient=async data=>{
   const payload = {
     name: data.name,
-    goal: data.goal,
+    goal: goalDbValue(data),
     age: Number(data.age),
     weight_kg: Number(data.weight),
     phone: data.phone || "",
@@ -1055,38 +1129,63 @@ const addClient=async data=>{
     sessions_conducted: Number(data.sessions || 0),
     trials: Number(data.trials || 0),
   };
-  const { error } = await supabase.from("clients").insert(payload);
+  const { data: created, error } = await supabase.from("clients").insert(payload).select();
   if(error){ console.error("Supabase insert error:", error); return; }
+  const newId = created?.[0]?.id;
+  if(newId){
+    await saveClientDataSection(newId, "profile", {
+      goals: normalizeGoals(data.goals || data.goal),
+      injuries: normalizeInjuries(data.injuries),
+      medicalIssues: data.medicalIssues || "",
+      barriers: data.barriers || "",
+      sleep: data.sleep || "",
+      neat: data.neat || "",
+      work: data.work || "",
+      notes: data.notes || "",
+    });
+  }
   await fetchClients();
   setModal(null);
 };
 const deleteClient = async (clientId) => {
   if (!window.confirm("Delete this client permanently?")) return;
-
+ 
   await supabase
     .from("client_data")
     .delete()
     .eq("client_id", clientId);
-
+ 
   const { error } = await supabase
     .from("clients")
     .delete()
     .eq("id", clientId);
-
+ 
   if (error) {
     console.error("FAILED TO DELETE CLIENT", error);
     alert("Failed to delete client");
     return;
   }
-
+ 
   await fetchClients();
-
+ 
   if (selected === clientId) {
     setSelected(null);
   }
 };
 const handlePhoto=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>saveProfilePhoto(ev.target.result);r.readAsDataURL(f);};
-const promoteFromWaitlist=async p=>{const color=COLORS[Math.floor(Math.random()*COLORS.length)];await createClientOnDb({name:p.name,age:0,goal:p.goal,weight:0,color,phone:"",email:p.email,injuries:[],notes:p.email,sessions:0,sessionsBooked:0,trials:0});setWaitlist(w=>w.filter(x=>x.id!==p.id));};
+const promoteFromWaitlist=async p=>{
+  const color=COLORS[Math.floor(Math.random()*COLORS.length)];
+  const payload={name:p.name,age:0,goals:normalizeGoals(p.goals || p.goal),weight:0,color,phone:p.phone||"",email:p.email||"",injuries:p.injuries||"",notes:p.notes||"",medicalIssues:p.medicalIssues||"",barriers:p.barriers||"",sleep:p.sleep||"",neat:p.neat||"",work:p.work||"",sessions:0,sessionsBooked:0,trials:1};
+  const { data: created, error } = await supabase.from("clients").insert({name:payload.name,goal:goalDbValue(payload),age:0,weight_kg:0,phone:payload.phone,email:payload.email,injuries:payload.injuries,notes:payload.notes,sessions_booked:0,sessions_conducted:0,trials:1}).select();
+  if(error){ console.error("Promote trial failed", error); alert("Failed to promote trial"); return; }
+  const newId=created?.[0]?.id;
+  if(newId){
+    await saveClientDataSection(newId,"profile",{goals:payload.goals,injuries:normalizeInjuries(payload.injuries),medicalIssues:payload.medicalIssues,barriers:payload.barriers,sleep:payload.sleep,neat:payload.neat,work:payload.work,notes:payload.notes});
+  }
+  const next=waitlist.filter(x=>x.id!==p.id);
+  setWaitlist(next); storeLocal("forgeTrials", next);
+  await fetchClients();
+};
 const totalRev=clients.flatMap(c=>c.packages||[]).filter(p=>p.paid).reduce((a,p)=>a+p.price,0);
 const totalSessions=clients.reduce((a,c)=>a+(c.sessions||0),0);
 const bookedSessions=clients.reduce((a,c)=>a+(c.schedule?.length||0),0);
@@ -1118,12 +1217,12 @@ input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.4);}
 <div><div style={{fontSize:11,color:"#444",letterSpacing:3,fontFamily:"monospace",marginBottom:3}}>PERSONAL TRAINING</div><div style={{fontSize:46,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:2,lineHeight:1}}>MY CLIENTS</div></div>
 <div style={{display:"flex",gap:8}}>
 <button onClick={()=>setAppView("waitlist")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600,position:"relative"}}>Trials{waitlist.length>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#FF6B6B",borderRadius:"50%",width:18,height:18,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{waitlist.length}</span>}</button>
-<button onClick={()=>setAppView("revenue")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>💰 Sessions Conducted</button>
+<button onClick={()=>setAppView("calendar")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:600}}>📅 Calendar</button>
 <button onClick={()=>setModal("addClient")} style={{background:"#E8C547",color:"#000",border:"none",borderRadius:9,padding:"10px 18px",fontWeight:800,fontSize:13,cursor:"pointer",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>+ NEW CLIENT</button>
 </div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:24}}>
-{[{l:"Clients",v:clients.length},{l:"Total Sessions",v:totalSessions},{l:"Sessions Conducted",v:totalSessions},{l:"Booked Sessions",v:bookedSessions,warn:bookedSessions>0}].map(({l,v,warn})=><div key={l} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}><div style={{fontSize:24,fontFamily:"'Bebas Neue',sans-serif",color:warn?"#FF6B6B":"#fff"}}>{v}</div><div style={{fontSize:10,color:"#555",letterSpacing:1,fontFamily:"monospace"}}>{l.toUpperCase()}</div></div>)}
+{[{l:"Clients",v:clients.length},{l:"Booked Sessions",v:bookedSessions,warn:bookedSessions>0},{l:"Trials",v:waitlist.length},{l:"Calendar Bookings",v:calendarBookings.length}].map(({l,v,warn})=><div key={l} style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px"}}><div style={{fontSize:24,fontFamily:"'Bebas Neue',sans-serif",color:warn?"#FF6B6B":"#fff"}}>{v}</div><div style={{fontSize:10,color:"#555",letterSpacing:1,fontFamily:"monospace"}}>{l.toUpperCase()}</div></div>)}
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
 {clients.map(c=>{
@@ -1143,7 +1242,7 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 </div>
 <div style={{display:"flex",gap:7,marginTop:3,flexWrap:"wrap"}}>
 <span style={{fontSize:11,color:"#555"}}>Age {c.age}</span>
-<span style={{fontSize:11,background:GOAL_COLORS[c.goal]+"22",color:GOAL_COLORS[c.goal],padding:"1px 8px",borderRadius:20,fontWeight:600}}>{c.goal}</span>
+<span style={{fontSize:11,background:GOAL_COLORS[primaryGoal(c)]+"22",color:GOAL_COLORS[primaryGoal(c)],padding:"1px 8px",borderRadius:20,fontWeight:600}}>{goalLabel(c)}</span>
 {rem!=null&&<span style={{fontSize:11,color:"#555"}}>{rem} sessions left</span>}
 {c.program&&<span style={{fontSize:11,color:"#444"}}>📋 {c.program.name}</span>}
 </div>
@@ -1163,6 +1262,14 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 <div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>SESSIONS DASHBOARD</div>
 </div>
 <RevenueDash clients={clients}/>
+</>) }
+ 
+{appView==="calendar"&&(<>
+<div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
+<button onClick={()=>setAppView("clients")} style={{background:"#1a1a1a",border:"1px solid #2a2a2a",color:"#888",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:18}}>←</button>
+<div style={{fontSize:34,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1}}>CALENDAR</div>
+</div>
+<CalendarTab clients={clients} bookings={calendarBookings} setBookings={setCalendarBookings}/>
 </>) }
 {appView==="waitlist"&&(<>
 <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:24}}>
@@ -1184,7 +1291,7 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 </div>
 <div style={{display:"flex",gap:7,marginTop:2,flexWrap:"wrap"}}>
 <span style={{fontSize:11,color:"#555"}}>Age {sc.age}</span>
-<span style={{fontSize:11,background:GOAL_COLORS[sc.goal]+"22",color:GOAL_COLORS[sc.goal],padding:"1px 8px",borderRadius:20,fontWeight:600}}>{sc.goal}</span>
+<span style={{fontSize:11,background:GOAL_COLORS[primaryGoal(sc)]+"22",color:GOAL_COLORS[primaryGoal(sc)],padding:"1px 8px",borderRadius:20,fontWeight:600}}>{goalLabel(sc)}</span>
 </div>
 </div>
 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
@@ -1208,7 +1315,7 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 </div>
 {sc.injuries?.length>0&&<div style={{background:"#1a0808",border:"1px solid #FF6B6B33",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#FF6B6B"}}>⚠ {sc.injuries.join(" · ")}</div>}
 <div style={{display:"flex",gap:3,marginBottom:18,background:"#111",border:"1px solid #1e1e1e",borderRadius:10,padding:3,overflowX:"auto"}}>
-{["overview","progress","body","photos","program","schedule","packages","notes"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,minWidth:70,background:tab===t?sc.color:"transparent",color:tab===t?"#000":"#555",border:"none",borderRadius:7,padding:"7px 4px",cursor:"pointer",fontWeight:700,fontSize:10,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:.5,transition:"all 0.15s",whiteSpace:"nowrap"}}>{t.toUpperCase()}</button>)}
+{["overview","profile","nutrition","progress","body","photos","program","schedule","packages"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,minWidth:70,background:tab===t?sc.color:"transparent",color:tab===t?"#000":"#555",border:"none",borderRadius:7,padding:"7px 4px",cursor:"pointer",fontWeight:700,fontSize:10,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:.5,transition:"all 0.15s",whiteSpace:"nowrap"}}>{t.toUpperCase()}</button>)}
 </div>
 {tab==="overview"&&<div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
@@ -1230,6 +1337,8 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 </div>}
 </div>}
 {tab==="body"&&<BodyTab client={sc} onUpdate={saveMeasurements}/>}
+{tab==="profile"&&<ClientProfileTab client={sc} onSave={saveClientProfile}/>}
+{tab==="nutrition"&&<NutritionTab client={sc} onSave={saveNutrition}/>}
 {tab==="photos"&&<PhotosTab client={sc} onUpdate={p=>savePhotos(p.photos||[])}/>}
 {tab==="program"&&<div>
 {sc.program?(<>
@@ -1276,4 +1385,3 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 {recapSession&&sc&&<AIRecap client={sc} session={recapSession} onClose={()=>setRecapSession(null)}/>}
 </>);
 }
-
