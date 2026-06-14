@@ -1,9 +1,24 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
- 
+
+const textareaStyle = (extra = {}) => ({
+  width: "100%",
+  minHeight: 90,
+  background: "#111",
+  border: "1px solid #333",
+  borderRadius: 12,
+  color: "#fff",
+  padding: "12px",
+  resize: "vertical",
+  outline: "none",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  ...extra,
+});
+
 /*
-  FORGE V4 - Coach + Invite-Based Client Portal
+  FORGE V4.1 - Clients Tab Fix + Coach/Client Portal
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -140,6 +155,7 @@ const EXERCISE_LIBRARY = [
   "Band Pass Throughs",
   "Thoracic Rotation",
   "Stretching",
+  "Reverse Lunges"
 ];
  
 const FOOD_DB = [
@@ -238,6 +254,7 @@ function emptyProfile() {
 function emptyNutrition() {
   return {
     targets: { calories: "", protein: "", carbs: "", fats: "" },
+    mealPlan: { Breakfast: "", Lunch: "", Dinner: "" },
     planNotes: "",
     logs: [],
   };
@@ -249,7 +266,7 @@ function mapClient(row, dataRows = [], index = 0) {
     if (r.client_id === row.id) sections[r.section] = r.data || {};
   });
   const profile = { ...emptyProfile(), ...(sections.profile || {}) };
-  profile.goals = normalizeGoals(profile.goals?.length ? profile.goals : row.goals || row.goal);
+  profile.goals = normalizeGoals(profile.goals?.length ? profile.goals : row.goal);
   if (!profile.injuries && row.injuries) profile.injuries = normalizeInjuries(row.injuries).join("\n");
   return {
     id: row.id,
@@ -367,8 +384,8 @@ function inputStyle(extra = {}) {
   return { width: "100%", boxSizing: "border-box", background: "#0b0c10", border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 12, padding: "11px 12px", outline: "none", fontSize: 14, ...extra };
 }
  
-function Card({ children, style = {} }) {
-  return <div style={{ background: `linear-gradient(180deg, ${BRAND.card}, #101116)`, border: `1px solid ${BRAND.line}`, borderRadius: 18, padding: 16, boxShadow: "0 16px 40px rgba(0,0,0,.25)", ...style }}>{children}</div>;
+function Card({ children, style = {}, onClick }) {
+  return <div onClick={onClick} style={{ background: `linear-gradient(180deg, ${BRAND.card}, #101116)`, border: `1px solid ${BRAND.line}`, borderRadius: 18, padding: 16, boxShadow: "0 16px 40px rgba(0,0,0,.25)", ...style }}>{children}</div>;
 }
  
 function LoginScreen({ onReady }) {
@@ -514,7 +531,6 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
       age: Number(form.age || 0),
       weight_kg: Number(form.weight || 0),
       goal: form.profile.goals?.[0] || "General Fitness",
-      goals: form.profile.goals || [],
       color,
       invite_code,
       invite_status: "not_sent",
@@ -695,19 +711,177 @@ function SessionTracker({ client, program, saveProgram, isCoach }) {
   return <Card><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>{logs.map((_, i) => <Button key={i} variant={wk === i ? "gold" : "dark"} onClick={() => { setWk(i); setDy(0); }}>Week {i + 1}</Button>)}</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{week?.days?.map((d, i) => <Button key={i} variant={dy === i ? "gold" : "dark"} onClick={() => setDy(i)}>{d.name}</Button>)}</div>{day && <><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}><div><div style={{ fontSize: 20, fontWeight: 1000 }}>{day.name}</div><div style={{ color: BRAND.muted }}>Week {wk + 1}</div></div><input type="date" value={day.date || ""} onChange={(e) => setMeta("date", e.target.value)} style={inputStyle({ maxWidth: 180 })} /></div>{day.sessionData?.map((ex, ei) => <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ color: client.color, fontWeight: 1000, marginBottom: 8 }}>{ex.name}</div>{ex.sets.map((s, si) => <div key={si} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 90px", gap: 8, marginBottom: 6, alignItems: "center" }}><div style={{ color: BRAND.muted }}>S{si + 1}</div><input placeholder="kg" value={s.weight} onChange={(e) => setSet(ei, si, "weight", e.target.value)} style={inputStyle()} /><input placeholder="reps" value={s.reps} onChange={(e) => setSet(ei, si, "reps", e.target.value)} style={inputStyle()} /><input placeholder="RPE" value={s.rpe} onChange={(e) => setSet(ei, si, "rpe", e.target.value)} style={inputStyle()} /></div>)}</div>)}<Field label="Session notes" value={day.notes} onChange={(v) => setMeta("notes", v)} textarea /><div style={{ marginTop: 10 }}><Button onClick={generateRecap}>Recap this session</Button></div>{recap && <textarea value={recap} onChange={(e) => setRecap(e.target.value)} style={inputStyle({ minHeight: 150, marginTop: 10 })} />}</>}</Card>;
 }
  
+function normalizeNutrition(raw) {
+  const base = emptyNutrition();
+  const n = raw && typeof raw === "object" ? raw : {};
+  return {
+    ...base,
+    ...n,
+    targets: { ...base.targets, ...(n.targets || {}) },
+    mealPlan: { ...base.mealPlan, ...(n.mealPlan || {}) },
+    logs: Array.isArray(n.logs) ? n.logs : [],
+  };
+}
+ 
 function NutritionTab({ client, updateClient, isCoach }) {
-  const [nutrition, setNutrition] = useState(client.nutrition || emptyNutrition());
-  const [meal, setMeal] = useState("Breakfast");
-  const [food, setFood] = useState("");
-  const [qty, setQty] = useState(1);
+  const [nutrition, setNutrition] = useState(() => normalizeNutrition(client.nutrition));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const setTarget = (k, v) => setNutrition((n) => ({ ...n, targets: { ...n.targets, [k]: v } }));
-  const todays = nutrition.logs?.filter((l) => l.date === date) || [];
-  const totals = todays.reduce((a, l) => ({ kcal: a.kcal + l.kcal, protein: a.protein + l.protein, carbs: a.carbs + l.carbs, fats: a.fats + l.fats }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
-  async function save(n = nutrition) { await upsertSection(client.id, "nutrition", n); updateClient({ ...client, nutrition: n }); }
-  async function addFood() { const found = FOOD_DB.find((f) => f.name === food) || { name: food || "Custom food", kcal: 0, protein: 0, carbs: 0, fats: 0 }; const q = Number(qty || 1); const entry = { id: uid(), date, meal, food: found.name, qty: q, kcal: Math.round(found.kcal * q), protein: Math.round(found.protein * q), carbs: Math.round(found.carbs * q), fats: Math.round(found.fats * q) }; const next = { ...nutrition, logs: [...(nutrition.logs || []), entry] }; setNutrition(next); await save(next); setFood(""); setQty(1); }
-  async function delLog(id) { const next = { ...nutrition, logs: nutrition.logs.filter((l) => l.id !== id) }; setNutrition(next); await save(next); }
-  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Nutrition Tracker</div><div style={{ color: BRAND.green, fontWeight: 800 }}>{aiFoodSuggestions(client)}</div></div><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle({ maxWidth: 170 })} /></div>{isCoach && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginTop: 12 }}>{["calories", "protein", "carbs", "fats"].map((k) => <Field key={k} label={`${k} target`} value={nutrition.targets[k]} onChange={(v) => setTarget(k, v)} type="number" />)}<div style={{ display: "flex", alignItems: "end" }}><Button onClick={() => save()} style={{ width: "100%" }}>Save Targets</Button></div></div>}</Card><Card><div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}><Mini label="Calories" value={`${totals.kcal}/${nutrition.targets.calories || 0}`} /><Mini label="Protein" value={`${totals.protein}g/${nutrition.targets.protein || 0}`} /><Mini label="Carbs" value={`${totals.carbs}g/${nutrition.targets.carbs || 0}`} /><Mini label="Fats" value={`${totals.fats}g/${nutrition.targets.fats || 0}`} /></div></Card><Card><div style={{ display: "flex", gap: 8, marginBottom: 12 }}>{["Breakfast", "Lunch", "Dinner"].map((m) => <Button key={m} variant={meal === m ? "gold" : "dark"} onClick={() => setMeal(m)}>{m}</Button>)}</div><div style={{ display: "grid", gridTemplateColumns: "2fr 90px 110px", gap: 8 }}><select value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle()}><option value="">Select food</option>{FOOD_DB.map((f) => <option key={f.name}>{f.name}</option>)}</select><input type="number" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} style={inputStyle()} /><Button onClick={addFood}>Add</Button></div>{todays.filter((l) => l.meal === meal).map((l) => <div key={l.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10 }}><div><b>{l.food}</b><div style={{ color: BRAND.muted }}>{l.kcal} kcal · P {l.protein}g · C {l.carbs}g · F {l.fats}g</div></div><Button variant="red" onClick={() => delLog(l.id)}>x</Button></div>)}</Card></div>;
+  const [meal, setMeal] = useState("Breakfast");
+  const [food, setFood] = useState(FOOD_DB[0]?.name || "");
+  const [customFood, setCustomFood] = useState("");
+  const [qty, setQty] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+ 
+  useEffect(() => {
+    setNutrition(normalizeNutrition(client.nutrition));
+  }, [client.id, client.nutrition]);
+ 
+  const todays = (nutrition.logs || []).filter((l) => l.date === date);
+  const totals = todays.reduce((a, l) => ({
+    kcal: a.kcal + Number(l.kcal || 0),
+    protein: a.protein + Number(l.protein || 0),
+    carbs: a.carbs + Number(l.carbs || 0),
+    fats: a.fats + Number(l.fats || 0),
+  }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
+ 
+  function setTarget(k, v) {
+    setNutrition((n) => ({ ...n, targets: { ...n.targets, [k]: v } }));
+  }
+ 
+  function setMealPlan(k, v) {
+    setNutrition((n) => ({ ...n, mealPlan: { ...n.mealPlan, [k]: v } }));
+  }
+ 
+  async function save(nextNutrition = nutrition) {
+    setSaving(true);
+    setMessage("");
+    try {
+      const clean = normalizeNutrition(nextNutrition);
+      await upsertSection(client.id, "nutrition", clean);
+      setNutrition(clean);
+      updateClient({ ...client, nutrition: clean });
+      setMessage("Saved");
+    } catch (e) {
+      console.error("Nutrition save failed", e);
+      alert(e.message || "Nutrition failed to save");
+    }
+    setSaving(false);
+  }
+ 
+  async function addFood() {
+    const selected = FOOD_DB.find((f) => f.name === food);
+    const base = selected || { name: customFood || "Custom food", kcal: 0, protein: 0, carbs: 0, fats: 0 };
+    const q = Number(qty || 1);
+    const entry = {
+      id: uid(),
+      date,
+      meal,
+      food: selected ? base.name : customFood || base.name,
+      qty: q,
+      kcal: Math.round(Number(base.kcal || 0) * q),
+      protein: Math.round(Number(base.protein || 0) * q),
+      carbs: Math.round(Number(base.carbs || 0) * q),
+      fats: Math.round(Number(base.fats || 0) * q),
+    };
+    const next = normalizeNutrition({ ...nutrition, logs: [...(nutrition.logs || []), entry] });
+    await save(next);
+    setCustomFood("");
+    setQty(1);
+  }
+ 
+  async function delLog(id) {
+    const next = normalizeNutrition({ ...nutrition, logs: (nutrition.logs || []).filter((l) => l.id !== id) });
+    await save(next);
+  }
+ 
+  const mealLogs = todays.filter((l) => l.meal === meal);
+ 
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Nutrition</div>
+            <div style={{ color: BRAND.green, fontWeight: 800, marginTop: 5 }}>{aiFoodSuggestions(client)}</div>
+          </div>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle({ maxWidth: 170 })} />
+        </div>
+      </Card>
+ 
+      <Card>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
+          <Mini label="Calories" value={`${totals.kcal}/${nutrition.targets.calories || 0}`} />
+          <Mini label="Protein" value={`${totals.protein}g/${nutrition.targets.protein || 0}`} />
+          <Mini label="Carbs" value={`${totals.carbs}g/${nutrition.targets.carbs || 0}`} />
+          <Mini label="Fats" value={`${totals.fats}g/${nutrition.targets.fats || 0}`} />
+        </div>
+      </Card>
+ 
+      {isCoach && (
+        <Card>
+          <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 10 }}>Coach Nutrition Targets</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
+            {["calories", "protein", "carbs", "fats"].map((k) => (
+              <Field key={k} label={`${k} target`} value={nutrition.targets[k] || ""} onChange={(v) => setTarget(k, v)} type="number" />
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 12 }}>
+            {["Breakfast", "Lunch", "Dinner"].map((m) => (
+              <div key={m}>
+                <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 5 }}>{m.toUpperCase()} PLAN</div>
+                <textarea value={nutrition.mealPlan[m] || ""} onChange={(e) => setMealPlan(m, e.target.value)} placeholder={`Write ${m.toLowerCase()} foods, portions, notes...`} style={textareaStyle({ minHeight: 92 })} />
+              </div>
+            ))}
+          </div>
+          <textarea value={nutrition.planNotes || ""} onChange={(e) => setNutrition((n) => ({ ...n, planNotes: e.target.value }))} placeholder="Coach notes: vegetarian/non-vegetarian, allergies, foods to avoid, meal timing..." style={textareaStyle({ minHeight: 80, marginTop: 10 })} />
+          <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
+            <Button onClick={() => save()} disabled={saving}>{saving ? "Saving..." : "Save Nutrition Plan"}</Button>
+            {message && <span style={{ color: BRAND.green, fontWeight: 900 }}>{message}</span>}
+          </div>
+        </Card>
+      )}
+ 
+      <Card>
+        <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 10 }}>Food Log</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto" }}>
+          {["Breakfast", "Lunch", "Dinner"].map((m) => (
+            <Button key={m} variant={meal === m ? "gold" : "dark"} onClick={() => setMeal(m)}>{m}</Button>
+          ))}
+        </div>
+ 
+        {nutrition.mealPlan?.[meal] && (
+          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 12 }}>
+            <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 5 }}>{meal} Plan</div>
+            <div style={{ color: BRAND.text, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{nutrition.mealPlan[meal]}</div>
+          </div>
+        )}
+ 
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(160px,2fr) minmax(120px,1.4fr) 90px 110px", gap: 8 }}>
+          <select value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle()}>
+            {FOOD_DB.map((f) => <option key={f.name}>{f.name}</option>)}
+            <option value="CUSTOM">Custom food</option>
+          </select>
+          <input value={customFood} onChange={(e) => setCustomFood(e.target.value)} placeholder="Custom food name" disabled={food !== "CUSTOM"} style={inputStyle({ opacity: food === "CUSTOM" ? 1 : .45 })} />
+          <input type="number" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} style={inputStyle()} />
+          <Button onClick={addFood}>Add</Button>
+        </div>
+ 
+        <div style={{ marginTop: 14 }}>
+          {mealLogs.length === 0 && <div style={{ color: BRAND.muted, padding: "12px 0" }}>No {meal.toLowerCase()} foods logged yet.</div>}
+          {mealLogs.map((l) => (
+            <div key={l.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10 }}>
+              <div>
+                <b style={{ color: BRAND.text }}>{l.food}</b>
+                <div style={{ color: BRAND.muted }}>{l.qty}x · {l.kcal} kcal · P {l.protein}g · C {l.carbs}g · F {l.fats}g</div>
+              </div>
+              <Button variant="red" onClick={() => delLog(l.id)}>x</Button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
 }
  
 function TransformPhotos({ client, updateClient }) {
