@@ -912,11 +912,6 @@ const updateClientOnDb = async (id, updates) => {
   if(error){ console.error("Supabase update error:", error); return; }
   await fetchClients();
 };
-const deleteClient = async (id) => {
-  const { error } = await supabase.from("clients").delete().eq("id", id);
-  if(error){ console.error("Supabase delete error:", error); return; }
-  await fetchClients();
-};
 const patch = async (id, p) => {
   let updatedClient;
   setClients(prev=>prev.map(c=>c.id===id?updatedClient={...c,...p}:c));
@@ -1046,15 +1041,6 @@ const saveProfilePhoto=async photoData=>{
     packages: c.packages || [],
   });
 };
-const deleteClient = async (id) => {
-  if (!window.confirm("Delete this client permanently?")) return;
-
-  await supabase.from("client_data").delete().eq("client_id", id);
-  await supabase.from("clients").delete().eq("id", id);
-
-  await fetchClients();
-  setSelected(null);
-};
 const addClient=async data=>{
   const payload = {
     name: data.name,
@@ -1095,7 +1081,7 @@ const deleteClient = async (clientId) => {
 
   await fetchClients();
 
-  if (selected?.id === clientId) {
+  if (selected === clientId) {
     setSelected(null);
   }
 };
@@ -1277,9 +1263,8 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 </div>
 </div>
 <textarea value={sc.notes} onChange={(e) => {
-  const updated = { ...selected, notes: e.target.value };
   patch(selected, { notes: e.target.value });
-  saveClientDataSection(selected.id, "overview", updated);
+  saveNotes(e.target.value);
 }} placeholder="Coaching notes, observations, goals..." style={{width:"100%",minHeight:240,background:"#161616",border:"1px solid #222",borderRadius:10,padding:14,color:"#ccc",fontSize:14,lineHeight:1.6,outline:"none",resize:"vertical",fontFamily:"'DM Sans',sans-serif"}}/>
 </div>}
 </>)}
@@ -1291,3 +1276,4 @@ return(<div key={c.id} onClick={()=>openClient(c.id)} style={{background:"#111",
 {recapSession&&sc&&<AIRecap client={sc} session={recapSession} onClose={()=>setRecapSession(null)}/>}
 </>);
 }
+
