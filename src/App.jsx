@@ -18,7 +18,7 @@ const textareaStyle = (extra = {}) => ({
 });
  
 /*
-  FORGE V4.3 - Dashboard Cards Fix + Nutrition Fix + Coach/Client Portal
+  FORGE V4.6 - Expanded Exercise Library + Custom Exercises
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -88,73 +88,402 @@ const LIFT_FIELDS = [
 ];
  
 const EXERCISE_LIBRARY = [
-  "Dead Hang",
+  "Barbell Bench Press",
+  "Flat Barbell Bench Press",
+  "Close-Grip Bench Press",
+  "Wide-Grip Bench Press",
+  "Paused Bench Press",
+  "Tempo Bench Press",
+  "Incline Barbell Bench Press",
+  "Decline Barbell Bench Press",
+  "Smith Machine Bench Press",
+  "Smith Machine Incline Press",
+  "Machine Chest Press",
+  "Plate-Loaded Chest Press",
+  "Seated Chest Press",
+  "Hammer Strength Chest Press",
+  "Dumbbell Bench Press",
+  "Flat DB Chest Press",
+  "Incline DB Chest Press",
+  "Decline DB Chest Press",
+  "Neutral-Grip DB Press",
+  "Single-Arm DB Chest Press",
+  "Dumbbell Fly",
+  "Incline Dumbbell Fly",
+  "Decline Dumbbell Fly",
+  "Cable Crossover",
+  "High-to-Low Cable Fly",
+  "Low-to-High Cable Fly",
+  "Standing Cable Chest Press",
+  "Pec Deck Fly",
+  "Machine Fly",
+  "Push-Up",
+  "Incline Push-Up",
+  "Decline Push-Up",
+  "Weighted Push-Up",
+  "Deficit Push-Up",
+  "Diamond Push-Up",
+  "TRX Push-Up",
+  "Medicine Ball Push-Up",
+  "Chest Dips",
+  "Assisted Chest Dips",
+  "Machine Dips",
+  "Pull-Up",
+  "Wide-Grip Pull-Up",
+  "Neutral-Grip Pull-Up",
+  "Chin-Up",
+  "Assisted Pull-Up",
+  "Band-Assisted Pull-Up",
+  "Weighted Pull-Up",
+  "Lat Pulldown",
+  "Wide-Grip Lat Pulldown",
+  "Neutral Grip Lat Pulldown",
+  "Close-Grip Lat Pulldown",
+  "Single-Arm Lat Pulldown",
+  "Reverse-Grip Lat Pulldown",
+  "Straight-Arm Pulldown",
+  "Cable Pullover",
+  "Seated Row",
+  "Seated Cable Row",
+  "Wide-Grip Seated Row",
+  "Close-Grip Seated Row",
+  "Single-Arm Cable Row",
+  "Machine Rows",
+  "Machine High Row",
+  "Machine Low Row",
+  "Chest-Supported Row",
+  "Chest-Supported DB Row",
+  "Chest-Supported T-Bar Row",
+  "T-Bar Row",
+  "Landmine Row",
+  "Barbell Row",
+  "Bent-Over Barbell Row",
+  "Pendlay Row",
+  "Yates Row",
+  "Dumbbell Row",
+  "Single-Arm Dumbbell Row",
+  "Meadows Row",
+  "Seal Row",
+  "Inverted Row",
+  "TRX Row",
   "Rack Pulls",
+  "Block Pulls",
+  "Deadlift",
   "Barbell Deadlift",
-  "Romanian Deadlift",
-  "Good Morning",
-  "Hip Thrust",
   "Trap Bar Deadlift",
   "Sumo Deadlift",
-  "Flat Barbell Bench Press",
-  "Incline DB Chest Press",
-  "Dumbbell Fly",
-  "Cable Crossover",
-  "Push-Up",
-  "Decline Bench Press",
-  "Machine Chest Press",
-  "Squat",
-  "Front Squat",
-  "Goblet Squat",
-  "Leg Press",
-  "Leg Extension",
-  "Lying Leg Curl",
-  "Lunge",
-  "Bulgarian Split Squat",
-  "Pull-Up",
-  "Neutral Grip Lat Pulldown",
-  "Seated Row",
-  "Machine Rows",
-  "Dumbbell Row",
-  "Face Pull",
-  "Chest-Supported Row",
-  "T-Bar Row",
+  "Deficit Deadlift",
+  "Romanian Deadlift",
+  "Dumbbell Romanian Deadlift",
+  "Single-Leg Romanian Deadlift",
+  "Good Morning",
+  "Back Extension",
+  "45-Degree Back Extension",
+  "Reverse Hyperextension",
+  "Superman Hold",
   "Overhead Press",
+  "Standing Barbell Overhead Press",
+  "Seated Barbell Shoulder Press",
   "DB Shoulder Press",
+  "Seated DB Shoulder Press",
+  "Single-Arm DB Shoulder Press",
   "Arnold Press",
-  "Cable Lateral Raises",
+  "Machine Shoulder Press",
+  "Smith Machine Shoulder Press",
+  "Landmine Press",
+  "Single-Arm Landmine Press",
+  "Push Press",
+  "Z Press",
+  "Pike Push-Up",
+  "Handstand Push-Up",
   "DB Lateral Raises",
-  "Shrug",
+  "Cable Lateral Raises",
+  "Machine Lateral Raise",
+  "Lean-Away Lateral Raise",
+  "Front Raise",
+  "Plate Front Raise",
+  "Cable Front Raise",
+  "Rear Delt Fly",
+  "Reverse Pec Deck",
+  "Cable Rear Delt Fly",
+  "Face Pull",
+  "Upright Row",
+  "Cable Upright Row",
+  "Barbell Shrug",
+  "Dumbbell Shrug",
+  "Smith Machine Shrug",
+  "Trap 3 Raise",
+  "Y Raise",
+  "T Raise",
+  "Wall Slide",
+  "Scaption Raise",
+  "External Rotation Cable",
+  "Banded External Rotation",
+  "Internal Rotation Cable",
   "Bicep Curl",
+  "Barbell Curl",
+  "EZ-Bar Curl",
+  "Dumbbell Curl",
+  "Alternating DB Curl",
   "Incline DB Curl",
   "Hammer Curl",
-  "EZ Tricep Extension",
+  "Cross-Body Hammer Curl",
+  "Cable Curl",
+  "Rope Curl",
+  "Bayesian Cable Curl",
+  "Preacher Curl",
+  "Machine Curl",
+  "Spider Curl",
+  "Concentration Curl",
+  "Reverse Curl",
+  "Zottman Curl",
+  "Drag Curl",
+  "High Cable Curl",
+  "Single-Arm Cable Curl",
   "Tricep Pushdown",
+  "Rope Tricep Pushdown",
+  "Straight-Bar Pushdown",
+  "V-Bar Pushdown",
+  "Single-Arm Pushdown",
+  "Overhead Cable Tricep Extension",
+  "EZ Tricep Extension",
   "Skull Crusher",
+  "Incline Skull Crusher",
   "Dips",
-  "Sled Push",
-  "Farmer's Carry",
-  "Battle Ropes",
-  "Box Jump",
-  "Burpee",
-  "SkiErg",
-  "Elliptical",
-  "Rower",
-  "Stair Climber",
-  "Assault Bike",
+  "Assisted Dips",
+  "Bench Dips",
+  "Machine Tricep Extension",
+  "Dumbbell Overhead Tricep Extension",
+  "Single-Arm DB Tricep Extension",
+  "Cable Kickback",
+  "Dumbbell Kickback",
+  "JM Press",
+  "Squat",
+  "Back Squat",
+  "High-Bar Squat",
+  "Low-Bar Squat",
+  "Front Squat",
+  "Goblet Squat",
+  "Box Squat",
+  "Pause Squat",
+  "Tempo Squat",
+  "Smith Machine Squat",
+  "Hack Squat",
+  "V-Squat",
+  "Pendulum Squat",
+  "Belt Squat",
+  "Safety Bar Squat",
+  "Landmine Squat",
+  "Leg Press",
+  "Single-Leg Leg Press",
+  "Narrow-Stance Leg Press",
+  "Wide-Stance Leg Press",
+  "Leg Extension",
+  "Single-Leg Extension",
+  "Sissy Squat",
+  "Spanish Squat",
+  "Wall Sit",
+  "Lunge",
+  "Walking Lunge",
+  "Reverse Lunge",
+  "Forward Lunge",
+  "Deficit Reverse Lunge",
+  "Dumbbell Lunge",
+  "Barbell Lunge",
+  "Bulgarian Split Squat",
+  "Split Squat",
+  "Smith Machine Split Squat",
+  "Step-Up",
+  "Box Step-Up",
+  "Lateral Step-Up",
+  "Cossack Squat",
+  "Cyclist Squat",
+  "Cable Squat",
+  "Lying Leg Curl",
+  "Seated Leg Curl",
+  "Standing Leg Curl",
+  "Nordic Hamstring Curl",
+  "Glute-Ham Raise",
+  "Hip Thrust",
+  "Barbell Hip Thrust",
+  "Smith Machine Hip Thrust",
+  "Single-Leg Hip Thrust",
+  "Glute Bridge",
+  "Barbell Glute Bridge",
+  "Single-Leg Glute Bridge",
+  "Cable Pull-Through",
+  "Kettlebell Swing",
+  "Dumbbell RDL",
+  "Barbell RDL",
+  "Stiff-Leg Deadlift",
+  "Single-Leg Deadlift",
+  "B-Stance RDL",
+  "Hip Abduction Machine",
+  "Cable Hip Abduction",
+  "Cable Hip Adduction",
+  "Banded Lateral Walk",
+  "Monster Walk",
+  "Clamshell",
+  "Frog Pump",
+  "Kickback Machine",
+  "Cable Glute Kickback",
+  "Donkey Kick",
+  "Reverse Lunge to Knee Drive",
+  "Standing Calf Raise",
+  "Seated Calf Raise",
+  "Leg Press Calf Raise",
+  "Smith Machine Calf Raise",
+  "Single-Leg Calf Raise",
+  "Donkey Calf Raise",
+  "Tibialis Raise",
+  "Toe Raise",
+  "Farmer Walk on Toes",
+  "Jump Rope Calf Bounce",
   "Plank",
   "Side Plank",
-  "Bird Dog",
+  "Weighted Plank",
+  "RKC Plank",
+  "Hollow Hold",
+  "Hollow Rock",
   "Dead Bug",
-  "Russian Twist",
+  "Bird Dog",
+  "McGill Curl Up",
+  "Curl Up",
+  "Crunch",
+  "Machine Crunch",
+  "Cable Crunch",
+  "Decline Sit-Up",
+  "Sit-Up",
+  "Reverse Crunch",
+  "Hanging Knee Raise",
   "Hanging Leg Raise",
-  "Cable Wood Chop",
+  "Captain's Chair Knee Raise",
+  "Toes to Bar",
+  "Ab Wheel",
+  "Stability Ball Rollout",
+  "TRX Fallout",
   "Pallof Press",
-  "Cat-Cow",
-  "90/90 Hip Rotation",
+  "Pallof Hold",
+  "Cable Wood Chop",
+  "Cable Lift",
+  "Russian Twist",
+  "Medicine Ball Slam",
+  "Medicine Ball Rotational Throw",
+  "Landmine Rotation",
+  "Farmers Carry",
+  "Suitcase Carry",
+  "Overhead Carry",
+  "Waiter Carry",
+  "Copenhagen Plank",
+  "Copenhagen Hold",
+  "Stir the Pot",
+  "Dragon Flag",
+  "V-Up",
+  "Bicycle Crunch",
+  "Heel Touch",
+  "Mountain Climber",
+  "Dead Hang",
+  "Scapular Pull-Up",
+  "Scapular Push-Up",
+  "Band Pull-Aparts",
   "Band Pass Throughs",
+  "Shoulder CARs",
+  "Hip CARs",
+  "90/90 Hip Rotation",
+  "World's Greatest Stretch",
+  "Cat-Cow",
   "Thoracic Rotation",
-  "Stretching",
+  "Open Book Rotation",
+  "Thread the Needle",
+  "Half-Kneeling Hip Flexor Stretch",
+  "Couch Stretch",
+  "Pigeon Stretch",
+  "Hamstring Stretch",
+  "Calf Stretch",
+  "Lat Stretch",
+  "Pec Stretch",
+  "Child's Pose",
+  "Foam Rolling",
+  "Ankle Mobility Drill",
+  "Wall Ankle Mobilization",
+  "Goblet Squat Hold",
+  "Deep Squat Hold",
+  "Hip Airplane",
+  "Glute Med Walk",
+  "Terminal Knee Extension",
+  "Spanish Squat Hold",
+  "TKE Band Extension",
+  "Face Pull External Rotation",
+  "Serratus Wall Slide",
+  "Prone Y Raise",
+  "Prone T Raise",
+  "Prone W Raise",
+  "Banded Row",
+  "Banded Good Morning",
+  "Sled Push",
+  "Sled Pull",
+  "Backward Sled Drag",
+  "Battle Ropes",
+  "Battle Rope Waves",
+  "Battle Rope Slams",
+  "SkiErg",
+  "Rower",
+  "Rowing Machine",
+  "Assault Bike",
+  "Air Bike",
+  "Stationary Bike",
+  "Spin Bike",
+  "Elliptical",
+  "Treadmill Walk",
+  "Incline Treadmill Walk",
+  "Treadmill Run",
+  "Stair Climber",
+  "Stairmaster",
+  "VersaClimber",
+  "Jump Rope",
+  "Box Jump",
+  "Step Jump",
+  "Broad Jump",
+  "Burpee",
+  "Burpee Box Jump",
+  "Kettlebell Clean",
+  "Kettlebell Snatch",
+  "Kettlebell Goblet Squat",
+  "Kettlebell Turkish Get-Up",
+  "Medicine Ball Throw",
+  "Wall Ball",
+  "Farmer's Carry",
+  "Trap Bar Carry",
+  "Sandbag Carry",
+  "Sandbag Clean",
+  "Sandbag Squat",
+  "Tire Flip",
+  "Rope Climb",
+  "Bear Crawl",
+  "Crab Walk",
+  "Prowler Push",
+  "Prowler Sprint",
+  "Cable Row",
+  "Cable Chest Press",
+  "Cable Shoulder Press",
+  "Cable Lunge",
+  "Cable Pull Through",
+  "Cable Abduction",
+  "Cable Adduction",
+  "Cable Lateral Raise",
+  "Smith Machine Row",
+  "Smith Machine RDL",
+  "Smith Machine Lunge",
+  "Machine Pullover",
+  "Machine Bicep Curl",
+  "Machine Preacher Curl",
+  "Machine Tricep Dip",
+  "Machine Ab Crunch",
+  "Machine Back Extension",
+  "Machine Glute Kickback",
+  "Machine Hip Thrust",
+  "Machine Adductor",
+  "Machine Abductor",
 ];
  
 const FOOD_DB = [
@@ -175,11 +504,11 @@ const FOOD_DB = [
   { name: "Ground beef 100g", kcal: 250, protein: 26, carbs: 0, fats: 15, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
 ];
  
-const DEFAULT_TIME_SLOTS = ["5:30", "6:00", "6:30", "7:00", "7:30", "8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "5:00", "5:30", "6:00", "6:30", "7:00", "7:30", "8:00", "8:30", "9:00", "9:30", "10:00"];
+const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const RPE_OPTIONS = ["", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
 const PHOTO_TYPES = ["Front", "Side", "Back", "Before", "After", "Progress", "Other"];
-const TIMED_EXERCISES = ["dead hang", "plank", "side plank", "dead bug", "bird dog", "wall sit", "hollow hold", "farmer's carry", "sled push", "battle ropes", "skierg", "elliptical", "rower", "stair climber", "assault bike", "stretching"];
+const TIMED_EXERCISES = ["dead hang", "scapular pull-up", "plank", "side plank", "weighted plank", "rkc plank", "hollow hold", "wall sit", "farmer walk", "farmer's carry", "suitcase carry", "overhead carry", "waiter carry", "sled push", "sled pull", "battle ropes", "battle rope waves", "battle rope slams", "skierg", "elliptical", "rower", "rowing machine", "stair climber", "stairmaster", "assault bike", "air bike", "stationary bike", "treadmill", "incline treadmill", "versa climber", "versaclimber", "jump rope", "bear crawl", "crab walk", "copenhagen", "hollow rock", "pallof hold", "deep squat hold", "goblet squat hold", "stretch", "stretching", "mobility", "carry"];
 function isTimedExercise(name = "") {
   const n = String(name).toLowerCase();
   return TIMED_EXERCISES.some((x) => n.includes(x));
@@ -192,9 +521,28 @@ function readFileAsDataUrl(file) {
     reader.readAsDataURL(file);
   });
 }
+function normalizeSlotLabel(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return raw.toUpperCase();
+  const hour = Number(match[1]);
+  const mins = match[2] || "00";
+  const period = match[3] ? match[3].toUpperCase() : "";
+  return `${hour}:${mins}${period ? ` ${period}` : ""}`;
+}
+ 
+function timeKey(value = "") {
+  return normalizeSlotLabel(value).toLowerCase().replace(/\s+/g, " ").trim();
+}
+ 
 function normalizeSlots(raw) {
-  const source = Array.isArray(raw) && raw.length ? raw : DEFAULT_TIME_SLOTS;
-  return source.map((s, i) => typeof s === "string" ? { id: `slot_${i}_${s}`, label: s } : { id: s.id || `slot_${i}_${s.label || s.time}`, label: s.label || s.time || String(s) });
+  const hasAmPm = Array.isArray(raw) && raw.some((s) => /\b(am|pm)\b/i.test(typeof s === "string" ? s : s?.label || s?.time || ""));
+  const source = Array.isArray(raw) && raw.length && hasAmPm ? raw : DEFAULT_TIME_SLOTS;
+  return source.map((s, i) => {
+    const label = normalizeSlotLabel(typeof s === "string" ? s : s.label || s.time || String(s));
+    return { id: typeof s === "object" && s.id ? s.id : `slot_${i}_${label}`, label };
+  });
 }
 const DENIS_EMAIL = "kendenisdubai@gmail.com";
  
@@ -225,7 +573,7 @@ function normalizeInjuries(value) {
 }
  
 function timeLabel(t) {
-  return String(t || "").replace(/^0/, "");
+  return normalizeSlotLabel(t).replace(/^0/, "");
 }
  
 function moneyAED(n) {
@@ -548,8 +896,84 @@ function modalBackdrop() {
   return { position: "fixed", inset: 0, background: "rgba(0,0,0,.86)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
 }
  
-function CoachDashboard({ user, trainer, clients, setClients, selectClient, refresh }) {
+function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: trainer?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "",
+    email: trainer?.email || user?.email || "",
+    phone: trainer?.phone || "",
+    photo: trainer?.photo || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  async function pickPhoto(file) {
+    if (!file) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    set("photo", dataUrl);
+  }
+  async function save() {
+    setSaving(true);
+    setMessage("");
+    try {
+      const emailChanged = form.email && form.email !== user.email;
+      if (emailChanged) {
+        const { error: authErr } = await supabase.auth.updateUser({ email: form.email });
+        if (authErr) throw authErr;
+      }
+      const payload = {
+        id: user.id,
+        name: form.name || user.email?.split("@")[0] || "Coach",
+        email: form.email || user.email || "",
+        phone: form.phone || "",
+        photo: form.photo || "",
+        role: "Coach",
+      };
+      const { error } = await supabase.from("trainers").upsert(payload, { onConflict: "id" });
+      if (error) throw error;
+      onSaved?.(payload);
+      setMessage(emailChanged ? "Saved. Check your email to confirm the new login email." : "Settings saved.");
+    } catch (e) {
+      alert(e.message || "Could not save coach settings");
+    }
+    setSaving(false);
+  }
+  return (
+    <div style={modalBackdrop()}>
+      <Card style={{ width: "100%", maxWidth: 560 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 1000 }}>Coach Settings</div>
+            <div style={{ color: BRAND.muted }}>Edit your profile shown inside Forge.</div>
+          </div>
+          <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+          <div style={{ width: 84, height: 84, borderRadius: 24, background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+            {form.photo ? <img src={form.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}
+          </div>
+          <label style={{ flex: 1 }}>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>PROFILE PHOTO</div>
+            <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
+          </label>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+          <Field label="Coach name" value={form.name} onChange={(v) => set("name", v)} />
+          <Field label="Email" value={form.email} onChange={(v) => set("email", v)} />
+          <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} />
+        </div>
+        {message && <div style={{ color: BRAND.green, fontWeight: 900, marginTop: 12 }}>{message}</div>}
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <Button disabled={saving} onClick={save} style={{ flex: 1 }}>{saving ? "Saving..." : "Save Settings"}</Button>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+ 
+function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
@@ -579,9 +1003,17 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
  
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.92)", backdropFilter: "blur(14px)", borderBottom: `1px solid ${BRAND.line}`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div><div style={{ fontSize: 29, fontWeight: 1000, color: BRAND.gold }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 12 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
-        <Button variant="ghost" onClick={() => supabase.auth.signOut()}>Logout</Button>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.92)", backdropFilter: "blur(14px)", borderBottom: `1px solid ${BRAND.line}`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 16, background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+            {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
+          </div>
+          <div><div style={{ fontSize: 29, fontWeight: 1000, color: BRAND.gold }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 12 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="dark" onClick={() => setShowSettings(true)}>Settings</Button>
+          <Button variant="ghost" onClick={() => supabase.auth.signOut()}>Logout</Button>
+        </div>
       </header>
       <main style={{ maxWidth: 1180, margin: "0 auto", padding: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 16 }}>
@@ -607,6 +1039,7 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
         {tab === "trials" && <Trials user={user} />}
       </main>
       {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onCreate={createClient} />}
+      {showSettings && <CoachSettingsModal user={user} trainer={trainer} onClose={() => setShowSettings(false)} onSaved={(next) => { setTrainer?.(next); setShowSettings(false); refresh(); }} />}
     </div>
   );
 }
@@ -767,13 +1200,33 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
   const [days, setDays] = useState(program?.days || [{ name: "Day 1 - Push", exercises: [] }, { name: "Day 2 - Pull", exercises: [] }, { name: "Day 3 - Legs", exercises: [] }]);
   const [active, setActive] = useState(0);
   const [search, setSearch] = useState("");
-  const filtered = EXERCISE_LIBRARY.filter((e) => e.toLowerCase().includes(search.toLowerCase()));
-  const addEx = (ex) => setDays((p) => p.map((d, i) => i === active ? { ...d, exercises: [...(d.exercises || []), { name: ex, numSets: 3, reps: "8-10", weight: "" }] } : d));
+  const [customExercise, setCustomExercise] = useState("");
+  const [customExercises, setCustomExercises] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("forge_custom_exercises") || "[]"); }
+    catch { return []; }
+  });
+  const fullExerciseLibrary = useMemo(() => Array.from(new Set([...EXERCISE_LIBRARY, ...customExercises])).sort((a, b) => a.localeCompare(b)), [customExercises]);
+  const filtered = fullExerciseLibrary.filter((e) => e.toLowerCase().includes(search.toLowerCase()));
+  const defaultPrescription = (exerciseName) => isTimedExercise(exerciseName)
+    ? { name: exerciseName, numSets: 3, reps: "30-45 sec", weight: "" }
+    : { name: exerciseName, numSets: 3, reps: "8-10", weight: "" };
+  const addEx = (ex) => setDays((p) => p.map((d, i) => i === active ? { ...d, exercises: [...(d.exercises || []), defaultPrescription(ex)] } : d));
+  const addCustomExercise = () => {
+    const cleaned = customExercise.trim();
+    if (!cleaned) return;
+    const exists = fullExerciseLibrary.some((e) => e.toLowerCase() === cleaned.toLowerCase());
+    const next = exists ? customExercises : [...customExercises, cleaned].sort((a, b) => a.localeCompare(b));
+    setCustomExercises(next);
+    localStorage.setItem("forge_custom_exercises", JSON.stringify(next));
+    addEx(cleaned);
+    setCustomExercise("");
+    setSearch(cleaned);
+  };
   const updateEx = (di, ei, f, v) => setDays((p) => p.map((d, i) => i === di ? { ...d, exercises: d.exercises.map((e, j) => j === ei ? { ...e, [f]: v } : e) } : d));
   const delDay = (di) => { const next = days.filter((_, i) => i !== di); setDays(next.length ? next : [{ name: "Day 1", exercises: [] }]); setActive(0); };
-  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 950, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column" }}><div style={{ display: "flex", gap: 10, marginBottom: 12 }}><input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} /><Button onClick={() => onSave({ name, totalWeeks: weeks, days })}>Save</Button><Button variant="ghost" onClick={onClose}>X</Button></div><div style={{ display: "flex", gap: 8, marginBottom: 10 }}>{[2, 4, 6, 8, 12].map((w) => <Button key={w} variant={weeks === w ? "gold" : "dark"} onClick={() => setWeeks(w)}>{w} weeks</Button>)}</div><div style={{ display: "grid", gridTemplateColumns: "250px 1fr", gap: 12, minHeight: 520, overflow: "hidden" }}><div style={{ overflow: "auto" }}><Button variant="dark" onClick={() => { setDays([...days, { name: `Day ${days.length + 1}`, exercises: [] }]); setActive(days.length); }} style={{ width: "100%", marginBottom: 10 }}>+ Add Day</Button>{days.map((d, i) => <div key={i} style={{ position: "relative", background: i === active ? client.color + "22" : BRAND.card2, border: `1px solid ${i === active ? client.color : BRAND.line}`, padding: 12, borderRadius: 14, marginBottom: 8, cursor: "pointer" }} onClick={() => setActive(i)}><button onClick={(e) => { e.stopPropagation(); delDay(i); }} style={{ position: "absolute", top: 5, right: 7, background: "transparent", border: "none", color: BRAND.red, cursor: "pointer", fontWeight: 1000 }}>x</button><div style={{ fontWeight: 900 }}>{d.name}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{d.exercises?.length || 0} exercises</div></div>)}<input placeholder="Search exercise..." value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle({ marginTop: 10 })} />{filtered.slice(0, 90).map((ex) => <button key={ex} onClick={() => addEx(ex)} style={{ display: "block", width: "100%", textAlign: "left", marginTop: 4, background: "transparent", border: "none", color: BRAND.text, padding: 8, cursor: "pointer" }}>+ {ex}</button>)}</div><div style={{ overflow: "auto" }}><input value={days[active]?.name || ""} onChange={(e) => setDays((p) => p.map((d, i) => i === active ? { ...d, name: e.target.value } : d))} style={inputStyle({ marginBottom: 10, fontWeight: 900 })} />{days[active]?.exercises?.map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: "1fr 70px 90px 90px 30px", gap: 8, alignItems: "center", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 10, marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{ex.name}</div><input value={ex.numSets} onChange={(e) => updateEx(active, ei, "numSets", e.target.value)} style={inputStyle()} /><input value={ex.reps} onChange={(e) => updateEx(active, ei, "reps", e.target.value)} style={inputStyle()} /><input value={ex.weight} placeholder="kg" onChange={(e) => updateEx(active, ei, "weight", e.target.value)} style={inputStyle()} /><button onClick={() => setDays((p) => p.map((d, i) => i === active ? { ...d, exercises: d.exercises.filter((_, j) => j !== ei) } : d))} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer" }}>x</button></div>)}</div></div></Card></div>;
+  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 980, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column" }}><div style={{ display: "flex", gap: 10, marginBottom: 12 }}><input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} /><Button onClick={() => onSave({ name, totalWeeks: weeks, days })}>Save</Button><Button variant="ghost" onClick={onClose}>X</Button></div><div style={{ display: "flex", gap: 8, marginBottom: 10 }}>{[2, 4, 6, 8, 12].map((w) => <Button key={w} variant={weeks === w ? "gold" : "dark"} onClick={() => setWeeks(w)}>{w} weeks</Button>)}</div><div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 12, minHeight: 560, overflow: "hidden" }}><div style={{ overflow: "auto" }}><Button variant="dark" onClick={() => { setDays([...days, { name: `Day ${days.length + 1}`, exercises: [] }]); setActive(days.length); }} style={{ width: "100%", marginBottom: 10 }}>+ Add Day</Button>{days.map((d, i) => <div key={i} style={{ position: "relative", background: i === active ? client.color + "22" : BRAND.card2, border: `1px solid ${i === active ? client.color : BRAND.line}`, padding: 12, borderRadius: 14, marginBottom: 8, cursor: "pointer" }} onClick={() => setActive(i)}><button onClick={(e) => { e.stopPropagation(); delDay(i); }} style={{ position: "absolute", top: 5, right: 7, background: "transparent", border: "none", color: BRAND.red, cursor: "pointer", fontWeight: 1000 }}>x</button><div style={{ fontWeight: 900 }}>{d.name}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{d.exercises?.length || 0} exercises</div></div>)}<input placeholder="Search exercise..." value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle({ marginTop: 10 })} /><div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6, marginTop: 8 }}><input placeholder="Custom exercise name" value={customExercise} onChange={(e) => setCustomExercise(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addCustomExercise(); }} style={inputStyle()} /><Button variant="dark" onClick={addCustomExercise}>Add</Button></div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 6 }}>If an exercise is missing, type it above and it will be saved on this device.</div>{filtered.slice(0, 220).map((ex) => <button key={ex} onClick={() => addEx(ex)} style={{ display: "block", width: "100%", textAlign: "left", marginTop: 4, background: "transparent", border: "none", color: customExercises.includes(ex) ? BRAND.gold : BRAND.text, padding: 8, cursor: "pointer" }}>+ {ex}{customExercises.includes(ex) ? "  custom" : ""}</button>)}</div><div style={{ overflow: "auto" }}><input value={days[active]?.name || ""} onChange={(e) => setDays((p) => p.map((d, i) => i === active ? { ...d, name: e.target.value } : d))} style={inputStyle({ marginBottom: 10, fontWeight: 900 })} />{days[active]?.exercises?.map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 90px 30px", gap: 8, alignItems: "center", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 10, marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{ex.name}<div style={{ color: BRAND.muted, fontSize: 10 }}>{isTimedExercise(ex.name) ? "Timed exercise" : "Reps exercise"}</div></div><input value={ex.numSets} onChange={(e) => updateEx(active, ei, "numSets", e.target.value)} style={inputStyle()} /><input value={ex.reps} placeholder={isTimedExercise(ex.name) ? "sec/min" : "reps"} onChange={(e) => updateEx(active, ei, "reps", e.target.value)} style={inputStyle()} /><input value={ex.weight} placeholder="kg" onChange={(e) => updateEx(active, ei, "weight", e.target.value)} style={inputStyle()} /><button onClick={() => setDays((p) => p.map((d, i) => i === active ? { ...d, exercises: d.exercises.filter((_, j) => j !== ei) } : d))} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer" }}>x</button></div>)}</div></div></Card></div>;
 }
- 
+
 function AIProgramBuilder({ client, onClose, onSave }) {
   const [days, setDays] = useState(4);
   const [weeks, setWeeks] = useState(4);
@@ -993,7 +1446,7 @@ function ScheduleTab({ client, updateClient }) {
   const [schedule, setSchedule] = useState(client.schedule || []);
   const [form, setForm] = useState({ day: "Mon", time: DEFAULT_TIME_SLOTS[0] });
   async function save(next) { setSchedule(next); await upsertSection(client.id, "sessions", { schedule: next, checkIns: client.checkIns || [], sessions: client.sessions || 0 }); updateClient({ ...client, schedule: next }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Recurring Schedule</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>These recurring times automatically appear in the main Calendar.</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}><select value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} style={inputStyle()}>{DAYS.map((d) => <option key={d}>{d}</option>)}</select><select value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} style={inputStyle()}>{DEFAULT_TIME_SLOTS.map((t, i) => <option key={`${t}_${i}`} value={t}>{t}</option>)}</select><Button onClick={() => save([...schedule, { ...form, id: uid() }])}>Add</Button></div><div style={{ marginTop: 12 }}>{schedule.map((s, i) => <div key={s.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, padding: 10 }}><b>{s.day} · {s.time}</b><Button variant="red" onClick={() => save(schedule.filter((_, j) => j !== i))}>x</Button></div>)}</div></Card>;
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Recurring Schedule</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>These recurring times automatically appear in the main Calendar.</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}><select value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} style={inputStyle()}>{DAYS.map((d) => <option key={d}>{d}</option>)}</select><select value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} style={inputStyle()}>{DEFAULT_TIME_SLOTS.map((t, i) => <option key={`${t}_${i}`} value={t}>{timeLabel(t)}</option>)}</select><Button onClick={() => save([...schedule, { ...form, id: uid() }])}>Add</Button></div><div style={{ marginTop: 12 }}>{schedule.map((s, i) => <div key={s.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, padding: 10 }}><b>{s.day} · {timeLabel(s.time)}</b><Button variant="red" onClick={() => save(schedule.filter((_, j) => j !== i))}>x</Button></div>)}</div></Card>;
 }
 function InviteTab({ client, updateClient }) {
   const [code, setCode] = useState(client.inviteCode || makeInviteCode());
@@ -1033,7 +1486,7 @@ function Calendar({ clients, refresh, user }) {
   function addSlot() { if (!newSlot) return; const next = [...slots, { id: uid(), label: newSlot }]; setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); setNewSlot(""); }
   function openBooking(day, slot) { setDraft({ day, time: slot.label, type: "Client Session", clientId: clients[0]?.id || "", title: clients[0]?.name || "", color: clients[0]?.color || BRAND.blue }); }
   function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; save([...bookings, { id: uid(), ...draft, color }]); setDraft(null); }
-  return <Card style={{ overflowX: "auto" }}><div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div><table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 6, minWidth: 760 }}><thead><tr><th></th>{DAYS.map((d) => <th key={d} style={{ color: BRAND.gold }}>{d}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, minWidth: 70 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{DAYS.map((d) => { const b = all.find((x) => x.day === d && x.time === slot.label); return <td key={d} onClick={() => !b && openBooking(d, slot)} style={{ height: 48, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 10, padding: 8, cursor: "pointer", fontWeight: 900 }}>{b ? b.title : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>{draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>Book {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}</Card>;
+  return <Card style={{ overflowX: "auto" }}><div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30 PM" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div><table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 6, minWidth: 760 }}><thead><tr><th></th>{DAYS.map((d) => <th key={d} style={{ color: BRAND.gold }}>{d}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, minWidth: 70 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{DAYS.map((d) => { const b = all.find((x) => x.day === d && timeKey(x.time) === timeKey(slot.label)); return <td key={d} onClick={() => !b && openBooking(d, slot)} style={{ height: 48, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 10, padding: 8, cursor: "pointer", fontWeight: 900 }}>{b ? b.title : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>{draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>Book {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}</Card>;
 }
 function RatingSelect({ label, value, onChange }) {
   return <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>{label}</div><select value={value || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle()}><option value="">Choose 1-5</option>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
@@ -1071,8 +1524,13 @@ export default function App() {
  
   async function ensureTrainer(user) {
     const email = user.email || "";
-    const name = user.user_metadata?.name || email.split("@")[0] || "Coach";
-    await supabase.from("trainers").upsert({ id: user.id, email, name, role: "Coach" });
+    const { data: existing } = await supabase.from("trainers").select("id").eq("id", user.id).maybeSingle();
+    if (!existing) {
+      const name = user.user_metadata?.name || email.split("@")[0] || "Coach";
+      await supabase.from("trainers").insert({ id: user.id, email, name, role: "Coach" });
+    } else {
+      await supabase.from("trainers").update({ email }).eq("id", user.id);
+    }
   }
  
   async function loadRole(user) {
@@ -1116,5 +1574,5 @@ export default function App() {
   if (!session) return <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />;
   if (clientPortal) return <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} />;
   if (selected) return <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />;
-  return <CoachDashboard user={session.user} trainer={trainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} />;
+  return <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} />;
 }
