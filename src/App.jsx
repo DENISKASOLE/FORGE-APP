@@ -1,7 +1,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
-
+ 
 const textareaStyle = (extra = {}) => ({
   width: "100%",
   minHeight: 90,
@@ -16,9 +16,9 @@ const textareaStyle = (extra = {}) => ({
   fontFamily: "inherit",
   ...extra,
 });
-
+ 
 /*
-  FORGE V4.1 - Clients Tab Fix + Coach/Client Portal
+  FORGE V4.3 - Dashboard Cards Fix + Nutrition Fix + Coach/Client Portal
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -155,7 +155,6 @@ const EXERCISE_LIBRARY = [
   "Band Pass Throughs",
   "Thoracic Rotation",
   "Stretching",
-  "Reverse Lunges"
 ];
  
 const FOOD_DB = [
@@ -178,6 +177,25 @@ const FOOD_DB = [
  
 const DEFAULT_TIME_SLOTS = ["5:30", "6:00", "6:30", "7:00", "7:30", "8:00", "8:30", "9:00", "9:30", "10:00", "10:30", "11:00", "5:00", "5:30", "6:00", "6:30", "7:00", "7:30", "8:00", "8:30", "9:00", "9:30", "10:00"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const RPE_OPTIONS = ["", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
+const PHOTO_TYPES = ["Front", "Side", "Back", "Before", "After", "Progress", "Other"];
+const TIMED_EXERCISES = ["dead hang", "plank", "side plank", "dead bug", "bird dog", "wall sit", "hollow hold", "farmer's carry", "sled push", "battle ropes", "skierg", "elliptical", "rower", "stair climber", "assault bike", "stretching"];
+function isTimedExercise(name = "") {
+  const n = String(name).toLowerCase();
+  return TIMED_EXERCISES.some((x) => n.includes(x));
+}
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function normalizeSlots(raw) {
+  const source = Array.isArray(raw) && raw.length ? raw : DEFAULT_TIME_SLOTS;
+  return source.map((s, i) => typeof s === "string" ? { id: `slot_${i}_${s}`, label: s } : { id: s.id || `slot_${i}_${s.label || s.time}`, label: s.label || s.time || String(s) });
+}
 const DENIS_EMAIL = "kendenisdubai@gmail.com";
  
 function uid() {
@@ -248,6 +266,7 @@ function emptyProfile() {
     lactoseIntolerant: false,
     glutenIntolerant: false,
     notes: "",
+    photo: "",
   };
 }
  
@@ -283,7 +302,8 @@ function mapClient(row, dataRows = [], index = 0) {
     goals: profile.goals,
     goal: profile.goals?.[0] || row.goal || "General Fitness",
     profile,
-    color: row.color || getClientColor(row.id, index),
+    color: row.color || profile.color || getClientColor(row.id, index),
+    photo: profile.photo || row.photo || "",
     avatar: initials(row.name),
     packages: sections.packages || row.packages || [],
     program: sections.program || row.program || null,
@@ -471,9 +491,14 @@ function LoginScreen({ onReady }) {
 }
  
 function AddClientModal({ onClose, onCreate }) {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", age: "", weight: "", profile: emptyProfile() });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", age: "", weight: "", color: CLIENT_COLORS[0], profile: emptyProfile() });
   const setProfile = (k, v) => setForm((f) => ({ ...f, profile: { ...f.profile, [k]: v } }));
   const toggleGoal = (g) => setProfile("goals", form.profile.goals.includes(g) ? form.profile.goals.filter((x) => x !== g) : [...form.profile.goals, g]);
+  async function pickPhoto(file) {
+    if (!file) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    setProfile("photo", dataUrl);
+  }
   return (
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 780, maxHeight: "92vh", overflow: "auto" }}>
@@ -481,12 +506,23 @@ function AddClientModal({ onClose, onCreate }) {
           <div><div style={{ fontSize: 24, fontWeight: 900 }}>Add New Client</div><div style={{ color: BRAND.muted }}>Create the profile first. Invite the client later.</div></div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+          <div style={{ width: 72, height: 72, borderRadius: 22, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{form.profile.photo ? <img src={form.profile.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT PHOTO</div>
+            <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
+          </div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 12 }}>
           <Field label="Client name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
           <Field label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
           <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           <Field label="Age" value={form.age} onChange={(v) => setForm({ ...form, age: v })} type="number" />
           <Field label="Weight kg" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>CLIENT COLOR</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: 12, border: form.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>
         </div>
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>GOALS</div>
@@ -508,7 +544,6 @@ function AddClientModal({ onClose, onCreate }) {
     </div>
   );
 }
- 
 function modalBackdrop() {
   return { position: "fixed", inset: 0, background: "rgba(0,0,0,.86)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
 }
@@ -521,7 +556,7 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
  
   async function createClient(form) {
-    const color = getClientColor(uid(), clients.length);
+    const color = form.color || getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
     const payload = {
       trainer_id: user.id,
@@ -550,13 +585,13 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
       </header>
       <main style={{ maxWidth: 1180, margin: "0 auto", padding: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 16 }}>
-          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} />
-          <Kpi title="Scheduled" value={upcoming} icon="📅" color={BRAND.cyan} />
-          <Kpi title="Trials" value="0" icon="🔥" color={BRAND.red} />
-          <Kpi title="Calendar" value="Open" icon="⏱" color={BRAND.green} />
+          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} />
+          <Kpi title="Scheduled" value={upcoming} icon="📅" color={BRAND.cyan} onClick={() => setTab("scheduled")} />
+          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} />
+          <Kpi title="Calendar" value="Open" icon="⏱" color={BRAND.green} onClick={() => setTab("calendar")} />
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
-          {[["clients", "Clients"], ["calendar", "Calendar"], ["trials", "Trials"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
+          {[["clients", "Clients"], ["scheduled", "Scheduled"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
         </div>
         {tab === "clients" && <>
           <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
@@ -567,6 +602,7 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
             {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
           </div>
         </>}
+        {tab === "scheduled" && <ScheduledView clients={clients} selectClient={selectClient} />}
         {tab === "calendar" && <Calendar clients={clients} refresh={refresh} user={user} />}
         {tab === "trials" && <Trials user={user} />}
       </main>
@@ -575,15 +611,52 @@ function CoachDashboard({ user, trainer, clients, setClients, selectClient, refr
   );
 }
  
-function Kpi({ title, value, icon, color }) {
-  return <Card><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>{title}</div><div style={{ fontSize: 28, fontWeight: 1000, color }}>{value}</div></div><div style={{ fontSize: 28 }}>{icon}</div></div></Card>;
+function Kpi({ title, value, icon, color, onClick }) {
+  return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", transition: "transform .15s ease, border-color .15s ease", borderColor: onClick ? `${color}66` : BRAND.line }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>{title}</div><div style={{ fontSize: 28, fontWeight: 1000, color }}>{value}</div></div><div style={{ fontSize: 28 }}>{icon}</div></div><div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 800 }}>{onClick ? "Tap to open" : ""}</div></Card>;
+}
+ 
+function ScheduledView({ clients, selectClient }) {
+  const scheduled = clients.flatMap((client) => (client.schedule || []).map((s) => ({
+    id: `${client.id}_${s.day}_${s.time}`,
+    client,
+    day: s.day,
+    time: s.time,
+  })));
+  const dayIndex = Object.fromEntries(DAYS.map((d, i) => [d, i]));
+  scheduled.sort((a, b) => (dayIndex[a.day] ?? 99) - (dayIndex[b.day] ?? 99) || String(a.time).localeCompare(String(b.time)));
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <Card>
+        <div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.cyan }}>Scheduled Sessions</div>
+        <div style={{ color: BRAND.muted, marginTop: 4 }}>All recurring client sessions from client schedules. Tap a client row to open their profile.</div>
+      </Card>
+      {scheduled.length === 0 ? (
+        <Card><div style={{ color: BRAND.muted }}>No scheduled sessions yet. Open a client, go to Schedule, and add their recurring days and times.</div></Card>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+          {scheduled.map((s) => (
+            <Card key={s.id} onClick={() => selectClient(s.client)} style={{ cursor: "pointer", borderColor: s.client.color }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <div>
+                  <div style={{ color: s.client.color, fontSize: 12, fontWeight: 1000 }}>{s.day} · {timeLabel(s.time)}</div>
+                  <div style={{ fontSize: 20, fontWeight: 1000 }}>{s.client.name}</div>
+                  <div style={{ color: BRAND.muted, fontSize: 12 }}>{s.client.goals?.join(" + ") || s.client.goal}</div>
+                </div>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: s.client.color, color: "#000", display: "grid", placeItems: "center", fontWeight: 1000 }}>{s.client.avatar}</div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
  
 function ClientCard({ client, onClick }) {
   return (
     <Card style={{ cursor: "pointer", borderColor: client.color }} onClick={onClick}>
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <div style={{ width: 54, height: 54, borderRadius: 18, display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000 }}>{client.avatar}</div>
+        <ClientAvatar client={client} size={54} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 19, fontWeight: 1000 }}>{client.name}</div>
           <div style={{ color: client.color, fontSize: 12, fontWeight: 900 }}>{client.goals?.join(" + ") || client.goal}</div>
@@ -600,10 +673,14 @@ function ClientCard({ client, onClick }) {
  
 function Mini({ label, value }) { return <div style={{ background: "#0b0c10", border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800 }}>{label}</div><div style={{ color: BRAND.text, fontWeight: 900 }}>{value}</div></div>; }
  
+function ClientAvatar({ client, size = 54 }) {
+  return <div style={{ width: size, height: size, borderRadius: Math.round(size / 3), display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000, overflow: "hidden", flexShrink: 0 }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
+}
+ 
 function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
   const tabs = isCoach ? [
-    ["profile", "📋 Profile"], ["program", "💪 Program"], ["nutrition", "🥗 Nutrition"], ["progress", "📈 Progress"], ["photos", "📸 Transform"], ["schedule", "📅 Schedule"], ["invite", "🔗 Invite"]
+    ["profile", "📋 Profile"], ["program", "💪 Program"], ["nutrition", "🥗 Nutrition"], ["progress", "📈 Progress"], ["photos", "📸 Transform"], ["schedule", "📅 Schedule"], ["packages", "💳 Packages"], ["invite", "🔗 Invite"]
   ] : [["home", "🏠 Home"], ["program", "💪 My Program"], ["nutrition", "🥗 Food Log"], ["workouts", "🏋️ Workout Log"], ["photos", "📸 Photos"]];
   async function delClient() {
     if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return;
@@ -615,7 +692,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text }}>
       <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: 14, display: "flex", gap: 10, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.94)", zIndex: 80 }}>
         {isCoach && <Button variant="ghost" onClick={back}>Back</Button>}
-        <div style={{ width: 54, height: 54, borderRadius: 18, display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000 }}>{client.avatar}</div>
+        <ClientAvatar client={client} size={54} />
         <div style={{ flex: 1 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>{client.name}</div><div style={{ color: client.color, fontWeight: 900, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
         {isCoach && <Button variant="red" onClick={delClient}>Delete</Button>}
       </header>
@@ -628,6 +705,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
         {tab === "progress" && <ProgressTab client={client} />}
         {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
         {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
+        {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} />}
         {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
         {tab === "workouts" && <ClientWorkoutLog client={client} updateClient={updateClient} />}
       </main>
@@ -644,15 +722,30 @@ function ProfileTab({ client, updateClient }) {
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
   const toggleGoal = (g) => set("goals", profile.goals.includes(g) ? profile.goals.filter((x) => x !== g) : [...profile.goals, g]);
+  async function pickPhoto(file) {
+    if (!file) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    set("photo", dataUrl);
+  }
   async function save() {
     setSaving(true);
     await upsertSection(client.id, "profile", profile);
-    updateClient({ ...client, profile, goals: profile.goals, goal: profile.goals?.[0] || client.goal, notes: profile.notes });
+    updateClient({ ...client, profile, photo: profile.photo || client.photo, color: profile.color || client.color, goals: profile.goals, goal: profile.goals?.[0] || client.goal, notes: profile.notes });
     setSaving(false);
   }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 14 }}>Client Profile</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${profile.goals.includes(g) ? client.color : BRAND.line}`, background: profile.goals.includes(g) ? client.color : BRAND.card2, color: profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}><Field label="Injuries" value={profile.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical Issues" value={profile.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Barriers" value={profile.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Sleep" value={profile.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / Daily Activity" value={profile.neat} onChange={(v) => set("neat", v)} textarea /><Field label="Work Schedule" value={profile.workSchedule} onChange={(v) => set("workSchedule", v)} textarea /><Field label="Vegetarian Status" value={profile.vegetarianStatus} onChange={(v) => set("vegetarianStatus", v)} /><Field label="Allergies" value={profile.allergies} onChange={(v) => set("allergies", v)} /><Field label="Notes" value={profile.notes} onChange={(v) => set("notes", v)} textarea /></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 14 }}>Client Profile</div>
+    <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+      <div style={{ width: 84, height: 84, borderRadius: 26, background: profile.color || client.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{profile.photo || client.photo ? <img src={profile.photo || client.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>PROFILE PICTURE</div>
+        <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
+      </div>
+    </div>
+    <div style={{ marginBottom: 14 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT COLOR</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: (profile.color || client.color) === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${profile.goals.includes(g) ? client.color : BRAND.line}`, background: profile.goals.includes(g) ? client.color : BRAND.card2, color: profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}><Field label="Injuries" value={profile.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical Issues" value={profile.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Barriers" value={profile.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Sleep" value={profile.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / Daily Activity" value={profile.neat} onChange={(v) => set("neat", v)} textarea /><Field label="Work Schedule" value={profile.workSchedule} onChange={(v) => set("workSchedule", v)} textarea /><Field label="Vegetarian Status" value={profile.vegetarianStatus} onChange={(v) => set("vegetarianStatus", v)} /><Field label="Allergies" value={profile.allergies} onChange={(v) => set("allergies", v)} /><Field label="Notes" value={profile.notes} onChange={(v) => set("notes", v)} textarea /></div>
+    <div style={{ display: "flex", gap: 10, marginTop: 14 }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
 }
- 
 function ProgramTab({ client, updateClient, isCoach }) {
   const [builder, setBuilder] = useState(false);
   const [ai, setAi] = useState(false);
@@ -701,16 +794,15 @@ function SessionTracker({ client, program, saveProgram, isCoach }) {
   const logs = program.weekLogs || Array.from({ length: Number(program.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, program.days || []));
   const [wk, setWk] = useState(0);
   const [dy, setDy] = useState(0);
-  const [recap, setRecap] = useState("");
   const week = logs[wk];
   const day = week?.days?.[dy];
   function patch(fn) { const next = fn(logs); saveProgram({ ...program, weekLogs: next }); }
   function setSet(ei, si, f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, sessionData: d.sessionData.map((ex, xi) => xi !== ei ? ex : { ...ex, sets: ex.sets.map((s, j) => j !== si ? s : { ...s, [f]: v }) }) }) })); }
   function setMeta(f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, [f]: v }) })); }
-  function generateRecap() { const lines = day.sessionData.map((ex) => `${ex.name}: ${ex.sets.map((s) => [s.weight && `${s.weight}kg`, s.reps && `${s.reps} reps`, s.rpe && `RPE ${s.rpe}`].filter(Boolean).join(" x ")).filter(Boolean).join(", ") || "not logged"}`).join("\n"); setRecap(`Last ${day.name} recap for ${client.name}:\n${lines}\nNotes: ${day.notes || "No notes yet."}\nNext focus: ${aiProgression(program, client)}`); }
-  return <Card><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>{logs.map((_, i) => <Button key={i} variant={wk === i ? "gold" : "dark"} onClick={() => { setWk(i); setDy(0); }}>Week {i + 1}</Button>)}</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{week?.days?.map((d, i) => <Button key={i} variant={dy === i ? "gold" : "dark"} onClick={() => setDy(i)}>{d.name}</Button>)}</div>{day && <><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}><div><div style={{ fontSize: 20, fontWeight: 1000 }}>{day.name}</div><div style={{ color: BRAND.muted }}>Week {wk + 1}</div></div><input type="date" value={day.date || ""} onChange={(e) => setMeta("date", e.target.value)} style={inputStyle({ maxWidth: 180 })} /></div>{day.sessionData?.map((ex, ei) => <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ color: client.color, fontWeight: 1000, marginBottom: 8 }}>{ex.name}</div>{ex.sets.map((s, si) => <div key={si} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 90px", gap: 8, marginBottom: 6, alignItems: "center" }}><div style={{ color: BRAND.muted }}>S{si + 1}</div><input placeholder="kg" value={s.weight} onChange={(e) => setSet(ei, si, "weight", e.target.value)} style={inputStyle()} /><input placeholder="reps" value={s.reps} onChange={(e) => setSet(ei, si, "reps", e.target.value)} style={inputStyle()} /><input placeholder="RPE" value={s.rpe} onChange={(e) => setSet(ei, si, "rpe", e.target.value)} style={inputStyle()} /></div>)}</div>)}<Field label="Session notes" value={day.notes} onChange={(v) => setMeta("notes", v)} textarea /><div style={{ marginTop: 10 }}><Button onClick={generateRecap}>Recap this session</Button></div>{recap && <textarea value={recap} onChange={(e) => setRecap(e.target.value)} style={inputStyle({ minHeight: 150, marginTop: 10 })} />}</>}</Card>;
+  return <Card><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>{logs.map((_, i) => <Button key={i} variant={wk === i ? "gold" : "dark"} onClick={() => { setWk(i); setDy(0); }}>Week {i + 1}</Button>)}</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{week?.days?.map((d, i) => <Button key={i} variant={dy === i ? "gold" : "dark"} onClick={() => setDy(i)}>{d.name}</Button>)}</div>{day && <><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}><div><div style={{ fontSize: 20, fontWeight: 1000 }}>{day.name}</div><div style={{ color: BRAND.muted }}>Week {wk + 1}</div></div><input type="date" value={day.date || ""} onChange={(e) => setMeta("date", e.target.value)} style={inputStyle({ maxWidth: 180 })} /></div>{day.sessionData?.map((ex, ei) => {
+    const timed = isTimedExercise(ex.name);
+    return <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ color: client.color, fontWeight: 1000, marginBottom: 8 }}>{ex.name}</div>{ex.sets.map((s, si) => <div key={si} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 110px", gap: 8, marginBottom: 6, alignItems: "center" }}><div style={{ color: BRAND.muted }}>S{si + 1}</div><input placeholder={timed ? "load/assist" : "kg"} value={s.weight} onChange={(e) => setSet(ei, si, "weight", e.target.value)} style={inputStyle()} /><input placeholder={timed ? "time held e.g. 30 sec" : "reps"} value={timed ? (s.duration || s.reps || "") : (s.reps || "")} onChange={(e) => setSet(ei, si, timed ? "duration" : "reps", e.target.value)} style={inputStyle()} /><select value={s.rpe || ""} onChange={(e) => setSet(ei, si, "rpe", e.target.value)} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></div>)}</div>})}<Field label="Session notes" value={day.notes} onChange={(v) => setMeta("notes", v)} textarea /></>}</Card>;
 }
- 
 function normalizeNutrition(raw) {
   const base = emptyNutrition();
   const n = raw && typeof raw === "object" ? raw : {};
@@ -886,12 +978,12 @@ function NutritionTab({ client, updateClient, isCoach }) {
  
 function TransformPhotos({ client, updateClient }) {
   const [photos, setPhotos] = useState(client.transformPhotos || []);
-  const [form, setForm] = useState({ url: "", type: "Front", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
-  async function add() { const next = [{ id: uid(), ...form }, ...photos]; setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); setForm({ ...form, url: "", notes: "" }); }
+  const [form, setForm] = useState({ image: "", type: "Front", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
+  async function pickImage(file) { if (!file) return; const dataUrl = await readFileAsDataUrl(file); setForm((f) => ({ ...f, image: dataUrl })); }
+  async function add() { if (!form.image) { alert("Choose a photo from your device first."); return; } const next = [{ id: uid(), ...form }, ...photos]; setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); setForm({ ...form, image: "", notes: "" }); }
   async function del(id) { const next = photos.filter((p) => p.id !== id); setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Transform Photos</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}><Field label="Image URL" value={form.url} onChange={(v) => setForm({ ...form, url: v })} /><Field label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} /><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div><Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.url ? <img src={p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image URL</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Transform Photos</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
 }
- 
 function ProgressTab({ client }) {
   const latest = client.progress?.[client.progress.length - 1] || {};
   return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Progress</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginTop: 12 }}>{LIFT_FIELDS.map((f) => <Mini key={f.key} label={f.label} value={latest[f.key] || "-"} />)}</div></Card></div>;
@@ -899,11 +991,10 @@ function ProgressTab({ client }) {
  
 function ScheduleTab({ client, updateClient }) {
   const [schedule, setSchedule] = useState(client.schedule || []);
-  const [form, setForm] = useState({ day: "Mon", time: "5:30" });
-  async function save(next) { setSchedule(next); await upsertSection(client.id, "sessions", { ...(client.sessions || {}), schedule: next, checkIns: client.checkIns || [] }); updateClient({ ...client, schedule: next }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Recurring Schedule</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}><select value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} style={inputStyle()}>{DAYS.map((d) => <option key={d}>{d}</option>)}</select><input value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} style={inputStyle()} /><Button onClick={() => save([...schedule, form])}>Add</Button></div>{schedule.map((s, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", borderTop: `1px solid ${BRAND.line}`, marginTop: 10, paddingTop: 10 }}><b>{s.day} {timeLabel(s.time)}</b><Button variant="red" onClick={() => save(schedule.filter((_, j) => j !== i))}>x</Button></div>)}</Card>;
+  const [form, setForm] = useState({ day: "Mon", time: DEFAULT_TIME_SLOTS[0] });
+  async function save(next) { setSchedule(next); await upsertSection(client.id, "sessions", { schedule: next, checkIns: client.checkIns || [], sessions: client.sessions || 0 }); updateClient({ ...client, schedule: next }); }
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Recurring Schedule</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>These recurring times automatically appear in the main Calendar.</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}><select value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} style={inputStyle()}>{DAYS.map((d) => <option key={d}>{d}</option>)}</select><select value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} style={inputStyle()}>{DEFAULT_TIME_SLOTS.map((t, i) => <option key={`${t}_${i}`} value={t}>{t}</option>)}</select><Button onClick={() => save([...schedule, { ...form, id: uid() }])}>Add</Button></div><div style={{ marginTop: 12 }}>{schedule.map((s, i) => <div key={s.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, padding: 10 }}><b>{s.day} · {s.time}</b><Button variant="red" onClick={() => save(schedule.filter((_, j) => j !== i))}>x</Button></div>)}</div></Card>;
 }
- 
 function InviteTab({ client, updateClient }) {
   const [code, setCode] = useState(client.inviteCode || makeInviteCode());
   async function saveInvite() { await supabase.from("clients").update({ invite_code: code, invite_status: "sent" }).eq("id", client.id); updateClient({ ...client, inviteCode: code, inviteStatus: "sent" }); }
@@ -918,32 +1009,45 @@ function ClientWorkoutLog({ client, updateClient }) {
   return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><Field label="RPE" value={form.rpe} onChange={(v) => setForm({ ...form, rpe: v })} /></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
 }
  
-function Calendar({ clients, refresh, user }) {
-  const [slots, setSlots] = useState(() => JSON.parse(localStorage.getItem("forge_time_slots") || "null") || DEFAULT_TIME_SLOTS);
-  const [bookings, setBookings] = useState([]);
-  const [newSlot, setNewSlot] = useState("");
-  useEffect(() => { load(); }, []);
-  async function load() { const uid = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uid).eq("section", "calendar").maybeSingle(); setBookings(data?.data?.bookings || []); }
-  async function save(next) { setBookings(next); const uid = user?.id || (await supabase.auth.getUser()).data.user?.id; await supabase.from("trainer_data").upsert({ trainer_id: uid, section: "calendar", data: { bookings: next } }, { onConflict: "trainer_id,section" }); }
-  function autoBookings() { return clients.flatMap((c) => (c.schedule || []).map((s) => ({ id: `auto_${c.id}_${s.day}_${s.time}`, day: s.day, time: s.time, title: c.name, type: "Client", color: c.color, auto: true }))); }
-  const all = [...autoBookings(), ...bookings];
-  function removeSlot(s) { const next = slots.filter((x) => x !== s); setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); }
-  function addSlot() { if (!newSlot) return; const next = [...slots, newSlot]; setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); setNewSlot(""); }
-  function clickCell(day, time) { const title = prompt("Booking name"); if (!title) return; const type = prompt("Type: Client Session, Free Trial, Consultation", "Client Session") || "Client Session"; save([...bookings, { id: uid(), day, time, title, type, color: type.toLowerCase().includes("trial") ? BRAND.red : BRAND.blue }]); }
-  return <Card style={{ overflowX: "auto" }}><div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div><table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 6, minWidth: 760 }}><thead><tr><th></th>{DAYS.map((d) => <th key={d} style={{ color: BRAND.gold }}>{d}</th>)}</tr></thead><tbody>{slots.map((t) => <tr key={t}><td style={{ color: BRAND.muted, fontWeight: 900, minWidth: 70 }}>{timeLabel(t)} <button onClick={() => removeSlot(t)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{DAYS.map((d) => { const b = all.find((x) => x.day === d && x.time === t); return <td key={d} onClick={() => !b && clickCell(d, t)} style={{ height: 48, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 10, padding: 8, cursor: "pointer", fontWeight: 900 }}>{b ? b.title : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table></Card>;
+function PackagesTab({ client, updateClient }) {
+  const [packages, setPackages] = useState(client.packages || []);
+  const [form, setForm] = useState({ name: "10 Session Pack", total: 10, used: 0, price: "", paid: false });
+  async function save(next) { setPackages(next); await upsertSection(client.id, "packages", next); updateClient({ ...client, packages: next }); }
+  function addPackage() { const next = [{ id: uid(), ...form, total: Number(form.total || 0), used: Number(form.used || 0), price: Number(form.price || 0) }, ...packages]; save(next); setForm({ name: "10 Session Pack", total: 10, used: 0, price: "", paid: false }); }
+  const totalSessions = packages.reduce((a, p) => a + Number(p.total || 0), 0);
+  const usedSessions = packages.reduce((a, p) => a + Number(p.used || 0), 0);
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Packages</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 14 }}><Mini label="Total Sessions" value={totalSessions} /><Mini label="Used" value={usedSessions} /><Mini label="Left" value={Math.max(totalSessions - usedSessions, 0)} /></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}><Field label="Package name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} /><Field label="Total sessions" type="number" value={form.total} onChange={(v) => setForm({ ...form, total: v })} /><Field label="Used sessions" type="number" value={form.used} onChange={(v) => setForm({ ...form, used: v })} /><Field label="Price AED" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} /></div><label style={{ display: "block", marginTop: 10, color: BRAND.muted }}><input type="checkbox" checked={form.paid} onChange={(e) => setForm({ ...form, paid: e.target.checked })} /> Paid</label><Button onClick={addPackage} style={{ marginTop: 12 }}>Add Package</Button><div style={{ marginTop: 14 }}>{packages.map((p) => { const left = Math.max(Number(p.total || 0) - Number(p.used || 0), 0); return <div key={p.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><div><b>{p.name}</b><div style={{ color: BRAND.muted }}>{Number(p.used || 0)}/{Number(p.total || 0)} used · {left} left · {moneyAED(p.price)} · {p.paid ? "Paid" : "Unpaid"}</div></div><div style={{ display: "flex", gap: 6 }}><Button variant="dark" onClick={() => save(packages.map((x) => x.id === p.id ? { ...x, used: Math.min(Number(x.used || 0) + 1, Number(x.total || 0)) } : x))}>+ Use</Button><Button variant="red" onClick={() => save(packages.filter((x) => x.id !== p.id))}>x</Button></div></div></div>})}</div></Card>;
 }
  
+function Calendar({ clients, refresh, user }) {
+  const [slots, setSlots] = useState(() => normalizeSlots(JSON.parse(localStorage.getItem("forge_time_slots") || "null")));
+  const [bookings, setBookings] = useState([]);
+  const [newSlot, setNewSlot] = useState("");
+  const [draft, setDraft] = useState(null);
+  useEffect(() => { load(); }, []);
+  async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "calendar").maybeSingle(); setBookings(data?.data?.bookings || []); }
+  async function save(next) { setBookings(next); const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; await supabase.from("trainer_data").upsert({ trainer_id: uidVal, section: "calendar", data: { bookings: next } }, { onConflict: "trainer_id,section" }); }
+  function autoBookings() { return clients.flatMap((c) => (c.schedule || []).map((s) => ({ id: `auto_${c.id}_${s.day}_${s.time}`, day: s.day, time: s.time, title: c.name, type: "Client Session", color: c.color, auto: true }))); }
+  const all = [...autoBookings(), ...bookings];
+  function removeSlot(id) { const next = slots.filter((x) => x.id !== id); setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); }
+  function addSlot() { if (!newSlot) return; const next = [...slots, { id: uid(), label: newSlot }]; setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); setNewSlot(""); }
+  function openBooking(day, slot) { setDraft({ day, time: slot.label, type: "Client Session", clientId: clients[0]?.id || "", title: clients[0]?.name || "", color: clients[0]?.color || BRAND.blue }); }
+  function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; save([...bookings, { id: uid(), ...draft, color }]); setDraft(null); }
+  return <Card style={{ overflowX: "auto" }}><div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div><table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 6, minWidth: 760 }}><thead><tr><th></th>{DAYS.map((d) => <th key={d} style={{ color: BRAND.gold }}>{d}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, minWidth: 70 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{DAYS.map((d) => { const b = all.find((x) => x.day === d && x.time === slot.label); return <td key={d} onClick={() => !b && openBooking(d, slot)} style={{ height: 48, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 10, padding: 8, cursor: "pointer", fontWeight: 900 }}>{b ? b.title : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>{draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>Book {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}</Card>;
+}
+function RatingSelect({ label, value, onChange }) {
+  return <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>{label}</div><select value={value || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle()}><option value="">Choose 1-5</option>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
+}
 function Trials({ user }) {
   const [trials, setTrials] = useState([]);
   const [tab, setTab] = useState("consultation");
-  const [form, setForm] = useState({ name: "", phone: "", email: "", barriers: "", consultationNotes: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" });
   useEffect(() => { load(); }, []);
-  async function load() { const uid = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uid).eq("section", "trials").maybeSingle(); setTrials(data?.data?.trials || []); }
-  async function save(next) { setTrials(next); const uid = user?.id || (await supabase.auth.getUser()).data.user?.id; await supabase.from("trainer_data").upsert({ trainer_id: uid, section: "trials", data: { trials: next } }, { onConflict: "trainer_id,section" }); }
+  async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "trials").maybeSingle(); setTrials(data?.data?.trials || []); }
+  async function save(next) { setTrials(next); const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; await supabase.from("trainer_data").upsert({ trainer_id: uidVal, section: "trials", data: { trials: next } }, { onConflict: "trainer_id,section" }); }
   function set(k, v) { setForm({ ...form, [k]: v }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Consultation Notes" value={form.consultationNotes} onChange={(v) => set("consultationNotes", v)} textarea /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={() => save([{ id: uid(), ...form }, ...trials])} style={{ marginTop: 12 }}>Save Trial</Button>{trials.map((t) => <div key={t.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><b>{t.name}</b><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><Button variant="red" onClick={() => save(trials.filter((x) => x.id !== t.id))} style={{ marginTop: 8 }}>Delete</Button></div>)}</Card>;
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={() => save([{ id: uid(), ...form }, ...trials])} style={{ marginTop: 12 }}>Save Trial</Button>{trials.map((t) => <div key={t.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><b>{t.name}</b><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><Button variant="red" onClick={() => save(trials.filter((x) => x.id !== t.id))} style={{ marginTop: 8 }}>Delete</Button></div>)}</Card>;
 }
- 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
