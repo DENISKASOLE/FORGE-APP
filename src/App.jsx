@@ -1,4 +1,5 @@
 
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
  
@@ -1580,36 +1581,81 @@ function recentCompletedSessions(program, limit = 6) {
   return days.slice(-limit).reverse();
 }
  
+ 
+function clampPercent(value, total) {
+  const v = Number(value || 0);
+  const t = Number(total || 0);
+  if (!t) return 0;
+  return Math.max(0, Math.min(100, Math.round((v / t) * 100)));
+}
+function ProgressRing({ label, value, total, unit = "", color = BRAND.gold, size = 132 }) {
+  const pct = clampPercent(value, total);
+  const stroke = 11;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const dash = c * (pct / 100);
+  return (
+    <div style={{ background: "linear-gradient(180deg, #151821, #0c0d12)", border: `1px solid ${BRAND.line}`, borderRadius: 26, padding: 14, display: "grid", placeItems: "center", minHeight: size + 64 }}>
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)", filter: `drop-shadow(0 0 14px ${color}33)` }}>
+          <circle cx={size / 2} cy={size / 2} r={r} stroke="#252833" strokeWidth={stroke} fill="transparent" />
+          <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="transparent" strokeLinecap="round" strokeDasharray={`${dash} ${c - dash}`} />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}>
+          <div>
+            <div style={{ fontSize: 25, fontWeight: 1000, color: BRAND.text }}>{value || 0}{unit}</div>
+            <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 900 }}>/{total || 0}{unit}</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop: 10, color: BRAND.text, fontWeight: 1000 }}>{label}</div>
+      <div style={{ color: color, fontWeight: 900, fontSize: 12 }}>{pct}% complete</div>
+    </div>
+  );
+}
+function PremiumTile({ label, value, sub = "", color = BRAND.gold }) {
+  return <div style={{ background: "linear-gradient(180deg, #151821, #0d0f15)", border: `1px solid ${BRAND.line}`, borderRadius: 22, padding: 16, boxShadow: `0 18px 40px ${color}12` }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 1, textTransform: "uppercase" }}>{label}</div><div style={{ color, fontSize: 24, fontWeight: 1000, marginTop: 7 }}>{value}</div>{sub && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 5 }}>{sub}</div>}</div>;
+}
+function MealStatusPill({ meal, done, color }) {
+  return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: done ? `${color}22` : BRAND.card2, border: `1px solid ${done ? color : BRAND.line}`, borderRadius: 18, padding: "12px 14px" }}><b>{meal}</b><span style={{ color: done ? color : BRAND.muted, fontWeight: 1000 }}>{done ? "Done" : "Pending"}</span></div>;
+}
+ 
 function ClientHome({ client }) {
   const stats = todaysNutritionStats(client);
   const metrics = computePerformanceMetrics(client.program);
   const deadHang = metrics.find((m) => m.name === "Dead Hang");
+  const plank = metrics.find((m) => m.name === "Plank");
   const todaysWorkout = client.program?.days?.[0]?.name || "Workout not assigned";
-  return <div style={{ display: "grid", gap: 14 }}>
-    <Card style={{ background: `linear-gradient(135deg, ${client.color}33, ${BRAND.card})` }}>
-      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-        <ClientAvatar client={client} size={70} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 28, fontWeight: 1000 }}>Welcome back, {client.name}</div>
-          <div style={{ color: BRAND.muted }}>Nutrition first. Steps daily. Training logged.</div>
+  const meals = ["Breakfast", "Lunch", "Dinner"];
+  const mealDone = (meal) => stats.logs.some((l) => l.meal === meal) || stats.daily?.meals?.[meal];
+  return <div style={{ display: "grid", gap: 16 }}>
+    <Card style={{ background: `radial-gradient(circle at 18% 20%, ${client.color}33, transparent 32%), linear-gradient(135deg, #171a22, #08090d)`, borderColor: `${client.color}55`, padding: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <ClientAvatar client={client} size={76} />
+          <div>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>FORGE CLIENT</div>
+            <div style={{ fontSize: 31, fontWeight: 1000, lineHeight: 1 }}>Welcome back, {client.name}</div>
+            <div style={{ color: client.color, fontWeight: 900, marginTop: 6 }}>{client.goals?.join(" + ") || client.goal}</div>
+          </div>
+        </div>
+        <div style={{ width: 118, height: 118, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${client.color} ${stats.score}%, #242733 ${stats.score}% 100%)`, boxShadow: `0 0 34px ${client.color}33` }}>
+          <div style={{ width: 86, height: 86, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}>
+            <div><div style={{ fontSize: 30, fontWeight: 1000 }}>{stats.score}%</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000 }}>FORGE SCORE</div></div>
+          </div>
         </div>
       </div>
     </Card>
-    <Card>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div><div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 1000 }}>TODAY'S SCORE</div><div style={{ fontSize: 46, fontWeight: 1000 }}>{stats.score}%</div></div>
-        <div style={{ width: 96, height: 96, borderRadius: "50%", border: `10px solid ${client.color}`, display: "grid", placeItems: "center", fontWeight: 1000 }}>{stats.completedMeals}/3 meals</div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginTop: 14 }}>
-        <Mini label="Calories" value={`${stats.totals.kcal}/${stats.calTarget || 0}`} />
-        <Mini label="Protein" value={`${stats.totals.protein}g/${stats.proteinTarget || 0}g`} />
-        <Mini label="Water" value={`${stats.daily.water || 0}/${stats.waterTarget}`} />
-        <Mini label="Steps" value={`${stats.daily.steps || 0}/${stats.stepsTarget}`} />
-      </div>
-    </Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
-      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>Today's Workout</div><div style={{ fontSize: 22, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, time and RPE.</div></Card>
-      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>Dead Hang</div><div style={{ fontSize: 22, fontWeight: 1000 }}>PB: {metricDisplay(deadHang?.best, true)}</div><div style={{ color: BRAND.muted }}>Recent: {metricDisplay(deadHang?.recent, true)}</div></Card>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+      <ProgressRing label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} />
+      <ProgressRing label="Protein" value={stats.totals.protein} total={stats.proteinTarget || 0} unit="g" color={BRAND.green} />
+      <ProgressRing label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} />
+      <ProgressRing label="Water" value={stats.daily.water || 0} total={stats.waterTarget || 8} color={BRAND.blue} />
+    </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}>
+      <Card style={{ background: "linear-gradient(180deg, #151821, #0c0d12)" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card>
+      <Card style={{ background: "linear-gradient(180deg, #151821, #0c0d12)" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, duration and RPE.</div></Card>
+      <Card style={{ background: "linear-gradient(180deg, #151821, #0c0d12)" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card>
     </div>
   </div>;
 }
@@ -1890,9 +1936,18 @@ function ProgressTab({ client }) {
   const metrics = computePerformanceMetrics(client.program);
   const sessions = recentCompletedSessions(client.program, 8);
   const nutritionStats = todaysNutritionStats(client);
-  return <div style={{ display: "grid", gap: 14 }}>
-    <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Progress</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginTop: 12 }}><Mini label="Today Score" value={`${nutritionStats.score}%`} /><Mini label="Steps" value={`${nutritionStats.daily.steps || 0}`} /><Mini label="Weight" value={nutritionStats.daily.weight || client.weight || "-"} /><Mini label="Sessions" value={sessions.length} /></div></Card>
-    <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Performance Metrics</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>{metrics.map((m) => <div key={m.name} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 12 }}><div style={{ color: BRAND.gold, fontWeight: 1000 }}>{m.name}</div><div style={{ marginTop: 8 }}><Mini label="PB" value={metricDisplay(m.best, m.timed)} /></div><div style={{ marginTop: 8 }}><Mini label="Recent" value={metricDisplay(m.recent, m.timed)} /></div><div style={{ color: m.trend > 0 ? BRAND.green : BRAND.muted, fontSize: 12, fontWeight: 900, marginTop: 8 }}>Trend: {m.trend > 0 ? "+" : ""}{m.trend || 0}{m.timed ? " sec" : " kg"}</div></div>)}</div></Card>
+  return <div style={{ display: "grid", gap: 16 }}>
+    <Card style={{ background: `radial-gradient(circle at 20% 15%, ${client.color}22, transparent 35%), linear-gradient(180deg, #151821, #090a0e)` }}>
+      <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>PROGRESS DASHBOARD</div>
+      <div style={{ fontSize: 29, fontWeight: 1000, marginTop: 6 }}>Your performance trend</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 14 }}>
+        <PremiumTile label="Today Score" value={`${nutritionStats.score}%`} color={client.color} />
+        <PremiumTile label="Steps" value={nutritionStats.daily.steps || 0} sub="today" color={BRAND.gold} />
+        <PremiumTile label="Weight" value={nutritionStats.daily.weight || client.weight || "-"} sub="kg" color={BRAND.green} />
+        <PremiumTile label="Logged Sessions" value={sessions.length} color={BRAND.cyan} />
+      </div>
+    </Card>
+    <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Performance Metrics</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12 }}>{metrics.map((m) => <div key={m.name} style={{ background: "linear-gradient(180deg,#151821,#0d0f15)", border: `1px solid ${BRAND.line}`, borderRadius: 22, padding: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000 }}>{m.name}</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}><Mini label="PB" value={metricDisplay(m.best, m.timed)} /><Mini label="Recent" value={metricDisplay(m.recent, m.timed)} /></div><div style={{ color: m.trend > 0 ? BRAND.green : BRAND.muted, fontSize: 12, fontWeight: 900, marginTop: 10 }}>Trend: {m.trend > 0 ? "+" : ""}{m.trend || 0}{m.timed ? " sec" : " kg"}</div></div>)}</div></Card>
     <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Session History</div>{sessions.length === 0 && <div style={{ color: BRAND.muted }}>No completed sessions logged yet.</div>}{sessions.map((d, i) => <div key={i} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><b>{d.date || "No date"} · {d.name}</b><span style={{ color: BRAND.muted }}>Week {d.weekNum}</span></div><div style={{ color: BRAND.muted, marginTop: 6 }}>{(d.sessionData || []).map((ex) => `${ex.name}: ${(ex.sets || []).map((s) => isTimedExercise(ex.name) ? (s.duration || s.reps || "") : [s.weight && `${s.weight}kg`, s.reps && `${s.reps} reps`].filter(Boolean).join(" x ")).filter(Boolean).join(", ") || "not logged"}`).join(" | ")}</div>{d.metrics && <div style={{ color: BRAND.gold, fontSize: 12, marginTop: 6 }}>Kcal {d.metrics.kcal || "-"} · Max HR {d.metrics.maxHR || "-"} · Avg HR {d.metrics.avgHR || "-"}</div>}</div>)}</Card>
     <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Classic Lifts</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>{LIFT_FIELDS.map((f) => <Mini key={f.key} label={f.label} value={latest[f.key] || "-"} />)}</div></Card>
   </div>;
