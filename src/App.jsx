@@ -1,5 +1,4 @@
 
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
  
@@ -19,7 +18,7 @@ const textareaStyle = (extra = {}) => ({
 });
  
 /*
-  FORGE V5.0 - Client Portal Pro + Fast Resume + Offline Sync
+  FORGE V5.9 - Mobile Client UI + Tablet Coach + Weekly Calendar
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -531,12 +530,124 @@ const FOOD_DB = [
   { name: "Falafel 4 pieces", kcal: 330, protein: 13, carbs: 32, fats: 18, tags: ["vegetarian", "vegan", "lactose-free"] },
   { name: "Dates 3 pieces", kcal: 210, protein: 2, carbs: 54, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
   { name: "Karak tea 1 cup", kcal: 160, protein: 4, carbs: 28, fats: 4, tags: ["vegetarian"] },
+  { name: "Idli 2 pieces", kcal: 140, protein: 5, carbs: 30, fats: 1, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Masala dosa 1 piece", kcal: 390, protein: 9, carbs: 55, fats: 14, tags: ["vegetarian", "lactose-free"] },
+  { name: "Plain dosa 1 piece", kcal: 180, protein: 5, carbs: 28, fats: 5, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Upma 1 bowl", kcal: 300, protein: 8, carbs: 45, fats: 10, tags: ["vegetarian"] },
+  { name: "Poha 1 bowl", kcal: 280, protein: 7, carbs: 46, fats: 8, tags: ["vegetarian", "lactose-free"] },
+  { name: "Samosa 1 piece", kcal: 260, protein: 5, carbs: 30, fats: 14, tags: ["vegetarian", "lactose-free"] },
+  { name: "Chicken korma 1 bowl", kcal: 560, protein: 34, carbs: 18, fats: 40, tags: ["non-vegetarian"] },
+  { name: "Fish curry 1 bowl", kcal: 380, protein: 35, carbs: 12, fats: 22, tags: ["non-vegetarian", "gluten-free"] },
+  { name: "Prawn curry 1 bowl", kcal: 360, protein: 32, carbs: 14, fats: 20, tags: ["non-vegetarian", "gluten-free"] },
+  { name: "Mutton curry 1 bowl", kcal: 590, protein: 34, carbs: 12, fats: 45, tags: ["non-vegetarian", "gluten-free"] },
+  { name: "Chicken kebab 200g", kcal: 420, protein: 50, carbs: 8, fats: 20, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Beef kebab 200g", kcal: 480, protein: 46, carbs: 8, fats: 28, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Grilled fish 200g", kcal: 300, protein: 44, carbs: 0, fats: 12, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Grilled salmon 200g", kcal: 416, protein: 40, carbs: 0, fats: 26, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Mixed grill plate", kcal: 850, protein: 70, carbs: 35, fats: 45, tags: ["non-vegetarian"] },
+  { name: "Lamb chops 3 pieces", kcal: 650, protein: 45, carbs: 0, fats: 50, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Chicken mandi 1 plate", kcal: 820, protein: 44, carbs: 100, fats: 26, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Chicken madghout 1 plate", kcal: 850, protein: 42, carbs: 105, fats: 28, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Lamb mandi 1 plate", kcal: 980, protein: 45, carbs: 105, fats: 42, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Manakish cheese 1 piece", kcal: 420, protein: 15, carbs: 45, fats: 20, tags: ["vegetarian"] },
+  { name: "Manakish zaatar 1 piece", kcal: 330, protein: 9, carbs: 45, fats: 12, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Fattoush salad 1 bowl", kcal: 180, protein: 4, carbs: 22, fats: 9, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Tabbouleh 1 bowl", kcal: 160, protein: 4, carbs: 22, fats: 6, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Greek salad 1 bowl", kcal: 250, protein: 10, carbs: 14, fats: 18, tags: ["vegetarian", "gluten-free"] },
+  { name: "Chicken Caesar salad", kcal: 520, protein: 38, carbs: 22, fats: 32, tags: ["non-vegetarian"] },
+  { name: "Tuna salad", kcal: 360, protein: 35, carbs: 15, fats: 18, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Turkey sandwich", kcal: 430, protein: 28, carbs: 45, fats: 15, tags: ["non-vegetarian"] },
+  { name: "Chicken sandwich", kcal: 480, protein: 32, carbs: 48, fats: 18, tags: ["non-vegetarian"] },
+  { name: "Beef burger", kcal: 750, protein: 38, carbs: 55, fats: 42, tags: ["non-vegetarian"] },
+  { name: "Chicken burger", kcal: 650, protein: 35, carbs: 52, fats: 32, tags: ["non-vegetarian"] },
+  { name: "French fries medium", kcal: 365, protein: 4, carbs: 48, fats: 17, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Pizza slice", kcal: 285, protein: 12, carbs: 36, fats: 10, tags: ["vegetarian"] },
+  { name: "Pasta chicken Alfredo 1 plate", kcal: 850, protein: 42, carbs: 90, fats: 35, tags: ["non-vegetarian"] },
+  { name: "Pasta arrabbiata 1 plate", kcal: 620, protein: 16, carbs: 100, fats: 16, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "White rice 1 cup", kcal: 205, protein: 4, carbs: 45, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Brown rice 1 cup", kcal: 216, protein: 5, carbs: 45, fats: 2, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Quinoa 1 cup", kcal: 222, protein: 8, carbs: 39, fats: 4, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Sweet potato 200g", kcal: 180, protein: 4, carbs: 42, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Boiled eggs 3 pieces", kcal: 216, protein: 18, carbs: 0, fats: 15, tags: ["vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Omelette 3 eggs", kcal: 300, protein: 21, carbs: 2, fats: 23, tags: ["vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Overnight oats with whey", kcal: 520, protein: 38, carbs: 62, fats: 12, tags: ["vegetarian"] },
+  { name: "Protein smoothie", kcal: 420, protein: 35, carbs: 45, fats: 10, tags: ["vegetarian"] },
+  { name: "Chicken fried rice 1 plate", kcal: 720, protein: 32, carbs: 92, fats: 24, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Egg fried rice 1 plate", kcal: 650, protein: 22, carbs: 90, fats: 22, tags: ["vegetarian", "lactose-free"] },
+  { name: "Veg fried rice 1 plate", kcal: 590, protein: 14, carbs: 88, fats: 18, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Chicken noodles 1 plate", kcal: 760, protein: 36, carbs: 95, fats: 26, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Veg noodles 1 plate", kcal: 620, protein: 16, carbs: 95, fats: 18, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Chicken momos 6 pieces", kcal: 420, protein: 24, carbs: 48, fats: 14, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Veg momos 6 pieces", kcal: 360, protein: 12, carbs: 52, fats: 10, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Chicken thali", kcal: 950, protein: 45, carbs: 115, fats: 32, tags: ["non-vegetarian"] },
+  { name: "Vegetarian thali", kcal: 880, protein: 28, carbs: 125, fats: 28, tags: ["vegetarian"] },
+  { name: "Fish biryani 1 plate", kcal: 740, protein: 38, carbs: 88, fats: 24, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Paneer biryani 1 plate", kcal: 820, protein: 28, carbs: 90, fats: 36, tags: ["vegetarian"] },
+  { name: "Chicken 65 200g", kcal: 520, protein: 40, carbs: 22, fats: 30, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Gobi manchurian 1 bowl", kcal: 420, protein: 10, carbs: 55, fats: 18, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Chicken manchurian 1 bowl", kcal: 520, protein: 36, carbs: 42, fats: 24, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Palak paneer 1 bowl", kcal: 430, protein: 22, carbs: 18, fats: 30, tags: ["vegetarian", "gluten-free"] },
+  { name: "Aloo gobi 1 bowl", kcal: 280, protein: 7, carbs: 38, fats: 12, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Bhindi masala 1 bowl", kcal: 240, protein: 6, carbs: 25, fats: 14, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Chicken tikka masala 1 bowl", kcal: 560, protein: 38, carbs: 22, fats: 36, tags: ["non-vegetarian"] },
+  { name: "Keema 1 bowl", kcal: 480, protein: 35, carbs: 12, fats: 34, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Chicken soup 1 bowl", kcal: 180, protein: 22, carbs: 8, fats: 6, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Lentil soup 1 bowl", kcal: 210, protein: 12, carbs: 30, fats: 5, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Arabic lentil soup 1 bowl", kcal: 200, protein: 11, carbs: 30, fats: 4, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Chicken wrap grilled", kcal: 520, protein: 38, carbs: 48, fats: 18, tags: ["non-vegetarian"] },
+  { name: "Beef shawarma wrap", kcal: 620, protein: 34, carbs: 50, fats: 30, tags: ["non-vegetarian"] },
+  { name: "Chicken shawarma plate", kcal: 850, protein: 55, carbs: 80, fats: 32, tags: ["non-vegetarian"] },
+  { name: "Falafel wrap", kcal: 560, protein: 18, carbs: 70, fats: 24, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Hummus with pita", kcal: 420, protein: 14, carbs: 55, fats: 16, tags: ["vegetarian", "vegan", "lactose-free"] },
+  { name: "Mutabal 100g", kcal: 150, protein: 4, carbs: 10, fats: 10, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Kofta plate", kcal: 780, protein: 48, carbs: 55, fats: 42, tags: ["non-vegetarian"] },
+  { name: "Shish tawook plate", kcal: 680, protein: 55, carbs: 55, fats: 24, tags: ["non-vegetarian"] },
+  { name: "Grilled chicken breast 200g", kcal: 330, protein: 62, carbs: 0, fats: 8, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Grilled chicken with rice", kcal: 620, protein: 55, carbs: 65, fats: 14, tags: ["non-vegetarian", "lactose-free"] },
+  { name: "Tuna sandwich", kcal: 460, protein: 32, carbs: 42, fats: 18, tags: ["non-vegetarian"] },
+  { name: "Turkey breast 100g", kcal: 135, protein: 30, carbs: 0, fats: 1, tags: ["non-vegetarian", "gluten-free", "lactose-free"] },
+  { name: "Cottage cheese 100g", kcal: 98, protein: 11, carbs: 3, fats: 4, tags: ["vegetarian", "gluten-free"] },
+  { name: "Paneer 100g", kcal: 265, protein: 18, carbs: 4, fats: 20, tags: ["vegetarian", "gluten-free"] },
+  { name: "Tofu 100g", kcal: 76, protein: 8, carbs: 2, fats: 5, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Edamame 100g", kcal: 122, protein: 11, carbs: 10, fats: 5, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Peanut butter 1 tbsp", kcal: 95, protein: 4, carbs: 3, fats: 8, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Almonds 30g", kcal: 174, protein: 6, carbs: 6, fats: 15, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Cashews 30g", kcal: 165, protein: 5, carbs: 9, fats: 13, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Apple 1 medium", kcal: 95, protein: 0, carbs: 25, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Orange 1 medium", kcal: 62, protein: 1, carbs: 15, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Mango 1 cup", kcal: 100, protein: 1, carbs: 25, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Mixed berries 1 cup", kcal: 85, protein: 1, carbs: 21, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Milk full fat 250ml", kcal: 150, protein: 8, carbs: 12, fats: 8, tags: ["vegetarian", "gluten-free"] },
+  { name: "Low fat milk 250ml", kcal: 105, protein: 8, carbs: 12, fats: 3, tags: ["vegetarian", "gluten-free"] },
+  { name: "Laban 250ml", kcal: 110, protein: 8, carbs: 12, fats: 3, tags: ["vegetarian", "gluten-free"] },
+  { name: "Cappuccino", kcal: 120, protein: 6, carbs: 12, fats: 5, tags: ["vegetarian", "gluten-free"] },
+  { name: "Americano", kcal: 5, protein: 0, carbs: 0, fats: 0, tags: ["vegetarian", "vegan", "gluten-free", "lactose-free"] },
+  { name: "Protein bar", kcal: 220, protein: 20, carbs: 22, fats: 7, tags: ["vegetarian"] },
 ];
  
 const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const RPE_OPTIONS = ["", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
+const RPE_OPTIONS = ["", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
 const PHOTO_TYPES = ["Front", "Side", "Back", "Before", "After", "Progress", "Other"];
+const WATER_LITERS = ["", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5", "5.5", "6"];
+const SLEEP_HOURS = ["", "4", "4.5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
+const MEASUREMENT_FIELDS = [
+  ["bloodPressure", "Blood Pressure"],
+  ["bmi", "BMI"],
+  ["chest", "Chest"],
+  ["leftArm", "Left Arm"],
+  ["rightArm", "Right Arm"],
+  ["waist", "Waist"],
+  ["sternum", "Sternum"],
+  ["stomach", "Stomach"],
+  ["hip", "Hip"],
+  ["waistHipRatio", "Waist To Hip Ratio"],
+  ["push", "Push Strength"],
+  ["pull", "Pull Strength"],
+  ["leg", "Leg Strength"],
+  ["core", "Core Strength"],
+  ["cardio", "Cardio Fitness"],
+];
 const TIMED_EXERCISES = ["dead hang", "scapular pull-up", "plank", "side plank", "weighted plank", "rkc plank", "hollow hold", "wall sit", "farmer walk", "farmer's carry", "suitcase carry", "overhead carry", "waiter carry", "sled push", "sled pull", "battle ropes", "battle rope waves", "battle rope slams", "skierg", "elliptical", "rower", "rowing machine", "stair climber", "stairmaster", "assault bike", "air bike", "stationary bike", "treadmill", "incline treadmill", "versa climber", "versaclimber", "jump rope", "bear crawl", "crab walk", "copenhagen", "hollow rock", "pallof hold", "deep squat hold", "goblet squat hold", "stretch", "stretching", "mobility", "carry"];
 function isTimedExercise(name = "") {
   const n = String(name).toLowerCase();
@@ -640,6 +751,89 @@ async function flushSyncQueue() {
   writeJson(FORGE_SYNC_QUEUE_KEY, remaining);
 }
 const DENIS_EMAIL = "kendenisdubai@gmail.com";
+ 
+function useIsMobile(breakpoint = 760) {
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth <= breakpoint : false);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+ 
+function startOfWeek(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+function isoDate(date) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+function weekKey(date) {
+  return isoDate(startOfWeek(date));
+}
+function weekRangeLabel(start) {
+  const a = new Date(start);
+  const b = addDays(a, 6);
+  return `${a.toLocaleDateString(undefined, { month: "short", day: "numeric" })} - ${b.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+}
+function weekDays(start) {
+  return DAYS.map((name, i) => {
+    const date = addDays(start, i);
+    return { name, date: isoDate(date), label: `${name} ${date.getDate()}` };
+  });
+}
+function loadLocalTemplates() {
+  try { return JSON.parse(localStorage.getItem("forge_program_templates") || "[]"); }
+  catch { return []; }
+}
+function saveLocalTemplates(templates) {
+  localStorage.setItem("forge_program_templates", JSON.stringify(templates || []));
+}
+function allProgramTemplates() {
+  const custom = loadLocalTemplates();
+  const byKey = new Map(PROGRAM_TEMPLATES.map((t) => [t.key, t]));
+  custom.forEach((t) => byKey.set(t.key, t));
+  return Array.from(byKey.values());
+}
+function mergeProgramLogs(oldProgram, nextProgram) {
+  const oldLogs = oldProgram?.weekLogs || [];
+  const weeks = Number(nextProgram.totalWeeks || oldProgram?.totalWeeks || 4);
+  const days = nextProgram.days || [];
+  return Array.from({ length: weeks }, (_, wi) => {
+    const oldWeek = oldLogs[wi] || {};
+    return {
+      weekNum: wi + 1,
+      days: days.map((day, di) => {
+        const oldDay = oldWeek.days?.[di] || {};
+        const oldByName = new Map((oldDay.sessionData || []).map((ex) => [String(ex.name || "").toLowerCase(), ex]));
+        return {
+          ...oldDay,
+          name: day.name,
+          exercises: day.exercises || [],
+          sessionData: (day.exercises || []).map((ex) => {
+            const existing = oldByName.get(String(ex.name || "").toLowerCase());
+            if (existing) return { ...existing, name: ex.name, prescribed: ex };
+            return { name: ex.name, prescribed: ex, sets: Array.from({ length: Number(ex.numSets || 3) }, () => ({ weight: "", reps: "", duration: "", rpe: "", substitute: "" })) };
+          }),
+          metrics: oldDay.metrics || { maxHR: "", avgHR: "", kcal: "" },
+          notes: oldDay.notes || "",
+          date: oldDay.date || "",
+        };
+      }),
+    };
+  });
+}
+ 
  
 function uid() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -888,12 +1082,13 @@ function emptyProfile() {
     glutenIntolerant: false,
     notes: "",
     photo: "",
+    measurements: {},
   };
 }
  
 function emptyNutrition() {
   return {
-    targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 8 },
+    targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 3, sleep: 7 },
     mealPlan: { Breakfast: "", Lunch: "", Dinner: "" },
     planNotes: "",
     logs: [],
@@ -1011,7 +1206,7 @@ function aiFoodSuggestions(client) {
   const protein = Number(target.protein || 0);
   const base = [];
   if (protein) base.push(`Protein target is ${protein}g. Build each meal around: ${highProtein || "lean protein source"}.`);
-  if (calories) base.push(`Calories target is ${calories}. Divide it across breakfast, lunch, and dinner so the client does not overload one meal.`);
+  if (calories) base.push(`Calories target is ${calories}. Divide it across breakfast, lunch, and dinner so you do not overload one meal.`);
   base.push(`Good carb options: ${carbs || "rice, potatoes, oats, fruits"}.`);
   if (profile.lactoseIntolerant) base.push("Avoid milk/yogurt/whey unless lactose-free.");
   if (profile.glutenIntolerant) base.push("Avoid chapati, bread, and pasta unless gluten-free.");
@@ -1329,24 +1524,14 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
+  const isMobile = useIsMobile(820);
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
  
   async function createClient(form) {
     const color = form.color || getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
-    const payload = {
-      trainer_id: user.id,
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      age: Number(form.age || 0),
-      weight_kg: Number(form.weight || 0),
-      goal: form.profile.goals?.[0] || "General Fitness",
-      color,
-      invite_code,
-      invite_status: "not_sent",
-    };
+    const payload = { trainer_id: user.id, name: form.name, email: form.email, phone: form.phone, age: Number(form.age || 0), weight_kg: Number(form.weight || 0), goal: form.profile.goals?.[0] || "General Fitness", color, invite_code, invite_status: "not_sent" };
     const { data, error } = await supabase.from("clients").insert(payload).select("*").single();
     if (error) { alert(error.message); return; }
     await upsertSection(data.id, "profile", form.profile);
@@ -1355,40 +1540,40 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   }
  
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.92)", backdropFilter: "blur(14px)", borderBottom: `1px solid ${BRAND.line}`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 16, background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+    <div style={{ minHeight: "100vh", background: `radial-gradient(circle at top left, ${BRAND.gold}10, transparent 28%), ${BRAND.bg}`, color: BRAND.text }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
             {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
           </div>
-          <div><div style={{ fontSize: 29, fontWeight: 1000, color: BRAND.gold }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 12 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
+          <div><div style={{ fontSize: isMobile ? 24 : 34, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <span style={{ color: syncStatus === "offline" ? BRAND.red : syncStatus === "syncing" ? BRAND.gold : BRAND.green, fontSize: 12, fontWeight: 1000 }}>{syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"}</span>
-          <Button variant="dark" onClick={() => setShowSettings(true)}>Settings</Button>
-          <Button variant="ghost" onClick={() => supabase.auth.signOut()}>Logout</Button>
+          <Button variant="dark" onClick={() => setShowSettings(true)} style={{ padding: isMobile ? "8px 10px" : undefined }}>Settings</Button>
+          <Button variant="ghost" onClick={() => supabase.auth.signOut()} style={{ padding: isMobile ? "8px 10px" : undefined }}>Logout</Button>
         </div>
       </header>
-      <main style={{ maxWidth: 1180, margin: "0 auto", padding: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 16 }}>
-          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} />
-          <Kpi title="Scheduled" value={upcoming} icon="📅" color={BRAND.cyan} onClick={() => setTab("scheduled")} />
-          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} />
-          <Kpi title="Calendar" value="Open" icon="⏱" color={BRAND.green} onClick={() => setTab("calendar")} />
+      <main style={{ maxWidth: 1280, margin: "0 auto", padding: isMobile ? 12 : 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : 14, marginBottom: 16 }}>
+          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile} />
+          <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile} />
+          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile} />
+          <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile} />
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
-          {[["clients", "Clients"], ["scheduled", "Scheduled"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
+          {[["clients", "Clients"], ["templates", "Program Templates"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
         </div>
         {tab === "clients" && <>
-          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, marginBottom: 14 }}>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
             <Button onClick={() => setShowAdd(true)}>+ Add New Client</Button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(300px,1fr))", gap: 14 }}>
             {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
           </div>
         </>}
-        {tab === "scheduled" && <ScheduledView clients={clients} selectClient={selectClient} />}
+        {tab === "templates" && <ProgramTemplatesManager />}
         {tab === "calendar" && <Calendar clients={clients} refresh={refresh} user={user} />}
         {tab === "trials" && <Trials user={user} />}
       </main>
@@ -1398,9 +1583,17 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   );
 }
  
-function Kpi({ title, value, icon, color, onClick }) {
-  return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", transition: "transform .15s ease, border-color .15s ease", borderColor: onClick ? `${color}66` : BRAND.line }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>{title}</div><div style={{ fontSize: 28, fontWeight: 1000, color }}>{value}</div></div><div style={{ fontSize: 28 }}>{icon}</div></div><div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 800 }}>{onClick ? "Tap to open" : ""}</div></Card>;
+ 
+function Kpi({ title, value, icon, color, onClick, compact = false }) {
+  return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderColor: onClick ? `${color}66` : BRAND.line, minHeight: compact ? 92 : 128, padding: compact ? 12 : 16, background: `linear-gradient(180deg, ${BRAND.card}, #0b0c11)` }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+      <div><div style={{ color: BRAND.muted, fontSize: compact ? 11 : 12, fontWeight: 900 }}>{title}</div><div style={{ fontSize: compact ? 24 : 30, fontWeight: 1000, color, lineHeight: 1.05 }}>{value}</div></div>
+      <div style={{ fontSize: compact ? 22 : 30 }}>{icon}</div>
+    </div>
+    <div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 800 }}>{onClick ? "Tap to open" : ""}</div>
+  </Card>;
 }
+ 
  
 function ScheduledView({ clients, selectClient }) {
   const scheduled = clients.flatMap((client) => (client.schedule || []).map((s) => ({
@@ -1441,34 +1634,33 @@ function ScheduledView({ clients, selectClient }) {
  
 function ClientCard({ client, onClick }) {
   return (
-    <Card style={{ cursor: "pointer", borderColor: client.color }} onClick={onClick}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <ClientAvatar client={client} size={54} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 19, fontWeight: 1000 }}>{client.name}</div>
-          <div style={{ color: client.color, fontSize: 12, fontWeight: 900 }}>{client.goals?.join(" + ") || client.goal}</div>
-          <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{client.weight || 0}kg · {client.age || 0} yrs</div>
+    <Card style={{ cursor: "pointer", borderColor: `${client.color}99`, background: `radial-gradient(circle at 0% 0%, ${client.color}1f, transparent 36%), linear-gradient(180deg, ${BRAND.card}, #0d0e13)`, padding: 16 }} onClick={onClick}>
+      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+        <ClientAvatar client={client} size={58} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 21, fontWeight: 1000, letterSpacing: .3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div>
+          <div style={{ color: client.color, fontSize: 13, fontWeight: 1000, marginTop: 3 }}>{client.goals?.join(" + ") || client.goal}</div>
+          <div style={{ color: "#fff", fontSize: 13, fontWeight: 900, marginTop: 8 }}>{client.weight || 0}kg · {client.age || 0} yrs</div>
         </div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
-        <Mini label="Program" value={client.program ? "Ready" : "Empty"} />
-        <Mini label="Invite" value={client.inviteStatus === "accepted" ? "Accepted" : "Pending"} />
       </div>
     </Card>
   );
 }
  
+ 
 function Mini({ label, value }) { return <div style={{ background: "#0b0c10", border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800 }}>{label}</div><div style={{ color: BRAND.text, fontWeight: 900 }}>{value}</div></div>; }
  
 function ClientAvatar({ client, size = 54 }) {
-  return <div style={{ width: size, height: size, borderRadius: Math.round(size / 3), display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000, overflow: "hidden", flexShrink: 0 }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
+  return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000, overflow: "hidden", flexShrink: 0, boxShadow: `0 0 24px ${client.color}33` }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
 }
+ 
  
 function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
+  const isMobile = useIsMobile(760);
   const tabs = isCoach ? [
-    ["profile", "📋 Profile"], ["program", "💪 Program"], ["nutrition", "🥗 Nutrition"], ["progress", "📈 Progress"], ["photos", "📸 Transform"], ["schedule", "📅 Schedule"], ["packages", "💳 Packages"], ["invite", "🔗 Invite"]
-  ] : [["home", "🏠 Home"], ["nutrition", "🥗 Nutrition"], ["program", "💪 Program"], ["progress", "📈 Progress"], ["photos", "📸 Photos"], ["profile", "👤 Profile"]];
+    ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"], ["schedule", "Schedule"], ["packages", "Packages"], ["invite", "Invite"]
+  ] : [["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"], ["profile", "Profile"]];
   async function delClient() {
     if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return;
     await supabase.from("client_data").delete().eq("client_id", client.id);
@@ -1477,16 +1669,16 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   }
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text }}>
-      <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: 14, display: "flex", gap: 10, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.94)", zIndex: 80 }}>
-        {isCoach && <Button variant="ghost" onClick={back}>Back</Button>}
-        <ClientAvatar client={client} size={54} />
-        <div style={{ flex: 1 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>{client.name}</div><div style={{ color: client.color, fontWeight: 900, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
-        {isCoach && <Button variant="red" onClick={delClient}>Delete</Button>}
+      <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? 10 : 14, display: "flex", gap: 10, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.96)", backdropFilter: "blur(16px)", zIndex: 80 }}>
+        {isCoach && <Button variant="ghost" onClick={back} style={{ padding: isMobile ? "8px 10px" : undefined }}>Back</Button>}
+        <ClientAvatar client={client} size={isMobile ? 44 : 56} />
+        <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
+        {isCoach && <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>}
       </header>
-      <main style={{ maxWidth: 1120, margin: "0 auto", padding: 16 }}>
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", marginBottom: 16, paddingBottom: 4 }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{ minWidth: 92, height: 48, borderRadius: 999, border: `1px solid ${tab === k ? client.color : BRAND.line}`, background: tab === k ? client.color : BRAND.card2, color: tab === k ? "#000" : BRAND.text, fontWeight: 1000, whiteSpace: "nowrap", cursor: "pointer", boxShadow: tab === k ? `0 0 24px ${client.color}33` : "none" }}>{l}</button>)}</div>
+      <main style={{ maxWidth: isCoach ? 1280 : 760, margin: "0 auto", padding: isMobile ? 10 : 16 }}>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 14, paddingBottom: 6, position: "sticky", top: isMobile ? 65 : 78, zIndex: 50, background: "rgba(7,7,7,.94)", backdropFilter: "blur(12px)" }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{ minWidth: isMobile ? 72 : 96, height: isMobile ? 42 : 48, borderRadius: 999, border: `1px solid ${tab === k ? client.color : BRAND.line}`, background: tab === k ? client.color : BRAND.card2, color: tab === k ? "#000" : BRAND.text, fontSize: isMobile ? 13 : 14, fontWeight: 1000, whiteSpace: "nowrap", cursor: "pointer", boxShadow: tab === k ? `0 0 20px ${client.color}33` : "none" }}>{l}</button>)}</div>
         {tab === "home" && <ClientHome client={client} />}
-        {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} />}
+        {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
         {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
         {tab === "nutrition" && <NutritionTab client={client} updateClient={updateClient} isCoach={isCoach} />}
         {tab === "progress" && <ProgressTab client={client} />}
@@ -1515,16 +1707,18 @@ function todaysNutritionStats(client, date = new Date().toISOString().slice(0, 1
   const calTarget = Number(nutrition.targets?.calories || 0);
   const proteinTarget = Number(nutrition.targets?.protein || 0);
   const stepsTarget = Number(nutrition.targets?.steps || 10000);
-  const waterTarget = Number(nutrition.targets?.water || 8);
+  const waterTarget = Number(nutrition.targets?.water || 3);
+  const sleepTarget = Number(nutrition.targets?.sleep || 7);
   const scoreParts = [
     completedMeals / 3,
     calTarget ? Math.min(totals.kcal / calTarget, 1) : 0,
     proteinTarget ? Math.min(totals.protein / proteinTarget, 1) : 0,
     stepsTarget ? Math.min(Number(daily.steps || 0) / stepsTarget, 1) : 0,
     waterTarget ? Math.min(Number(daily.water || 0) / waterTarget, 1) : 0,
+    sleepTarget ? Math.min(Number(daily.sleep || 0) / sleepTarget, 1) : 0,
   ];
   const score = Math.round((scoreParts.reduce((a, b) => a + b, 0) / scoreParts.length) * 100);
-  return { nutrition, logs, totals, daily, completedMeals, score, calTarget, proteinTarget, stepsTarget, waterTarget };
+  return { nutrition, logs, totals, daily, completedMeals, score, calTarget, proteinTarget, stepsTarget, waterTarget, sleepTarget };
 }
 function parseNumberFromText(value) {
   const match = String(value || "").match(/\d+(?:\.\d+)?/);
@@ -1544,11 +1738,10 @@ function sessionEntries(program) {
   return entries;
 }
 function computePerformanceMetrics(program) {
-  const wanted = ["Dead Hang", "Plank", "Side Plank", "Bench Press", "Squat", "Deadlift"];
+  const wanted = ["Dead Hang", "Plank", "Bench Press", "Squat", "Deadlift"];
   const aliases = {
     "Dead Hang": ["dead hang", "dead hung"],
     "Plank": ["plank"],
-    "Side Plank": ["side plank"],
     "Bench Press": ["bench press", "flat barbell bench press", "barbell bench press"],
     "Squat": ["squat", "back squat", "barbell squat"],
     "Deadlift": ["deadlift", "barbell deadlift"],
@@ -1557,7 +1750,7 @@ function computePerformanceMetrics(program) {
   return wanted.map((name) => {
     const keys = aliases[name];
     const data = entries.filter((e) => keys.some((k) => e.exercise.toLowerCase().includes(k)) && (name !== "Plank" || !e.exercise.toLowerCase().includes("side")));
-    const timed = ["Dead Hang", "Plank", "Side Plank"].includes(name);
+    const timed = ["Dead Hang", "Plank"].includes(name);
     const sorted = [...data].sort((a, b) => a.value - b.value);
     const best = sorted[sorted.length - 1];
     const recent = data[data.length - 1];
@@ -1620,7 +1813,17 @@ function MealStatusPill({ meal, done, color }) {
   return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: done ? `${color}22` : BRAND.card2, border: `1px solid ${done ? color : BRAND.line}`, borderRadius: 18, padding: "12px 14px" }}><b>{meal}</b><span style={{ color: done ? color : BRAND.muted, fontWeight: 1000 }}>{done ? "Done" : "Pending"}</span></div>;
 }
  
+ 
+function CompactScore({ value, color }) {
+  return <div style={{ width: 70, height: 70, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${color} ${value}%, #242733 ${value}% 100%)` }}><div style={{ width: 52, height: 52, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 18, fontWeight: 1000 }}>{value}%</div><div style={{ color: BRAND.muted, fontSize: 7, fontWeight: 1000 }}>SCORE</div></div></div></div>;
+}
+function CompactMetric({ label, value, total, color, percent }) {
+  const n = typeof percent === "number" ? percent : (Number(total) ? Math.min(100, Math.round(Number(value || 0) / Number(total || 1) * 100)) : 0);
+  return <Card style={{ padding: 12, borderRadius: 20, minHeight: 98, background: `linear-gradient(180deg, ${BRAND.card}, #0b0d13)` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000 }}>{label}</div><div style={{ fontSize: 22, fontWeight: 1000, marginTop: 4 }}>{value}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 900 }}>/{total}</div></div><div style={{ width: 44, height: 44, borderRadius: "50%", background: `conic-gradient(${color} ${n}%, #252936 ${n}% 100%)`, display: "grid", placeItems: "center" }}><div style={{ width: 31, height: 31, borderRadius: "50%", background: BRAND.bg }} /></div></div><div style={{ color, fontSize: 11, fontWeight: 1000, marginTop: 8 }}>{n}% complete</div></Card>;
+}
+ 
 function ClientHome({ client }) {
+  const isMobile = useIsMobile(760);
   const stats = todaysNutritionStats(client);
   const metrics = computePerformanceMetrics(client.program);
   const deadHang = metrics.find((m) => m.name === "Dead Hang");
@@ -1628,42 +1831,45 @@ function ClientHome({ client }) {
   const todaysWorkout = client.program?.days?.[0]?.name || "Workout not assigned";
   const meals = ["Breakfast", "Lunch", "Dinner"];
   const mealDone = (meal) => stats.logs.some((l) => l.meal === meal) || stats.daily?.meals?.[meal];
+  if (isMobile) {
+    return <div style={{ display: "grid", gap: 12 }}>
+      <Card style={{ background: `radial-gradient(circle at 14% 12%, ${client.color}2e, transparent 35%), linear-gradient(135deg, #151821, #08090d)`, borderColor: `${client.color}55`, padding: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
+          <ClientAvatar client={client} size={58} />
+          <div style={{ minWidth: 0 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, letterSpacing: 1.8 }}>FORGE CLIENT</div><div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.05 }}>Welcome, {client.name}</div><div style={{ color: client.color, fontWeight: 1000, marginTop: 4, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
+          <CompactScore value={stats.score} color={client.color} />
+        </div>
+      </Card>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <CompactMetric label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} />
+        <CompactMetric label="Protein" value={`${stats.totals.protein}g`} total={`${stats.proteinTarget || 0}g`} percent={stats.proteinTarget ? Math.min(100, Math.round(stats.totals.protein / stats.proteinTarget * 100)) : 0} color={BRAND.green} />
+        <CompactMetric label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} />
+        <CompactMetric label="Water" value={`${stats.daily.water || 0}L`} total={`${stats.waterTarget || 3}L`} percent={(stats.waterTarget || 3) ? Math.min(100, Math.round(Number(stats.daily.water || 0) / Number(stats.waterTarget || 3) * 100)) : 0} color={BRAND.blue} />
+      </div>
+      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 8 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card>
+      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 22, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log your session.</div></Card>
+      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card>
+    </div>;
+  }
   return <div style={{ display: "grid", gap: 16 }}>
     <Card style={{ background: `radial-gradient(circle at 18% 20%, ${client.color}33, transparent 32%), linear-gradient(135deg, #171a22, #08090d)`, borderColor: `${client.color}55`, padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <ClientAvatar client={client} size={76} />
-          <div>
-            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>FORGE CLIENT</div>
-            <div style={{ fontSize: 31, fontWeight: 1000, lineHeight: 1 }}>Welcome back, {client.name}</div>
-            <div style={{ color: client.color, fontWeight: 900, marginTop: 6 }}>{client.goals?.join(" + ") || client.goal}</div>
-          </div>
-        </div>
-        <div style={{ width: 118, height: 118, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${client.color} ${stats.score}%, #242733 ${stats.score}% 100%)`, boxShadow: `0 0 34px ${client.color}33` }}>
-          <div style={{ width: 86, height: 86, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}>
-            <div><div style={{ fontSize: 30, fontWeight: 1000 }}>{stats.score}%</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000 }}>FORGE SCORE</div></div>
-          </div>
-        </div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}><ClientAvatar client={client} size={76} /><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>FORGE CLIENT</div><div style={{ fontSize: 31, fontWeight: 1000, lineHeight: 1 }}>Welcome back, {client.name}</div><div style={{ color: client.color, fontWeight: 900, marginTop: 6 }}>{client.goals?.join(" + ") || client.goal}</div></div></div>
+        <div style={{ width: 118, height: 118, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${client.color} ${stats.score}%, #242733 ${stats.score}% 100%)`, boxShadow: `0 0 34px ${client.color}33` }}><div style={{ width: 86, height: 86, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 30, fontWeight: 1000 }}>{stats.score}%</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000 }}>FORGE SCORE</div></div></div></div>
       </div>
     </Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
-      <ProgressRing label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} />
-      <ProgressRing label="Protein" value={stats.totals.protein} total={stats.proteinTarget || 0} unit="g" color={BRAND.green} />
-      <ProgressRing label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} />
-      <ProgressRing label="Water" value={stats.daily.water || 0} total={stats.waterTarget || 8} color={BRAND.blue} />
-    </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}>
-      <Card style={{ background: "linear-gradient(180deg, #151821, #0c0d12)" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card>
-      <Card style={{ background: "linear-gradient(180deg, #151821, #0c0d12)" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, duration and RPE.</div></Card>
-      <Card style={{ background: "linear-gradient(180deg, #151821, #0c0d12)" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card>
-    </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}><ProgressRing label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} /><ProgressRing label="Protein" value={stats.totals.protein} total={stats.proteinTarget || 0} unit="g" color={BRAND.green} /><ProgressRing label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} /><ProgressRing label="Water L" value={stats.daily.water || 0} total={stats.waterTarget || 3} color={BRAND.blue} /></div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, duration and RPE.</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card></div>
   </div>;
 }
  
-function ProfileTab({ client, updateClient }) {
+ 
+function ProfileTab({ client, updateClient, isCoach = true }) {
   const [profile, setProfile] = useState(client.profile || emptyProfile());
   const [saving, setSaving] = useState(false);
+  const measurements = profile.measurements || {};
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
+  const setMeasurement = (k, v) => setProfile((p) => ({ ...p, measurements: { ...(p.measurements || {}), [k]: v } }));
   const toggleGoal = (g) => set("goals", profile.goals.includes(g) ? profile.goals.filter((x) => x !== g) : [...profile.goals, g]);
   async function pickPhoto(file) {
     if (!file) return;
@@ -1684,14 +1890,58 @@ function ProfileTab({ client, updateClient }) {
         <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
       </div>
     </div>
-    <div style={{ marginBottom: 14 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT COLOR</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: (profile.color || client.color) === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>
+    {isCoach && <div style={{ marginBottom: 14 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT COLOR</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: (profile.color || client.color) === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>}
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${profile.goals.includes(g) ? client.color : BRAND.line}`, background: profile.goals.includes(g) ? client.color : BRAND.card2, color: profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}><Field label="Injuries" value={profile.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical Issues" value={profile.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Barriers" value={profile.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Sleep" value={profile.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / Daily Activity" value={profile.neat} onChange={(v) => set("neat", v)} textarea /><Field label="Work Schedule" value={profile.workSchedule} onChange={(v) => set("workSchedule", v)} textarea /><Field label="Vegetarian Status" value={profile.vegetarianStatus} onChange={(v) => set("vegetarianStatus", v)} /><Field label="Allergies" value={profile.allergies} onChange={(v) => set("allergies", v)} /><Field label="Notes" value={profile.notes} onChange={(v) => set("notes", v)} textarea /></div>
+    {isCoach && <div style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 6 }}>Measurements</div>
+      <div style={{ color: BRAND.muted, marginBottom: 12 }}>Assessment fields copied from your paper form. Use cm unless another unit makes more sense.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>{MEASUREMENT_FIELDS.map(([key, label]) => <Field key={key} label={label} value={measurements[key] || ""} onChange={(v) => setMeasurement(key, v)} />)}</div>
+    </div>}
     <div style={{ display: "flex", gap: 10, marginTop: 14 }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
 }
+function ProgramTemplatesManager() {
+  const [templates, setTemplates] = useState(() => allProgramTemplates());
+  const [editing, setEditing] = useState(null);
+  function persist(next) {
+    const custom = next.filter((t) => !PROGRAM_TEMPLATES.some((base) => base.key === t.key));
+    saveLocalTemplates(custom);
+    setTemplates(allProgramTemplates());
+  }
+  function newTemplate() {
+    setEditing({ key: uid(), name: "New Template", goal: "General Fitness", description: "Custom template", totalWeeks: 4, days: [{ name: "Day 1", exercises: [{ name: "Goblet Squat", numSets: 3, reps: "10-12", weight: "" }] }], custom: true });
+  }
+  function saveTemplate(t) {
+    const next = [...templates.filter((x) => x.key !== t.key), { ...t, custom: true }];
+    persist(next);
+    setEditing(null);
+  }
+  function deleteTemplate(key) {
+    if (!confirm("Delete this custom template?")) return;
+    persist(templates.filter((t) => t.key !== key));
+  }
+  return <div style={{ display: "grid", gap: 14 }}>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Program Templates</div><div style={{ color: BRAND.muted }}>Build and edit reusable workout templates. Apply them from any client program.</div></div><Button onClick={newTemplate}>+ New Template</Button></div></Card>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>{templates.map((t) => <Card key={t.key} style={{ borderColor: t.custom ? BRAND.purple : BRAND.line }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 18 }}>{t.name}</div><div style={{ color: BRAND.muted, marginTop: 4 }}>{t.description}</div><div style={{ marginTop: 10, color: BRAND.text, fontWeight: 900 }}>{t.days?.length || 0} days · {t.totalWeeks || 4} weeks</div><div style={{ display: "flex", gap: 8, marginTop: 12 }}><Button variant="dark" onClick={() => setEditing(JSON.parse(JSON.stringify(t)))}>Edit</Button>{t.custom && <Button variant="red" onClick={() => deleteTemplate(t.key)}>Delete</Button>}</div></Card>)}</div>
+    {editing && <TemplateEditor template={editing} onClose={() => setEditing(null)} onSave={saveTemplate} />}
+  </div>;
+}
+ 
+function TemplateEditor({ template, onClose, onSave }) {
+  const [t, setT] = useState(template);
+  const set = (k, v) => setT({ ...t, [k]: v });
+  const updateDay = (di, patch) => setT({ ...t, days: t.days.map((d, i) => i === di ? { ...d, ...patch } : d) });
+  const addDay = () => setT({ ...t, days: [...(t.days || []), { name: `Day ${(t.days || []).length + 1}`, exercises: [] }] });
+  const addExercise = (di) => updateDay(di, { exercises: [...(t.days[di].exercises || []), { name: "New Exercise", numSets: 3, reps: "8-10", weight: "" }] });
+  const updateExercise = (di, ei, f, v) => updateDay(di, { exercises: t.days[di].exercises.map((ex, i) => i === ei ? { ...ex, [f]: v } : ex) });
+  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 880, maxHeight: "92vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>Edit Template</div><Button variant="ghost" onClick={onClose}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}><Field label="Template name" value={t.name} onChange={(v) => set("name", v)} /><Field label="Goal" value={t.goal} onChange={(v) => set("goal", v)} /><Field label="Weeks" type="number" value={t.totalWeeks} onChange={(v) => set("totalWeeks", Number(v || 4))} /><Field label="Description" value={t.description} onChange={(v) => set("description", v)} /></div><Button variant="dark" onClick={addDay} style={{ marginTop: 12 }}>+ Add Day</Button>{(t.days || []).map((d, di) => <Card key={di} style={{ marginTop: 12, background: BRAND.card2 }}><div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}><input value={d.name} onChange={(e) => updateDay(di, { name: e.target.value })} style={inputStyle({ fontWeight: 1000 })} /><Button variant="red" onClick={() => setT({ ...t, days: t.days.filter((_, i) => i !== di) })}>Delete Day</Button></div>{(d.exercises || []).map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 80px 30px", gap: 8, marginTop: 8 }}><input value={ex.name} onChange={(e) => updateExercise(di, ei, "name", e.target.value)} style={inputStyle()} /><input value={ex.numSets} onChange={(e) => updateExercise(di, ei, "numSets", e.target.value)} style={inputStyle()} /><input value={ex.reps} onChange={(e) => updateExercise(di, ei, "reps", e.target.value)} style={inputStyle()} /><input value={ex.weight} onChange={(e) => updateExercise(di, ei, "weight", e.target.value)} style={inputStyle()} /><button onClick={() => updateDay(di, { exercises: d.exercises.filter((_, i) => i !== ei) })} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000 }}>x</button></div>)}<Button variant="dark" onClick={() => addExercise(di)} style={{ marginTop: 8 }}>+ Exercise</Button></Card>)}<div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={() => onSave(t)} style={{ flex: 1 }}>Save Template</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div></Card></div>;
+}
+ 
+ 
 function ProgramTemplatePicker({ client, onClose, onApply }) {
   const [selected, setSelected] = useState(PROGRAM_TEMPLATES[0]?.key || "");
-  const template = PROGRAM_TEMPLATES.find((t) => t.key === selected) || PROGRAM_TEMPLATES[0];
+  const availableTemplates = allProgramTemplates();
+  const template = availableTemplates.find((t) => t.key === selected) || availableTemplates[0];
   return (
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 760, maxHeight: "92vh", overflow: "auto" }}>
@@ -1703,7 +1953,7 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 14 }}>
-          {PROGRAM_TEMPLATES.map((t) => (
+          {availableTemplates.map((t) => (
             <button key={t.key} onClick={() => setSelected(t.key)} style={{ textAlign: "left", background: selected === t.key ? BRAND.gold : BRAND.card2, color: selected === t.key ? "#000" : BRAND.text, border: `1px solid ${selected === t.key ? BRAND.gold : BRAND.line}`, borderRadius: 16, padding: 14, cursor: "pointer" }}>
               <div style={{ fontWeight: 1000, fontSize: 16 }}>{t.name}</div>
               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>{t.description}</div>
@@ -1735,63 +1985,51 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
   );
 }
  
+function downloadProgramPDF(client, program) {
+  if (!program) return;
+  const days = (program.days || []).map((day) => `
+    <section style="margin:18px 0;padding:14px;border:1px solid #ddd;border-radius:12px;">
+      <h2 style="margin:0 0 10px 0;">${day.name || "Workout Day"}</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Exercise</th><th style="border-bottom:1px solid #ccc;padding:8px;">Sets</th><th style="border-bottom:1px solid #ccc;padding:8px;">Reps/Time</th><th style="border-bottom:1px solid #ccc;padding:8px;">Load</th></tr></thead>
+        <tbody>${(day.exercises || []).map((ex) => `<tr><td style="padding:8px;border-bottom:1px solid #eee;">${ex.name || ""}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${ex.numSets || ""}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${ex.reps || ""}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${ex.weight || ""}</td></tr>`).join("")}</tbody>
+      </table>
+    </section>`).join("");
+  const html = `<!doctype html><html><head><title>${program.name || "Workout Program"}</title></head><body style="font-family:Arial,sans-serif;padding:28px;color:#111;">
+    <h1 style="margin-bottom:4px;">${program.name || "Workout Program"}</h1>
+    <div style="color:#555;margin-bottom:18px;">Client: ${client.name || "Client"} | Total weeks: ${program.totalWeeks || 4}</div>
+    ${days}
+    <script>window.onload = () => window.print();<\/script>
+  </body></html>`;
+  const win = window.open("", "_blank");
+  if (!win) { alert("Allow popups to download/print the program PDF."); return; }
+  win.document.write(html);
+  win.document.close();
+}
+ 
 function ProgramTab({ client, updateClient, isCoach }) {
   const [builder, setBuilder] = useState(false);
   const [ai, setAi] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [program, setProgram] = useState(client.program);
   async function saveProgram(p) {
-    const logs = p.weekLogs || Array.from({ length: Number(p.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, p.days || []));
-    const final = { ...p, weekLogs: logs };
+    const final = { ...p, weekLogs: p.weekLogs || mergeProgramLogs(program, p) };
     setProgram(final);
     await upsertSection(client.id, "program", final);
     updateClient({ ...client, program: final });
     setBuilder(false); setAi(false); setTemplates(false);
   }
-  async function applyTemplate(template) {
-    if (!template) return;
-    const nextProgram = cloneTemplateProgram(template, client);
-    await saveProgram(nextProgram);
-  }
-  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}</div>{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
+  async function applyTemplate(template) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client)); }
+  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
 }
- function ProgramBuilder({ client, program, onClose, onSave }) {
-  const [name, setName] = useState(program?.name || `${client.name} Program`);
-  const [weeks, setWeeks] = useState(program?.totalWeeks || 4);
-  const [days, setDays] = useState(program?.days || [{ name: "Day 1 - Push", exercises: [] }, { name: "Day 2 - Pull", exercises: [] }, { name: "Day 3 - Legs", exercises: [] }]);
-  const [active, setActive] = useState(0);
-  const [search, setSearch] = useState("");
-  const [customExercise, setCustomExercise] = useState("");
-  const [customExercises, setCustomExercises] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("forge_custom_exercises") || "[]"); }
-    catch { return []; }
-  });
-  const fullExerciseLibrary = useMemo(() => Array.from(new Set([...EXERCISE_LIBRARY, ...customExercises])).sort((a, b) => a.localeCompare(b)), [customExercises]);
-  const filtered = fullExerciseLibrary.filter((e) => e.toLowerCase().includes(search.toLowerCase()));
-  const defaultPrescription = (exerciseName) => isTimedExercise(exerciseName)
-    ? { name: exerciseName, numSets: 3, reps: "30-45 sec", weight: "" }
-    : { name: exerciseName, numSets: 3, reps: "8-10", weight: "" };
-  const addEx = (ex) => setDays((p) => p.map((d, i) => i === active ? { ...d, exercises: [...(d.exercises || []), defaultPrescription(ex)] } : d));
-  const addCustomExercise = () => {
-    const cleaned = customExercise.trim();
-    if (!cleaned) return;
-    const exists = fullExerciseLibrary.some((e) => e.toLowerCase() === cleaned.toLowerCase());
-    const next = exists ? customExercises : [...customExercises, cleaned].sort((a, b) => a.localeCompare(b));
-    setCustomExercises(next);
-    localStorage.setItem("forge_custom_exercises", JSON.stringify(next));
-    addEx(cleaned);
-    setCustomExercise("");
-    setSearch(cleaned);
-  };
-  const updateEx = (di, ei, f, v) => setDays((p) => p.map((d, i) => i === di ? { ...d, exercises: d.exercises.map((e, j) => j === ei ? { ...e, [f]: v } : e) } : d));
-  const delDay = (di) => { const next = days.filter((_, i) => i !== di); setDays(next.length ? next : [{ name: "Day 1", exercises: [] }]); setActive(0); };
-  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 980, maxHeight: "92vh", overflow: "hidden", display: "flex", flexDirection: "column" }}><div style={{ display: "flex", gap: 10, marginBottom: 12 }}><input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle()} /><Button onClick={() => onSave({ name, totalWeeks: weeks, days })}>Save</Button><Button variant="ghost" onClick={onClose}>X</Button></div><div style={{ display: "flex", gap: 8, marginBottom: 10 }}>{[2, 4, 6, 8, 12].map((w) => <Button key={w} variant={weeks === w ? "gold" : "dark"} onClick={() => setWeeks(w)}>{w} weeks</Button>)}</div><div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 12, minHeight: 560, overflow: "hidden" }}><div style={{ overflow: "auto" }}><Button variant="dark" onClick={() => { setDays([...days, { name: `Day ${days.length + 1}`, exercises: [] }]); setActive(days.length); }} style={{ width: "100%", marginBottom: 10 }}>+ Add Day</Button>{days.map((d, i) => <div key={i} style={{ position: "relative", background: i === active ? client.color + "22" : BRAND.card2, border: `1px solid ${i === active ? client.color : BRAND.line}`, padding: 12, borderRadius: 14, marginBottom: 8, cursor: "pointer" }} onClick={() => setActive(i)}><button onClick={(e) => { e.stopPropagation(); delDay(i); }} style={{ position: "absolute", top: 5, right: 7, background: "transparent", border: "none", color: BRAND.red, cursor: "pointer", fontWeight: 1000 }}>x</button><div style={{ fontWeight: 900 }}>{d.name}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{d.exercises?.length || 0} exercises</div></div>)}<input placeholder="Search exercise..." value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle({ marginTop: 10 })} /><div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6, marginTop: 8 }}><input placeholder="Custom exercise name" value={customExercise} onChange={(e) => setCustomExercise(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addCustomExercise(); }} style={inputStyle()} /><Button variant="dark" onClick={addCustomExercise}>Add</Button></div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 6 }}>If an exercise is missing, type it above and it will be saved on this device.</div>{filtered.slice(0, 220).map((ex) => <button key={ex} onClick={() => addEx(ex)} style={{ display: "block", width: "100%", textAlign: "left", marginTop: 4, background: "transparent", border: "none", color: customExercises.includes(ex) ? BRAND.gold : BRAND.text, padding: 8, cursor: "pointer" }}>+ {ex}{customExercises.includes(ex) ? "  custom" : ""}</button>)}</div><div style={{ overflow: "auto" }}><input value={days[active]?.name || ""} onChange={(e) => setDays((p) => p.map((d, i) => i === active ? { ...d, name: e.target.value } : d))} style={inputStyle({ marginBottom: 10, fontWeight: 900 })} />{days[active]?.exercises?.map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 90px 30px", gap: 8, alignItems: "center", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 10, marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{ex.name}<div style={{ color: BRAND.muted, fontSize: 10 }}>{isTimedExercise(ex.name) ? "Timed exercise" : "Reps exercise"}</div></div><input value={ex.numSets} onChange={(e) => updateEx(active, ei, "numSets", e.target.value)} style={inputStyle()} /><input value={ex.reps} placeholder={isTimedExercise(ex.name) ? "sec/min" : "reps"} onChange={(e) => updateEx(active, ei, "reps", e.target.value)} style={inputStyle()} /><input value={ex.weight} placeholder="kg" onChange={(e) => updateEx(active, ei, "weight", e.target.value)} style={inputStyle()} /><button onClick={() => setDays((p) => p.map((d, i) => i === active ? { ...d, exercises: d.exercises.filter((_, j) => j !== ei) } : d))} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer" }}>x</button></div>)}</div></div></Card></div>;
-}
+ 
  
 function AIProgramBuilder({ client, onClose, onSave }) {
   const [days, setDays] = useState(4);
   const [weeks, setWeeks] = useState(4);
   const [extra, setExtra] = useState("");
+  const defaultName = `${(client.goals?.[0] || client.goal || "Fitness")} Program`;
+  const [programName, setProgramName] = useState(defaultName);
   function build() {
     const goals = client.goals || [client.goal];
     const lowerBack = `${client.profile?.injuries || ""} ${extra}`.toLowerCase().includes("back");
@@ -1799,26 +2037,47 @@ function AIProgramBuilder({ client, onClose, onSave }) {
     const main = goals.includes("Strength") ? ["Squat", "Flat Barbell Bench Press", "Pull-Up", "Dead Hang", "Overhead Press"] : goals.includes("Fat Loss") ? ["Goblet Squat", "Push-Up", "Neutral Grip Lat Pulldown", "Dead Bug", "Sled Push"] : ["Leg Press", "Incline DB Chest Press", "Dumbbell Row", "DB Shoulder Press", "Dead Hang"];
     const safe = lowerBack ? main.filter((x) => !x.toLowerCase().includes("deadlift")) : main;
     const made = Array.from({ length: days }, (_, i) => ({ name: split[i] || `Day ${i + 1}`, exercises: safe.slice(0, 5).map((name) => ({ name, numSets: goals.includes("Strength") ? 4 : 3, reps: goals.includes("Strength") ? "4-6" : "8-12", weight: "" })) }));
-    onSave({ name: `${client.name} AI Program`, totalWeeks: weeks, days: made });
+    onSave({ name: programName || defaultName, totalWeeks: weeks, days: made });
   }
-  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>AI Program Builder</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>Uses goals, injuries, and notes to make a safe starting plan.</div><div style={{ display: "flex", gap: 8, marginBottom: 12 }}>{[2, 3, 4, 5, 6].map((d) => <Button key={d} variant={days === d ? "gold" : "dark"} onClick={() => setDays(d)}>{d} days</Button>)}</div><div style={{ display: "flex", gap: 8, marginBottom: 12 }}>{[2, 4, 6, 8, 12].map((w) => <Button key={w} variant={weeks === w ? "gold" : "dark"} onClick={() => setWeeks(w)}>{w} weeks</Button>)}</div><Field label="Extra details" value={extra} onChange={setExtra} textarea /><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={build} style={{ flex: 1 }}>Generate</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div></Card></div>;
+  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>AI Program Builder</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>Uses goals, injuries, and notes to make a safe starting plan.</div><Field label="Program Name" value={programName} onChange={setProgramName} placeholder="Fat Loss Program" /><div style={{ display: "flex", gap: 8, marginBottom: 12, marginTop: 12 }}>{[2, 3, 4, 5, 6].map((d) => <Button key={d} variant={days === d ? "gold" : "dark"} onClick={() => setDays(d)}>{d} days</Button>)}</div><div style={{ display: "flex", gap: 8, marginBottom: 12 }}>{[2, 4, 6, 8, 12].map((w) => <Button key={w} variant={weeks === w ? "gold" : "dark"} onClick={() => setWeeks(w)}>{w} weeks</Button>)}</div><Field label="Extra details" value={extra} onChange={setExtra} textarea /><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={build} style={{ flex: 1 }}>Generate</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div></Card></div>;
 }
  
 function SessionTracker({ client, program, saveProgram, isCoach }) {
-  const logs = program.weekLogs || Array.from({ length: Number(program.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, program.days || []));
+  const logs = program.weekLogs || mergeProgramLogs(null, program);
   const [wk, setWk] = useState(0);
   const [dy, setDy] = useState(0);
+  const [subSearch, setSubSearch] = useState({});
   const week = logs[wk];
   const day = week?.days?.[dy];
   function patch(fn) { const next = fn(logs); saveProgram({ ...program, weekLogs: next }); }
   function setSet(ei, si, f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, sessionData: d.sessionData.map((ex, xi) => xi !== ei ? ex : { ...ex, sets: ex.sets.map((s, j) => j !== si ? s : { ...s, [f]: v }) }) }) })); }
+  function setExField(ei, f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, sessionData: d.sessionData.map((ex, xi) => xi !== ei ? ex : { ...ex, [f]: v }) }) })); }
   function setMeta(f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, [f]: v }) })); }
   function setMetric(f, v) { setMeta("metrics", { ...(day?.metrics || {}), [f]: v }); }
-  return <Card><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>{logs.map((_, i) => <Button key={i} variant={wk === i ? "gold" : "dark"} onClick={() => { setWk(i); setDy(0); }}>Week {i + 1}</Button>)}</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{week?.days?.map((d, i) => <Button key={i} variant={dy === i ? "gold" : "dark"} onClick={() => setDy(i)}>{d.name}</Button>)}</div>{day && <><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10 }}><div><div style={{ fontSize: 20, fontWeight: 1000 }}>{day.name}</div><div style={{ color: BRAND.muted }}>Week {wk + 1}</div></div><input type="date" value={day.date || ""} onChange={(e) => setMeta("date", e.target.value)} style={inputStyle({ maxWidth: 180 })} /></div>{day.sessionData?.map((ex, ei) => {
-    const history = getExerciseHistory(program, ex.name);
-    const timed = history.timed;
-    return <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ color: client.color, fontWeight: 1000, marginBottom: 8 }}>{ex.name}</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8, marginBottom: 10 }}><Mini label="Personal Best" value={history.best} /><Mini label="Recent" value={history.recent} /><Mini label="New" value={timed ? "Type hold time below" : "Type kg/reps below"} /></div>{ex.sets.map((s, si) => <div key={si} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 110px", gap: 8, marginBottom: 6, alignItems: "center" }}><div style={{ color: BRAND.muted }}>S{si + 1}</div><input placeholder={timed ? "load/assist" : "kg"} value={s.weight || ""} onChange={(e) => setSet(ei, si, "weight", e.target.value)} style={inputStyle()} /><input placeholder={timed ? "time held e.g. 30 sec" : "reps"} value={timed ? (s.duration || s.reps || "") : (s.reps || "")} onChange={(e) => setSet(ei, si, timed ? "duration" : "reps", e.target.value)} style={inputStyle()} /><select value={s.rpe || ""} onChange={(e) => setSet(ei, si, "rpe", e.target.value)} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></div>)}</div>})}<div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 14, paddingTop: 14 }}><div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 1000, marginBottom: 10 }}>METRIC DATA</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}><Field label="Kcals" value={day.metrics?.kcal || ""} onChange={(v) => setMetric("kcal", v)} type="number" /><Field label="Max HR" value={day.metrics?.maxHR || ""} onChange={(v) => setMetric("maxHR", v)} type="number" /><Field label="Average HR" value={day.metrics?.avgHR || ""} onChange={(v) => setMetric("avgHR", v)} type="number" /></div></div><Field label="Session notes" value={day.notes} onChange={(v) => setMeta("notes", v)} textarea /></>}</Card>;
+  return <Card>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>{logs.map((_, i) => <Button key={i} variant={wk === i ? "gold" : "dark"} onClick={() => { setWk(i); setDy(0); }}>Week {i + 1}</Button>)}</div>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{week?.days?.map((d, i) => <Button key={i} variant={dy === i ? "gold" : "dark"} onClick={() => setDy(i)}>{d.name}</Button>)}</div>
+    {day && <>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}><div><div style={{ fontSize: 20, fontWeight: 1000 }}>{day.name}</div><div style={{ color: BRAND.muted }}>Week {wk + 1}</div></div><input type="date" value={day.date || ""} onChange={(e) => setMeta("date", e.target.value)} style={inputStyle({ maxWidth: 180 })} /></div>
+      {day.sessionData?.map((ex, ei) => {
+        const effectiveName = ex.substitute || ex.actualName || ex.name;
+        const timed = isTimedExercise(effectiveName);
+        const q = subSearch[ei] || "";
+        const suggestions = EXERCISE_LIBRARY.filter((n) => n.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
+        return <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ color: client.color, fontWeight: 1000, fontSize: 18 }}>{effectiveName}</div>{ex.substitute && <div style={{ color: BRAND.muted, fontSize: 12 }}>Substituted for {ex.name}</div>}</div><Button variant="dark" onClick={() => setExField(ei, "substitute", "")}>Use Original</Button></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 8, marginBottom: 10 }}><input placeholder="Substitute exercise if gym is busy..." value={q} onChange={(e) => setSubSearch({ ...subSearch, [ei]: e.target.value })} style={inputStyle()} /><Button variant="dark" onClick={() => q && setExField(ei, "substitute", q)}>Substitute</Button></div>
+          {q && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>{suggestions.map((n) => <button key={n} onClick={() => { setExField(ei, "substitute", n); setSubSearch({ ...subSearch, [ei]: "" }); }} style={{ border: `1px solid ${BRAND.line}`, background: BRAND.card2, color: BRAND.text, borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontWeight: 800 }}>{n}</button>)}</div>}
+          {ex.sets.map((s, si) => <div key={si} style={{ display: "grid", gridTemplateColumns: "48px 1fr 1fr 100px", gap: 8, marginBottom: 6, alignItems: "center" }}><div style={{ color: BRAND.muted }}>S{si + 1}</div><input placeholder={timed ? "load/assist" : "kg"} value={s.weight || ""} onChange={(e) => setSet(ei, si, "weight", e.target.value)} style={inputStyle()} /><input placeholder={timed ? "time e.g. 30 sec" : "reps"} value={timed ? (s.duration || s.reps || "") : (s.reps || "")} onChange={(e) => setSet(ei, si, timed ? "duration" : "reps", e.target.value)} style={inputStyle()} /><select value={s.rpe || ""} onChange={(e) => setSet(ei, si, "rpe", e.target.value)} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></div>)}
+        </div>;
+      })}
+      <div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 14, paddingTop: 14 }}><div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 1000, marginBottom: 10 }}>METRIC DATA</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}><Field label="Kcals" value={day.metrics?.kcal || ""} onChange={(v) => setMetric("kcal", v)} type="number" /><Field label="Max HR" value={day.metrics?.maxHR || ""} onChange={(v) => setMetric("maxHR", v)} type="number" /><Field label="Average HR" value={day.metrics?.avgHR || ""} onChange={(v) => setMetric("avgHR", v)} type="number" /></div></div>
+      <Field label="Session notes" value={day.notes} onChange={(v) => setMeta("notes", v)} textarea />
+    </>}
+  </Card>;
 }
+ 
+ 
 function normalizeNutrition(raw) {
   const base = emptyNutrition();
   const n = raw && typeof raw === "object" ? raw : {};
@@ -1836,8 +2095,9 @@ function NutritionTab({ client, updateClient, isCoach }) {
   const [nutrition, setNutrition] = useState(() => normalizeNutrition(client.nutrition));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [meal, setMeal] = useState("Breakfast");
-  const [food, setFood] = useState(FOOD_DB[0]?.name || "");
+  const [food, setFood] = useState("");
   const [customFood, setCustomFood] = useState("");
+  const [customMacros, setCustomMacros] = useState({ kcal: "", protein: "", carbs: "", fats: "" });
   const [qty, setQty] = useState(1);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -1863,15 +2123,17 @@ function NutritionTab({ client, updateClient, isCoach }) {
   }
   async function addFood() {
     const selected = FOOD_DB.find((f) => f.name === food);
-    const base = selected || { name: customFood || "Custom food", kcal: 0, protein: 0, carbs: 0, fats: 0 };
+    if (!selected && !customFood.trim()) { alert("Choose a food or type a custom food name."); return; }
+    const base = selected && !customFood.trim() ? selected : { name: customFood.trim(), kcal: Number(customMacros.kcal || 0), protein: Number(customMacros.protein || 0), carbs: Number(customMacros.carbs || 0), fats: Number(customMacros.fats || 0) };
     const q = Number(qty || 1);
-    const entry = { id: uid(), date, meal, food: selected ? base.name : customFood || base.name, qty: q, kcal: Math.round(Number(base.kcal || 0) * q), protein: Math.round(Number(base.protein || 0) * q), carbs: Math.round(Number(base.carbs || 0) * q), fats: Math.round(Number(base.fats || 0) * q) };
+    const entry = { id: uid(), date, meal, food: base.name, qty: q, kcal: Math.round(Number(base.kcal || 0) * q), protein: Math.round(Number(base.protein || 0) * q), carbs: Math.round(Number(base.carbs || 0) * q), fats: Math.round(Number(base.fats || 0) * q) };
     const next = normalizeNutrition({ ...nutrition, logs: [...(nutrition.logs || []), entry] });
-    await save(next); setCustomFood(""); setQty(1);
+    await save(next); setCustomFood(""); setCustomMacros({ kcal: "", protein: "", carbs: "", fats: "" }); setQty(1); setFood("");
   }
   async function delLog(id) { const next = normalizeNutrition({ ...nutrition, logs: (nutrition.logs || []).filter((l) => l.id !== id) }); await save(next); }
   async function saveDaily() { await save(nutrition); }
   const mealLogs = todays.filter((l) => l.meal === meal);
+  const customActive = !!customFood.trim() || !food;
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <Card style={{ background: `linear-gradient(135deg, ${client.color}22, ${BRAND.card})` }}>
@@ -1887,7 +2149,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
           <Mini label="Protein" value={`${totals.protein}g/${targets.protein || 0}g`} />
           <Mini label="Carbs" value={`${totals.carbs}g/${targets.carbs || 0}g`} />
           <Mini label="Fats" value={`${totals.fats}g/${targets.fats || 0}g`} />
-          <Mini label="Water" value={`${daily.water || 0}/${targets.water || 8}`} />
+          <Mini label="Water" value={`${daily.water || 0}L/${targets.water || 3}L`} />
           <Mini label="Steps" value={`${daily.steps || 0}/${targets.steps || 10000}`} />
         </div>
       </Card>
@@ -1895,14 +2157,14 @@ function NutritionTab({ client, updateClient, isCoach }) {
         <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 10 }}>Daily Habits</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
           <Field label="Steps" value={daily.steps || ""} onChange={(v) => setDaily("steps", v)} type="number" />
-          <Field label="Water glasses" value={daily.water || ""} onChange={(v) => setDaily("water", v)} type="number" />
-          <Field label="Weight today kg" value={daily.weight || ""} onChange={(v) => setDaily("weight", v)} type="number" />
+          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>WATER LITERS</div><select value={daily.water || ""} onChange={(e) => setDaily("water", e.target.value)} style={inputStyle()}>{WATER_LITERS.map((w) => <option key={w} value={w}>{w || "Water"}</option>)}</select></label>
+          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>SLEEP HOURS</div><select value={daily.sleep || ""} onChange={(e) => setDaily("sleep", e.target.value)} style={inputStyle()}>{SLEEP_HOURS.map((h) => <option key={h} value={h}>{h || "Sleep"}</option>)}</select></label>
         </div>
         <Button onClick={saveDaily} disabled={saving} style={{ marginTop: 12 }}>{saving ? "Saving..." : "Save Daily Habits"}</Button>
       </Card>
       {isCoach && <Card>
         <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 10 }}>Coach Nutrition Targets</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>{["calories", "protein", "carbs", "fats", "steps", "water"].map((k) => <Field key={k} label={`${k} target`} value={nutrition.targets[k] || ""} onChange={(v) => setTarget(k, v)} type="number" />)}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>{["calories", "protein", "carbs", "fats", "steps", "water", "sleep"].map((k) => <Field key={k} label={`${k} target`} value={nutrition.targets[k] || ""} onChange={(v) => setTarget(k, v)} type="number" />)}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 12 }}>{["Breakfast", "Lunch", "Dinner"].map((m) => <div key={m}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 5 }}>{m.toUpperCase()} PLAN</div><textarea value={nutrition.mealPlan[m] || ""} onChange={(e) => setMealPlan(m, e.target.value)} placeholder={`Write ${m.toLowerCase()} foods, portions, notes...`} style={textareaStyle({ minHeight: 92 })} /></div>)}</div>
         <textarea value={nutrition.planNotes || ""} onChange={(e) => setNutrition((n) => ({ ...n, planNotes: e.target.value }))} placeholder="Coach notes: vegetarian/non-vegetarian, allergies, foods to avoid, meal timing..." style={textareaStyle({ minHeight: 80, marginTop: 10 })} />
         <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}><Button onClick={() => save()} disabled={saving}>{saving ? "Saving..." : "Save Nutrition Plan"}</Button>{message && <span style={{ color: BRAND.green, fontWeight: 900 }}>{message}</span>}</div>
@@ -1911,12 +2173,13 @@ function NutritionTab({ client, updateClient, isCoach }) {
         <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 10 }}>Food Log</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto" }}>{["Breakfast", "Lunch", "Dinner"].map((m) => <Button key={m} variant={meal === m ? "gold" : "dark"} onClick={() => setMeal(m)}>{m}</Button>)}</div>
         {nutrition.mealPlan?.[meal] && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 12 }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 5 }}>{meal} Plan</div><div style={{ color: BRAND.text, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{nutrition.mealPlan[meal]}</div></div>}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(160px,2fr) minmax(120px,1.4fr) 90px 110px", gap: 8 }}>
-          <select value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle()}>{FOOD_DB.map((f) => <option key={f.name}>{f.name}</option>)}<option value="CUSTOM">Custom food</option></select>
-          <input value={customFood} onChange={(e) => setCustomFood(e.target.value)} placeholder="Custom food name" disabled={food !== "CUSTOM"} style={inputStyle({ opacity: food === "CUSTOM" ? 1 : .45 })} />
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(180px,2fr) minmax(170px,1.5fr) 90px 110px", gap: 8 }}>
+          <select value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle()}><option value="">Select food</option>{FOOD_DB.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}</select>
+          <input value={customFood} onChange={(e) => setCustomFood(e.target.value)} placeholder="Custom food name" style={inputStyle()} />
           <input type="number" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} style={inputStyle()} />
           <Button onClick={addFood}>Add</Button>
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 8, marginTop: 10, opacity: customActive ? 1 : .5 }}><Field label="Kcal" value={customMacros.kcal} onChange={(v) => setCustomMacros((m) => ({ ...m, kcal: v }))} type="number" /><Field label="Protein" value={customMacros.protein} onChange={(v) => setCustomMacros((m) => ({ ...m, protein: v }))} type="number" /><Field label="Carbs" value={customMacros.carbs} onChange={(v) => setCustomMacros((m) => ({ ...m, carbs: v }))} type="number" /><Field label="Fats" value={customMacros.fats} onChange={(v) => setCustomMacros((m) => ({ ...m, fats: v }))} type="number" /></div>
         <div style={{ marginTop: 14 }}>{mealLogs.length === 0 && <div style={{ color: BRAND.muted, padding: "12px 0" }}>No {meal.toLowerCase()} foods logged yet.</div>}{mealLogs.map((l) => <div key={l.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10 }}><div><b style={{ color: BRAND.text }}>{l.food}</b><div style={{ color: BRAND.muted }}>{l.qty}x · {l.kcal} kcal · P {l.protein}g · C {l.carbs}g · F {l.fats}g</div></div><Button variant="red" onClick={() => delLog(l.id)}>x</Button></div>)}</div>
       </Card>
     </div>
@@ -1926,15 +2189,26 @@ function NutritionTab({ client, updateClient, isCoach }) {
 function TransformPhotos({ client, updateClient }) {
   const [photos, setPhotos] = useState(client.transformPhotos || []);
   const [form, setForm] = useState({ image: "", type: "Front", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
+  const beforePhoto = [...photos].find((p) => String(p.type || "").toLowerCase() === "before") || photos[photos.length - 1];
+  const afterPhoto = [...photos].find((p) => String(p.type || "").toLowerCase() === "after") || photos[0];
   async function pickImage(file) { if (!file) return; const dataUrl = await readFileAsDataUrl(file); setForm((f) => ({ ...f, image: dataUrl })); }
   async function add() { if (!form.image) { alert("Choose a photo from your device first."); return; } const next = [{ id: uid(), ...form }, ...photos]; setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); setForm({ ...form, image: "", notes: "" }); }
   async function del(id) { const next = photos.filter((p) => p.id !== id); setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Transform Photos</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
+  const photoCard = (photo, label) => <div style={{ background: "linear-gradient(180deg,#151821,#0d0f15)", border: `1px solid ${BRAND.line}`, borderRadius: 22, overflow: "hidden", minHeight: 260 }}><div style={{ padding: 12, color: BRAND.gold, fontWeight: 1000 }}>{label}</div>{photo?.image || photo?.url ? <img src={photo.image || photo.url} alt={label} style={{ width: "100%", height: 260, objectFit: "cover" }} /> : <div style={{ height: 260, display: "grid", placeItems: "center", color: BRAND.muted }}>No {label.toLowerCase()} photo yet</div>}{photo && <div style={{ padding: 12 }}><b>{photo.type}</b><div style={{ color: BRAND.muted }}>{photo.date} · {photo.weight ? `${photo.weight}kg` : "No weight"}</div><div style={{ color: BRAND.text }}>{photo.notes}</div></div>}</div>;
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Transform Photos</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginBottom: 16 }}>
+      {photoCard(beforePhoto, "Before")}
+      {photoCard(afterPhoto, "After")}
+    </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
 }
+ 
 function ProgressTab({ client }) {
   const latest = client.progress?.[client.progress.length - 1] || {};
   const metrics = computePerformanceMetrics(client.program);
-  const sessions = recentCompletedSessions(client.program, 8);
+  const coachSessions = recentCompletedSessions(client.program, 8).map((d) => ({ ...d, source: "Coach/Program" }));
+  const selfSessions = (client.workoutLogs || []).map((l) => ({ id: l.id, date: l.date, name: l.workout || "Self Training", source: "Client", notes: l.notes, summary: [l.weights, l.cardio, l.rpe && `RPE ${l.rpe}`].filter(Boolean).join(" · ") })).filter((l) => l.date || l.summary || l.notes);
+  const attendedSessions = [...coachSessions, ...selfSessions].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8);
   const nutritionStats = todaysNutritionStats(client);
   return <div style={{ display: "grid", gap: 16 }}>
     <Card style={{ background: `radial-gradient(circle at 20% 15%, ${client.color}22, transparent 35%), linear-gradient(180deg, #151821, #090a0e)` }}>
@@ -1943,12 +2217,11 @@ function ProgressTab({ client }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 14 }}>
         <PremiumTile label="Today Score" value={`${nutritionStats.score}%`} color={client.color} />
         <PremiumTile label="Steps" value={nutritionStats.daily.steps || 0} sub="today" color={BRAND.gold} />
-        <PremiumTile label="Weight" value={nutritionStats.daily.weight || client.weight || "-"} sub="kg" color={BRAND.green} />
-        <PremiumTile label="Logged Sessions" value={sessions.length} color={BRAND.cyan} />
+        <PremiumTile label="Attended Sessions" value={attendedSessions.length} color={BRAND.cyan} />
       </div>
     </Card>
     <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Performance Metrics</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12 }}>{metrics.map((m) => <div key={m.name} style={{ background: "linear-gradient(180deg,#151821,#0d0f15)", border: `1px solid ${BRAND.line}`, borderRadius: 22, padding: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000 }}>{m.name}</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}><Mini label="PB" value={metricDisplay(m.best, m.timed)} /><Mini label="Recent" value={metricDisplay(m.recent, m.timed)} /></div><div style={{ color: m.trend > 0 ? BRAND.green : BRAND.muted, fontSize: 12, fontWeight: 900, marginTop: 10 }}>Trend: {m.trend > 0 ? "+" : ""}{m.trend || 0}{m.timed ? " sec" : " kg"}</div></div>)}</div></Card>
-    <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Session History</div>{sessions.length === 0 && <div style={{ color: BRAND.muted }}>No completed sessions logged yet.</div>}{sessions.map((d, i) => <div key={i} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><b>{d.date || "No date"} · {d.name}</b><span style={{ color: BRAND.muted }}>Week {d.weekNum}</span></div><div style={{ color: BRAND.muted, marginTop: 6 }}>{(d.sessionData || []).map((ex) => `${ex.name}: ${(ex.sets || []).map((s) => isTimedExercise(ex.name) ? (s.duration || s.reps || "") : [s.weight && `${s.weight}kg`, s.reps && `${s.reps} reps`].filter(Boolean).join(" x ")).filter(Boolean).join(", ") || "not logged"}`).join(" | ")}</div>{d.metrics && <div style={{ color: BRAND.gold, fontSize: 12, marginTop: 6 }}>Kcal {d.metrics.kcal || "-"} · Max HR {d.metrics.maxHR || "-"} · Avg HR {d.metrics.avgHR || "-"}</div>}</div>)}</Card>
+    <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Attended Session History</div>{attendedSessions.length === 0 && <div style={{ color: BRAND.muted }}>No attended sessions logged yet.</div>}{attendedSessions.map((d, i) => <div key={d.id || i} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><b>{d.date || "No date"} · {d.name}</b><span style={{ color: BRAND.muted }}>{d.source || (d.weekNum ? `Week ${d.weekNum}` : "Session")}</span></div>{d.sessionData ? <div style={{ color: BRAND.muted, marginTop: 6 }}>{(d.sessionData || []).map((ex) => `${ex.name}: ${(ex.sets || []).map((s) => isTimedExercise(ex.name) ? (s.duration || s.reps || "") : [s.weight && `${s.weight}kg`, s.reps && `${s.reps} reps`].filter(Boolean).join(" x ")).filter(Boolean).join(", ") || "not logged"}`).join(" | ")}</div> : <div style={{ color: BRAND.muted, marginTop: 6 }}>{d.summary || d.notes}</div>}{d.metrics && <div style={{ color: BRAND.gold, fontSize: 12, marginTop: 6 }}>Kcal {d.metrics.kcal || "-"} · Max HR {d.metrics.maxHR || "-"} · Avg HR {d.metrics.avgHR || "-"}</div>}</div>)}</Card>
     <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Classic Lifts</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>{LIFT_FIELDS.map((f) => <Mini key={f.key} label={f.label} value={latest[f.key] || "-"} />)}</div></Card>
   </div>;
 }
@@ -1970,7 +2243,7 @@ function ClientWorkoutLog({ client, updateClient }) {
   const [logs, setLogs] = useState(client.workoutLogs || []);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), workout: "", weights: "", cardio: "", rpe: "", notes: "" });
   async function add() { const next = [{ id: uid(), ...form }, ...logs]; setLogs(next); await upsertSection(client.id, "workoutLogs", next); updateClient({ ...client, workoutLogs: next }); setForm({ ...form, workout: "", weights: "", cardio: "", rpe: "", notes: "" }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><Field label="RPE" value={form.rpe} onChange={(v) => setForm({ ...form, rpe: v })} /></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>RPE</div><select value={form.rpe || ""} onChange={(e) => setForm({ ...form, rpe: e.target.value })} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></label></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
 }
  
 function PackagesTab({ client, updateClient }) {
@@ -1988,30 +2261,45 @@ function Calendar({ clients, refresh, user }) {
   const [bookings, setBookings] = useState([]);
   const [newSlot, setNewSlot] = useState("");
   const [draft, setDraft] = useState(null);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const days = weekDays(weekStart);
+  const currentWeekKey = weekKey(weekStart);
   useEffect(() => { load(); }, []);
   async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "calendar").maybeSingle(); setBookings(data?.data?.bookings || []); }
   async function save(next) { setBookings(next); const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; await upsertTrainerData(uidVal, "calendar", { bookings: next }); }
-  function autoBookings() { return clients.flatMap((c) => (c.schedule || []).map((s) => ({ id: `auto_${c.id}_${s.day}_${s.time}`, day: s.day, time: s.time, title: c.name, type: "Client Session", color: c.color, auto: true }))); }
-  const all = [...autoBookings(), ...bookings];
+  function autoBookings() { return clients.flatMap((c) => (c.schedule || []).map((s) => { const foundDay = days.find((d) => d.name === s.day); return { id: `auto_${currentWeekKey}_${c.id}_${s.day}_${s.time}`, weekKey: currentWeekKey, date: foundDay?.date || "", day: s.day, time: s.time, title: c.name, type: "Client Session", color: c.color, auto: true, clientId: c.id }; })); }
+  const all = [...autoBookings(), ...bookings.filter((b) => b.weekKey === currentWeekKey || days.some((d) => d.date === b.date))];
   function removeSlot(id) { const next = slots.filter((x) => x.id !== id); setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); }
   function addSlot() { if (!newSlot) return; const next = [...slots, { id: uid(), label: newSlot }]; setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); setNewSlot(""); }
-  function openBooking(day, slot) { setDraft({ day, time: slot.label, type: "Client Session", clientId: clients[0]?.id || "", title: clients[0]?.name || "", color: clients[0]?.color || BRAND.blue }); }
-  function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; save([...bookings, { id: uid(), ...draft, color }]); setDraft(null); }
-  return <Card style={{ overflowX: "auto" }}><div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30 PM" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div><table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 6, minWidth: 760 }}><thead><tr><th></th>{DAYS.map((d) => <th key={d} style={{ color: BRAND.gold }}>{d}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, minWidth: 70 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{DAYS.map((d) => { const b = all.find((x) => x.day === d && timeKey(x.time) === timeKey(slot.label)); return <td key={d} onClick={() => !b && openBooking(d, slot)} style={{ height: 48, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 10, padding: 8, cursor: "pointer", fontWeight: 900 }}>{b ? b.title : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>{draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>Book {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}</Card>;
+  function openBooking(dayObj, slot, existing) { const b = existing || {}; const client = clients.find((c) => c.id === b.clientId) || clients[0]; setDraft({ id: b.id || null, weekKey: currentWeekKey, date: dayObj.date, day: dayObj.name, time: b.time || slot.label, type: b.type || "Client Session", clientId: b.clientId || client?.id || "", title: b.title || client?.name || "", color: b.color || client?.color || BRAND.blue, auto: !!b.auto }); }
+  function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; const clean = { ...draft, color, auto: false, id: draft.id?.startsWith("auto_") ? uid() : draft.id || uid() }; save([...(bookings.filter((x) => x.id !== draft.id)), clean]); setDraft(null); }
+  const goWeek = (n) => setWeekStart((w) => addDays(w, n * 7));
+  return <Card style={{ overflowX: "auto" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Calendar</div><div style={{ color: BRAND.muted }}>{weekRangeLabel(weekStart)}</div></div><div style={{ display: "flex", gap: 8 }}><Button variant="dark" onClick={() => goWeek(-1)}>Previous Week</Button><Button variant="dark" onClick={() => setWeekStart(startOfWeek(new Date()))}>This Week</Button><Button variant="dark" onClick={() => goWeek(1)}>Next Week</Button></div></div>
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30 PM" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div>
+    <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 6, minWidth: 850 }}><thead><tr><th style={{ width: 90 }}></th>{days.map((d) => <th key={d.date} style={{ color: BRAND.gold }}>{d.label}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, width: 90 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{days.map((d) => { const b = all.find((x) => (x.date === d.date || x.day === d.name) && timeKey(x.time) === timeKey(slot.label)); return <td key={d.date} onClick={() => openBooking(d, slot, b)} style={{ height: 64, width: 120, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 8, cursor: "pointer", fontWeight: 900, verticalAlign: "top", overflow: "hidden" }}>{b ? <><div style={{ fontSize: 12 }}>{b.type === "Free Trial" ? "TRIAL" : b.title}</div><div style={{ fontSize: 10, opacity: .75 }}>{b.time}</div></> : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>
+    {draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 540 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>{draft.auto ? "Reschedule" : "Book"} {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TIME</div><select value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} style={inputStyle()}>{slots.map((s) => <option key={s.id}>{s.label}</option>)}</select></label><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}
+  </Card>;
 }
+ 
+ 
 function RatingSelect({ label, value, onChange }) {
   return <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>{label}</div><select value={value || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle()}><option value="">Choose 1-5</option>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
 }
 function Trials({ user }) {
   const [trials, setTrials] = useState([]);
   const [tab, setTab] = useState("consultation");
+  const [openTrial, setOpenTrial] = useState(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" });
   useEffect(() => { load(); }, []);
   async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "trials").maybeSingle(); setTrials(data?.data?.trials || []); }
   async function save(next) { setTrials(next); const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; await upsertTrainerData(uidVal, "trials", { trials: next }); }
   function set(k, v) { setForm({ ...form, [k]: v }); }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={() => save([{ id: uid(), ...form }, ...trials])} style={{ marginTop: 12 }}>Save Trial</Button>{trials.map((t) => <div key={t.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><b>{t.name}</b><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><Button variant="red" onClick={() => save(trials.filter((x) => x.id !== t.id))} style={{ marginTop: 8 }}>Delete</Button></div>)}</Card>;
+  function saveTrial() { const saved = { id: form.id || uid(), ...form, savedAt: new Date().toISOString() }; save([saved, ...trials.filter((t) => t.id !== saved.id)]); setForm({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" }); }
+  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><b>{t.name}</b><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
 }
+ 
+ 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
