@@ -1803,8 +1803,36 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
         <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
         {isCoach && <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>}
       </header>
-      <main style={{ width: "100%", maxWidth: isCoach ? 1180 : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? 8 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 14, paddingBottom: 6, position: "sticky", top: isMobile ? 65 : 78, zIndex: 50, background: "rgba(7,7,7,.94)", backdropFilter: "blur(12px)" }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{ minWidth: isMobile ? 58 : 96, height: isMobile ? 38 : 48, borderRadius: 999, border: `1px solid ${tab === k ? client.color : BRAND.line}`, background: tab === k ? client.color : BRAND.card2, color: tab === k ? "#000" : BRAND.text, fontSize: isMobile ? 12 : 14, fontWeight: 1000, whiteSpace: "nowrap", cursor: "pointer", boxShadow: tab === k ? `0 0 20px ${client.color}33` : "none" }}>{l}</button>)}</div>
+      <main style={{ width: "100%", maxWidth: isCoach ? 1180 : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+        <div style={{
+          display: "flex",
+          gap: isMobile ? 6 : 8,
+          overflowX: "auto",
+          marginBottom: isMobile ? 8 : 14,
+          padding: isMobile ? "2px 0 6px" : "0 0 6px",
+          position: isCoach ? "sticky" : "relative",
+          top: isCoach ? (isMobile ? 60 : 78) : "auto",
+          zIndex: 50,
+          background: isCoach ? "rgba(7,7,7,.94)" : "transparent",
+          backdropFilter: isCoach ? "blur(12px)" : "none",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}>
+          {tabs.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{
+            minWidth: isMobile ? 64 : 96,
+            height: isMobile ? 34 : 48,
+            borderRadius: 999,
+            border: `1px solid ${tab === k ? client.color : BRAND.line}`,
+            background: tab === k ? client.color : BRAND.card2,
+            color: tab === k ? "#000" : BRAND.text,
+            fontSize: isMobile ? 11 : 14,
+            fontWeight: 1000,
+            whiteSpace: "nowrap",
+            cursor: "pointer",
+            flex: "0 0 auto",
+            boxShadow: tab === k ? `0 0 20px ${client.color}33` : "none",
+          }}>{l}</button>)}
+        </div>
         {tab === "home" && <ClientHome client={client} />}
         {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
         {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
