@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
  
@@ -18,7 +17,7 @@ const textareaStyle = (extra = {}) => ({
 });
  
 /*
-  FORGE V6.1 - True Mobile Client UI + Tablet Coach Polish
+  FORGE V6.6 WORKING - Coach Client Tab Bar Fix + Smart Nutrition + Calendar Zoom
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -44,6 +43,8 @@ const textareaStyle = (extra = {}) => ({
   - V6.1: true phone-first client portal across Home, Nutrition, Program, Progress, Photos, Profile
   - V6.1: tablet-friendly coach dashboard with cleaner cards and compact layout
   - V6.1: fixed mobile viewport so the app does not render as a wide desktop page on phones
+  - V6.5: smart custom food macro estimator for combined meals like chapati + chicken curry + rice
+  - V6.5: spreadsheet-style calendar zoom slider with Fit Week view
 */
  
 const BRAND = {
@@ -628,6 +629,138 @@ const FOOD_DB = [
   { name: "Protein bar", kcal: 220, protein: 20, carbs: 22, fats: 7, tags: ["vegetarian"] },
 ];
  
+
+const SMART_FOOD_ALIAS = {
+  chicken: "Chicken breast 100g",
+  "chicken breast": "Chicken breast 100g",
+  "grilled chicken": "Grilled chicken breast 200g",
+  fish: "Grilled fish 200g",
+  salmon: "Salmon 100g",
+  egg: "Whole egg 1 piece",
+  eggs: "Boiled eggs 3 pieces",
+  "egg white": "Egg white 1 piece",
+  rice: "Cooked rice 100g",
+  "white rice": "White rice 1 cup",
+  "brown rice": "Brown rice 1 cup",
+  potato: "Potato 100g",
+  "sweet potato": "Sweet potato 200g",
+  chapati: "Chapati 1 medium",
+  roti: "Roti 1 piece",
+  naan: "Naan 1 piece",
+  paratha: "Paratha 1 piece",
+  oats: "Oats 50g",
+  banana: "Banana 1 medium",
+  whey: "Whey protein 1 scoop",
+  protein: "Whey protein 1 scoop",
+  yogurt: "Greek yogurt 170g",
+  biryani: "Chicken biryani 1 plate",
+  shawarma: "Chicken shawarma wrap",
+  mandi: "Chicken mandi 1 plate",
+  dal: "Dal 1 bowl",
+  lentils: "Lentils cooked 100g",
+  beans: "Rajma 1 bowl",
+  paneer: "Paneer 100g",
+  beef: "Ground beef 100g",
+  avocado: "Avocado 100g",
+  broccoli: "Broccoli 100g",
+  pasta: "Pasta arrabbiata 1 plate",
+  burger: "Beef burger",
+  fries: "French fries medium",
+  dosa: "Plain dosa 1 piece",
+  idli: "Idli 2 pieces",
+  samosa: "Samosa 1 piece",
+  hummus: "Hummus 100g",
+  falafel: "Falafel 4 pieces",
+  dates: "Dates 3 pieces",
+};
+
+function cleanFoodText(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9+.,/\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function foodTokens(value = "") {
+  return cleanFoodText(value).split(/\s+/).filter((x) => x.length > 1 && !["with", "and", "plus", "the", "one", "cup", "plate", "bowl", "piece", "pieces", "small", "medium", "large"].includes(x));
+}
+
+function bestFoodMatch(part = "") {
+  const cleaned = cleanFoodText(part);
+  if (!cleaned) return null;
+  const aliasKey = Object.keys(SMART_FOOD_ALIAS).sort((a, b) => b.length - a.length).find((k) => cleaned.includes(k));
+  if (aliasKey) return FOOD_DB.find((f) => f.name === SMART_FOOD_ALIAS[aliasKey]) || null;
+  const partTokens = foodTokens(cleaned);
+  let best = null;
+  let bestScore = 0;
+  FOOD_DB.forEach((item) => {
+    const name = cleanFoodText(item.name);
+    if (name.includes(cleaned) || cleaned.includes(name)) {
+      best = item;
+      bestScore = 999;
+      return;
+    }
+    const itemTokens = foodTokens(item.name);
+    const overlap = partTokens.filter((t) => itemTokens.includes(t)).length;
+    const score = overlap * 3 - Math.abs(itemTokens.length - partTokens.length) * 0.2;
+    if (score > bestScore) {
+      bestScore = score;
+      best = item;
+    }
+  });
+  return bestScore >= 2 ? best : null;
+}
+
+function amountMultiplier(part = "", matchedName = "") {
+  const text = cleanFoodText(part);
+  const qtyMatch = text.match(/^(\d+(?:\.\d+)?)/);
+  let factor = qtyMatch ? Number(qtyMatch[1]) : 1;
+  const grams = text.match(/(\d+(?:\.\d+)?)\s*g\b/);
+  if (grams && /100g/i.test(matchedName)) factor = Number(grams[1]) / 100;
+  if (grams && /200g/i.test(matchedName)) factor = Number(grams[1]) / 200;
+  if (/half/.test(text)) factor *= 0.5;
+  if (/large/.test(text)) factor *= 1.25;
+  if (/small/.test(text)) factor *= 0.75;
+  return Math.max(0.25, factor || 1);
+}
+
+function estimateSmartFood(text = "") {
+  const cleaned = cleanFoodText(text);
+  const empty = { kcal: 0, protein: 0, carbs: 0, fats: 0, confidence: "Low", matches: [], unmatched: [], note: "Type foods like: 2 chapati + chicken curry + rice" };
+  if (!cleaned) return empty;
+  const parts = cleaned
+    .split(/\s*(?:\+|,|\/| and | with | plus )\s*/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const total = { kcal: 0, protein: 0, carbs: 0, fats: 0, matches: [], unmatched: [] };
+  parts.forEach((part) => {
+    const match = bestFoodMatch(part);
+    if (!match) {
+      total.unmatched.push(part);
+      return;
+    }
+    const factor = amountMultiplier(part, match.name);
+    total.kcal += Number(match.kcal || 0) * factor;
+    total.protein += Number(match.protein || 0) * factor;
+    total.carbs += Number(match.carbs || 0) * factor;
+    total.fats += Number(match.fats || 0) * factor;
+    total.matches.push({ typed: part, matched: match.name, factor: Number(factor.toFixed(2)) });
+  });
+  const matchedCount = total.matches.length;
+  const confidence = matchedCount === 0 ? "Low" : total.unmatched.length === 0 ? "High" : "Medium";
+  return {
+    kcal: Math.round(total.kcal),
+    protein: Math.round(total.protein),
+    carbs: Math.round(total.carbs),
+    fats: Math.round(total.fats),
+    confidence,
+    matches: total.matches,
+    unmatched: total.unmatched,
+    note: confidence === "High" ? "Smart estimate ready." : "Review and edit the estimate before adding.",
+  };
+}
+
 const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const RPE_OPTIONS = ["", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
@@ -687,14 +820,14 @@ function normalizeSlots(raw) {
     return { id: typeof s === "object" && s.id ? s.id : `slot_${i}_${label}`, label };
   });
 }
- 
+
 const FORGE_CACHE_PREFIX = "forge_v47_cache_";
 const FORGE_SYNC_QUEUE_KEY = "forge_v47_pending_sync";
- 
+
 function cacheKey(userId) {
   return `${FORGE_CACHE_PREFIX}${userId || "guest"}`;
 }
- 
+
 function readJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -703,29 +836,29 @@ function readJson(key, fallback) {
     return fallback;
   }
 }
- 
+
 function writeJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (_) {}
 }
- 
+
 function saveForgeCache(userId, snapshot) {
   if (!userId) return;
   writeJson(cacheKey(userId), { ...snapshot, savedAt: new Date().toISOString() });
 }
- 
+
 function readForgeCache(userId) {
   if (!userId) return null;
   return readJson(cacheKey(userId), null);
 }
- 
+
 function enqueueSync(item) {
   const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
   queue.push({ id: uid(), createdAt: new Date().toISOString(), ...item });
   writeJson(FORGE_SYNC_QUEUE_KEY, queue);
 }
- 
+
 async function flushSyncQueue() {
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
   const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
@@ -754,7 +887,7 @@ async function flushSyncQueue() {
   writeJson(FORGE_SYNC_QUEUE_KEY, remaining);
 }
 const DENIS_EMAIL = "kendenisdubai@gmail.com";
- 
+
 function ensureMobileViewport() {
   if (typeof document === "undefined") return;
   let meta = document.querySelector('meta[name="viewport"]');
@@ -768,7 +901,7 @@ function ensureMobileViewport() {
   document.body.style.maxWidth = "100%";
   document.body.style.overflowX = "hidden";
 }
- 
+
 function useIsMobile(breakpoint = 760) {
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth <= breakpoint : false);
   useEffect(() => {
@@ -778,7 +911,7 @@ function useIsMobile(breakpoint = 760) {
   }, [breakpoint]);
   return isMobile;
 }
- 
+
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay();
@@ -822,6 +955,32 @@ function allProgramTemplates() {
   custom.forEach((t) => byKey.set(t.key, t));
   return Array.from(byKey.values());
 }
+
+function useExerciseLibrary() {
+  const [library, setLibrary] = useState(EXERCISE_LIBRARY);
+  useEffect(() => {
+    let active = true;
+    async function loadExercises() {
+      try {
+        const { data, error } = await supabase
+          .from("exercise_library")
+          .select("name")
+          .order("name", { ascending: true });
+        if (!active) return;
+        if (!error && Array.isArray(data) && data.length) {
+          const dbNames = data.map((r) => r?.name).filter(Boolean);
+          const merged = Array.from(new Set([...dbNames, ...EXERCISE_LIBRARY])).sort((a, b) => a.localeCompare(b));
+          setLibrary(merged);
+        }
+      } catch (_) {
+        // If the exercise_library table does not exist, Forge uses the built-in library.
+      }
+    }
+    loadExercises();
+    return () => { active = false; };
+  }, []);
+  return library;
+}
 function mergeProgramLogs(oldProgram, nextProgram) {
   const oldLogs = oldProgram?.weekLogs || [];
   const weeks = Number(nextProgram.totalWeeks || oldProgram?.totalWeeks || 4);
@@ -850,7 +1009,7 @@ function mergeProgramLogs(oldProgram, nextProgram) {
     };
   });
 }
- 
+
  
 function uid() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -905,7 +1064,7 @@ function makeWeek(n, days) {
     })),
   };
 }
- 
+
 const PERIODIZATION_STYLES = [
   "Simple 4-Week Cycle",
   "Linear Progression",
@@ -913,7 +1072,7 @@ const PERIODIZATION_STYLES = [
   "Block Periodization",
   "Maintenance",
 ];
- 
+
 function buildPeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", goal = "General Fitness") {
   const weeks = Math.max(1, Number(totalWeeks || 4));
   const simpleCycle = [
@@ -946,12 +1105,24 @@ function buildPeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", g
     return { week: i + 1, ...simpleCycle[i % 4] };
   }).map((w) => ({ ...w, goal }));
 }
- 
+
+function normalizePeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", goal = "General Fitness", existingPlan = []) {
+  const base = buildPeriodizationPlan(totalWeeks, style, goal);
+  const old = Array.isArray(existingPlan) ? existingPlan : [];
+  return base.map((w, i) => ({ ...w, ...(old[i] || {}), week: i + 1, goal }));
+}
+
 function applyPeriodization(program) {
   const totalWeeks = Number(program?.totalWeeks || 4);
   const style = program?.periodizationStyle || "Simple 4-Week Cycle";
   const goal = program?.trainingGoal || program?.goal || "General Fitness";
-  return { ...program, periodizationStyle: style, trainingGoal: goal, periodizationPlan: buildPeriodizationPlan(totalWeeks, style, goal) };
+  return {
+    ...program,
+    totalWeeks,
+    periodizationStyle: style,
+    trainingGoal: goal,
+    periodizationPlan: normalizePeriodizationPlan(totalWeeks, style, goal, program?.periodizationPlan),
+  };
 }
  
 const PROGRAM_TEMPLATES = [
@@ -1113,7 +1284,7 @@ const PROGRAM_TEMPLATES = [
     ],
   },
 ];
- 
+
 function cloneTemplateProgram(template, client) {
   const safeDays = (template.days || []).map((day) => ({
     ...day,
@@ -1134,7 +1305,7 @@ function cloneTemplateProgram(template, client) {
     weekLogs: Array.from({ length: Number(periodized.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, periodized.days)),
   };
 }
- 
+
 function emptyProfile() {
   return {
     goals: [],
@@ -1222,7 +1393,7 @@ async function upsertSection(clientId, section, data) {
     return { queued: true, error };
   }
 }
- 
+
 async function upsertTrainerData(trainerId, section, data) {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     enqueueSync({ type: "trainer_data", trainerId, section, data });
@@ -1291,12 +1462,12 @@ function aiProgression(program, client) {
   if (easySets.length >= 3) return "Last session looked controlled. Add 2.5kg on upper-body lifts or 5kg on lower-body lifts next time, while keeping form clean.";
   return "Keep the same weight next time and aim for better reps, cleaner tempo, or lower RPE before increasing load.";
 }
- 
+
 function numberFromText(value) {
   const match = String(value || "").match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : 0;
 }
- 
+
 function formatSetPerformance(set, timed) {
   if (!set) return "-";
   if (timed) {
@@ -1308,7 +1479,7 @@ function formatSetPerformance(set, timed) {
   const reps = set.reps ? `${set.reps} reps` : "";
   return [load, reps].filter(Boolean).join(" × ") || "-";
 }
- 
+
 function setScore(set, timed) {
   if (!set) return 0;
   if (timed) return numberFromText(set.duration || set.reps);
@@ -1317,7 +1488,7 @@ function setScore(set, timed) {
   if (weight && reps) return weight * reps;
   return weight || reps;
 }
- 
+
 function getExerciseHistory(program, exerciseName) {
   const timed = isTimedExercise(exerciseName);
   const rows = [];
@@ -1596,7 +1767,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const isMobile = useIsMobile(820);
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
- 
+
   async function createClient(form) {
     const color = form.color || getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
@@ -1607,7 +1778,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     setShowAdd(false);
     await refresh();
   }
- 
+
   return (
     <div style={{ minHeight: "100vh", background: `radial-gradient(circle at top left, ${BRAND.gold}10, transparent 28%), ${BRAND.bg}`, color: BRAND.text }}>
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -1656,8 +1827,8 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     </div>
   );
 }
- 
- 
+
+
 function Kpi({ title, value, icon, color, onClick, compact = false }) {
   return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderColor: onClick ? `${color}66` : BRAND.line, minHeight: compact ? 92 : 128, padding: compact ? 12 : 16, background: `linear-gradient(180deg, ${BRAND.card}, #0b0c11)` }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -1667,8 +1838,8 @@ function Kpi({ title, value, icon, color, onClick, compact = false }) {
     <div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 800 }}>{onClick ? "Tap to open" : ""}</div>
   </Card>;
 }
- 
- 
+
+
 function ScheduledView({ clients, selectClient }) {
   const isMobile = useIsMobile(760);
   const scheduled = clients.flatMap((client) => (client.schedule || []).map((s) => ({
@@ -1774,15 +1945,15 @@ function ClientCard({ client, onClick }) {
     </button>
   );
 }
- 
- 
+
+
 function Mini({ label, value }) { return <div style={{ background: "#0b0c10", border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800 }}>{label}</div><div style={{ color: BRAND.text, fontWeight: 900 }}>{value}</div></div>; }
  
 function ClientAvatar({ client, size = 54 }) {
   return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000, overflow: "hidden", flexShrink: 0, boxShadow: `0 0 24px ${client.color}33` }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
 }
- 
- 
+
+
 function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
   const isMobile = useIsMobile(760);
@@ -1810,11 +1981,11 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
           overflowX: "auto",
           marginBottom: isMobile ? 8 : 14,
           padding: isMobile ? "2px 0 6px" : "0 0 6px",
-          position: isCoach ? "sticky" : "relative",
-          top: isCoach ? (isMobile ? 60 : 78) : "auto",
-          zIndex: 50,
-          background: isCoach ? "rgba(7,7,7,.94)" : "transparent",
-          backdropFilter: isCoach ? "blur(12px)" : "none",
+          position: "relative",
+          top: "auto",
+          zIndex: 1,
+          background: "transparent",
+          backdropFilter: "none",
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
         }}>
@@ -1847,8 +2018,8 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     </div>
   );
 }
- 
- 
+
+
 function todaysNutritionStats(client, date = new Date().toISOString().slice(0, 10)) {
   const nutrition = normalizeNutrition(client.nutrition);
   const logs = (nutrition.logs || []).filter((l) => l.date === date);
@@ -1929,8 +2100,8 @@ function recentCompletedSessions(program, limit = 6) {
   }));
   return days.slice(-limit).reverse();
 }
- 
- 
+
+
 function clampPercent(value, total) {
   const v = Number(value || 0);
   const t = Number(total || 0);
@@ -1968,8 +2139,8 @@ function PremiumTile({ label, value, sub = "", color = BRAND.gold }) {
 function MealStatusPill({ meal, done, color }) {
   return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: done ? `${color}22` : BRAND.card2, border: `1px solid ${done ? color : BRAND.line}`, borderRadius: 18, padding: "12px 14px" }}><b>{meal}</b><span style={{ color: done ? color : BRAND.muted, fontWeight: 1000 }}>{done ? "Done" : "Pending"}</span></div>;
 }
- 
- 
+
+
 function CompactScore({ value, color }) {
   return <div style={{ width: 70, height: 70, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${color} ${value}%, #242733 ${value}% 100%)` }}><div style={{ width: 52, height: 52, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 18, fontWeight: 1000 }}>{value}%</div><div style={{ color: BRAND.muted, fontSize: 7, fontWeight: 1000 }}>SCORE</div></div></div></div>;
 }
@@ -1977,7 +2148,7 @@ function CompactMetric({ label, value, total, color, percent }) {
   const n = typeof percent === "number" ? percent : (Number(total) ? Math.min(100, Math.round(Number(value || 0) / Number(total || 1) * 100)) : 0);
   return <Card style={{ padding: 12, borderRadius: 20, minHeight: 98, background: `linear-gradient(180deg, ${BRAND.card}, #0b0d13)` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000 }}>{label}</div><div style={{ fontSize: 22, fontWeight: 1000, marginTop: 4 }}>{value}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 900 }}>/{total}</div></div><div style={{ width: 44, height: 44, borderRadius: "50%", background: `conic-gradient(${color} ${n}%, #252936 ${n}% 100%)`, display: "grid", placeItems: "center" }}><div style={{ width: 31, height: 31, borderRadius: "50%", background: BRAND.bg }} /></div></div><div style={{ color, fontSize: 11, fontWeight: 1000, marginTop: 8 }}>{n}% complete</div></Card>;
 }
- 
+
 function ClientHome({ client }) {
   const isMobile = useIsMobile(760);
   const stats = todaysNutritionStats(client);
@@ -2018,8 +2189,8 @@ function ClientHome({ client }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, duration and RPE.</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card></div>
   </div>;
 }
- 
- 
+
+
 function ProfileTab({ client, updateClient, isCoach = true }) {
   const isMobile = useIsMobile(760);
   const [profile, setProfile] = useState(client.profile || emptyProfile());
@@ -2083,19 +2254,63 @@ function ProgramTemplatesManager() {
     {editing && <TemplateEditor template={editing} onClose={() => setEditing(null)} onSave={saveTemplate} />}
   </div>;
 }
- 
+
 function TemplateEditor({ template, onClose, onSave }) {
   const isMobile = useIsMobile(760);
+  const exerciseLibrary = useExerciseLibrary();
   const [t, setT] = useState(template);
+  const [searchByDay, setSearchByDay] = useState({});
   const set = (k, v) => setT({ ...t, [k]: v });
-  const updateDay = (di, patch) => setT({ ...t, days: t.days.map((d, i) => i === di ? { ...d, ...patch } : d) });
+  const updateDay = (di, patch) => setT({ ...t, days: (t.days || []).map((d, i) => i === di ? { ...d, ...patch } : d) });
   const addDay = () => setT({ ...t, days: [...(t.days || []), { name: `Day ${(t.days || []).length + 1}`, exercises: [] }] });
-  const addExercise = (di) => updateDay(di, { exercises: [...(t.days[di].exercises || []), { name: "New Exercise", numSets: 3, reps: "8-10", weight: "" }] });
-  const updateExercise = (di, ei, f, v) => updateDay(di, { exercises: t.days[di].exercises.map((ex, i) => i === ei ? { ...ex, [f]: v } : ex) });
-  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 880, maxHeight: "92vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>Edit Template</div><Button variant="ghost" onClick={onClose}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}><Field label="Template name" value={t.name} onChange={(v) => set("name", v)} /><Field label="Goal" value={t.goal} onChange={(v) => set("goal", v)} /><Field label="Weeks" type="number" value={t.totalWeeks} onChange={(v) => set("totalWeeks", Number(v || 4))} /><Field label="Description" value={t.description} onChange={(v) => set("description", v)} /></div><Button variant="dark" onClick={addDay} style={{ marginTop: 12 }}>+ Add Day</Button>{(t.days || []).map((d, di) => <Card key={di} style={{ marginTop: 12, background: BRAND.card2 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8 }}><input value={d.name} onChange={(e) => updateDay(di, { name: e.target.value })} style={inputStyle({ fontWeight: 1000 })} /><Button variant="red" onClick={() => setT({ ...t, days: t.days.filter((_, i) => i !== di) })}>Delete Day</Button></div>{(d.exercises || []).map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: "1fr 70px 110px 80px 30px", gap: 8, marginTop: 8 }}><input value={ex.name} onChange={(e) => updateExercise(di, ei, "name", e.target.value)} style={inputStyle()} /><input value={ex.numSets} onChange={(e) => updateExercise(di, ei, "numSets", e.target.value)} style={inputStyle()} /><input value={ex.reps} onChange={(e) => updateExercise(di, ei, "reps", e.target.value)} style={inputStyle()} /><input value={ex.weight} onChange={(e) => updateExercise(di, ei, "weight", e.target.value)} style={inputStyle()} /><button onClick={() => updateDay(di, { exercises: d.exercises.filter((_, i) => i !== ei) })} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000 }}>x</button></div>)}<Button variant="dark" onClick={() => addExercise(di)} style={{ marginTop: 8 }}>+ Exercise</Button></Card>)}<div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={() => onSave(t)} style={{ flex: 1 }}>Save Template</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div></Card></div>;
+  const addExercise = (di, name = "New Exercise") => updateDay(di, { exercises: [...(t.days?.[di]?.exercises || []), { name, numSets: 3, reps: isTimedExercise(name) ? "30-60 sec" : "8-10", weight: "" }] });
+  const updateExercise = (di, ei, f, v) => updateDay(di, { exercises: (t.days?.[di]?.exercises || []).map((ex, i) => i === ei ? { ...ex, [f]: v } : ex) });
+  const save = () => onSave(applyPeriodization(t));
+  return <div style={modalBackdrop()}>
+    <Card style={{ width: "100%", maxWidth: 940, maxHeight: "92vh", overflow: "auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 1000 }}>Edit Template</div>
+          <div style={{ color: BRAND.muted }}>Exercises now come from the Forge exercise library. Custom exercises still work.</div>
+        </div>
+        <Button variant="ghost" onClick={onClose}>X</Button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
+        <Field label="Template name" value={t.name} onChange={(v) => set("name", v)} />
+        <Field label="Goal" value={t.goal} onChange={(v) => set("goal", v)} />
+        <Field label="Weeks" type="number" value={t.totalWeeks} onChange={(v) => set("totalWeeks", Number(v || 4))} />
+        <Field label="Description" value={t.description} onChange={(v) => set("description", v)} />
+      </div>
+      <Button variant="dark" onClick={addDay} style={{ marginTop: 12 }}>+ Add Day</Button>
+      {(t.days || []).map((d, di) => {
+        const q = searchByDay[di] || "";
+        const suggestions = exerciseLibrary.filter((ex) => ex.toLowerCase().includes(q.toLowerCase())).slice(0, 16);
+        return <Card key={di} style={{ marginTop: 12, background: BRAND.card2 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8 }}>
+            <input value={d.name} onChange={(e) => updateDay(di, { name: e.target.value })} style={inputStyle({ fontWeight: 1000 })} />
+            <Button variant="red" onClick={() => setT({ ...t, days: (t.days || []).filter((_, i) => i !== di) })}>Delete Day</Button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginTop: 10 }}>
+            <input value={q} onChange={(e) => setSearchByDay({ ...searchByDay, [di]: e.target.value })} placeholder="Search exercise library..." style={inputStyle()} />
+            <Button variant="dark" onClick={() => { if (q.trim()) { addExercise(di, q.trim()); setSearchByDay({ ...searchByDay, [di]: "" }); } }}>Add Custom</Button>
+          </div>
+          {q && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>{suggestions.map((name) => <button key={name} onClick={() => { addExercise(di, name); setSearchByDay({ ...searchByDay, [di]: "" }); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>+ {name}</button>)}</div>}
+          {(d.exercises || []).map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 60px 82px 72px 30px" : "1fr 70px 110px 80px 30px", gap: 8, marginTop: 8 }}>
+            <input list="forge-exercise-library" value={ex.name} onChange={(e) => updateExercise(di, ei, "name", e.target.value)} style={inputStyle()} />
+            <input value={ex.numSets} onChange={(e) => updateExercise(di, ei, "numSets", e.target.value)} style={inputStyle()} />
+            <input value={ex.reps} onChange={(e) => updateExercise(di, ei, "reps", e.target.value)} style={inputStyle()} />
+            <input value={ex.weight} onChange={(e) => updateExercise(di, ei, "weight", e.target.value)} style={inputStyle()} />
+            <button onClick={() => updateDay(di, { exercises: (d.exercises || []).filter((_, i) => i !== ei) })} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000 }}>x</button>
+          </div>)}
+        </Card>;
+      })}
+      <datalist id="forge-exercise-library">{exerciseLibrary.map((name) => <option key={name} value={name} />)}</datalist>
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={save} style={{ flex: 1 }}>Save Template</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div>
+    </Card>
+  </div>;
 }
- 
- 
+
+
 function ProgramTemplatePicker({ client, onClose, onApply }) {
   const isMobile = useIsMobile(760);
   const [selected, setSelected] = useState(PROGRAM_TEMPLATES[0]?.key || "");
@@ -2143,7 +2358,7 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
     </div>
   );
 }
- 
+
 function downloadProgramPDF(client, program) {
   if (!program) return;
   const days = (program.days || []).map((day) => `
@@ -2165,7 +2380,7 @@ function downloadProgramPDF(client, program) {
   win.document.write(html);
   win.document.close();
 }
- 
+
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(760);
   const [builder, setBuilder] = useState(false);
@@ -2183,11 +2398,12 @@ function ProgramTab({ client, updateClient, isCoach }) {
   async function applyTemplate(template) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client)); }
   return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
 }
- 
- 
- 
+
+
+
 function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(760);
+  const exerciseLibrary = useExerciseLibrary();
   const baseDays = program?.days?.length ? program.days : [{ name: "Day 1", exercises: [] }];
   const [name, setName] = useState(program?.name || `${client.name} Program`);
   const [weeks, setWeeks] = useState(Number(program?.totalWeeks || 4));
@@ -2196,8 +2412,12 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
   const [days, setDays] = useState(() => baseDays.map((d) => ({ ...d, exercises: (d.exercises || []).map((e) => ({ ...e })) })));
   const [active, setActive] = useState(0);
   const [search, setSearch] = useState("");
-  const phasePreview = buildPeriodizationPlan(weeks, periodizationStyle, trainingGoal);
-  const filtered = EXERCISE_LIBRARY.filter((e) => e.toLowerCase().includes(search.toLowerCase())).slice(0, 80);
+  const [phasePreview, setPhasePreview] = useState(() => normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, program?.periodizationPlan));
+  useEffect(() => {
+    setPhasePreview((prev) => normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, prev));
+  }, [weeks, periodizationStyle, trainingGoal]);
+  const filtered = exerciseLibrary.filter((e) => e.toLowerCase().includes(search.toLowerCase())).slice(0, 80);
+  const updatePhase = (wi, field, value) => setPhasePreview((prev) => prev.map((w, i) => i === wi ? { ...w, [field]: value } : w));
   function updateDay(di, patch) { setDays((prev) => prev.map((d, i) => i === di ? { ...d, ...patch } : d)); }
   function addDay() { setDays((prev) => [...prev, { name: `Day ${prev.length + 1}`, exercises: [] }]); setActive(days.length); }
   function deleteDay(di) { const next = days.filter((_, i) => i !== di); setDays(next.length ? next : [{ name: "Day 1", exercises: [] }]); setActive(0); }
@@ -2209,7 +2429,7 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
     setDays((prev) => prev.map((d, i) => i === di ? { ...d, exercises: (d.exercises || []).map((ex, j) => j === ei ? { ...ex, [field]: value } : ex) } : d));
   }
   function save() {
-    const next = applyPeriodization({ ...(program || {}), name, totalWeeks: Number(weeks || 4), trainingGoal, periodizationStyle, days });
+    const next = applyPeriodization({ ...(program || {}), name, totalWeeks: Number(weeks || 4), trainingGoal, periodizationStyle, days, periodizationPlan: phasePreview });
     onSave(next);
   }
   return (
@@ -2229,9 +2449,16 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
           <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Periodization</div><select value={periodizationStyle} onChange={(e) => setPeriodizationStyle(e.target.value)} style={inputStyle()}>{PERIODIZATION_STYLES.map((p) => <option key={p} value={p}>{p}</option>)}</select></label>
         </div>
         <Card style={{ background: BRAND.card2, marginTop: 12 }}>
-          <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>Periodization Preview</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-            {phasePreview.map((w) => <div key={w.week} style={{ border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 10, background: BRAND.panel }}><div style={{ fontWeight: 1000 }}>Week {w.week}: {w.phase}</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>RPE {w.rpe} · {w.volume}</div></div>)}
+          <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>Editable Weeks</div>
+          <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 10 }}>Adjust each week so the periodization fits the client, not the other way around.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 8 }}>
+            {phasePreview.map((w, wi) => <div key={w.week} style={{ border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 10, background: BRAND.panel }}>
+              <div style={{ fontWeight: 1000, marginBottom: 8 }}>Week {w.week}</div>
+              <input value={w.phase || ""} onChange={(e) => updatePhase(wi, "phase", e.target.value)} placeholder="Phase" style={inputStyle({ marginBottom: 6 })} />
+              <input value={w.focus || ""} onChange={(e) => updatePhase(wi, "focus", e.target.value)} placeholder="Focus" style={inputStyle({ marginBottom: 6 })} />
+              <input value={w.rpe || ""} onChange={(e) => updatePhase(wi, "rpe", e.target.value)} placeholder="Target RPE" style={inputStyle({ marginBottom: 6 })} />
+              <input value={w.volume || ""} onChange={(e) => updatePhase(wi, "volume", e.target.value)} placeholder="Volume" style={inputStyle()} />
+            </div>)}
           </div>
         </Card>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(210px,280px) 1fr", gap: 12, marginTop: 12 }}>
@@ -2251,7 +2478,7 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
     </div>
   );
 }
- 
+
 function AIProgramBuilder({ client, onClose, onSave }) {
   const isMobile = useIsMobile(760);
   const [days, setDays] = useState(4);
@@ -2275,6 +2502,7 @@ function AIProgramBuilder({ client, onClose, onSave }) {
  
 function SessionTracker({ client, program, saveProgram, isCoach }) {
   const isMobile = useIsMobile(760);
+  const exerciseLibrary = useExerciseLibrary();
   const logs = program.weekLogs || mergeProgramLogs(null, program);
   const [wk, setWk] = useState(0);
   const [dy, setDy] = useState(0);
@@ -2297,7 +2525,7 @@ function SessionTracker({ client, program, saveProgram, isCoach }) {
         const effectiveName = ex.substitute || ex.actualName || ex.name;
         const timed = isTimedExercise(effectiveName);
         const q = subSearch[ei] || "";
-        const suggestions = EXERCISE_LIBRARY.filter((n) => n.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
+        const suggestions = exerciseLibrary.filter((n) => n.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
         return <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ color: client.color, fontWeight: 1000, fontSize: 18 }}>{effectiveName}</div>{ex.substitute && <div style={{ color: BRAND.muted, fontSize: 12 }}>Substituted for {ex.name}</div>}</div><Button variant="dark" onClick={() => setExField(ei, "substitute", "")}>Use Original</Button></div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginTop: 8, marginBottom: 10 }}><input placeholder="Substitute exercise if gym is busy..." value={q} onChange={(e) => setSubSearch({ ...subSearch, [ei]: e.target.value })} style={inputStyle()} /><Button variant="dark" onClick={() => q && setExField(ei, "substitute", q)}>Substitute</Button></div>
@@ -2310,8 +2538,8 @@ function SessionTracker({ client, program, saveProgram, isCoach }) {
     </>}
   </Card>;
 }
- 
- 
+
+
 function normalizeNutrition(raw) {
   const base = emptyNutrition();
   const n = raw && typeof raw === "object" ? raw : {};
@@ -2336,6 +2564,17 @@ function NutritionTab({ client, updateClient, isCoach }) {
   const [qty, setQty] = useState(1);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const smartEstimate = useMemo(() => estimateSmartFood(customFood), [customFood]);
+  useEffect(() => {
+    if (!customFood.trim()) return;
+    if (!smartEstimate.matches.length) return;
+    setCustomMacros({
+      kcal: smartEstimate.kcal || "",
+      protein: smartEstimate.protein || "",
+      carbs: smartEstimate.carbs || "",
+      fats: smartEstimate.fats || "",
+    });
+  }, [customFood, smartEstimate.kcal, smartEstimate.protein, smartEstimate.carbs, smartEstimate.fats]);
   useEffect(() => { setNutrition(normalizeNutrition(client.nutrition)); }, [client.id, client.nutrition]);
   const todays = (nutrition.logs || []).filter((l) => l.date === date);
   const daily = nutrition.daily?.[date] || {};
@@ -2359,9 +2598,9 @@ function NutritionTab({ client, updateClient, isCoach }) {
   async function addFood() {
     const selected = FOOD_DB.find((f) => f.name === food);
     if (!selected && !customFood.trim()) { alert("Choose a food or type a custom food name."); return; }
-    const base = selected && !customFood.trim() ? selected : { name: customFood.trim(), kcal: Number(customMacros.kcal || 0), protein: Number(customMacros.protein || 0), carbs: Number(customMacros.carbs || 0), fats: Number(customMacros.fats || 0) };
+    const base = selected && !customFood.trim() ? selected : { name: customFood.trim(), kcal: Number(customMacros.kcal || smartEstimate.kcal || 0), protein: Number(customMacros.protein || smartEstimate.protein || 0), carbs: Number(customMacros.carbs || smartEstimate.carbs || 0), fats: Number(customMacros.fats || smartEstimate.fats || 0), smartEstimate };
     const q = Number(qty || 1);
-    const entry = { id: uid(), date, meal, food: base.name, qty: q, kcal: Math.round(Number(base.kcal || 0) * q), protein: Math.round(Number(base.protein || 0) * q), carbs: Math.round(Number(base.carbs || 0) * q), fats: Math.round(Number(base.fats || 0) * q) };
+    const entry = { id: uid(), date, meal, food: base.name, qty: q, kcal: Math.round(Number(base.kcal || 0) * q), protein: Math.round(Number(base.protein || 0) * q), carbs: Math.round(Number(base.carbs || 0) * q), fats: Math.round(Number(base.fats || 0) * q), estimate: base.smartEstimate || null };
     const next = normalizeNutrition({ ...nutrition, logs: [...(nutrition.logs || []), entry] });
     await save(next); setCustomFood(""); setCustomMacros({ kcal: "", protein: "", carbs: "", fats: "" }); setQty(1); setFood("");
   }
@@ -2408,19 +2647,25 @@ function NutritionTab({ client, updateClient, isCoach }) {
         <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 10 }}>Food Log</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto" }}>{["Breakfast", "Lunch", "Dinner"].map((m) => <Button key={m} variant={meal === m ? "gold" : "dark"} onClick={() => setMeal(m)}>{m}</Button>)}</div>
         {nutrition.mealPlan?.[meal] && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 12 }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 5 }}>{meal} Plan</div><div style={{ color: BRAND.text, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{nutrition.mealPlan[meal]}</div></div>}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px,2fr) minmax(170px,1.5fr) 90px 110px", gap: 8 }}>
-          <select value={food} onChange={(e) => setFood(e.target.value)} style={inputStyle()}><option value="">Select food</option>{FOOD_DB.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}</select>
-          <input value={customFood} onChange={(e) => setCustomFood(e.target.value)} placeholder="Custom food name" style={inputStyle()} />
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(190px,1.4fr) minmax(260px,2fr) 90px 110px", gap: 8 }}>
+          <select value={food} onChange={(e) => { setFood(e.target.value); if (e.target.value) setCustomFood(""); }} style={inputStyle()}><option value="">Select food</option>{FOOD_DB.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}</select>
+          <input value={customFood} onChange={(e) => { setCustomFood(e.target.value); if (e.target.value) setFood(""); }} placeholder="Smart custom: 2 chapati + chicken curry + rice" style={inputStyle()} />
           <input type="number" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} style={inputStyle()} />
           <Button onClick={addFood}>Add</Button>
         </div>
+        {customFood.trim() && <div style={{ marginTop: 10, padding: 12, border: `1px solid ${smartEstimate.confidence === "High" ? BRAND.green : BRAND.gold}`, borderRadius: 16, background: `${smartEstimate.confidence === "High" ? BRAND.green : BRAND.gold}12` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}><b>Smart macro estimate</b><span style={{ color: smartEstimate.confidence === "High" ? BRAND.green : BRAND.gold, fontWeight: 1000 }}>{smartEstimate.confidence} confidence</span></div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(90px,1fr))", gap: 8 }}><Mini label="Calories" value={smartEstimate.kcal || 0} /><Mini label="Protein" value={`${smartEstimate.protein || 0}g`} /><Mini label="Carbs" value={`${smartEstimate.carbs || 0}g`} /><Mini label="Fats" value={`${smartEstimate.fats || 0}g`} /></div>
+          {smartEstimate.matches.length > 0 && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 8 }}>Recognized: {smartEstimate.matches.map((m) => `${m.typed} → ${m.matched}${m.factor !== 1 ? ` x${m.factor}` : ""}`).join(" | ")}</div>}
+          {smartEstimate.unmatched.length > 0 && <div style={{ color: BRAND.orange, fontSize: 12, marginTop: 5 }}>Needs review: {smartEstimate.unmatched.join(", ")}</div>}
+        </div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(110px,1fr))", gap: 8, marginTop: 10, opacity: customActive ? 1 : .5 }}><Field label="Kcal" value={customMacros.kcal} onChange={(v) => setCustomMacros((m) => ({ ...m, kcal: v }))} type="number" /><Field label="Protein" value={customMacros.protein} onChange={(v) => setCustomMacros((m) => ({ ...m, protein: v }))} type="number" /><Field label="Carbs" value={customMacros.carbs} onChange={(v) => setCustomMacros((m) => ({ ...m, carbs: v }))} type="number" /><Field label="Fats" value={customMacros.fats} onChange={(v) => setCustomMacros((m) => ({ ...m, fats: v }))} type="number" /></div>
         <div style={{ marginTop: 14 }}>{mealLogs.length === 0 && <div style={{ color: BRAND.muted, padding: "12px 0" }}>No {meal.toLowerCase()} foods logged yet.</div>}{mealLogs.map((l) => <div key={l.id} style={{ display: isMobile ? "grid" : "flex", justifyContent: "space-between", gap: 10, borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10 }}><div><b style={{ color: BRAND.text }}>{l.food}</b><div style={{ color: BRAND.muted }}>{l.qty}x · {l.kcal} kcal · P {l.protein}g · C {l.carbs}g · F {l.fats}g</div></div><Button variant="red" onClick={() => delLog(l.id)}>x</Button></div>)}</div>
       </Card>
     </div>
   );
 }
- 
+
 function TransformPhotos({ client, updateClient }) {
   const isMobile = useIsMobile(760);
   const [photos, setPhotos] = useState(client.transformPhotos || []);
@@ -2438,7 +2683,7 @@ function TransformPhotos({ client, updateClient }) {
     </div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
 }
- 
+
 function ProgressTab({ client }) {
   const isMobile = useIsMobile(760);
   const latest = client.progress?.[client.progress.length - 1] || {};
@@ -2462,7 +2707,7 @@ function ProgressTab({ client }) {
     <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Classic Lifts</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>{LIFT_FIELDS.map((f) => <Mini key={f.key} label={f.label} value={latest[f.key] || "-"} />)}</div></Card>
   </div>;
 }
- 
+
 function ScheduleTab({ client, updateClient }) {
   const isMobile = useIsMobile(760);
   const [schedule, setSchedule] = useState(client.schedule || []);
@@ -2498,6 +2743,7 @@ function PackagesTab({ client, updateClient }) {
  
 function Calendar({ clients, refresh, user }) {
   const [slots, setSlots] = useState(() => normalizeSlots(JSON.parse(localStorage.getItem("forge_time_slots") || "null")));
+  const [zoom, setZoom] = useState(() => Number(localStorage.getItem("forge_calendar_zoom") || 1));
   const [bookings, setBookings] = useState([]);
   const [newSlot, setNewSlot] = useState("");
   const [draft, setDraft] = useState(null);
@@ -2514,15 +2760,32 @@ function Calendar({ clients, refresh, user }) {
   function openBooking(dayObj, slot, existing) { const b = existing || {}; const client = clients.find((c) => c.id === b.clientId) || clients[0]; setDraft({ id: b.id || null, weekKey: currentWeekKey, date: dayObj.date, day: dayObj.name, time: b.time || slot.label, type: b.type || "Client Session", clientId: b.clientId || client?.id || "", title: b.title || client?.name || "", color: b.color || client?.color || BRAND.blue, auto: !!b.auto }); }
   function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; const clean = { ...draft, color, auto: false, id: draft.id?.startsWith("auto_") ? uid() : draft.id || uid() }; save([...(bookings.filter((x) => x.id !== draft.id)), clean]); setDraft(null); }
   const goWeek = (n) => setWeekStart((w) => addDays(w, n * 7));
+  function setCalendarZoom(next) {
+    const clean = Math.max(0.45, Math.min(1.8, Number(next)));
+    setZoom(clean);
+    localStorage.setItem("forge_calendar_zoom", String(clean));
+  }
+  const calendarCellHeight = zoom <= 0.7 ? 48 : zoom >= 1.25 ? 82 : 64;
+  const calendarMinWidth = zoom <= 0.75 ? 760 : 920;
   return <Card style={{ overflowX: "auto" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Calendar</div><div style={{ color: BRAND.muted }}>{weekRangeLabel(weekStart)}</div></div><div style={{ display: "flex", gap: 8 }}><Button variant="dark" onClick={() => goWeek(-1)}>Previous Week</Button><Button variant="dark" onClick={() => setWeekStart(startOfWeek(new Date()))}>This Week</Button><Button variant="dark" onClick={() => goWeek(1)}>Next Week</Button></div></div>
-    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}><input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30 PM" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button></div>
-    <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "separate", borderSpacing: 6, minWidth: 850 }}><thead><tr><th style={{ width: 90 }}></th>{days.map((d) => <th key={d.date} style={{ color: BRAND.gold }}>{d.label}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, width: 90 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{days.map((d) => { const b = all.find((x) => (x.date === d.date || x.day === d.name) && timeKey(x.time) === timeKey(slot.label)); return <td key={d.date} onClick={() => openBooking(d, slot, b)} style={{ height: 64, width: 120, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 8, cursor: "pointer", fontWeight: 900, verticalAlign: "top", overflow: "hidden" }}>{b ? <><div style={{ fontSize: 12 }}>{b.type === "Free Trial" ? "TRIAL" : b.title}</div><div style={{ fontSize: 10, opacity: .75 }}>{b.time}</div></> : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+      <div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Calendar</div><div style={{ color: BRAND.muted }}>{weekRangeLabel(weekStart)}</div></div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="dark" onClick={() => goWeek(-1)}>Previous Week</Button><Button variant="dark" onClick={() => setWeekStart(startOfWeek(new Date()))}>This Week</Button><Button variant="dark" onClick={() => goWeek(1)}>Next Week</Button></div>
+    </div>
+    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+      <input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30 PM" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button>
+      <Button variant="dark" onClick={() => setCalendarZoom(zoom - 0.1)}>Zoom -</Button><input type="range" min="0.45" max="1.8" step="0.05" value={zoom} onChange={(e) => setCalendarZoom(e.target.value)} style={{ width: 180 }} /><div style={{ color: BRAND.muted, fontWeight: 900 }}>{Math.round(zoom * 100)}%</div><Button variant="dark" onClick={() => setCalendarZoom(zoom + 0.1)}>Zoom +</Button><Button variant="ghost" onClick={() => setCalendarZoom(0.65)}>Fit Week</Button><Button variant="ghost" onClick={() => setCalendarZoom(1)}>Reset</Button>
+    </div>
+    <div style={{ overflowX: "auto", overflowY: "hidden", width: "100%" }}>
+      <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: `${100 / zoom}%`, minWidth: calendarMinWidth }}>
+        <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "separate", borderSpacing: zoom < 0.75 ? 4 : 6, minWidth: calendarMinWidth }}><thead><tr><th style={{ width: 90 }}></th>{days.map((d) => <th key={d.date} style={{ color: BRAND.gold }}>{d.label}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, width: 90 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{days.map((d) => { const b = all.find((x) => (x.date === d.date || x.day === d.name) && timeKey(x.time) === timeKey(slot.label)); return <td key={d.date} onClick={() => openBooking(d, slot, b)} style={{ height: calendarCellHeight, width: 120, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: zoom < 0.75 ? 5 : 8, cursor: "pointer", fontWeight: 900, verticalAlign: "top", overflow: "hidden" }}>{b ? <><div style={{ fontSize: zoom < 0.75 ? 10 : 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.type === "Free Trial" ? "TRIAL" : b.title}</div><div style={{ fontSize: 10, opacity: .75 }}>{b.time}</div></> : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>
+      </div>
+    </div>
     {draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 540 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>{draft.auto ? "Reschedule" : "Book"} {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TIME</div><select value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} style={inputStyle()}>{slots.map((s) => <option key={s.id}>{s.label}</option>)}</select></label><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}
   </Card>;
 }
- 
- 
+
+
 function RatingSelect({ label, value, onChange }) {
   return <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>{label}</div><select value={value || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle()}><option value="">Choose 1-5</option>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
 }
@@ -2538,8 +2801,8 @@ function Trials({ user }) {
   function saveTrial() { const saved = { id: form.id || uid(), ...form, savedAt: new Date().toISOString() }; save([saved, ...trials.filter((t) => t.id !== saved.id)]); setForm({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" }); }
   return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><b>{t.name}</b><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
 }
- 
- 
+
+
 export default function App() {
   const isMobile = useIsMobile(760);
   const [session, setSession] = useState(null);
