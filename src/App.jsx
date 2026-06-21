@@ -1293,31 +1293,27 @@ const PROGRAM_TEMPLATES = [
   },
 ];
  
-function cloneTemplateProgram(template, client, weeksOverride) {
-  const totalWeeks = Math.max(1, Number(weeksOverride || template.totalWeeks || 4));
-
+function cloneTemplateProgram(template, client) {
   const safeDays = (template.days || []).map((day) => ({
     ...day,
     exercises: (day.exercises || []).map((ex) => ({ ...ex })),
   }));
-
   const program = {
     name: `DENIS's Program`,
     templateKey: template.key,
     templateName: template.name,
-    totalWeeks,
+    totalWeeks: template.totalWeeks || 4,
     days: safeDays,
     trainingGoal: template.goal || client.goal || "General Fitness",
     periodizationStyle: template.periodizationStyle || "Simple 4-Week Cycle",
   };
-
   const periodized = applyPeriodization(program);
-
   return {
     ...periodized,
-    weekLogs: Array.from({ length: totalWeeks }, (_, i) => makeWeek(i + 1, periodized.days)),
+    weekLogs: Array.from({ length: Number(periodized.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, periodized.days)),
   };
-} 
+}
+ 
 function emptyProfile() {
   return {
     goals: [],
@@ -1975,7 +1971,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const isMobile = useIsMobile(760);
   const tabs = isCoach ? [
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"], ["schedule", "Schedule"], ["packages", "Packages"], ["invite", "Invite"]
-  ] : [["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"], ["profile", "Profile"]];
+  ] : [["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"], ["profile", "Profile"], ["settings", "Settings"]];
   async function delClient() {
     if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return;
     await supabase.from("client_data").delete().eq("client_id", client.id);
@@ -2430,6 +2426,77 @@ function weeksFromProgram(program) {
   return Number(program?.totalWeeks || program?.periodizationPlan?.length || program?.weekLogs?.length || 4);
 }
  
+
+function ClientSettingsTab({ client, updateClient }) {
+  const isMobile = useIsMobile(760);
+  const [name, setName] = useState(client.name || "");
+  const [phone, setPhone] = useState(client.phone || "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function saveSettings() {
+    setSaving(true);
+    setMessage("");
+    try {
+      const { error } = await supabase
+        .from("clients")
+        .update({ name: name.trim(), phone: phone.trim() })
+        .eq("id", client.id);
+
+      if (error) throw error;
+
+      const updated = { ...client, name: name.trim(), phone: phone.trim() };
+      updateClient(updated);
+      setMessage("Saved successfully!");
+      setTimeout(() => setMessage(""), 2000);
+    } catch (e) {
+      setMessage("Failed to save: " + (e.message || e));
+    }
+    setSaving(false);
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.reload();
+  }
+
+  return (
+    <Card style={{ padding: isMobile ? 16 : 20 }}>
+      <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 1000, marginBottom: 16 }}>
+        Settings
+      </div>
+
+      <div style={{ display: "grid", gap: 14 }}>
+        <Field label="Your Name" value={name} onChange={setName} />
+        <Field label="Phone Number" value={phone} onChange={setPhone} />
+
+        <Button onClick={saveSettings} disabled={saving} style={{ marginTop: 8 }}>
+          {saving ? "Saving..." : "Save Changes"}
+        </Button>
+
+        {message && (
+          <div style={{ color: message.includes("success") ? BRAND.green : BRAND.red, fontWeight: 800 }}>
+            {message}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 32, borderTop: `1px solid ${BRAND.line}`, paddingTop: 20 }}>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 900, marginBottom: 10 }}>
+          ACCOUNT
+        </div>
+        <Button variant="red" onClick={logout} style={{ width: "100%" }}>
+          Log Out
+        </Button>
+        <div style={{ color: BRAND.dim, fontSize: 12, marginTop: 8, textAlign: "center" }}>
+          You will be signed out of this device.
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(760);
   const [builder, setBuilder] = useState(false);
