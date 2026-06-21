@@ -2521,26 +2521,84 @@ function ProgramTab({ client, updateClient, isCoach }) {
   const [ai, setAi] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [program, setProgram] = useState(client.program);
-  async function saveProgram(p) {
-    if (!p) return;
-    const periodized = applyPeriodization({ ...p, totalWeeks: Math.max(1, Number(p.totalWeeks || weeksFromProgram(p) || 4)) });
-    const previous = client.program || program || null;
-    const final = {
-      ...periodized,
-      weekLogs: p.weekLogs && Array.isArray(p.weekLogs) && p.weekLogs.length ? p.weekLogs : mergeProgramLogs(previous, periodized),
-      savedAt: new Date().toISOString(),
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (client.program) {
+      setProgram(client.program);
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [client.program]);
+
+  async function saveProgram(p, shouldRefresh = false) {
+    const currentProgram = program || {};
+    const periodized = applyPeriodization(p);
+    const final = { 
+      ...periodized, 
+      weekLogs: p.weekLogs || mergeProgramLogs(currentProgram, periodized) 
     };
+    
     setProgram(final);
-    const saved = await upsertSection(client.id, "program", final);
+    await upsertSection(client.id, "program", final);
     updateClient({ ...client, program: final });
-    if (saved?.queued) console.warn("Program saved locally and queued for sync", saved?.error || "");
-    setBuilder(false); setAi(false); setTemplates(false);
+    
+    setBuilder(false); 
+    setAi(false); 
+    setTemplates(false);
+    
+    if (shouldRefresh) {
+      setTimeout(() => {
+        setRefreshKey(prev => prev + 1);
+        if (client.program) {
+          setProgram({ ...client.program });
+        }
+      }, 150);
+    }
   }
-  async function applyTemplate(template, selectedWeeks) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client, selectedWeeks)); }
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
-}
- 
- 
+
+  async function applyTemplate(template) {
+    if (!template) return;
+    await saveProgram(cloneTemplateProgram(template, client), true);
+  }
+
+  return (
+    <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}>
+      <Card style={{ padding: isMobile ? 12 : 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div>
+            <div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>
+            {program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}
+            {program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}
+          </div>
+          {program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}
+          {isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button onClick={() => setTemplates(true)}>Use Template</Button>
+            <Button onClick={() => setAi(true)}>AI Build</Button>
+            <Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button>
+          </div>}
+        </div>
+        {program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}
+      </Card>
+      
+      {program ? (
+        <SessionTracker 
+          key={refreshKey} 
+          client={client} 
+          program={program} 
+          saveProgram={saveProgram} 
+          isCoach={isCoach} 
+        />
+      ) : (
+        <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>
+      )}
+      
+      {templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}
+      {builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={(p) => saveProgram(p, true)} />}
+      {ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={(p) => saveProgram(p, true)} />}
+    </div>
+  );
+} 
  
 function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(760);
@@ -3055,3 +3113,4 @@ export default function App() {
   if (selected) return <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />;
   return <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />;
 }
+
