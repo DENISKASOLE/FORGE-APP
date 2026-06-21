@@ -18,7 +18,7 @@ const textareaStyle = (extra = {}) => ({
 });
  
 /*
-  FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
+  FORGE V6.6 - Coach Client Tab Bar Fix + Smart Nutrition + Calendar Zoom
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -952,17 +952,9 @@ function saveLocalTemplates(templates) {
 }
 function allProgramTemplates() {
   const custom = loadLocalTemplates();
-  const byKey = new Map(PROGRAM_TEMPLATES.map((t) => [t.key, { ...t, custom: false }]));
-  custom.forEach((t) => byKey.set(t.key, { ...t, custom: true }));
+  const byKey = new Map(PROGRAM_TEMPLATES.map((t) => [t.key, t]));
+  custom.forEach((t) => byKey.set(t.key, t));
   return Array.from(byKey.values());
-}
-function templateWeekCount(t) {
-  return Math.max(1, Number(t?.totalWeeks || 4));
-}
-function normalizeProgramWeeks(program, weeksOverride) {
-  const totalWeeks = Math.max(1, Number(weeksOverride || program?.totalWeeks || 4));
-  const periodized = applyPeriodization({ ...program, totalWeeks });
-  return { ...periodized, weekLogs: mergeProgramLogs(program, periodized) };
 }
  
 function useExerciseLibrary() {
@@ -1294,36 +1286,30 @@ const PROGRAM_TEMPLATES = [
   },
 ];
  
-function cloneTemplateProgram(template, client, weeksOverride) {
-  const totalWeeks = Math.max(1, Number(weeksOverride || template.totalWeeks || 4));
-
+function cloneTemplateProgram(template, client) {
   const safeDays = (template.days || []).map((day) => ({
     ...day,
     exercises: (day.exercises || []).map((ex) => ({ ...ex })),
   }));
-
   const program = {
-    name: `DENIS's Program`,
+    name: `${client.name} - ${template.name}`,
     templateKey: template.key,
     templateName: template.name,
-    totalWeeks,
+    totalWeeks: template.totalWeeks || 4,
     days: safeDays,
     trainingGoal: template.goal || client.goal || "General Fitness",
     periodizationStyle: template.periodizationStyle || "Simple 4-Week Cycle",
   };
-
   const periodized = applyPeriodization(program);
-
   return {
     ...periodized,
-    weekLogs: Array.from({ length: totalWeeks }, (_, i) => makeWeek(i + 1, periodized.days)),
+    weekLogs: Array.from({ length: Number(periodized.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, periodized.days)),
   };
 }
  
 function emptyProfile() {
   return {
     goals: [],
-    birthday: "",
     injuries: "",
     medicalIssues: "",
     barriers: "",
@@ -1643,7 +1629,6 @@ function LoginScreen({ onReady }) {
  
 function AddClientModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", age: "", weight: "", color: CLIENT_COLORS[0], profile: emptyProfile() });
-  const [showColorPicker, setShowColorPicker] = useState(false);
   const setProfile = (k, v) => setForm((f) => ({ ...f, profile: { ...f.profile, [k]: v } }));
   const toggleGoal = (g) => setProfile("goals", form.profile.goals.includes(g) ? form.profile.goals.filter((x) => x !== g) : [...form.profile.goals, g]);
   async function pickPhoto(file) {
@@ -1670,16 +1655,15 @@ function AddClientModal({ onClose, onCreate }) {
           <Field label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
           <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           <Field label="Age" value={form.age} onChange={(v) => setForm({ ...form, age: v })} type="number" />
-          <Field label="Birthday" value={form.profile.birthday} onChange={(v) => setProfile("birthday", v)} type="date" />
           <Field label="Weight kg" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
         </div>
         <div style={{ marginTop: 14 }}>
-          <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
-          {showColorPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: 12, border: form.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>}
+          <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>CLIENT COLOR</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: 12, border: form.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>
         </div>
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>GOALS</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${form.profile.goals.includes(g) ? BRAND.gold : BRAND.line}`, background: form.profile.goals.includes(g) ? BRAND.gold : BRAND.card2, color: form.profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{String(g).toUpperCase()}</button>)}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${form.profile.goals.includes(g) ? BRAND.gold : BRAND.line}`, background: form.profile.goals.includes(g) ? BRAND.gold : BRAND.card2, color: form.profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginTop: 14 }}>
           <Field label="Injuries" value={form.profile.injuries} onChange={(v) => setProfile("injuries", v)} textarea />
@@ -1782,7 +1766,6 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
   const isMobile = useIsMobile(820);
-  const isTablet = useIsMobile(1180) && !isMobile;
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
  
@@ -1799,12 +1782,12 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
  
   return (
     <div style={{ minHeight: "100vh", background: `radial-gradient(circle at top left, ${BRAND.gold}10, transparent 28%), ${BRAND.bg}`, color: BRAND.text }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : isTablet ? "10px 14px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: isMobile ? 42 : isTablet ? 44 : 50, height: isMobile ? 42 : isTablet ? 44 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+          <div style={{ width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
             {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
           </div>
-          <div><div style={{ fontSize: isMobile ? 24 : isTablet ? 28 : 34, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
+          <div><div style={{ fontSize: isMobile ? 24 : 34, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <span style={{ color: syncStatus === "offline" ? BRAND.red : syncStatus === "syncing" ? BRAND.gold : BRAND.green, fontSize: 12, fontWeight: 1000 }}>{syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"}</span>
@@ -1812,12 +1795,12 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           <Button variant="ghost" onClick={() => supabase.auth.signOut()} style={{ padding: isMobile ? "8px 10px" : undefined }}>Logout</Button>
         </div>
       </header>
-      <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(130px,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 10 : 14, marginBottom: isTablet ? 12 : 16 }}>
-          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
-          <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile || isTablet} />
-          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
-          <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
+      <main style={{ width: "100%", maxWidth: 1180, margin: "0 auto", padding: isMobile ? 10 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : 14, marginBottom: 16 }}>
+          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile} />
+          <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile} />
+          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile} />
+          <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile} />
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
           {[["clients", "Clients"], ["templates", "Program Templates"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
@@ -1829,8 +1812,8 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           </div>
           <div style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
-            gap: isMobile ? 12 : isTablet ? 14 : 18,
+            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
+            gap: isMobile ? 12 : 18,
             alignItems: "start",
           }}>
             {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
@@ -1898,7 +1881,7 @@ function ScheduledView({ clients, selectClient }) {
  
 function ClientCard({ client, onClick }) {
   const isCompact = useIsMobile(920);
-  const size = isCompact ? 146 : 162;
+  const size = isCompact ? 156 : 176;
   const goals = client.goals?.join(" + ") || client.goal || "General Fitness";
   return (
     <button
@@ -1915,7 +1898,7 @@ function ClientCard({ client, onClick }) {
         boxShadow: `0 0 26px ${client.color}2c, inset 0 0 0 1px rgba(255,255,255,.04)`,
         color: BRAND.text,
         cursor: "pointer",
-        padding: isCompact ? 10 : 12,
+        padding: isCompact ? 12 : 14,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -1924,10 +1907,10 @@ function ClientCard({ client, onClick }) {
         overflow: "hidden",
       }}
     >
-      <ClientAvatar client={client} size={isCompact ? 46 : 52} />
+      <ClientAvatar client={client} size={isCompact ? 50 : 58} />
       <div style={{
         marginTop: 8,
-        fontSize: isCompact ? 14 : 16,
+        fontSize: isCompact ? 15 : 17,
         fontWeight: 1000,
         letterSpacing: .4,
         lineHeight: 1.05,
@@ -1977,7 +1960,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const isMobile = useIsMobile(760);
   const tabs = isCoach ? [
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"], ["schedule", "Schedule"], ["packages", "Packages"], ["invite", "Invite"]
-  ] : [["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"], ["profile", "Profile"], ["settings", "Settings"]];
+  ] : [["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"], ["profile", "Profile"]];
   async function delClient() {
     if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return;
     await supabase.from("client_data").delete().eq("client_id", client.id);
@@ -1992,7 +1975,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
         <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
         {isCoach && <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>}
       </header>
-      <main style={{ width: "100%", maxWidth: isCoach ? (isMobile ? 430 : 960) : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+      <main style={{ width: "100%", maxWidth: isCoach ? 1180 : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         <div style={{
           display: "flex",
           gap: isMobile ? 6 : 8,
@@ -2211,15 +2194,12 @@ function ClientHome({ client }) {
  
 function ProfileTab({ client, updateClient, isCoach = true }) {
   const isMobile = useIsMobile(760);
-  const [profile, setProfile] = useState({ ...emptyProfile(), ...(client.profile || {}) });
+  const [profile, setProfile] = useState(client.profile || emptyProfile());
   const [saving, setSaving] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const fileRef = useRef(null);
   const measurements = profile.measurements || {};
-  const currentColor = profile.color || client.color || BRAND.cyan;
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
   const setMeasurement = (k, v) => setProfile((p) => ({ ...p, measurements: { ...(p.measurements || {}), [k]: v } }));
-  const toggleGoal = (g) => set("goals", (profile.goals || []).includes(g) ? (profile.goals || []).filter((x) => x !== g) : [...(profile.goals || []), g]);
+  const toggleGoal = (g) => set("goals", profile.goals.includes(g) ? profile.goals.filter((x) => x !== g) : [...profile.goals, g]);
   async function pickPhoto(file) {
     if (!file) return;
     const dataUrl = await readFileAsDataUrl(file);
@@ -2227,56 +2207,41 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
   }
   async function save() {
     setSaving(true);
-    const nextProfile = { ...emptyProfile(), ...profile };
-    await upsertSection(client.id, "profile", nextProfile);
-    updateClient({ ...client, profile: nextProfile, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
+    await upsertSection(client.id, "profile", profile);
+    updateClient({ ...client, profile, photo: profile.photo || client.photo, color: profile.color || client.color, goals: profile.goals, goal: profile.goals?.[0] || client.goal, notes: profile.notes });
     setSaving(false);
   }
-  return <Card style={{ padding: isMobile ? 14 : 18 }}>
-    <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 1000, marginBottom: 14, textAlign: isMobile ? "center" : "left" }}>Client Profile</div>
-    <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-      <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000, border: `1px solid ${BRAND.line}`, cursor: "pointer", boxShadow: `0 0 22px ${currentColor}55`, padding: 0 }}>
-        {profile.photo || client.photo ? <img src={profile.photo || client.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(client.name || client.avatar)}
-      </button>
-      <input ref={fileRef} type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={{ display: "none" }} />
-      <div style={{ flex: 1, minWidth: 190 }}>
-        <div style={{ color: BRAND.text, fontWeight: 1000, fontSize: 18 }}>{client.name}</div>
-        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Tap the picture to change it.</div>
-        {isCoach && <div style={{ marginTop: 10 }}>
-          <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
-        </div>}
+  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 14 }}>Client Profile</div>
+    <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+      <div style={{ width: 84, height: 84, borderRadius: 26, background: profile.color || client.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{profile.photo || client.photo ? <img src={profile.photo || client.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>PROFILE PICTURE</div>
+        <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
       </div>
     </div>
-    {isCoach && showColorPicker && <div style={{ marginBottom: 14 }}><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: currentColor === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>}
-    <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Goals</div>
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${(profile.goals || []).includes(g) ? currentColor : BRAND.line}`, background: (profile.goals || []).includes(g) ? currentColor : BRAND.card2, color: (profile.goals || []).includes(g) ? "#000" : BRAND.text, borderRadius: 999, padding: "8px 12px", fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.4 }}>{String(g).toUpperCase()}</button>)}</div>
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 12 }}>
-      <Field label="Client Birthday" value={profile.birthday} onChange={(v) => set("birthday", v)} type="date" />
-    </div>
+    {isCoach && <div style={{ marginBottom: 14 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT COLOR</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: (profile.color || client.color) === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>}
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${profile.goals.includes(g) ? client.color : BRAND.line}`, background: profile.goals.includes(g) ? client.color : BRAND.card2, color: profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}><Field label="Injuries" value={profile.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical Issues" value={profile.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Barriers" value={profile.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Sleep" value={profile.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / Daily Activity" value={profile.neat} onChange={(v) => set("neat", v)} textarea /><Field label="Work Schedule" value={profile.workSchedule} onChange={(v) => set("workSchedule", v)} textarea /><Field label="Vegetarian Status" value={profile.vegetarianStatus} onChange={(v) => set("vegetarianStatus", v)} /><Field label="Allergies" value={profile.allergies} onChange={(v) => set("allergies", v)} /><Field label="Notes" value={profile.notes} onChange={(v) => set("notes", v)} textarea /></div>
     {isCoach && <div style={{ marginTop: 18 }}>
       <div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 6 }}>Measurements</div>
       <div style={{ color: BRAND.muted, marginBottom: 12 }}>Assessment fields copied from your paper form. Use cm unless another unit makes more sense.</div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>{MEASUREMENT_FIELDS.map(([key, label]) => <Field key={key} label={label} value={measurements[key] || ""} onChange={(v) => setMeasurement(key, v)} />)}</div>
     </div>}
-    <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={!!profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={!!profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
+    <div style={{ display: "flex", gap: 10, marginTop: 14 }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
 }
 function ProgramTemplatesManager() {
   const [templates, setTemplates] = useState(() => allProgramTemplates());
   const [editing, setEditing] = useState(null);
   function persist(next) {
-    const custom = next
-      .filter((t) => t.custom || !PROGRAM_TEMPLATES.some((base) => base.key === t.key))
-      .map((t) => ({ ...t, custom: true }));
+    const custom = next.filter((t) => !PROGRAM_TEMPLATES.some((base) => base.key === t.key));
     saveLocalTemplates(custom);
     setTemplates(allProgramTemplates());
   }
   function newTemplate() {
-    setEditing({ key: uid(), name: "New Template", goal: "General Fitness", description: "Custom template", totalWeeks: 8, days: [{ name: "Day 1", exercises: [{ name: "Goblet Squat", numSets: 3, reps: "10-12", weight: "" }] }], custom: true });
+    setEditing({ key: uid(), name: "New Template", goal: "General Fitness", description: "Custom template", totalWeeks: 4, days: [{ name: "Day 1", exercises: [{ name: "Goblet Squat", numSets: 3, reps: "10-12", weight: "" }] }], custom: true });
   }
   function saveTemplate(t) {
-    const clean = { ...t, custom: true, totalWeeks: Math.max(1, Number(t.totalWeeks || 8)) };
-    const next = [...templates.filter((x) => x.key !== clean.key), clean];
+    const next = [...templates.filter((x) => x.key !== t.key), { ...t, custom: true }];
     persist(next);
     setEditing(null);
   }
@@ -2286,7 +2251,7 @@ function ProgramTemplatesManager() {
   }
   return <div style={{ display: "grid", gap: 14 }}>
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Program Templates</div><div style={{ color: BRAND.muted }}>Build and edit reusable workout templates. Apply them from any client program.</div></div><Button onClick={newTemplate}>+ New Template</Button></div></Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>{templates.map((t) => <Card key={t.key} style={{ borderColor: t.custom ? BRAND.purple : BRAND.line }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 18 }}>{t.name}</div><div style={{ color: BRAND.muted, marginTop: 4 }}>{t.description}</div><div style={{ marginTop: 10, color: BRAND.text, fontWeight: 900 }}>{t.days?.length || 0} days · weeks chosen when applied</div><div style={{ display: "flex", gap: 8, marginTop: 12 }}><Button variant="dark" onClick={() => setEditing(JSON.parse(JSON.stringify(t)))}>Edit</Button>{t.custom && <Button variant="red" onClick={() => deleteTemplate(t.key)}>Delete</Button>}</div></Card>)}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>{templates.map((t) => <Card key={t.key} style={{ borderColor: t.custom ? BRAND.purple : BRAND.line }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 18 }}>{t.name}</div><div style={{ color: BRAND.muted, marginTop: 4 }}>{t.description}</div><div style={{ marginTop: 10, color: BRAND.text, fontWeight: 900 }}>{t.days?.length || 0} days · {t.totalWeeks || 4} weeks</div><div style={{ display: "flex", gap: 8, marginTop: 12 }}><Button variant="dark" onClick={() => setEditing(JSON.parse(JSON.stringify(t)))}>Edit</Button>{t.custom && <Button variant="red" onClick={() => deleteTemplate(t.key)}>Delete</Button>}</div></Card>)}</div>
     {editing && <TemplateEditor template={editing} onClose={() => setEditing(null)} onSave={saveTemplate} />}
   </div>;
 }
@@ -2314,7 +2279,7 @@ function TemplateEditor({ template, onClose, onSave }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
         <Field label="Template name" value={t.name} onChange={(v) => set("name", v)} />
         <Field label="Goal" value={t.goal} onChange={(v) => set("goal", v)} />
-        <Field label="Default weeks" type="number" value={t.totalWeeks || 8} onChange={(v) => set("totalWeeks", Math.max(1, Number(v || 8)))} />
+        <Field label="Weeks" type="number" value={t.totalWeeks} onChange={(v) => set("totalWeeks", Number(v || 4))} />
         <Field label="Description" value={t.description} onChange={(v) => set("description", v)} />
       </div>
       <Button variant="dark" onClick={addDay} style={{ marginTop: 12 }}>+ Add Day</Button>
@@ -2352,8 +2317,6 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
   const [selected, setSelected] = useState(PROGRAM_TEMPLATES[0]?.key || "");
   const availableTemplates = allProgramTemplates();
   const template = availableTemplates.find((t) => t.key === selected) || availableTemplates[0];
-  const [selectedWeeks, setSelectedWeeks] = useState(templateWeekCount(template));
-  useEffect(() => { setSelectedWeeks(templateWeekCount(template)); }, [selected]);
   return (
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 760, maxHeight: "92vh", overflow: "auto" }}>
@@ -2369,21 +2332,12 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
             <button key={t.key} onClick={() => setSelected(t.key)} style={{ textAlign: "left", background: selected === t.key ? BRAND.gold : BRAND.card2, color: selected === t.key ? "#000" : BRAND.text, border: `1px solid ${selected === t.key ? BRAND.gold : BRAND.line}`, borderRadius: 16, padding: 14, cursor: "pointer" }}>
               <div style={{ fontWeight: 1000, fontSize: 16 }}>{t.name}</div>
               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>{t.description}</div>
-              <div style={{ fontSize: 11, fontWeight: 900, marginTop: 8 }}>{t.days?.length || 0} days · choose weeks before applying</div>
+              <div style={{ fontSize: 11, fontWeight: 900, marginTop: 8 }}>{t.days?.length || 0} days · {t.totalWeeks || 4} weeks</div>
             </button>
           ))}
         </div>
         {template && (
           <Card style={{ background: BRAND.card2, marginBottom: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "end", marginBottom: 12 }}>
-              <div>
-                <div style={{ color: BRAND.gold, fontWeight: 1000 }}>Program Length</div>
-                <div style={{ color: BRAND.muted, fontSize: 12 }}>Templates no longer force 4 weeks. Choose the length for this client.</div>
-              </div>
-              <select value={selectedWeeks} onChange={(e) => setSelectedWeeks(Number(e.target.value))} style={inputStyle({ minWidth: 150 })}>
-                {[4, 6, 8, 10, 12, 16].map((w) => <option key={w} value={w}>{w} weeks</option>)}
-              </select>
-            </div>
             <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>{template.name} Preview</div>
             <div style={{ display: "grid", gap: 10 }}>
               {template.days.map((day) => (
@@ -2398,7 +2352,7 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
           </Card>
         )}
         <div style={{ display: "flex", gap: 10 }}>
-          <Button onClick={() => onApply(template, selectedWeeks)} style={{ flex: 1 }}>Apply Template</Button>
+          <Button onClick={() => onApply(template)} style={{ flex: 1 }}>Apply Template</Button>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
       </Card>
@@ -2428,183 +2382,31 @@ function downloadProgramPDF(client, program) {
   win.document.close();
 }
  
-function weeksFromProgram(program) {
-  return Number(program?.totalWeeks || program?.periodizationPlan?.length || program?.weekLogs?.length || 4);
-}
- 
-
-function ClientSettingsTab({ client, updateClient }) {
-  const isMobile = useIsMobile(760);
-  const [name, setName] = useState(client.name || "");
-  const [phone, setPhone] = useState(client.phone || "");
-  const [email, setEmail] = useState(client.email || "");
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-
-  async function saveSettings() {
-    setSaving(true);
-    setMessage("");
-    try {
-      const { error } = await supabase
-        .from("clients")
-        .update({
-          name: name.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-        })
-        .eq("id", client.id);
-
-      if (error) throw error;
-
-      const updated = {
-        ...client,
-        name: name.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-      };
-      updateClient(updated);
-      setMessage("Saved successfully!");
-      setTimeout(() => setMessage(""), 2500);
-    } catch (e) {
-      setMessage("Error: " + (e.message || "Could not save"));
-    }
-    setSaving(false);
-  }
-
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  }
-
-  return (
-    <Card style={{ padding: isMobile ? 16 : 20, marginTop: 8 }}>
-      <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 16, color: BRAND.gold }}>
-        Account Settings
-      </div>
-
-      <div style={{ display: "grid", gap: 14 }}>
-        <Field label="Full Name" value={name} onChange={setName} />
-        <Field label="Phone Number" value={phone} onChange={setPhone} />
-        <Field label="Email Address" value={email} onChange={setEmail} type="email" />
-
-        <Button onClick={saveSettings} disabled={saving} style={{ marginTop: 6 }}>
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
-
-        {message && (
-          <div style={{ 
-            color: message.includes("success") ? BRAND.green : BRAND.red, 
-            fontWeight: 700,
-            fontSize: 13 
-          }}>
-            {message}
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 28, paddingTop: 16, borderTop: `1px solid ${BRAND.line}` }}>
-        <Button variant="red" onClick={logout} style={{ width: "100%" }}>
-          Log Out
-        </Button>
-        <div style={{ textAlign: "center", color: BRAND.dim, fontSize: 11, marginTop: 8 }}>
-          Sign out from this device
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(760);
   const [builder, setBuilder] = useState(false);
   const [ai, setAi] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [program, setProgram] = useState(client.program);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    if (client.program) {
-      setProgram(client.program);
-      setRefreshKey(prev => prev + 1);
-    }
-  }, [client.program]);
-
-  async function saveProgram(p, shouldRefresh = false) {
-    const currentProgram = program || {};
+  async function saveProgram(p) {
     const periodized = applyPeriodization(p);
-    const final = { 
-      ...periodized, 
-      weekLogs: p.weekLogs || mergeProgramLogs(currentProgram, periodized) 
-    };
-    
+    const final = { ...periodized, weekLogs: p.weekLogs || mergeProgramLogs(program, periodized) };
     setProgram(final);
     await upsertSection(client.id, "program", final);
     updateClient({ ...client, program: final });
-    
-    setBuilder(false); 
-    setAi(false); 
-    setTemplates(false);
-    
-    if (shouldRefresh) {
-      setTimeout(() => {
-        setRefreshKey(prev => prev + 1);
-        if (client.program) {
-          setProgram({ ...client.program });
-        }
-      }, 150);
-    }
+    setBuilder(false); setAi(false); setTemplates(false);
   }
-
-  async function applyTemplate(template) {
-    if (!template) return;
-    await saveProgram(cloneTemplateProgram(template, client), true);
-  }
-
-  return (
-    <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}>
-      <Card style={{ padding: isMobile ? 12 : 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div>
-            <div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>
-            {program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}
-            {program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}
-          </div>
-          {program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}
-          {isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button onClick={() => setTemplates(true)}>Use Template</Button>
-            <Button onClick={() => setAi(true)}>AI Build</Button>
-            <Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button>
-          </div>}
-        </div>
-        {program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}
-      </Card>
-      
-      {program ? (
-        <SessionTracker 
-          key={refreshKey} 
-          client={client} 
-          program={program} 
-          saveProgram={saveProgram} 
-          isCoach={isCoach} 
-        />
-      ) : (
-        <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>
-      )}
-      
-      {templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}
-      {builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={(p) => saveProgram(p, true)} />}
-      {ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={(p) => saveProgram(p, true)} />}
-    </div>
-  );
-} 
+  async function applyTemplate(template) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client)); }
+  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
+}
+ 
+ 
  
 function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(760);
   const exerciseLibrary = useExerciseLibrary();
   const baseDays = program?.days?.length ? program.days : [{ name: "Day 1", exercises: [] }];
-  const [name, setName] = useState(program?.name || `DENIS's Program`);
+  const [name, setName] = useState(program?.name || `${client.name} Program`);
   const [weeks, setWeeks] = useState(Number(program?.totalWeeks || 4));
   const [trainingGoal, setTrainingGoal] = useState(program?.trainingGoal || client.goals?.[0] || client.goal || "General Fitness");
   const [periodizationStyle, setPeriodizationStyle] = useState(program?.periodizationStyle || "Simple 4-Week Cycle");
@@ -2642,8 +2444,8 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-          <Field label="Client-visible program name" value={name} onChange={setName} />
-          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Weeks</div><select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} style={inputStyle()}>{[4, 6, 8, 10, 12, 16].map((w) => <option key={w} value={w}>{w} weeks</option>)}</select></label>
+          <Field label="Program name" value={name} onChange={setName} />
+          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Weeks</div><select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} style={inputStyle()}>{[4, 6, 8, 10, 12].map((w) => <option key={w} value={w}>{w} weeks</option>)}</select></label>
           <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Training Goal</div><select value={trainingGoal} onChange={(e) => setTrainingGoal(e.target.value)} style={inputStyle()}>{GOAL_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}</select></label>
           <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Periodization</div><select value={periodizationStyle} onChange={(e) => setPeriodizationStyle(e.target.value)} style={inputStyle()}>{PERIODIZATION_STYLES.map((p) => <option key={p} value={p}>{p}</option>)}</select></label>
         </div>
@@ -2685,7 +2487,7 @@ function AIProgramBuilder({ client, onClose, onSave }) {
   const [extra, setExtra] = useState("");
   const [periodizationStyle, setPeriodizationStyle] = useState("Simple 4-Week Cycle");
   const [trainingGoal, setTrainingGoal] = useState(client.goals?.[0] || client.goal || "General Fitness");
-  const defaultName = `DENIS's Program`;
+  const defaultName = `${(client.goals?.[0] || client.goal || "Fitness")} Program`;
   const [programName, setProgramName] = useState(defaultName);
   function build() {
     const goals = client.goals || [client.goal];
@@ -3113,4 +2915,3 @@ export default function App() {
   if (selected) return <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />;
   return <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />;
 }
-
