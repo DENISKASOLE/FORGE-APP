@@ -17,7 +17,7 @@ const textareaStyle = (extra = {}) => ({
 });
  
 /*
-  FORGE V6.6 WORKING - Coach Client Tab Bar Fix + Smart Nutrition + Calendar Zoom
+  FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
   What this version includes:
   - One clean login screen: "Welcome back"
@@ -629,7 +629,7 @@ const FOOD_DB = [
   { name: "Protein bar", kcal: 220, protein: 20, carbs: 22, fats: 7, tags: ["vegetarian"] },
 ];
  
-
+ 
 const SMART_FOOD_ALIAS = {
   chicken: "Chicken breast 100g",
   "chicken breast": "Chicken breast 100g",
@@ -673,7 +673,7 @@ const SMART_FOOD_ALIAS = {
   falafel: "Falafel 4 pieces",
   dates: "Dates 3 pieces",
 };
-
+ 
 function cleanFoodText(value = "") {
   return String(value || "")
     .toLowerCase()
@@ -681,11 +681,11 @@ function cleanFoodText(value = "") {
     .replace(/\s+/g, " ")
     .trim();
 }
-
+ 
 function foodTokens(value = "") {
   return cleanFoodText(value).split(/\s+/).filter((x) => x.length > 1 && !["with", "and", "plus", "the", "one", "cup", "plate", "bowl", "piece", "pieces", "small", "medium", "large"].includes(x));
 }
-
+ 
 function bestFoodMatch(part = "") {
   const cleaned = cleanFoodText(part);
   if (!cleaned) return null;
@@ -711,7 +711,7 @@ function bestFoodMatch(part = "") {
   });
   return bestScore >= 2 ? best : null;
 }
-
+ 
 function amountMultiplier(part = "", matchedName = "") {
   const text = cleanFoodText(part);
   const qtyMatch = text.match(/^(\d+(?:\.\d+)?)/);
@@ -724,7 +724,7 @@ function amountMultiplier(part = "", matchedName = "") {
   if (/small/.test(text)) factor *= 0.75;
   return Math.max(0.25, factor || 1);
 }
-
+ 
 function estimateSmartFood(text = "") {
   const cleaned = cleanFoodText(text);
   const empty = { kcal: 0, protein: 0, carbs: 0, fats: 0, confidence: "Low", matches: [], unmatched: [], note: "Type foods like: 2 chapati + chicken curry + rice" };
@@ -760,7 +760,7 @@ function estimateSmartFood(text = "") {
     note: confidence === "High" ? "Smart estimate ready." : "Review and edit the estimate before adding.",
   };
 }
-
+ 
 const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const RPE_OPTIONS = ["", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
@@ -820,14 +820,14 @@ function normalizeSlots(raw) {
     return { id: typeof s === "object" && s.id ? s.id : `slot_${i}_${label}`, label };
   });
 }
-
+ 
 const FORGE_CACHE_PREFIX = "forge_v47_cache_";
 const FORGE_SYNC_QUEUE_KEY = "forge_v47_pending_sync";
-
+ 
 function cacheKey(userId) {
   return `${FORGE_CACHE_PREFIX}${userId || "guest"}`;
 }
-
+ 
 function readJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -836,29 +836,29 @@ function readJson(key, fallback) {
     return fallback;
   }
 }
-
+ 
 function writeJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (_) {}
 }
-
+ 
 function saveForgeCache(userId, snapshot) {
   if (!userId) return;
   writeJson(cacheKey(userId), { ...snapshot, savedAt: new Date().toISOString() });
 }
-
+ 
 function readForgeCache(userId) {
   if (!userId) return null;
   return readJson(cacheKey(userId), null);
 }
-
+ 
 function enqueueSync(item) {
   const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
   queue.push({ id: uid(), createdAt: new Date().toISOString(), ...item });
   writeJson(FORGE_SYNC_QUEUE_KEY, queue);
 }
-
+ 
 async function flushSyncQueue() {
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
   const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
@@ -887,7 +887,7 @@ async function flushSyncQueue() {
   writeJson(FORGE_SYNC_QUEUE_KEY, remaining);
 }
 const DENIS_EMAIL = "kendenisdubai@gmail.com";
-
+ 
 function ensureMobileViewport() {
   if (typeof document === "undefined") return;
   let meta = document.querySelector('meta[name="viewport"]');
@@ -901,7 +901,7 @@ function ensureMobileViewport() {
   document.body.style.maxWidth = "100%";
   document.body.style.overflowX = "hidden";
 }
-
+ 
 function useIsMobile(breakpoint = 760) {
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth <= breakpoint : false);
   useEffect(() => {
@@ -911,7 +911,7 @@ function useIsMobile(breakpoint = 760) {
   }, [breakpoint]);
   return isMobile;
 }
-
+ 
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay();
@@ -951,11 +951,19 @@ function saveLocalTemplates(templates) {
 }
 function allProgramTemplates() {
   const custom = loadLocalTemplates();
-  const byKey = new Map(PROGRAM_TEMPLATES.map((t) => [t.key, t]));
-  custom.forEach((t) => byKey.set(t.key, t));
+  const byKey = new Map(PROGRAM_TEMPLATES.map((t) => [t.key, { ...t, custom: false }]));
+  custom.forEach((t) => byKey.set(t.key, { ...t, custom: true }));
   return Array.from(byKey.values());
 }
-
+function templateWeekCount(t) {
+  return Math.max(1, Number(t?.totalWeeks || 4));
+}
+function normalizeProgramWeeks(program, weeksOverride) {
+  const totalWeeks = Math.max(1, Number(weeksOverride || program?.totalWeeks || 4));
+  const periodized = applyPeriodization({ ...program, totalWeeks });
+  return { ...periodized, weekLogs: mergeProgramLogs(program, periodized) };
+}
+ 
 function useExerciseLibrary() {
   const [library, setLibrary] = useState(EXERCISE_LIBRARY);
   useEffect(() => {
@@ -1009,7 +1017,7 @@ function mergeProgramLogs(oldProgram, nextProgram) {
     };
   });
 }
-
+ 
  
 function uid() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -1064,7 +1072,7 @@ function makeWeek(n, days) {
     })),
   };
 }
-
+ 
 const PERIODIZATION_STYLES = [
   "Simple 4-Week Cycle",
   "Linear Progression",
@@ -1072,7 +1080,7 @@ const PERIODIZATION_STYLES = [
   "Block Periodization",
   "Maintenance",
 ];
-
+ 
 function buildPeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", goal = "General Fitness") {
   const weeks = Math.max(1, Number(totalWeeks || 4));
   const simpleCycle = [
@@ -1105,13 +1113,13 @@ function buildPeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", g
     return { week: i + 1, ...simpleCycle[i % 4] };
   }).map((w) => ({ ...w, goal }));
 }
-
+ 
 function normalizePeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", goal = "General Fitness", existingPlan = []) {
   const base = buildPeriodizationPlan(totalWeeks, style, goal);
   const old = Array.isArray(existingPlan) ? existingPlan : [];
   return base.map((w, i) => ({ ...w, ...(old[i] || {}), week: i + 1, goal }));
 }
-
+ 
 function applyPeriodization(program) {
   const totalWeeks = Number(program?.totalWeeks || 4);
   const style = program?.periodizationStyle || "Simple 4-Week Cycle";
@@ -1284,14 +1292,14 @@ const PROGRAM_TEMPLATES = [
     ],
   },
 ];
-
+ 
 function cloneTemplateProgram(template, client) {
   const safeDays = (template.days || []).map((day) => ({
     ...day,
     exercises: (day.exercises || []).map((ex) => ({ ...ex })),
   }));
   const program = {
-    name: `${client.name} - ${template.name}`,
+    name: `DENIS's Program`,
     templateKey: template.key,
     templateName: template.name,
     totalWeeks: template.totalWeeks || 4,
@@ -1305,10 +1313,11 @@ function cloneTemplateProgram(template, client) {
     weekLogs: Array.from({ length: Number(periodized.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, periodized.days)),
   };
 }
-
+ 
 function emptyProfile() {
   return {
     goals: [],
+    birthday: "",
     injuries: "",
     medicalIssues: "",
     barriers: "",
@@ -1393,7 +1402,7 @@ async function upsertSection(clientId, section, data) {
     return { queued: true, error };
   }
 }
-
+ 
 async function upsertTrainerData(trainerId, section, data) {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     enqueueSync({ type: "trainer_data", trainerId, section, data });
@@ -1462,12 +1471,12 @@ function aiProgression(program, client) {
   if (easySets.length >= 3) return "Last session looked controlled. Add 2.5kg on upper-body lifts or 5kg on lower-body lifts next time, while keeping form clean.";
   return "Keep the same weight next time and aim for better reps, cleaner tempo, or lower RPE before increasing load.";
 }
-
+ 
 function numberFromText(value) {
   const match = String(value || "").match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : 0;
 }
-
+ 
 function formatSetPerformance(set, timed) {
   if (!set) return "-";
   if (timed) {
@@ -1479,7 +1488,7 @@ function formatSetPerformance(set, timed) {
   const reps = set.reps ? `${set.reps} reps` : "";
   return [load, reps].filter(Boolean).join(" × ") || "-";
 }
-
+ 
 function setScore(set, timed) {
   if (!set) return 0;
   if (timed) return numberFromText(set.duration || set.reps);
@@ -1488,7 +1497,7 @@ function setScore(set, timed) {
   if (weight && reps) return weight * reps;
   return weight || reps;
 }
-
+ 
 function getExerciseHistory(program, exerciseName) {
   const timed = isTimedExercise(exerciseName);
   const rows = [];
@@ -1628,6 +1637,7 @@ function LoginScreen({ onReady }) {
  
 function AddClientModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", age: "", weight: "", color: CLIENT_COLORS[0], profile: emptyProfile() });
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const setProfile = (k, v) => setForm((f) => ({ ...f, profile: { ...f.profile, [k]: v } }));
   const toggleGoal = (g) => setProfile("goals", form.profile.goals.includes(g) ? form.profile.goals.filter((x) => x !== g) : [...form.profile.goals, g]);
   async function pickPhoto(file) {
@@ -1654,15 +1664,16 @@ function AddClientModal({ onClose, onCreate }) {
           <Field label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
           <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           <Field label="Age" value={form.age} onChange={(v) => setForm({ ...form, age: v })} type="number" />
+          <Field label="Birthday" value={form.profile.birthday} onChange={(v) => setProfile("birthday", v)} type="date" />
           <Field label="Weight kg" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
         </div>
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>CLIENT COLOR</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: 12, border: form.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>
+          <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
+          {showColorPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: 12, border: form.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>}
         </div>
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>GOALS</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${form.profile.goals.includes(g) ? BRAND.gold : BRAND.line}`, background: form.profile.goals.includes(g) ? BRAND.gold : BRAND.card2, color: form.profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${form.profile.goals.includes(g) ? BRAND.gold : BRAND.line}`, background: form.profile.goals.includes(g) ? BRAND.gold : BRAND.card2, color: form.profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{String(g).toUpperCase()}</button>)}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginTop: 14 }}>
           <Field label="Injuries" value={form.profile.injuries} onChange={(v) => setProfile("injuries", v)} textarea />
@@ -1765,9 +1776,10 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
   const isMobile = useIsMobile(820);
+  const isTablet = useIsMobile(1180) && !isMobile;
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
-
+ 
   async function createClient(form) {
     const color = form.color || getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
@@ -1778,15 +1790,15 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     setShowAdd(false);
     await refresh();
   }
-
+ 
   return (
     <div style={{ minHeight: "100vh", background: `radial-gradient(circle at top left, ${BRAND.gold}10, transparent 28%), ${BRAND.bg}`, color: BRAND.text }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : isTablet ? "10px 14px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+          <div style={{ width: isMobile ? 42 : isTablet ? 44 : 50, height: isMobile ? 42 : isTablet ? 44 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
             {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
           </div>
-          <div><div style={{ fontSize: isMobile ? 24 : 34, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
+          <div><div style={{ fontSize: isMobile ? 24 : isTablet ? 28 : 34, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <span style={{ color: syncStatus === "offline" ? BRAND.red : syncStatus === "syncing" ? BRAND.gold : BRAND.green, fontSize: 12, fontWeight: 1000 }}>{syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"}</span>
@@ -1794,12 +1806,12 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           <Button variant="ghost" onClick={() => supabase.auth.signOut()} style={{ padding: isMobile ? "8px 10px" : undefined }}>Logout</Button>
         </div>
       </header>
-      <main style={{ width: "100%", maxWidth: 1180, margin: "0 auto", padding: isMobile ? 10 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : 14, marginBottom: 16 }}>
-          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile} />
-          <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile} />
-          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile} />
-          <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile} />
+      <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(130px,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 10 : 14, marginBottom: isTablet ? 12 : 16 }}>
+          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
+          <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile || isTablet} />
+          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
+          <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
           {[["clients", "Clients"], ["templates", "Program Templates"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
@@ -1811,8 +1823,8 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           </div>
           <div style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
-            gap: isMobile ? 12 : 18,
+            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
+            gap: isMobile ? 12 : isTablet ? 14 : 18,
             alignItems: "start",
           }}>
             {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
@@ -1827,8 +1839,8 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     </div>
   );
 }
-
-
+ 
+ 
 function Kpi({ title, value, icon, color, onClick, compact = false }) {
   return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderColor: onClick ? `${color}66` : BRAND.line, minHeight: compact ? 92 : 128, padding: compact ? 12 : 16, background: `linear-gradient(180deg, ${BRAND.card}, #0b0c11)` }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -1838,8 +1850,8 @@ function Kpi({ title, value, icon, color, onClick, compact = false }) {
     <div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 800 }}>{onClick ? "Tap to open" : ""}</div>
   </Card>;
 }
-
-
+ 
+ 
 function ScheduledView({ clients, selectClient }) {
   const isMobile = useIsMobile(760);
   const scheduled = clients.flatMap((client) => (client.schedule || []).map((s) => ({
@@ -1880,7 +1892,7 @@ function ScheduledView({ clients, selectClient }) {
  
 function ClientCard({ client, onClick }) {
   const isCompact = useIsMobile(920);
-  const size = isCompact ? 156 : 176;
+  const size = isCompact ? 146 : 162;
   const goals = client.goals?.join(" + ") || client.goal || "General Fitness";
   return (
     <button
@@ -1897,7 +1909,7 @@ function ClientCard({ client, onClick }) {
         boxShadow: `0 0 26px ${client.color}2c, inset 0 0 0 1px rgba(255,255,255,.04)`,
         color: BRAND.text,
         cursor: "pointer",
-        padding: isCompact ? 12 : 14,
+        padding: isCompact ? 10 : 12,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -1906,10 +1918,10 @@ function ClientCard({ client, onClick }) {
         overflow: "hidden",
       }}
     >
-      <ClientAvatar client={client} size={isCompact ? 50 : 58} />
+      <ClientAvatar client={client} size={isCompact ? 46 : 52} />
       <div style={{
         marginTop: 8,
-        fontSize: isCompact ? 15 : 17,
+        fontSize: isCompact ? 14 : 16,
         fontWeight: 1000,
         letterSpacing: .4,
         lineHeight: 1.05,
@@ -1945,15 +1957,15 @@ function ClientCard({ client, onClick }) {
     </button>
   );
 }
-
-
+ 
+ 
 function Mini({ label, value }) { return <div style={{ background: "#0b0c10", border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800 }}>{label}</div><div style={{ color: BRAND.text, fontWeight: 900 }}>{value}</div></div>; }
  
 function ClientAvatar({ client, size = 54 }) {
   return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 1000, overflow: "hidden", flexShrink: 0, boxShadow: `0 0 24px ${client.color}33` }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
 }
-
-
+ 
+ 
 function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
   const isMobile = useIsMobile(760);
@@ -1974,7 +1986,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
         <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
         {isCoach && <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>}
       </header>
-      <main style={{ width: "100%", maxWidth: isCoach ? 1180 : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+      <main style={{ width: "100%", maxWidth: isCoach ? (isMobile ? 430 : 960) : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         <div style={{
           display: "flex",
           gap: isMobile ? 6 : 8,
@@ -2018,8 +2030,8 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     </div>
   );
 }
-
-
+ 
+ 
 function todaysNutritionStats(client, date = new Date().toISOString().slice(0, 10)) {
   const nutrition = normalizeNutrition(client.nutrition);
   const logs = (nutrition.logs || []).filter((l) => l.date === date);
@@ -2100,8 +2112,8 @@ function recentCompletedSessions(program, limit = 6) {
   }));
   return days.slice(-limit).reverse();
 }
-
-
+ 
+ 
 function clampPercent(value, total) {
   const v = Number(value || 0);
   const t = Number(total || 0);
@@ -2139,8 +2151,8 @@ function PremiumTile({ label, value, sub = "", color = BRAND.gold }) {
 function MealStatusPill({ meal, done, color }) {
   return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: done ? `${color}22` : BRAND.card2, border: `1px solid ${done ? color : BRAND.line}`, borderRadius: 18, padding: "12px 14px" }}><b>{meal}</b><span style={{ color: done ? color : BRAND.muted, fontWeight: 1000 }}>{done ? "Done" : "Pending"}</span></div>;
 }
-
-
+ 
+ 
 function CompactScore({ value, color }) {
   return <div style={{ width: 70, height: 70, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${color} ${value}%, #242733 ${value}% 100%)` }}><div style={{ width: 52, height: 52, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 18, fontWeight: 1000 }}>{value}%</div><div style={{ color: BRAND.muted, fontSize: 7, fontWeight: 1000 }}>SCORE</div></div></div></div>;
 }
@@ -2148,7 +2160,7 @@ function CompactMetric({ label, value, total, color, percent }) {
   const n = typeof percent === "number" ? percent : (Number(total) ? Math.min(100, Math.round(Number(value || 0) / Number(total || 1) * 100)) : 0);
   return <Card style={{ padding: 12, borderRadius: 20, minHeight: 98, background: `linear-gradient(180deg, ${BRAND.card}, #0b0d13)` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000 }}>{label}</div><div style={{ fontSize: 22, fontWeight: 1000, marginTop: 4 }}>{value}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 900 }}>/{total}</div></div><div style={{ width: 44, height: 44, borderRadius: "50%", background: `conic-gradient(${color} ${n}%, #252936 ${n}% 100%)`, display: "grid", placeItems: "center" }}><div style={{ width: 31, height: 31, borderRadius: "50%", background: BRAND.bg }} /></div></div><div style={{ color, fontSize: 11, fontWeight: 1000, marginTop: 8 }}>{n}% complete</div></Card>;
 }
-
+ 
 function ClientHome({ client }) {
   const isMobile = useIsMobile(760);
   const stats = todaysNutritionStats(client);
@@ -2189,16 +2201,19 @@ function ClientHome({ client }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, duration and RPE.</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card></div>
   </div>;
 }
-
-
+ 
+ 
 function ProfileTab({ client, updateClient, isCoach = true }) {
   const isMobile = useIsMobile(760);
-  const [profile, setProfile] = useState(client.profile || emptyProfile());
+  const [profile, setProfile] = useState({ ...emptyProfile(), ...(client.profile || {}) });
   const [saving, setSaving] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const fileRef = useRef(null);
   const measurements = profile.measurements || {};
+  const currentColor = profile.color || client.color || BRAND.cyan;
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
   const setMeasurement = (k, v) => setProfile((p) => ({ ...p, measurements: { ...(p.measurements || {}), [k]: v } }));
-  const toggleGoal = (g) => set("goals", profile.goals.includes(g) ? profile.goals.filter((x) => x !== g) : [...profile.goals, g]);
+  const toggleGoal = (g) => set("goals", (profile.goals || []).includes(g) ? (profile.goals || []).filter((x) => x !== g) : [...(profile.goals || []), g]);
   async function pickPhoto(file) {
     if (!file) return;
     const dataUrl = await readFileAsDataUrl(file);
@@ -2206,41 +2221,56 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
   }
   async function save() {
     setSaving(true);
-    await upsertSection(client.id, "profile", profile);
-    updateClient({ ...client, profile, photo: profile.photo || client.photo, color: profile.color || client.color, goals: profile.goals, goal: profile.goals?.[0] || client.goal, notes: profile.notes });
+    const nextProfile = { ...emptyProfile(), ...profile };
+    await upsertSection(client.id, "profile", nextProfile);
+    updateClient({ ...client, profile: nextProfile, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
     setSaving(false);
   }
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 14 }}>Client Profile</div>
-    <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-      <div style={{ width: 84, height: 84, borderRadius: 26, background: profile.color || client.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{profile.photo || client.photo ? <img src={profile.photo || client.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>
-      <div style={{ flex: 1 }}>
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>PROFILE PICTURE</div>
-        <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
+  return <Card style={{ padding: isMobile ? 14 : 18 }}>
+    <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 1000, marginBottom: 14, textAlign: isMobile ? "center" : "left" }}>Client Profile</div>
+    <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+      <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000, border: `1px solid ${BRAND.line}`, cursor: "pointer", boxShadow: `0 0 22px ${currentColor}55`, padding: 0 }}>
+        {profile.photo || client.photo ? <img src={profile.photo || client.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(client.name || client.avatar)}
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={{ display: "none" }} />
+      <div style={{ flex: 1, minWidth: 190 }}>
+        <div style={{ color: BRAND.text, fontWeight: 1000, fontSize: 18 }}>{client.name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Tap the picture to change it.</div>
+        {isCoach && <div style={{ marginTop: 10 }}>
+          <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
+        </div>}
       </div>
     </div>
-    {isCoach && <div style={{ marginBottom: 14 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT COLOR</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: (profile.color || client.color) === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>}
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${profile.goals.includes(g) ? client.color : BRAND.line}`, background: profile.goals.includes(g) ? client.color : BRAND.card2, color: profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{g}</button>)}</div>
+    {isCoach && showColorPicker && <div style={{ marginBottom: 14 }}><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => set("color", c)} style={{ width: 34, height: 34, borderRadius: 12, border: currentColor === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div></div>}
+    <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Goals</div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${(profile.goals || []).includes(g) ? currentColor : BRAND.line}`, background: (profile.goals || []).includes(g) ? currentColor : BRAND.card2, color: (profile.goals || []).includes(g) ? "#000" : BRAND.text, borderRadius: 999, padding: "8px 12px", fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.4 }}>{String(g).toUpperCase()}</button>)}</div>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 12 }}>
+      <Field label="Client Birthday" value={profile.birthday} onChange={(v) => set("birthday", v)} type="date" />
+    </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12 }}><Field label="Injuries" value={profile.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical Issues" value={profile.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Barriers" value={profile.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Sleep" value={profile.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / Daily Activity" value={profile.neat} onChange={(v) => set("neat", v)} textarea /><Field label="Work Schedule" value={profile.workSchedule} onChange={(v) => set("workSchedule", v)} textarea /><Field label="Vegetarian Status" value={profile.vegetarianStatus} onChange={(v) => set("vegetarianStatus", v)} /><Field label="Allergies" value={profile.allergies} onChange={(v) => set("allergies", v)} /><Field label="Notes" value={profile.notes} onChange={(v) => set("notes", v)} textarea /></div>
     {isCoach && <div style={{ marginTop: 18 }}>
       <div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 6 }}>Measurements</div>
       <div style={{ color: BRAND.muted, marginBottom: 12 }}>Assessment fields copied from your paper form. Use cm unless another unit makes more sense.</div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>{MEASUREMENT_FIELDS.map(([key, label]) => <Field key={key} label={label} value={measurements[key] || ""} onChange={(v) => setMeasurement(key, v)} />)}</div>
     </div>}
-    <div style={{ display: "flex", gap: 10, marginTop: 14 }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
+    <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={!!profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={!!profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
 }
 function ProgramTemplatesManager() {
   const [templates, setTemplates] = useState(() => allProgramTemplates());
   const [editing, setEditing] = useState(null);
   function persist(next) {
-    const custom = next.filter((t) => !PROGRAM_TEMPLATES.some((base) => base.key === t.key));
+    const custom = next
+      .filter((t) => t.custom || !PROGRAM_TEMPLATES.some((base) => base.key === t.key))
+      .map((t) => ({ ...t, custom: true }));
     saveLocalTemplates(custom);
     setTemplates(allProgramTemplates());
   }
   function newTemplate() {
-    setEditing({ key: uid(), name: "New Template", goal: "General Fitness", description: "Custom template", totalWeeks: 4, days: [{ name: "Day 1", exercises: [{ name: "Goblet Squat", numSets: 3, reps: "10-12", weight: "" }] }], custom: true });
+    setEditing({ key: uid(), name: "New Template", goal: "General Fitness", description: "Custom template", totalWeeks: 8, days: [{ name: "Day 1", exercises: [{ name: "Goblet Squat", numSets: 3, reps: "10-12", weight: "" }] }], custom: true });
   }
   function saveTemplate(t) {
-    const next = [...templates.filter((x) => x.key !== t.key), { ...t, custom: true }];
+    const clean = { ...t, custom: true, totalWeeks: Math.max(1, Number(t.totalWeeks || 8)) };
+    const next = [...templates.filter((x) => x.key !== clean.key), clean];
     persist(next);
     setEditing(null);
   }
@@ -2250,11 +2280,11 @@ function ProgramTemplatesManager() {
   }
   return <div style={{ display: "grid", gap: 14 }}>
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Program Templates</div><div style={{ color: BRAND.muted }}>Build and edit reusable workout templates. Apply them from any client program.</div></div><Button onClick={newTemplate}>+ New Template</Button></div></Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>{templates.map((t) => <Card key={t.key} style={{ borderColor: t.custom ? BRAND.purple : BRAND.line }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 18 }}>{t.name}</div><div style={{ color: BRAND.muted, marginTop: 4 }}>{t.description}</div><div style={{ marginTop: 10, color: BRAND.text, fontWeight: 900 }}>{t.days?.length || 0} days · {t.totalWeeks || 4} weeks</div><div style={{ display: "flex", gap: 8, marginTop: 12 }}><Button variant="dark" onClick={() => setEditing(JSON.parse(JSON.stringify(t)))}>Edit</Button>{t.custom && <Button variant="red" onClick={() => deleteTemplate(t.key)}>Delete</Button>}</div></Card>)}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>{templates.map((t) => <Card key={t.key} style={{ borderColor: t.custom ? BRAND.purple : BRAND.line }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 18 }}>{t.name}</div><div style={{ color: BRAND.muted, marginTop: 4 }}>{t.description}</div><div style={{ marginTop: 10, color: BRAND.text, fontWeight: 900 }}>{t.days?.length || 0} days · weeks chosen when applied</div><div style={{ display: "flex", gap: 8, marginTop: 12 }}><Button variant="dark" onClick={() => setEditing(JSON.parse(JSON.stringify(t)))}>Edit</Button>{t.custom && <Button variant="red" onClick={() => deleteTemplate(t.key)}>Delete</Button>}</div></Card>)}</div>
     {editing && <TemplateEditor template={editing} onClose={() => setEditing(null)} onSave={saveTemplate} />}
   </div>;
 }
-
+ 
 function TemplateEditor({ template, onClose, onSave }) {
   const isMobile = useIsMobile(760);
   const exerciseLibrary = useExerciseLibrary();
@@ -2278,7 +2308,7 @@ function TemplateEditor({ template, onClose, onSave }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
         <Field label="Template name" value={t.name} onChange={(v) => set("name", v)} />
         <Field label="Goal" value={t.goal} onChange={(v) => set("goal", v)} />
-        <Field label="Weeks" type="number" value={t.totalWeeks} onChange={(v) => set("totalWeeks", Number(v || 4))} />
+        <Field label="Default weeks" type="number" value={t.totalWeeks || 8} onChange={(v) => set("totalWeeks", Math.max(1, Number(v || 8)))} />
         <Field label="Description" value={t.description} onChange={(v) => set("description", v)} />
       </div>
       <Button variant="dark" onClick={addDay} style={{ marginTop: 12 }}>+ Add Day</Button>
@@ -2309,13 +2339,15 @@ function TemplateEditor({ template, onClose, onSave }) {
     </Card>
   </div>;
 }
-
-
+ 
+ 
 function ProgramTemplatePicker({ client, onClose, onApply }) {
   const isMobile = useIsMobile(760);
   const [selected, setSelected] = useState(PROGRAM_TEMPLATES[0]?.key || "");
   const availableTemplates = allProgramTemplates();
   const template = availableTemplates.find((t) => t.key === selected) || availableTemplates[0];
+  const [selectedWeeks, setSelectedWeeks] = useState(templateWeekCount(template));
+  useEffect(() => { setSelectedWeeks(templateWeekCount(template)); }, [selected]);
   return (
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 760, maxHeight: "92vh", overflow: "auto" }}>
@@ -2331,12 +2363,21 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
             <button key={t.key} onClick={() => setSelected(t.key)} style={{ textAlign: "left", background: selected === t.key ? BRAND.gold : BRAND.card2, color: selected === t.key ? "#000" : BRAND.text, border: `1px solid ${selected === t.key ? BRAND.gold : BRAND.line}`, borderRadius: 16, padding: 14, cursor: "pointer" }}>
               <div style={{ fontWeight: 1000, fontSize: 16 }}>{t.name}</div>
               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>{t.description}</div>
-              <div style={{ fontSize: 11, fontWeight: 900, marginTop: 8 }}>{t.days?.length || 0} days · {t.totalWeeks || 4} weeks</div>
+              <div style={{ fontSize: 11, fontWeight: 900, marginTop: 8 }}>{t.days?.length || 0} days · choose weeks before applying</div>
             </button>
           ))}
         </div>
         {template && (
           <Card style={{ background: BRAND.card2, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "end", marginBottom: 12 }}>
+              <div>
+                <div style={{ color: BRAND.gold, fontWeight: 1000 }}>Program Length</div>
+                <div style={{ color: BRAND.muted, fontSize: 12 }}>Templates no longer force 4 weeks. Choose the length for this client.</div>
+              </div>
+              <select value={selectedWeeks} onChange={(e) => setSelectedWeeks(Number(e.target.value))} style={inputStyle({ minWidth: 150 })}>
+                {[4, 6, 8, 10, 12, 16].map((w) => <option key={w} value={w}>{w} weeks</option>)}
+              </select>
+            </div>
             <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>{template.name} Preview</div>
             <div style={{ display: "grid", gap: 10 }}>
               {template.days.map((day) => (
@@ -2351,14 +2392,14 @@ function ProgramTemplatePicker({ client, onClose, onApply }) {
           </Card>
         )}
         <div style={{ display: "flex", gap: 10 }}>
-          <Button onClick={() => onApply(template)} style={{ flex: 1 }}>Apply Template</Button>
+          <Button onClick={() => onApply(template, selectedWeeks)} style={{ flex: 1 }}>Apply Template</Button>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
       </Card>
     </div>
   );
 }
-
+ 
 function downloadProgramPDF(client, program) {
   if (!program) return;
   const days = (program.days || []).map((day) => `
@@ -2380,7 +2421,11 @@ function downloadProgramPDF(client, program) {
   win.document.write(html);
   win.document.close();
 }
-
+ 
+function weeksFromProgram(program) {
+  return Number(program?.totalWeeks || program?.periodizationPlan?.length || program?.weekLogs?.length || 4);
+}
+ 
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(760);
   const [builder, setBuilder] = useState(false);
@@ -2388,24 +2433,31 @@ function ProgramTab({ client, updateClient, isCoach }) {
   const [templates, setTemplates] = useState(false);
   const [program, setProgram] = useState(client.program);
   async function saveProgram(p) {
-    const periodized = applyPeriodization(p);
-    const final = { ...periodized, weekLogs: p.weekLogs || mergeProgramLogs(program, periodized) };
+    if (!p) return;
+    const periodized = applyPeriodization({ ...p, totalWeeks: Math.max(1, Number(p.totalWeeks || weeksFromProgram(p) || 4)) });
+    const previous = client.program || program || null;
+    const final = {
+      ...periodized,
+      weekLogs: p.weekLogs && Array.isArray(p.weekLogs) && p.weekLogs.length ? p.weekLogs : mergeProgramLogs(previous, periodized),
+      savedAt: new Date().toISOString(),
+    };
     setProgram(final);
-    await upsertSection(client.id, "program", final);
+    const saved = await upsertSection(client.id, "program", final);
     updateClient({ ...client, program: final });
+    if (saved?.queued) console.warn("Program saved locally and queued for sync", saved?.error || "");
     setBuilder(false); setAi(false); setTemplates(false);
   }
-  async function applyTemplate(template) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client)); }
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
+  async function applyTemplate(template, selectedWeeks) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client, selectedWeeks)); }
+  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
 }
-
-
-
+ 
+ 
+ 
 function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(760);
   const exerciseLibrary = useExerciseLibrary();
   const baseDays = program?.days?.length ? program.days : [{ name: "Day 1", exercises: [] }];
-  const [name, setName] = useState(program?.name || `${client.name} Program`);
+  const [name, setName] = useState(program?.name || `DENIS's Program`);
   const [weeks, setWeeks] = useState(Number(program?.totalWeeks || 4));
   const [trainingGoal, setTrainingGoal] = useState(program?.trainingGoal || client.goals?.[0] || client.goal || "General Fitness");
   const [periodizationStyle, setPeriodizationStyle] = useState(program?.periodizationStyle || "Simple 4-Week Cycle");
@@ -2443,8 +2495,8 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-          <Field label="Program name" value={name} onChange={setName} />
-          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Weeks</div><select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} style={inputStyle()}>{[4, 6, 8, 10, 12].map((w) => <option key={w} value={w}>{w} weeks</option>)}</select></label>
+          <Field label="Client-visible program name" value={name} onChange={setName} />
+          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Weeks</div><select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} style={inputStyle()}>{[4, 6, 8, 10, 12, 16].map((w) => <option key={w} value={w}>{w} weeks</option>)}</select></label>
           <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Training Goal</div><select value={trainingGoal} onChange={(e) => setTrainingGoal(e.target.value)} style={inputStyle()}>{GOAL_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}</select></label>
           <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Periodization</div><select value={periodizationStyle} onChange={(e) => setPeriodizationStyle(e.target.value)} style={inputStyle()}>{PERIODIZATION_STYLES.map((p) => <option key={p} value={p}>{p}</option>)}</select></label>
         </div>
@@ -2478,7 +2530,7 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
     </div>
   );
 }
-
+ 
 function AIProgramBuilder({ client, onClose, onSave }) {
   const isMobile = useIsMobile(760);
   const [days, setDays] = useState(4);
@@ -2486,7 +2538,7 @@ function AIProgramBuilder({ client, onClose, onSave }) {
   const [extra, setExtra] = useState("");
   const [periodizationStyle, setPeriodizationStyle] = useState("Simple 4-Week Cycle");
   const [trainingGoal, setTrainingGoal] = useState(client.goals?.[0] || client.goal || "General Fitness");
-  const defaultName = `${(client.goals?.[0] || client.goal || "Fitness")} Program`;
+  const defaultName = `DENIS's Program`;
   const [programName, setProgramName] = useState(defaultName);
   function build() {
     const goals = client.goals || [client.goal];
@@ -2538,8 +2590,8 @@ function SessionTracker({ client, program, saveProgram, isCoach }) {
     </>}
   </Card>;
 }
-
-
+ 
+ 
 function normalizeNutrition(raw) {
   const base = emptyNutrition();
   const n = raw && typeof raw === "object" ? raw : {};
@@ -2665,7 +2717,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
     </div>
   );
 }
-
+ 
 function TransformPhotos({ client, updateClient }) {
   const isMobile = useIsMobile(760);
   const [photos, setPhotos] = useState(client.transformPhotos || []);
@@ -2683,7 +2735,7 @@ function TransformPhotos({ client, updateClient }) {
     </div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
 }
-
+ 
 function ProgressTab({ client }) {
   const isMobile = useIsMobile(760);
   const latest = client.progress?.[client.progress.length - 1] || {};
@@ -2707,7 +2759,7 @@ function ProgressTab({ client }) {
     <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Classic Lifts</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>{LIFT_FIELDS.map((f) => <Mini key={f.key} label={f.label} value={latest[f.key] || "-"} />)}</div></Card>
   </div>;
 }
-
+ 
 function ScheduleTab({ client, updateClient }) {
   const isMobile = useIsMobile(760);
   const [schedule, setSchedule] = useState(client.schedule || []);
@@ -2784,8 +2836,8 @@ function Calendar({ clients, refresh, user }) {
     {draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 540 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>{draft.auto ? "Reschedule" : "Book"} {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TIME</div><select value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} style={inputStyle()}>{slots.map((s) => <option key={s.id}>{s.label}</option>)}</select></label><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}
   </Card>;
 }
-
-
+ 
+ 
 function RatingSelect({ label, value, onChange }) {
   return <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>{label}</div><select value={value || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle()}><option value="">Choose 1-5</option>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
 }
@@ -2801,8 +2853,8 @@ function Trials({ user }) {
   function saveTrial() { const saved = { id: form.id || uid(), ...form, savedAt: new Date().toISOString() }; save([saved, ...trials.filter((t) => t.id !== saved.id)]); setForm({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" }); }
   return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><b>{t.name}</b><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
 }
-
-
+ 
+ 
 export default function App() {
   const isMobile = useIsMobile(760);
   const [session, setSession] = useState(null);
