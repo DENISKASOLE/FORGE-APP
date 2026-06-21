@@ -1293,27 +1293,31 @@ const PROGRAM_TEMPLATES = [
   },
 ];
  
-function cloneTemplateProgram(template, client) {
+function cloneTemplateProgram(template, client, weeksOverride) {
+  const totalWeeks = Math.max(1, Number(weeksOverride || template.totalWeeks || 4));
+
   const safeDays = (template.days || []).map((day) => ({
     ...day,
     exercises: (day.exercises || []).map((ex) => ({ ...ex })),
   }));
+
   const program = {
     name: `DENIS's Program`,
     templateKey: template.key,
     templateName: template.name,
-    totalWeeks: template.totalWeeks || 4,
+    totalWeeks,
     days: safeDays,
     trainingGoal: template.goal || client.goal || "General Fitness",
     periodizationStyle: template.periodizationStyle || "Simple 4-Week Cycle",
   };
+
   const periodized = applyPeriodization(program);
+
   return {
     ...periodized,
-    weekLogs: Array.from({ length: Number(periodized.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, periodized.days)),
+    weekLogs: Array.from({ length: totalWeeks }, (_, i) => makeWeek(i + 1, periodized.days)),
   };
-}
- 
+} 
 function emptyProfile() {
   return {
     goals: [],
