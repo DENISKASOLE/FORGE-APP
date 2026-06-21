@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
  
@@ -1293,24 +1294,29 @@ const PROGRAM_TEMPLATES = [
   },
 ];
  
-function cloneTemplateProgram(template, client) {
+function cloneTemplateProgram(template, client, weeksOverride) {
+  const totalWeeks = Math.max(1, Number(weeksOverride || template.totalWeeks || 4));
+
   const safeDays = (template.days || []).map((day) => ({
     ...day,
     exercises: (day.exercises || []).map((ex) => ({ ...ex })),
   }));
+
   const program = {
     name: `DENIS's Program`,
     templateKey: template.key,
     templateName: template.name,
-    totalWeeks: template.totalWeeks || 4,
+    totalWeeks,
     days: safeDays,
     trainingGoal: template.goal || client.goal || "General Fitness",
     periodizationStyle: template.periodizationStyle || "Simple 4-Week Cycle",
   };
+
   const periodized = applyPeriodization(program);
+
   return {
     ...periodized,
-    weekLogs: Array.from({ length: Number(periodized.totalWeeks || 4) }, (_, i) => makeWeek(i + 1, periodized.days)),
+    weekLogs: Array.from({ length: totalWeeks }, (_, i) => makeWeek(i + 1, periodized.days)),
   };
 }
  
@@ -2431,6 +2437,7 @@ function ClientSettingsTab({ client, updateClient }) {
   const isMobile = useIsMobile(760);
   const [name, setName] = useState(client.name || "");
   const [phone, setPhone] = useState(client.phone || "");
+  const [email, setEmail] = useState(client.email || "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -2440,17 +2447,26 @@ function ClientSettingsTab({ client, updateClient }) {
     try {
       const { error } = await supabase
         .from("clients")
-        .update({ name: name.trim(), phone: phone.trim() })
+        .update({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+        })
         .eq("id", client.id);
 
       if (error) throw error;
 
-      const updated = { ...client, name: name.trim(), phone: phone.trim() };
+      const updated = {
+        ...client,
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+      };
       updateClient(updated);
       setMessage("Saved successfully!");
-      setTimeout(() => setMessage(""), 2000);
+      setTimeout(() => setMessage(""), 2500);
     } catch (e) {
-      setMessage("Failed to save: " + (e.message || e));
+      setMessage("Error: " + (e.message || "Could not save"));
     }
     setSaving(false);
   }
@@ -2461,35 +2477,37 @@ function ClientSettingsTab({ client, updateClient }) {
   }
 
   return (
-    <Card style={{ padding: isMobile ? 16 : 20 }}>
-      <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 1000, marginBottom: 16 }}>
-        Settings
+    <Card style={{ padding: isMobile ? 16 : 20, marginTop: 8 }}>
+      <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 16, color: BRAND.gold }}>
+        Account Settings
       </div>
 
       <div style={{ display: "grid", gap: 14 }}>
-        <Field label="Your Name" value={name} onChange={setName} />
+        <Field label="Full Name" value={name} onChange={setName} />
         <Field label="Phone Number" value={phone} onChange={setPhone} />
+        <Field label="Email Address" value={email} onChange={setEmail} type="email" />
 
-        <Button onClick={saveSettings} disabled={saving} style={{ marginTop: 8 }}>
+        <Button onClick={saveSettings} disabled={saving} style={{ marginTop: 6 }}>
           {saving ? "Saving..." : "Save Changes"}
         </Button>
 
         {message && (
-          <div style={{ color: message.includes("success") ? BRAND.green : BRAND.red, fontWeight: 800 }}>
+          <div style={{ 
+            color: message.includes("success") ? BRAND.green : BRAND.red, 
+            fontWeight: 700,
+            fontSize: 13 
+          }}>
             {message}
           </div>
         )}
       </div>
 
-      <div style={{ marginTop: 32, borderTop: `1px solid ${BRAND.line}`, paddingTop: 20 }}>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 900, marginBottom: 10 }}>
-          ACCOUNT
-        </div>
+      <div style={{ marginTop: 28, paddingTop: 16, borderTop: `1px solid ${BRAND.line}` }}>
         <Button variant="red" onClick={logout} style={{ width: "100%" }}>
           Log Out
         </Button>
-        <div style={{ color: BRAND.dim, fontSize: 12, marginTop: 8, textAlign: "center" }}>
-          You will be signed out of this device.
+        <div style={{ textAlign: "center", color: BRAND.dim, fontSize: 11, marginTop: 8 }}>
+          Sign out from this device
         </div>
       </div>
     </Card>
