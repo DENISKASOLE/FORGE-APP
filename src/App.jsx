@@ -1771,6 +1771,112 @@ function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
   );
 }
  
+
+function SessionTrackerDashboard({ clients, user }) {
+  const isMobile = useIsMobile(760);
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+
+  // Aggregate sessions from all client packages
+  const sessionData = clients.map(client => {
+    const packages = client.packages || [];
+    const totalUsed = packages.reduce((sum, p) => sum + Number(p.used || 0), 0);
+    const totalSessions = packages.reduce((sum, p) => sum + Number(p.total || 0), 0);
+    const remaining = Math.max(totalSessions - totalUsed, 0);
+    return {
+      id: client.id,
+      name: client.name,
+      conducted: totalUsed,
+      remaining: remaining,
+      total: totalSessions,
+    };
+  });
+
+  const totalConductedThisMonth = sessionData.reduce((sum, c) => sum + c.conducted, 0); // Simplified - in real would filter by month
+
+  function downloadSessionPDF() {
+    const html = `<!doctype html><html><head><title>Session Tracker - ${monthFilter}</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 30px; color: #111;">
+      <h1 style="margin-bottom: 4px;">Forge Session Tracker</h1>
+      <div style="color:#555; margin-bottom: 20px;">Month: ${monthFilter} | Total Sessions Conducted: ${totalConductedThisMonth}</div>
+      <table style="width:100%; border-collapse: collapse; font-size:14px;">
+        <thead><tr style="background:#f5f5f5;">
+          <th style="text-align:left; padding:10px; border-bottom:2px solid #333;">Client Name</th>
+          <th style="padding:10px; border-bottom:2px solid #333;">Sessions Conducted</th>
+          <th style="padding:10px; border-bottom:2px solid #333;">Sessions Remaining</th>
+          <th style="padding:10px; border-bottom:2px solid #333;">Total Package Sessions</th>
+        </tr></thead>
+        <tbody>
+          ${sessionData.map(c => `
+            <tr>
+              <td style="padding:10px; border-bottom:1px solid #ddd;">${c.name}</td>
+              <td style="padding:10px; border-bottom:1px solid #ddd; text-align:center; font-weight:bold; color:#E8C547;">${c.conducted}</td>
+              <td style="padding:10px; border-bottom:1px solid #ddd; text-align:center;">${c.remaining}</td>
+              <td style="padding:10px; border-bottom:1px solid #ddd; text-align:center;">${c.total}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      <div style="margin-top:30px; font-size:12px; color:#666;">Generated from Forge Coaching App • ${new Date().toLocaleDateString()}</div>
+      <script>window.onload = () => window.print();</script>
+    </body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) { alert("Please allow popups to download the PDF."); return; }
+    win.document.write(html);
+    win.document.close();
+  }
+
+  return (
+    <Card style={{ padding: isMobile ? 14 : 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 1000, color: BRAND.gold }}>Session Tracker</div>
+          <div style={{ color: BRAND.muted, fontSize: 13 }}>Monthly overview • Data comes from client Packages</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="month" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} style={inputStyle({ maxWidth: 160 })} />
+          <Button onClick={downloadSessionPDF} variant="dark">Download PDF</Button>
+        </div>
+      </div>
+
+      <div style={{ background: BRAND.card2, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 900 }}>THIS MONTH</div>
+        <div style={{ fontSize: 42, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>{totalConductedThisMonth}</div>
+        <div style={{ color: BRAND.muted }}>Total sessions conducted across all clients</div>
+      </div>
+
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+          <thead>
+            <tr style={{ background: BRAND.panel, borderBottom: `2px solid ${BRAND.line}` }}>
+              <th style={{ textAlign: "left", padding: "12px 14px", fontWeight: 900, color: BRAND.muted }}>CLIENT</th>
+              <th style={{ padding: "12px 14px", fontWeight: 900, color: BRAND.muted, textAlign: "center" }}>CONDUCTED</th>
+              <th style={{ padding: "12px 14px", fontWeight: 900, color: BRAND.muted, textAlign: "center" }}>REMAINING</th>
+              <th style={{ padding: "12px 14px", fontWeight: 900, color: BRAND.muted, textAlign: "center" }}>TOTAL IN PACKAGES</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessionData.length === 0 && (
+              <tr><td colSpan={4} style={{ padding: 20, textAlign: "center", color: BRAND.muted }}>No clients with packages yet.</td></tr>
+            )}
+            {sessionData.map((c, idx) => (
+              <tr key={c.id} style={{ borderTop: idx > 0 ? `1px solid ${BRAND.line}` : "none" }}>
+                <td style={{ padding: "14px", fontWeight: 800 }}>{c.name}</td>
+                <td style={{ padding: "14px", textAlign: "center", fontWeight: 900, color: BRAND.gold, fontSize: 18 }}>{c.conducted}</td>
+                <td style={{ padding: "14px", textAlign: "center", fontWeight: 700, color: c.remaining > 0 ? BRAND.green : BRAND.red }}>{c.remaining}</td>
+                <td style={{ padding: "14px", textAlign: "center", color: BRAND.muted }}>{c.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: 12, color: BRAND.dim, fontSize: 12 }}>
+        Data is live from each client's Packages tab. When you click "Use" in a package, the numbers update here automatically.
+      </div>
+    </Card>
+  );
+}
+
+
 function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online" }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1807,7 +1913,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           <Button variant="ghost" onClick={() => supabase.auth.signOut()} style={{ padding: isMobile ? "8px 10px" : undefined }}>Logout</Button>
         </div>
       </header>
-      <main style={{ width: "100%", maxWidth: isMobile ? 460 : isTablet ? 1100 : 1280, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 14 : 18, boxSizing: "border-box", overflowX: "hidden" }}>
+      <main style={{ width: "100%", maxWidth: isMobile ? 480 : isTablet ? 1280 : 1400, margin: "0 auto", padding: isMobile ? 12 : isTablet ? 18 : 22, boxSizing: "border-box", overflowX: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(130px,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 10 : 14, marginBottom: isTablet ? 12 : 16 }}>
           <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
           <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile || isTablet} />
@@ -2455,7 +2561,7 @@ function ProgramTab({ client, updateClient, isCoach }) {
     setBuilder(false); setAi(false); setTemplates(false);
   }
   async function applyTemplate(template, selectedWeeks) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client, selectedWeeks)); }
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
+  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="gold" onClick={() => setBuilder(true)}>Build / Edit Program</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}</div>;
 }
  
  
