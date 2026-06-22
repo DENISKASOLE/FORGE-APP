@@ -2539,26 +2539,63 @@ function ProgramTab({ client, updateClient, isCoach }) {
   const [ai, setAi] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [program, setProgram] = useState(client.program);
+
+// Strong sync: always keep local program state up to date when parent updates it (after save)
+useEffect(() => {
+  if (client.program) {
+    setProgram(client.program);
+  }
+}, [client.program]);
   async function saveProgram(p) {
-    if (!p) return;
-    const previous = client.program || program || null;
-    const periodized = applyPeriodization({
-      ...p,
-      totalWeeks: Math.max(1, Number(p.totalWeeks || weeksFromProgram(p) || 4)),
-      weekLogs: (p.weekLogs && Array.isArray(p.weekLogs) && p.weekLogs.length) ? p.weekLogs : (previous?.weekLogs || []),
-    });
-    const final = {
-      ...periodized,
-      weekLogs: (p.weekLogs && Array.isArray(p.weekLogs) && p.weekLogs.length)
+    if (!p) {
+      console.warn("[V7.3] saveProgram called with empty data");
+      return;
+    }
+
+    try {
+      const previousProgram = client.program || program || null;
+
+      // Always prefer the weekLogs that came from the builder if they exist
+      const finalWeekLogs = (p.weekLogs && Array.isArray(p.weekLogs) && p.weekLogs.length > 0)
         ? p.weekLogs
-        : mergeProgramLogs(previous, periodized),
-      savedAt: new Date().toISOString(),
-    };
-    setProgram(final);
-    const saved = await upsertSection(client.id, "program", final);
-    updateClient({ ...client, program: final });
-    if (saved?.queued) console.warn("Program saved locally and queued for sync", saved?.error || "");
-    setBuilder(false); setAi(false); setTemplates(false);
+        : (previousProgram?.weekLogs || []);
+
+      const periodized = applyPeriodization({
+        ...p,
+        totalWeeks: Math.max(1, Number(p.totalWeeks || 4)),
+        weekLogs: finalWeekLogs,
+      });
+
+      const finalProgram = {
+        ...periodized,
+        weekLogs: finalWeekLogs,
+        savedAt: new Date().toISOString(),
+      };
+
+      console.log("[V7.3] Saving to database...", finalProgram.days?.length || 0, "days");
+
+      // 1. Update local state immediately
+      setProgram(finalProgram);
+
+      // 2. Save to Supabase
+      const result = await upsertSection(client.id, "program", finalProgram);
+
+      // 3. Update parent state (this triggers the useEffect sync)
+      updateClient({ ...client, program: finalProgram });
+
+      if (result?.queued) {
+        console.log("[V7.3] Saved locally (will sync when online)");
+      } else {
+        console.log("[V7.3] Successfully saved to Supabase");
+      }
+
+      // 4. Close the builder
+      setBuilder(false);
+
+    } catch (error) {
+      console.error("[V7.3] Save failed:", error);
+      alert("Could not save the program. Please check your connection and try again.");
+    }
   }
   async function applyTemplate(template, selectedWeeks) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client, selectedWeeks)); }
   return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="gold" onClick={() => setBuilder(true)}>Build / Edit Program</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}</div>;
@@ -2569,15 +2606,25 @@ function ProgramTab({ client, updateClient, isCoach }) {
 function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(760);
   const exerciseLibrary = useExerciseLibrary();
-  const baseDays = program?.days?.length ? program.days : [{ name: "Day 1", exercises: [] }];
-  const [name, setName] = useState(program?.name || `DENIS's Program`);
-  const [weeks, setWeeks] = useState(Number(program?.totalWeeks || 4));
-  const [trainingGoal, setTrainingGoal] = useState(program?.trainingGoal || client.goals?.[0] || client.goal || "General Fitness");
-  const [periodizationStyle, setPeriodizationStyle] = useState(program?.periodizationStyle || "Simple 4-Week Cycle");
-  const [days, setDays] = useState(() => baseDays.map((d) => ({ ...d, exercises: (d.exercises || []).map((e) => ({ ...e })) })));
+  // Always start from the most recent program data passed from parent
+  const currentProgram = program || {};
+  const baseDays = (currentProgram.days && currentProgram.days.length > 0) 
+    ? currentProgram.days 
+    : [{ name: "Day 1", exercises: [] }];
+
+  const [name, setName] = useState(currentProgram.name || `DENIS's Program`);
+  const [weeks, setWeeks] = useState(Number(currentProgram.totalWeeks || 4));
+  const [trainingGoal, setTrainingGoal] = useState(currentProgram.trainingGoal || client.goals?.[0] || client.goal || "General Fitness");
+  const [periodizationStyle, setPeriodizationStyle] = useState(currentProgram.periodizationStyle || "Simple 4-Week Cycle");
+  const [days, setDays] = useState(() => baseDays.map((d) => ({ 
+    ...d, 
+    exercises: (d.exercises || []).map((e) => ({ ...e })) 
+  })));
   const [active, setActive] = useState(0);
   const [search, setSearch] = useState("");
-  const [phasePreview, setPhasePreview] = useState(() => normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, program?.periodizationPlan));
+  const [phasePreview, setPhasePreview] = useState(() => 
+    normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, currentProgram.periodizationPlan || [])
+  );
   useEffect(() => {
     setPhasePreview((prev) => normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, prev));
   }, [weeks, periodizationStyle, trainingGoal]);
@@ -2594,20 +2641,23 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
     setDays((prev) => prev.map((d, i) => i === di ? { ...d, exercises: (d.exercises || []).map((ex, j) => j === ei ? { ...ex, [field]: value } : ex) } : d));
   }
   function save() {
+    // Get the most up-to-date weekLogs from the original program prop
     const existingLogs = (program && Array.isArray(program.weekLogs)) ? program.weekLogs : [];
-    const nextBase = {
+
+    const programToSave = {
       ...(program || {}),
-      name,
-      totalWeeks: Number(weeks || 4),
+      name: name.trim() || "DENIS's Program",
+      totalWeeks: Math.max(1, Number(weeks) || 4),
       trainingGoal,
       periodizationStyle,
-      days,
-      periodizationPlan: phasePreview,
+      days: days || [],
+      periodizationPlan: phasePreview || [],
+      weekLogs: existingLogs,
     };
-    if (existingLogs.length > 0) {
-      nextBase.weekLogs = existingLogs;
-    }
-    const next = applyPeriodization(nextBase);
+
+    const next = applyPeriodization(programToSave);
+
+    console.log("[V7.3] Saving program →", next.days?.length || 0, "days,", existingLogs.length, "weekLogs");
     onSave(next);
   }
   return (
