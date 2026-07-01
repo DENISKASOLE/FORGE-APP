@@ -32,7 +32,7 @@ const textareaStyle = (extra = {}) => ({
   - Denis keeps existing unassigned clients if logged in with kendenisdubai@gmail.com
   - Invite-based client access: coach creates profile first, client claims it with invite code
   - Client portal: food log, workout log, progress photos, profile view
-  - Program builder restored to previous week/day style, with AI builder and recap
+  - Program builder restored to previous week/day style with a simpler two-action workflow
   - Program day has small X button to delete whole day
   - Trials split into Consultation and Fitness Assessment
   - Calendar has editable visible time slots and auto-scheduled recurring clients
@@ -43,8 +43,7 @@ const textareaStyle = (extra = {}) => ({
   - Program session view shows Personal Best, Recent, and New entry area for each exercise
   - Metric Data returned to each program day: kcal, max HR, average HR
   - Client tabs are round pill tabs for a cleaner mobile feel
-  - Program Templates: Men's Fat Loss, Female Fat Loss, Muscle Gain, Upper Lower, PPL
-  - Use Template button applies a reusable program to any client, then you can edit it
+  - Program templates remain available internally for starting from a template inside the builder
   - V6.1: true phone-first client portal across Home, Nutrition, Program, Progress, Photos, Profile
   - V6.1: tablet-friendly coach dashboard with cleaner cards and compact layout
   - V6.1: fixed mobile viewport so the app does not render as a wide desktop page on phones
@@ -733,17 +732,18 @@ const PROGRAM_TEMPLATES = [
   },
 ];
  
-function cloneTemplateProgram(template, client) {
+function cloneTemplateProgram(template, client, weeksOverride = null) {
   const safeDays = (template.days || []).map((day) => ({
     ...day,
     exercises: (day.exercises || []).map((ex) => ({ ...ex })),
   }));
+  const totalWeeks = Math.max(1, Number(weeksOverride || template.totalWeeks || 4));
   const program = {
     id: uid(),
     name: `DENIS's Program`,
     templateKey: template.key,
     templateName: template.name,
-    totalWeeks: template.totalWeeks || 4,
+    totalWeeks,
     days: safeDays,
     trainingGoal: template.goal || client.goal || "General Fitness",
     periodizationStyle: template.periodizationStyle || "Simple 4-Week Cycle",
@@ -1250,12 +1250,11 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
       <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(130px,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 10 : 14, marginBottom: isTablet ? 12 : 16 }}>
           <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
-          <Kpi title="Program Templates" value={allProgramTemplates().length} icon="📚" color={BRAND.purple} onClick={() => setTab("templates")} compact={isMobile || isTablet} />
           <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
           <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
-          {[["clients", "Clients"], ["templates", "Program Templates"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
+          {[["clients", "Clients"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
         </div>
         {tab === "clients" && <>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, marginBottom: 14 }}>
@@ -1271,7 +1270,6 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
             {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
           </div>
         </>}
-        {tab === "templates" && <ProgramTemplatesManager />}
         {tab === "calendar" && <Calendar clients={clients} refresh={refresh} user={user} />}
         {tab === "trials" && <Trials user={user} />}
       </main>
@@ -1696,150 +1694,6 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
     </div>}
     <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}><label style={{ color: BRAND.muted }}><input type="checkbox" checked={!!profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label><label style={{ color: BRAND.muted }}><input type="checkbox" checked={!!profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label></div><Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save Profile"}</Button></Card>;
 }
-function ProgramTemplatesManager() {
-  const [templates, setTemplates] = useState(() => allProgramTemplates());
-  const [editing, setEditing] = useState(null);
-  function persist(next) {
-    const custom = next
-      .filter((t) => t.custom || !PROGRAM_TEMPLATES.some((base) => base.key === t.key))
-      .map((t) => ({ ...t, custom: true }));
-    saveLocalTemplates(custom);
-    setTemplates(allProgramTemplates());
-  }
-  function newTemplate() {
-    setEditing({ key: uid(), name: "New Template", goal: "General Fitness", description: "Custom template", totalWeeks: 8, days: [{ name: "Day 1", exercises: [{ name: "Goblet Squat", numSets: 3, reps: "10-12", weight: "" }] }], custom: true });
-  }
-  function saveTemplate(t) {
-    const clean = { ...t, custom: true, totalWeeks: Math.max(1, Number(t.totalWeeks || 8)) };
-    const next = [...templates.filter((x) => x.key !== clean.key), clean];
-    persist(next);
-    setEditing(null);
-  }
-  function deleteTemplate(key) {
-    if (!confirm("Delete this custom template?")) return;
-    persist(templates.filter((t) => t.key !== key));
-  }
-  return <div style={{ display: "grid", gap: 14 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Program Templates</div><div style={{ color: BRAND.muted }}>Build and edit reusable workout templates. Apply them from any client program.</div></div><Button onClick={newTemplate}>+ New Template</Button></div></Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 12 }}>{templates.map((t) => <Card key={t.key} style={{ borderColor: t.custom ? BRAND.purple : BRAND.line }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 18 }}>{t.name}</div><div style={{ color: BRAND.muted, marginTop: 4 }}>{t.description}</div><div style={{ marginTop: 10, color: BRAND.text, fontWeight: 900 }}>{t.days?.length || 0} days · weeks chosen when applied</div><div style={{ display: "flex", gap: 8, marginTop: 12 }}><Button variant="dark" onClick={() => setEditing(JSON.parse(JSON.stringify(t)))}>Edit</Button>{t.custom && <Button variant="red" onClick={() => deleteTemplate(t.key)}>Delete</Button>}</div></Card>)}</div>
-    {editing && <TemplateEditor template={editing} onClose={() => setEditing(null)} onSave={saveTemplate} />}
-  </div>;
-}
- 
-function TemplateEditor({ template, onClose, onSave }) {
-  const isMobile = useIsMobile(760);
-  const exerciseLibrary = useExerciseLibrary();
-  const [t, setT] = useState(template);
-  const [searchByDay, setSearchByDay] = useState({});
-  const set = (k, v) => setT({ ...t, [k]: v });
-  const updateDay = (di, patch) => setT({ ...t, days: (t.days || []).map((d, i) => i === di ? { ...d, ...patch } : d) });
-  const addDay = () => setT({ ...t, days: [...(t.days || []), { name: `Day ${(t.days || []).length + 1}`, exercises: [] }] });
-  const addExercise = (di, name = "New Exercise") => updateDay(di, { exercises: [...(t.days?.[di]?.exercises || []), { name, numSets: 3, reps: isTimedExercise(name) ? "30-60 sec" : "8-10", weight: "" }] });
-  const updateExercise = (di, ei, f, v) => updateDay(di, { exercises: (t.days?.[di]?.exercises || []).map((ex, i) => i === ei ? { ...ex, [f]: v } : ex) });
-  const save = () => onSave(applyPeriodization(t));
-  return <div style={modalBackdrop()}>
-    <Card style={{ width: "100%", maxWidth: 940, maxHeight: "92vh", overflow: "auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 1000 }}>Edit Template</div>
-          <div style={{ color: BRAND.muted }}>Exercises now come from the Forge exercise library. Custom exercises still work.</div>
-        </div>
-        <Button variant="ghost" onClick={onClose}>X</Button>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
-        <Field label="Template name" value={t.name} onChange={(v) => set("name", v)} />
-        <Field label="Goal" value={t.goal} onChange={(v) => set("goal", v)} />
-        <Field label="Default weeks" type="number" value={t.totalWeeks || 8} onChange={(v) => set("totalWeeks", Math.max(1, Number(v || 8)))} />
-        <Field label="Description" value={t.description} onChange={(v) => set("description", v)} />
-      </div>
-      <Button variant="dark" onClick={addDay} style={{ marginTop: 12 }}>+ Add Day</Button>
-      {(t.days || []).map((d, di) => {
-        const q = searchByDay[di] || "";
-        const suggestions = exerciseLibrary.filter((ex) => ex.toLowerCase().includes(q.toLowerCase())).slice(0, 16);
-        return <Card key={di} style={{ marginTop: 12, background: BRAND.card2 }}>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8 }}>
-            <input value={d.name} onChange={(e) => updateDay(di, { name: e.target.value })} style={inputStyle({ fontWeight: 1000 })} />
-            <Button variant="red" onClick={() => setT({ ...t, days: (t.days || []).filter((_, i) => i !== di) })}>Delete Day</Button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginTop: 10 }}>
-            <input value={q} onChange={(e) => setSearchByDay({ ...searchByDay, [di]: e.target.value })} placeholder="Search exercise library..." style={inputStyle()} />
-            <Button variant="dark" onClick={() => { if (q.trim()) { addExercise(di, q.trim()); setSearchByDay({ ...searchByDay, [di]: "" }); } }}>Add Custom</Button>
-          </div>
-          {q && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>{suggestions.map((name) => <button key={name} onClick={() => { addExercise(di, name); setSearchByDay({ ...searchByDay, [di]: "" }); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>+ {name}</button>)}</div>}
-          {(d.exercises || []).map((ex, ei) => <div key={ei} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 60px 82px 72px 30px" : "1fr 70px 110px 80px 30px", gap: 8, marginTop: 8 }}>
-            <input list="forge-exercise-library" value={ex.name} onChange={(e) => updateExercise(di, ei, "name", e.target.value)} style={inputStyle()} />
-            <input value={ex.numSets} onChange={(e) => updateExercise(di, ei, "numSets", e.target.value)} style={inputStyle()} />
-            <input value={ex.reps} onChange={(e) => updateExercise(di, ei, "reps", e.target.value)} style={inputStyle()} />
-            <input value={ex.weight} onChange={(e) => updateExercise(di, ei, "weight", e.target.value)} style={inputStyle()} />
-            <button onClick={() => updateDay(di, { exercises: (d.exercises || []).filter((_, i) => i !== ei) })} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000 }}>x</button>
-          </div>)}
-        </Card>;
-      })}
-      <datalist id="forge-exercise-library">{exerciseLibrary.map((name) => <option key={name} value={name} />)}</datalist>
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={save} style={{ flex: 1 }}>Save Template</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div>
-    </Card>
-  </div>;
-}
- 
- 
-function ProgramTemplatePicker({ client, onClose, onApply }) {
-  const isMobile = useIsMobile(760);
-  const [selected, setSelected] = useState(PROGRAM_TEMPLATES[0]?.key || "");
-  const availableTemplates = allProgramTemplates();
-  const template = availableTemplates.find((t) => t.key === selected) || availableTemplates[0];
-  const [selectedWeeks, setSelectedWeeks] = useState(templateWeekCount(template));
-  useEffect(() => { setSelectedWeeks(templateWeekCount(template)); }, [selected]);
-  return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 760, maxHeight: "92vh", overflow: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", marginBottom: 14 }}>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 1000 }}>Use Program Template</div>
-            <div style={{ color: BRAND.muted }}>Choose a template, apply it to {client.name}, then edit anything you want.</div>
-          </div>
-          <Button variant="ghost" onClick={onClose}>X</Button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 14 }}>
-          {availableTemplates.map((t) => (
-            <button key={t.key} onClick={() => setSelected(t.key)} style={{ textAlign: "left", background: selected === t.key ? BRAND.gold : BRAND.card2, color: selected === t.key ? "#000" : BRAND.text, border: `1px solid ${selected === t.key ? BRAND.gold : BRAND.line}`, borderRadius: 16, padding: 14, cursor: "pointer" }}>
-              <div style={{ fontWeight: 1000, fontSize: 16 }}>{t.name}</div>
-              <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>{t.description}</div>
-              <div style={{ fontSize: 11, fontWeight: 900, marginTop: 8 }}>{t.days?.length || 0} days · choose weeks before applying</div>
-            </button>
-          ))}
-        </div>
-        {template && (
-          <Card style={{ background: BRAND.card2, marginBottom: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "end", marginBottom: 12 }}>
-              <div>
-                <div style={{ color: BRAND.gold, fontWeight: 1000 }}>Program Length</div>
-                <div style={{ color: BRAND.muted, fontSize: 12 }}>Templates no longer force 4 weeks. Choose the length for this client.</div>
-              </div>
-              <select value={selectedWeeks} onChange={(e) => setSelectedWeeks(Number(e.target.value))} style={inputStyle({ minWidth: 150 })}>
-                {[4, 6, 8, 10, 12, 16].map((w) => <option key={w} value={w}>{w} weeks</option>)}
-              </select>
-            </div>
-            <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>{template.name} Preview</div>
-            <div style={{ display: "grid", gap: 10 }}>
-              {template.days.map((day) => (
-                <div key={day.name} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 10 }}>
-                  <div style={{ fontWeight: 1000 }}>{day.name}</div>
-                  <div style={{ color: BRAND.muted, fontSize: 12, lineHeight: 1.7 }}>
-                    {day.exercises.map((ex) => `${ex.name} (${ex.numSets} x ${ex.reps})`).join(" · ")}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-        <div style={{ display: "flex", gap: 10 }}>
-          <Button onClick={() => onApply(template, selectedWeeks)} style={{ flex: 1 }}>Apply Template</Button>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
  
 function downloadProgramPDF(client, program) {
   if (!program) return;
@@ -1869,9 +1723,8 @@ function weeksFromProgram(program) {
  
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(760);
-  const [builder, setBuilder] = useState(false);
-  const [ai, setAi] = useState(false);
-  const [templates, setTemplates] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderMode, setBuilderMode] = useState("build");
   const [program, setProgram] = useState(client.program);
 
   useEffect(() => {
@@ -1893,17 +1746,23 @@ function ProgramTab({ client, updateClient, isCoach }) {
     const saved = await upsertSection(client.id, "program", final);
     updateClient({ ...client, program: final });
     if (saved?.queued) console.warn("Program saved locally and queued for sync", saved?.error || "");
-    setBuilder(false); setAi(false); setTemplates(false);
+    setBuilderOpen(false);
   }
-  async function applyTemplate(template, selectedWeeks) { if (!template) return; await saveProgram(cloneTemplateProgram(template, client, selectedWeeks)); }
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => setTemplates(true)}>Use Template</Button><Button onClick={() => setAi(true)}>AI Build</Button><Button variant="dark" onClick={() => setBuilder(true)}>Edit Builder</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Use a template, AI Build, or Edit Builder to create one.</div></Card>}{templates && <ProgramTemplatePicker client={client} onClose={() => setTemplates(false)} onApply={applyTemplate} />}{builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}{ai && <AIProgramBuilder client={client} onClose={() => setAi(false)} onSave={saveProgram} />}</div>;
+
+  function openBuilder(mode) {
+    setBuilderMode(mode);
+    setBuilderOpen(true);
+  }
+
+  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => openBuilder("build")}>Build Program</Button><Button variant="dark" onClick={() => openBuilder("edit")}>Edit Program</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Create one with Build Program.</div></Card>}{builderOpen && <ProgramBuilder client={client} program={builderMode === "edit" ? (program || null) : null} mode={builderMode} onClose={() => setBuilderOpen(false)} onSave={saveProgram} />}</div>;
 }
  
  
  
-function ProgramBuilder({ client, program, onClose, onSave }) {
+function ProgramBuilder({ client, program, onClose, onSave, mode = "build" }) {
   const isMobile = useIsMobile(760);
   const exerciseLibrary = useExerciseLibrary();
+  const availableTemplates = useMemo(() => allProgramTemplates(), []);
   const baseDays = program?.days?.length ? program.days : [{ name: "Day 1", exercises: [] }];
   const [name, setName] = useState(program?.name || `DENIS's Program`);
   const [weeks, setWeeks] = useState(Number(program?.totalWeeks || 4));
@@ -1912,6 +1771,8 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
   const [days, setDays] = useState(() => baseDays.map((d) => ({ ...d, exercises: (d.exercises || []).map((e) => ({ ...e })) })));
   const [active, setActive] = useState(0);
   const [search, setSearch] = useState("");
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState(program?.templateKey || "");
+  const [selectedTemplateWeeks, setSelectedTemplateWeeks] = useState(Number(program?.totalWeeks || 4));
   const [phasePreview, setPhasePreview] = useState(() => normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, program?.periodizationPlan));
   useEffect(() => {
     setPhasePreview((prev) => normalizePeriodizationPlan(weeks, periodizationStyle, trainingGoal, prev));
@@ -1928,6 +1789,17 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
   function updateExercise(di, ei, field, value) {
     setDays((prev) => prev.map((d, i) => i === di ? { ...d, exercises: (d.exercises || []).map((ex, j) => j === ei ? { ...ex, [field]: value } : ex) } : d));
   }
+  function applyTemplateSelection() {
+    const template = availableTemplates.find((t) => t.key === selectedTemplateKey) || availableTemplates[0];
+    if (!template) return;
+    const seeded = cloneTemplateProgram(template, client, selectedTemplateWeeks);
+    setName(seeded.name || `DENIS's Program`);
+    setWeeks(Number(seeded.totalWeeks || 4));
+    setTrainingGoal(seeded.trainingGoal || client.goals?.[0] || client.goal || "General Fitness");
+    setPeriodizationStyle(seeded.periodizationStyle || "Simple 4-Week Cycle");
+    setDays((seeded.days || []).map((d) => ({ ...d, exercises: (d.exercises || []).map((e) => ({ ...e })) })));
+    setPhasePreview(normalizePeriodizationPlan(Number(seeded.totalWeeks || 4), seeded.periodizationStyle || "Simple 4-Week Cycle", seeded.trainingGoal || client.goals?.[0] || client.goal || "General Fitness", seeded.periodizationPlan));
+  }
   function save() {
     const next = applyPeriodization({ ...(program || {}), name, totalWeeks: Number(weeks || 4), trainingGoal, periodizationStyle, days, periodizationPlan: phasePreview });
     onSave(next);
@@ -1937,10 +1809,24 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
       <Card style={{ width: "100%", maxWidth: 980, maxHeight: "92vh", overflow: "auto", padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Edit Program</div>
-            <div style={{ color: BRAND.muted }}>Build the plan, choose periodization, and keep previous session logs safe.</div>
+            <div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>{mode === "edit" ? "Edit Program" : "Build Program"}</div>
+            <div style={{ color: BRAND.muted }}>{mode === "edit" ? "Update the existing plan and keep the same program id." : "Create a program manually, or start from a saved template."}</div>
           </div>
           <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 0.8fr auto", gap: 10, marginBottom: 12, alignItems: "end" }}>
+          <label>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Start from template</div>
+            <select value={selectedTemplateKey} onChange={(e) => setSelectedTemplateKey(e.target.value)} style={inputStyle()}>
+              <option value="">Blank program</option>
+              {availableTemplates.map((template) => <option key={template.key} value={template.key}>{template.name}</option>)}
+            </select>
+          </label>
+          <label>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Weeks</div>
+            <select value={selectedTemplateWeeks} onChange={(e) => setSelectedTemplateWeeks(Number(e.target.value))} style={inputStyle()}>{[4, 6, 8, 10, 12, 16].map((w) => <option key={w} value={w}>{w} weeks</option>)}</select>
+          </label>
+          <Button variant="dark" onClick={applyTemplateSelection}>Load Template</Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
           <Field label="Client-visible program name" value={name} onChange={setName} />
@@ -1977,27 +1863,6 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
       </Card>
     </div>
   );
-}
- 
-function AIProgramBuilder({ client, onClose, onSave }) {
-  const isMobile = useIsMobile(760);
-  const [days, setDays] = useState(4);
-  const [weeks, setWeeks] = useState(4);
-  const [extra, setExtra] = useState("");
-  const [periodizationStyle, setPeriodizationStyle] = useState("Simple 4-Week Cycle");
-  const [trainingGoal, setTrainingGoal] = useState(client.goals?.[0] || client.goal || "General Fitness");
-  const defaultName = `DENIS's Program`;
-  const [programName, setProgramName] = useState(defaultName);
-  function build() {
-    const goals = client.goals || [client.goal];
-    const lowerBack = `${client.profile?.injuries || ""} ${extra}`.toLowerCase().includes("back");
-    const split = days <= 3 ? ["Full Body A", "Full Body B", "Full Body C"] : ["Push", "Pull", "Legs", "Upper", "Conditioning"];
-    const main = goals.includes("Strength") ? ["Squat", "Flat Barbell Bench Press", "Pull-Up", "Dead Hang", "Overhead Press"] : goals.includes("Fat Loss") ? ["Goblet Squat", "Push-Up", "Neutral Grip Lat Pulldown", "Dead Bug", "Sled Push"] : ["Leg Press", "Incline DB Chest Press", "Dumbbell Row", "DB Shoulder Press", "Dead Hang"];
-    const safe = lowerBack ? main.filter((x) => !x.toLowerCase().includes("deadlift")) : main;
-    const made = Array.from({ length: days }, (_, i) => ({ name: split[i] || `Day ${i + 1}`, exercises: safe.slice(0, 5).map((name) => ({ name, numSets: goals.includes("Strength") ? 4 : 3, reps: goals.includes("Strength") ? "4-6" : "8-12", weight: "" })) }));
-    onSave(applyPeriodization({ name: programName || defaultName, totalWeeks: weeks, trainingGoal, periodizationStyle, days: made }));
-  }
-  return <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 520 }}><div style={{ fontSize: 24, fontWeight: 1000 }}>AI Program Builder</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>Uses goals, injuries, and notes to make a safe starting plan.</div><Field label="Program Name" value={programName} onChange={setProgramName} placeholder="Fat Loss Program" /><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10, marginTop: 12, marginBottom: 12 }}><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Training Goal</div><select value={trainingGoal} onChange={(e) => setTrainingGoal(e.target.value)} style={inputStyle()}>{GOAL_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}</select></label><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Periodization</div><select value={periodizationStyle} onChange={(e) => setPeriodizationStyle(e.target.value)} style={inputStyle()}>{PERIODIZATION_STYLES.map((p) => <option key={p} value={p}>{p}</option>)}</select></label></div><div style={{ display: "flex", gap: 8, marginBottom: 12, marginTop: 12 }}>{[2, 3, 4, 5, 6].map((d) => <Button key={d} variant={days === d ? "gold" : "dark"} onClick={() => setDays(d)}>{d} days</Button>)}</div><div style={{ display: "flex", gap: 8, marginBottom: 12 }}>{[2, 4, 6, 8, 12].map((w) => <Button key={w} variant={weeks === w ? "gold" : "dark"} onClick={() => setWeeks(w)}>{w} weeks</Button>)}</div><Field label="Extra details" value={extra} onChange={setExtra} textarea /><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={build} style={{ flex: 1 }}>Generate</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div></Card></div>;
 }
  
 function SessionTracker({ client, program, saveProgram, isCoach }) {
