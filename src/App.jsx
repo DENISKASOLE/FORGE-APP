@@ -1405,7 +1405,7 @@ function ClientAvatar({ client, size = 54 }) {
 }
  
  
-function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
+function ClientView({ client, updateClient, back, refresh, refreshClient, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
   const isMobile = useIsMobile(760);
   const tabs = isCoach ? [
@@ -1457,7 +1457,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
         </div>
         {tab === "home" && <ClientHome client={client} />}
         {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+        {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} refreshClient={refreshClient} />}
         {tab === "nutrition" && <NutritionTab client={client} updateClient={updateClient} isCoach={isCoach} />}
         {tab === "progress" && <ProgressTab client={client} />}
         {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
@@ -1721,7 +1721,7 @@ function weeksFromProgram(program) {
   return Number(program?.totalWeeks || program?.periodizationPlan?.length || program?.weekLogs?.length || 4);
 }
  
-function ProgramTab({ client, updateClient, isCoach }) {
+function ProgramTab({ client, updateClient, isCoach, refreshClient }) {
   const isMobile = useIsMobile(760);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderMode, setBuilderMode] = useState("build");
@@ -1745,6 +1745,9 @@ function ProgramTab({ client, updateClient, isCoach }) {
     setProgram(final);
     const saved = await upsertSection(client.id, "program", final);
     updateClient({ ...client, program: final });
+    if (typeof refreshClient === "function") {
+      try { await refreshClient(client.id); } catch (error) { console.warn("Program refresh failed", error); }
+    }
     if (saved?.queued) console.warn("Program saved locally and queued for sync", saved?.error || "");
     setBuilderOpen(false);
   }
@@ -2258,6 +2261,19 @@ export default function App() {
     saveForgeCache(user.id, { trainer: trainerRow || { id: user.id, name: user.email?.split("@")[0], email: user.email }, clients: mapped, clientPortal: null });
   }
  
+  async function refreshClient(clientId) {
+    if (!clientId || !session?.user?.id) return;
+    try {
+      const { data: row } = await supabase.from("clients").select("*").eq("id", clientId).maybeSingle();
+      if (!row) return;
+      const { data: dataRows } = await supabase.from("client_data").select("*").eq("client_id", clientId);
+      const refreshed = mapClient(row, dataRows || []);
+      updateClient(refreshed);
+    } catch (error) {
+      console.warn("Failed to refresh client after program save", error);
+    }
+  }
+
   function updateClient(updated) {
     const userId = session?.user?.id;
     setClients((prev) => {
@@ -2275,7 +2291,7 @@ export default function App() {
  
   if (loading) return <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.gold, display: "grid", placeItems: "center", fontSize: isMobile ? 22 : 28, fontWeight: 1000 }}>FORGE loading...</div>;
   if (!session) return <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />;
-  if (clientPortal) return <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} />;
-  if (selected) return <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />;
+  if (clientPortal) return <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} refreshClient={refreshClient} />;
+  if (selected) return <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} refreshClient={refreshClient} isCoach />;
   return <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />;
 }
