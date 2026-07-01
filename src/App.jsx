@@ -774,6 +774,15 @@ function emptyProfile() {
     measurements: {},
   };
 }
+
+function normalizeClientType(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  return raw === "online" ? "online" : "in_person";
+}
+
+function clientTypeLabel(value) {
+  return normalizeClientType(value) === "online" ? "Online" : "In-Person";
+}
  
 function emptyNutrition() {
   return {
@@ -808,6 +817,7 @@ function mapClient(row, dataRows = [], index = 0) {
     goals: profile.goals,
     goal: profile.goals?.[0] || row.goal || "General Fitness",
     profile,
+    clientType: normalizeClientType(row.clientType || row.client_type || row.type || "in_person"),
     color: row.color || profile.color || getClientColor(row.id, index),
     photo: profile.photo || row.photo || "",
     avatar: initials(row.name),
@@ -1077,7 +1087,7 @@ function LoginScreen({ onReady }) {
 }
  
 function AddClientModal({ onClose, onCreate }) {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", age: "", weight: "", color: CLIENT_COLORS[0], profile: emptyProfile() });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", age: "", weight: "", color: CLIENT_COLORS[0], clientType: "in_person", profile: emptyProfile() });
   const [showColorPicker, setShowColorPicker] = useState(false);
   const setProfile = (k, v) => setForm((f) => ({ ...f, profile: { ...f.profile, [k]: v } }));
   const toggleGoal = (g) => setProfile("goals", form.profile.goals.includes(g) ? form.profile.goals.filter((x) => x !== g) : [...form.profile.goals, g]);
@@ -1104,6 +1114,13 @@ function AddClientModal({ onClose, onCreate }) {
           <Field label="Client name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
           <Field label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
           <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          <label>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Client type</div>
+            <select value={form.clientType} onChange={(e) => setForm({ ...form, clientType: e.target.value })} style={inputStyle()}>
+              <option value="in_person">In-Person Client</option>
+              <option value="online">Online Client</option>
+            </select>
+          </label>
           <Field label="Age" value={form.age} onChange={(v) => setForm({ ...form, age: v })} type="number" />
           <Field label="Birthday" value={form.profile.birthday} onChange={(v) => setProfile("birthday", v)} type="date" />
           <Field label="Weight kg" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
@@ -1125,7 +1142,7 @@ function AddClientModal({ onClose, onCreate }) {
           <Field label="Work Schedule" value={form.profile.workSchedule} onChange={(v) => setProfile("workSchedule", v)} textarea />
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-          <Button onClick={() => onCreate(form)} style={{ flex: 1 }}>Create client</Button>
+          <Button onClick={() => { if (!form.clientType) { alert("Choose a client type first."); return; } onCreate(form); }} style={{ flex: 1 }}>Create client</Button>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
       </Card>
@@ -1216,15 +1233,20 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
+  const [clientView, setClientView] = useState("all");
   const isMobile = useIsMobile(820);
   const isTablet = useIsMobile(1180) && !isMobile;
-  const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = clients.filter((c) => {
+    const matchesView = clientView === "all" || c.clientType === clientView;
+    const matchesQuery = c.name.toLowerCase().includes(query.toLowerCase());
+    return matchesView && matchesQuery;
+  });
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
  
   async function createClient(form) {
     const color = form.color || getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
-    const payload = { trainer_id: user.id, name: form.name, email: form.email, phone: form.phone, age: Number(form.age || 0), weight_kg: Number(form.weight || 0), goal: form.profile.goals?.[0] || "General Fitness", color, invite_code, invite_status: "not_sent" };
+    const payload = { trainer_id: user.id, name: form.name, email: form.email, phone: form.phone, age: Number(form.age || 0), weight_kg: Number(form.weight || 0), goal: form.profile.goals?.[0] || "General Fitness", color, clientType: normalizeClientType(form.clientType || "in_person"), invite_code, invite_status: "not_sent" };
     const { data, error } = await supabase.from("clients").insert(payload).select("*").single();
     if (error) { alert(error.message); return; }
     await upsertSection(data.id, "profile", form.profile);
@@ -1257,9 +1279,12 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           {[["clients", "Clients"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
         </div>
         {tab === "clients" && <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, marginBottom: 10 }}>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
             <Button onClick={() => setShowAdd(true)}>+ Add New Client</Button>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {[["all", "All Clients"], ["online", "Online Clients"], ["in_person", "In-Person Clients"]].map(([value, label]) => <Button key={value} variant={clientView === value ? "gold" : "dark"} onClick={() => setClientView(value)}>{label}</Button>)}
           </div>
           <div style={{
             display: "grid",
@@ -1393,6 +1418,14 @@ function ClientCard({ client, onClick }) {
         maxWidth: "92%",
         whiteSpace: "nowrap",
       }}>{client.weight || 0}kg · {client.age || 0} yrs</div>
+      <div style={{
+        color: client.clientType === "online" ? BRAND.cyan : BRAND.gold,
+        fontSize: isCompact ? 10 : 11,
+        fontWeight: 1000,
+        marginTop: 7,
+        textTransform: "uppercase",
+        letterSpacing: 0.7,
+      }}>{clientTypeLabel(client.clientType)}</div>
     </button>
   );
 }
@@ -1645,9 +1678,13 @@ function ClientHome({ client }) {
 function ProfileTab({ client, updateClient, isCoach = true }) {
   const isMobile = useIsMobile(760);
   const [profile, setProfile] = useState({ ...emptyProfile(), ...(client.profile || {}) });
+  const [clientType, setClientType] = useState(normalizeClientType(client.clientType));
   const [saving, setSaving] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const fileRef = useRef(null);
+  useEffect(() => {
+    setClientType(normalizeClientType(client.clientType));
+  }, [client.id, client.clientType]);
   const measurements = profile.measurements || {};
   const currentColor = profile.color || client.color || BRAND.cyan;
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
@@ -1661,8 +1698,10 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
   async function save() {
     setSaving(true);
     const nextProfile = { ...emptyProfile(), ...profile };
+    const nextClientType = normalizeClientType(clientType || client.clientType || "in_person");
     await upsertSection(client.id, "profile", nextProfile);
-    updateClient({ ...client, profile: nextProfile, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
+    await supabase.from("clients").update({ clientType: nextClientType }).eq("id", client.id);
+    updateClient({ ...client, clientType: nextClientType, profile: nextProfile, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
     setSaving(false);
   }
   return <Card style={{ padding: isMobile ? 14 : 18 }}>
@@ -1675,7 +1714,14 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
       <div style={{ flex: 1, minWidth: 190 }}>
         <div style={{ color: BRAND.text, fontWeight: 1000, fontSize: 18 }}>{client.name}</div>
         <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Tap the picture to change it.</div>
-        {isCoach && <div style={{ marginTop: 10 }}>
+        {isCoach && <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          <label>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Client type</div>
+            <select value={clientType} onChange={(e) => setClientType(normalizeClientType(e.target.value))} style={inputStyle({ minWidth: 180 })}>
+              <option value="in_person">In-Person Client</option>
+              <option value="online">Online Client</option>
+            </select>
+          </label>
           <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
         </div>}
       </div>
