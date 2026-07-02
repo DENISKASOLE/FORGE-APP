@@ -3,23 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
 import { FOOD_DB } from "./data/foodDatabase.js";
-import { SMART_FOOD_ALIAS } from "./data/smartFood.js";
 import { EXERCISE_LIBRARY } from "./data/exercises";
- 
-const textareaStyle = (extra = {}) => ({
-  width: "100%",
-  minHeight: 90,
-  background: "#111",
-  border: "1px solid #333",
-  borderRadius: 12,
-  color: "#fff",
-  padding: "12px",
-  resize: "vertical",
-  outline: "none",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-  ...extra,
-});
+import { BRAND, GOAL_OPTIONS, CLIENT_COLORS, LIFT_FIELDS, DEFAULT_TIME_SLOTS, DAYS, RPE_OPTIONS, PHOTO_TYPES, WATER_LITERS, SLEEP_HOURS, MEASUREMENT_FIELDS, TIMED_EXERCISES } from "./components/Common/constants.js";
+import { textareaStyle, inputStyle, Button, Field, Card } from "./components/Common/ui.js";
+import { cleanFoodText, foodTokens, bestFoodMatch, amountMultiplier, estimateSmartFood, readFileAsDataUrl, normalizeSlotLabel, timeKey, normalizeSlots, startOfWeek, addDays, isoDate, weekKey, weekRangeLabel, weekDays, uid, normalizeProgramRecord, initials, getClientColor, normalizeGoals, normalizeInjuries, timeLabel, moneyAED, makeInviteCode, makeWeek, buildPeriodizationPlan, normalizePeriodizationPlan, applyPeriodization, mergeProgramLogs, normalizeProgramWeeks, loadLocalTemplates, saveLocalTemplates, allProgramTemplates, templateWeekCount, isTimedExercise } from "./utilities/forgeHelpers.js";
  
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
@@ -50,205 +37,6 @@ const textareaStyle = (extra = {}) => ({
   - V6.5: smart custom food macro estimator for combined meals like chapati + chicken curry + rice
   - V6.5: spreadsheet-style calendar zoom slider with Fit Week view
 */
- 
-const BRAND = {
-  bg: "#070707",
-  panel: "#0f1013",
-  card: "#15161b",
-  card2: "#1b1d24",
-  line: "#2a2d36",
-  text: "#f5f5f5",
-  muted: "#a1a1aa",
-  dim: "#6b7280",
-  gold: "#E8C547",
-  red: "#FF4D4D",
-  green: "#54D990",
-  cyan: "#4ECDC4",
-  blue: "#60A5FA",
-  purple: "#A78BFA",
-  orange: "#FB923C",
-};
- 
-const GOAL_OPTIONS = [
-  "Fat Loss",
-  "Muscle Gain",
-  "Strength",
-  "Endurance",
-  "Mobility",
-  "General Fitness",
-  "Rehab",
-  "Lifestyle",
-];
- 
-const CLIENT_COLORS = [
-  "#E8C547",
-  "#4ECDC4",
-  "#A78BFA",
-  "#6EE7B7",
-  "#FB923C",
-  "#60A5FA",
-  "#F472B6",
-  "#F97316",
-  "#22D3EE",
-  "#84CC16",
-  "#C084FC",
-];
- 
-const LIFT_FIELDS = [
-  { key: "benchPress", label: "Bench" },
-  { key: "squat", label: "Squat" },
-  { key: "deadlift", label: "Deadlift" },
-  { key: "ohp", label: "OHP" },
-  { key: "deadHang", label: "Dead Hang" },
-];
- 
-  
-function cleanFoodText(value = "") {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9+.,/\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
- 
-function foodTokens(value = "") {
-  return cleanFoodText(value).split(/\s+/).filter((x) => x.length > 1 && !["with", "and", "plus", "the", "one", "cup", "plate", "bowl", "piece", "pieces", "small", "medium", "large"].includes(x));
-}
- 
-function bestFoodMatch(part = "") {
-  const cleaned = cleanFoodText(part);
-  if (!cleaned) return null;
-  const aliasKey = Object.keys(SMART_FOOD_ALIAS).sort((a, b) => b.length - a.length).find((k) => cleaned.includes(k));
-  if (aliasKey) return FOOD_DB.find((f) => f.name === SMART_FOOD_ALIAS[aliasKey]) || null;
-  const partTokens = foodTokens(cleaned);
-  let best = null;
-  let bestScore = 0;
-  FOOD_DB.forEach((item) => {
-    const name = cleanFoodText(item.name);
-    if (name.includes(cleaned) || cleaned.includes(name)) {
-      best = item;
-      bestScore = 999;
-      return;
-    }
-    const itemTokens = foodTokens(item.name);
-    const overlap = partTokens.filter((t) => itemTokens.includes(t)).length;
-    const score = overlap * 3 - Math.abs(itemTokens.length - partTokens.length) * 0.2;
-    if (score > bestScore) {
-      bestScore = score;
-      best = item;
-    }
-  });
-  return bestScore >= 2 ? best : null;
-}
- 
-function amountMultiplier(part = "", matchedName = "") {
-  const text = cleanFoodText(part);
-  const qtyMatch = text.match(/^(\d+(?:\.\d+)?)/);
-  let factor = qtyMatch ? Number(qtyMatch[1]) : 1;
-  const grams = text.match(/(\d+(?:\.\d+)?)\s*g\b/);
-  if (grams && /100g/i.test(matchedName)) factor = Number(grams[1]) / 100;
-  if (grams && /200g/i.test(matchedName)) factor = Number(grams[1]) / 200;
-  if (/half/.test(text)) factor *= 0.5;
-  if (/large/.test(text)) factor *= 1.25;
-  if (/small/.test(text)) factor *= 0.75;
-  return Math.max(0.25, factor || 1);
-}
- 
-function estimateSmartFood(text = "") {
-  const cleaned = cleanFoodText(text);
-  const empty = { kcal: 0, protein: 0, carbs: 0, fats: 0, confidence: "Low", matches: [], unmatched: [], note: "Type foods like: 2 chapati + chicken curry + rice" };
-  if (!cleaned) return empty;
-  const parts = cleaned
-    .split(/\s*(?:\+|,|\/| and | with | plus )\s*/i)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const total = { kcal: 0, protein: 0, carbs: 0, fats: 0, matches: [], unmatched: [] };
-  parts.forEach((part) => {
-    const match = bestFoodMatch(part);
-    if (!match) {
-      total.unmatched.push(part);
-      return;
-    }
-    const factor = amountMultiplier(part, match.name);
-    total.kcal += Number(match.kcal || 0) * factor;
-    total.protein += Number(match.protein || 0) * factor;
-    total.carbs += Number(match.carbs || 0) * factor;
-    total.fats += Number(match.fats || 0) * factor;
-    total.matches.push({ typed: part, matched: match.name, factor: Number(factor.toFixed(2)) });
-  });
-  const matchedCount = total.matches.length;
-  const confidence = matchedCount === 0 ? "Low" : total.unmatched.length === 0 ? "High" : "Medium";
-  return {
-    kcal: Math.round(total.kcal),
-    protein: Math.round(total.protein),
-    carbs: Math.round(total.carbs),
-    fats: Math.round(total.fats),
-    confidence,
-    matches: total.matches,
-    unmatched: total.unmatched,
-    note: confidence === "High" ? "Smart estimate ready." : "Review and edit the estimate before adding.",
-  };
-}
- 
-const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const RPE_OPTIONS = ["", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
-const PHOTO_TYPES = ["Front", "Side", "Back", "Before", "After", "Progress", "Other"];
-const WATER_LITERS = ["", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5", "5.5", "6"];
-const SLEEP_HOURS = ["", "4", "4.5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
-const MEASUREMENT_FIELDS = [
-  ["bloodPressure", "Blood Pressure"],
-  ["bmi", "BMI"],
-  ["chest", "Chest"],
-  ["leftArm", "Left Arm"],
-  ["rightArm", "Right Arm"],
-  ["waist", "Waist"],
-  ["sternum", "Sternum"],
-  ["stomach", "Stomach"],
-  ["hip", "Hip"],
-  ["waistHipRatio", "Waist To Hip Ratio"],
-  ["push", "Push Strength"],
-  ["pull", "Pull Strength"],
-  ["leg", "Leg Strength"],
-  ["core", "Core Strength"],
-  ["cardio", "Cardio Fitness"],
-];
-const TIMED_EXERCISES = ["dead hang", "scapular pull-up", "plank", "side plank", "weighted plank", "rkc plank", "hollow hold", "wall sit", "farmer walk", "farmer's carry", "suitcase carry", "overhead carry", "waiter carry", "sled push", "sled pull", "battle ropes", "battle rope waves", "battle rope slams", "skierg", "elliptical", "rower", "rowing machine", "stair climber", "stairmaster", "assault bike", "air bike", "stationary bike", "treadmill", "incline treadmill", "versa climber", "versaclimber", "jump rope", "bear crawl", "crab walk", "copenhagen", "hollow rock", "pallof hold", "deep squat hold", "goblet squat hold", "stretch", "stretching", "mobility", "carry"];
-function isTimedExercise(name = "") {
-  const n = String(name).toLowerCase();
-  return TIMED_EXERCISES.some((x) => n.includes(x));
-}
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-function normalizeSlotLabel(value = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-  if (!match) return raw.toUpperCase();
-  const hour = Number(match[1]);
-  const mins = match[2] || "00";
-  const period = match[3] ? match[3].toUpperCase() : "";
-  return `${hour}:${mins}${period ? ` ${period}` : ""}`;
-}
- 
-function timeKey(value = "") {
-  return normalizeSlotLabel(value).toLowerCase().replace(/\s+/g, " ").trim();
-}
- 
-function normalizeSlots(raw) {
-  const hasAmPm = Array.isArray(raw) && raw.some((s) => /\b(am|pm)\b/i.test(typeof s === "string" ? s : s?.label || s?.time || ""));
-  const source = Array.isArray(raw) && raw.length && hasAmPm ? raw : DEFAULT_TIME_SLOTS;
-  return source.map((s, i) => {
-    const label = normalizeSlotLabel(typeof s === "string" ? s : s.label || s.time || String(s));
-    return { id: typeof s === "object" && s.id ? s.id : `slot_${i}_${label}`, label };
-  });
-}
  
 const FORGE_CACHE_PREFIX = "forge_v47_cache_";
 const FORGE_SYNC_QUEUE_KEY = "forge_v47_pending_sync";
@@ -341,58 +129,6 @@ function useIsMobile(breakpoint = 760) {
   return isMobile;
 }
  
-function startOfWeek(date = new Date()) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-function isoDate(date) {
-  return new Date(date).toISOString().slice(0, 10);
-}
-function weekKey(date) {
-  return isoDate(startOfWeek(date));
-}
-function weekRangeLabel(start) {
-  const a = new Date(start);
-  const b = addDays(a, 6);
-  return `${a.toLocaleDateString(undefined, { month: "short", day: "numeric" })} - ${b.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
-}
-function weekDays(start) {
-  return DAYS.map((name, i) => {
-    const date = addDays(start, i);
-    return { name, date: isoDate(date), label: `${name} ${date.getDate()}` };
-  });
-}
-function loadLocalTemplates() {
-  try { return JSON.parse(localStorage.getItem("forge_program_templates") || "[]"); }
-  catch { return []; }
-}
-function saveLocalTemplates(templates) {
-  localStorage.setItem("forge_program_templates", JSON.stringify(templates || []));
-}
-function allProgramTemplates() {
-  const custom = loadLocalTemplates();
-  const byKey = new Map(PROGRAM_TEMPLATES.map((t) => [t.key, { ...t, custom: false }]));
-  custom.forEach((t) => byKey.set(t.key, { ...t, custom: true }));
-  return Array.from(byKey.values());
-}
-function templateWeekCount(t) {
-  return Math.max(1, Number(t?.totalWeeks || 4));
-}
-function normalizeProgramWeeks(program, weeksOverride) {
-  const totalWeeks = Math.max(1, Number(weeksOverride || program?.totalWeeks || 4));
-  const periodized = applyPeriodization({ ...program, totalWeeks });
-  return { ...periodized, weekLogs: mergeProgramLogs(program, periodized) };
-}
- 
 function useExerciseLibrary() {
   const [library, setLibrary] = useState(EXERCISE_LIBRARY);
   useEffect(() => {
@@ -418,100 +154,6 @@ function useExerciseLibrary() {
   }, []);
   return library;
 }
-function mergeProgramLogs(oldProgram, nextProgram) {
-  const oldLogs = oldProgram?.weekLogs || [];
-  const weeks = Number(nextProgram.totalWeeks || oldProgram?.totalWeeks || 4);
-  const days = nextProgram.days || [];
-  return Array.from({ length: weeks }, (_, wi) => {
-    const oldWeek = oldLogs[wi] || {};
-    return {
-      weekNum: wi + 1,
-      days: days.map((day, di) => {
-        const oldDay = oldWeek.days?.[di] || {};
-        const oldByName = new Map((oldDay.sessionData || []).map((ex) => [String(ex.name || "").toLowerCase(), ex]));
-        return {
-          ...oldDay,
-          name: day.name,
-          exercises: day.exercises || [],
-          sessionData: (day.exercises || []).map((ex) => {
-            const existing = oldByName.get(String(ex.name || "").toLowerCase());
-            if (existing) return { ...existing, name: ex.name, prescribed: ex };
-            return { name: ex.name, prescribed: ex, sets: Array.from({ length: Number(ex.numSets || 3) }, () => ({ weight: "", reps: "", duration: "", rpe: "", substitute: "" })) };
-          }),
-          metrics: oldDay.metrics || { maxHR: "", avgHR: "", kcal: "" },
-          notes: oldDay.notes || "",
-          date: oldDay.date || "",
-        };
-      }),
-    };
-  });
-}
- 
- 
-function uid() {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function normalizeProgramRecord(program, fallbackProgram = null) {
-  const base = program && typeof program === "object" ? program : {};
-  const id = base.id || fallbackProgram?.id || uid();
-  return {
-    ...base,
-    id,
-    savedAt: base.savedAt || fallbackProgram?.savedAt || new Date().toISOString(),
-  };
-}
- 
-function initials(name = "") {
-  return name.split(" ").filter(Boolean).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "??";
-}
- 
-function getClientColor(id, index = 0) {
-  const raw = String(id || index);
-  const seed = raw.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return CLIENT_COLORS[(seed + index) % CLIENT_COLORS.length];
-}
- 
-function normalizeGoals(value) {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  return String(value).split(/[,;]+/).map((x) => x.trim()).filter(Boolean);
-}
- 
-function normalizeInjuries(value) {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  return String(value).split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
-}
- 
-function timeLabel(t) {
-  return normalizeSlotLabel(t).replace(/^0/, "");
-}
- 
-function moneyAED(n) {
-  return `AED ${Number(n || 0).toLocaleString()}`;
-}
- 
-function makeInviteCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
- 
-function makeWeek(n, days) {
-  return {
-    weekNum: n,
-    days: days.map((d) => ({
-      ...d,
-      date: "",
-      sessionData: (d.exercises || []).map((ex) => ({
-        name: ex.name,
-        sets: Array.from({ length: Number(ex.numSets || 3) }, () => ({ weight: "", reps: "", rpe: "" })),
-      })),
-      metrics: { maxHR: "", avgHR: "", kcal: "" },
-      notes: "",
-    })),
-  };
-}
- 
 const PERIODIZATION_STYLES = [
   "Simple 4-Week Cycle",
   "Linear Progression",
@@ -519,58 +161,6 @@ const PERIODIZATION_STYLES = [
   "Block Periodization",
   "Maintenance",
 ];
- 
-function buildPeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", goal = "General Fitness") {
-  const weeks = Math.max(1, Number(totalWeeks || 4));
-  const simpleCycle = [
-    { phase: "Base", focus: "Own the technique and leave reps in reserve.", rpe: "7", volume: "Normal volume" },
-    { phase: "Build", focus: "Add reps or a small load increase where form is solid.", rpe: "7.5-8", volume: "Slightly higher challenge" },
-    { phase: "Push", focus: "Work hard while keeping execution clean.", rpe: "8-9", volume: "Highest week" },
-    { phase: "Deload", focus: "Reduce load or sets, recover, and prepare for the next cycle.", rpe: "6-7", volume: "Lower volume" },
-  ];
-  return Array.from({ length: weeks }, (_, i) => {
-    if (style === "Linear Progression") {
-      const step = Math.min(i, 3);
-      return { week: i + 1, phase: step === 3 ? "Deload / Reset" : `Build ${i + 1}`, focus: step === 3 ? "Drop intensity and recover." : "Add small load or reps if last week was controlled.", rpe: step === 0 ? "7" : step === 1 ? "7.5-8" : "8-9", volume: step === 3 ? "Lower volume" : "Progressive overload" };
-    }
-    if (style === "Undulating") {
-      const phases = [
-        { phase: "Volume", focus: "More total reps and clean tempo.", rpe: "7-8", volume: "Higher reps" },
-        { phase: "Strength", focus: "Heavier sets with controlled rest.", rpe: "8", volume: "Moderate reps" },
-        { phase: "Conditioning", focus: "Density, finishers, and movement quality.", rpe: "7.5-8.5", volume: "Moderate/high density" },
-        { phase: "Deload", focus: "Recover and sharpen technique.", rpe: "6-7", volume: "Lower volume" },
-      ];
-      return { week: i + 1, ...phases[i % 4] };
-    }
-    if (style === "Block Periodization") {
-      const block = i < Math.floor(weeks / 2) ? { phase: "Accumulation", focus: "Build work capacity and movement skill.", rpe: "7-8", volume: "Higher volume" } : i === weeks - 1 ? { phase: "Test / Reset", focus: "Assess progress or prepare a new block.", rpe: "8-9", volume: "Lower exercise volume" } : { phase: "Intensification", focus: "Increase load and reduce junk volume.", rpe: "8-9", volume: "Moderate volume" };
-      return { week: i + 1, ...block };
-    }
-    if (style === "Maintenance") {
-      return { week: i + 1, phase: "Maintenance", focus: "Keep strength, consistency, and recovery stable.", rpe: "7-8", volume: "Moderate volume" };
-    }
-    return { week: i + 1, ...simpleCycle[i % 4] };
-  }).map((w) => ({ ...w, goal }));
-}
- 
-function normalizePeriodizationPlan(totalWeeks = 4, style = "Simple 4-Week Cycle", goal = "General Fitness", existingPlan = []) {
-  const base = buildPeriodizationPlan(totalWeeks, style, goal);
-  const old = Array.isArray(existingPlan) ? existingPlan : [];
-  return base.map((w, i) => ({ ...w, ...(old[i] || {}), week: i + 1, goal }));
-}
- 
-function applyPeriodization(program) {
-  const totalWeeks = Number(program?.totalWeeks || 4);
-  const style = program?.periodizationStyle || "Simple 4-Week Cycle";
-  const goal = program?.trainingGoal || program?.goal || "General Fitness";
-  return {
-    ...program,
-    totalWeeks,
-    periodizationStyle: style,
-    trainingGoal: goal,
-    periodizationPlan: normalizePeriodizationPlan(totalWeeks, style, goal, program?.periodizationPlan),
-  };
-}
  
 const PROGRAM_TEMPLATES = [
   {
@@ -972,37 +562,6 @@ function getExerciseHistory(program, exerciseName) {
   };
 }
  
-function Button({ children, onClick, variant = "gold", type = "button", disabled = false, style = {} }) {
-  const bg = variant === "ghost" ? "transparent" : variant === "red" ? BRAND.red : variant === "dark" ? BRAND.card2 : BRAND.gold;
-  const color = variant === "ghost" ? BRAND.text : variant === "red" ? "#fff" : variant === "dark" ? BRAND.text : "#050505";
-  return (
-    <button type={type} disabled={disabled} onClick={onClick} style={{ background: bg, color, border: variant === "ghost" ? `1px solid ${BRAND.line}` : "none", borderRadius: 12, padding: "10px 14px", fontWeight: 800, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1, ...style }}>
-      {children}
-    </button>
-  );
-}
- 
-function Field({ label, value, onChange, type = "text", placeholder = "", textarea = false }) {
-  return (
-    <label style={{ display: "block" }}>
-      <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</div>
-      {textarea ? (
-        <textarea value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={inputStyle({ minHeight: 85, resize: "vertical" })} />
-      ) : (
-        <input type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={inputStyle()} />
-      )}
-    </label>
-  );
-}
- 
-function inputStyle(extra = {}) {
-  return { width: "100%", minWidth: 0, boxSizing: "border-box", background: "#0b0c10", border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 12, padding: "11px 12px", outline: "none", fontSize: 14, ...extra };
-}
- 
-function Card({ children, style = {}, onClick }) {
-  return <div onClick={onClick} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: `linear-gradient(180deg, ${BRAND.card}, #101116)`, border: `1px solid ${BRAND.line}`, borderRadius: 18, padding: 16, boxShadow: "0 16px 40px rgba(0,0,0,.25)", ...style }}>{children}</div>;
-}
- 
 function LoginScreen({ onReady }) {
   const isMobile = useIsMobile(760);
   const [mode, setMode] = useState("login");
@@ -1150,7 +709,8 @@ function AddClientModal({ onClose, onCreate }) {
   );
 }
 function modalBackdrop() {
-  return { position: "fixed", inset: 0, background: "rgba(0,0,0,.86)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
+  const isTabletLike = typeof window !== "undefined" && window.innerWidth >= 768;
+  return { position: "fixed", inset: 0, background: "rgba(0,0,0,.86)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: isTabletLike ? 24 : 16 };
 }
  
 function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
@@ -1256,7 +816,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
  
   return (
     <div style={{ minHeight: "100vh", background: `radial-gradient(circle at top left, ${BRAND.gold}10, transparent 28%), ${BRAND.bg}`, color: BRAND.text }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : isTablet ? "10px 14px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : isTablet ? "12px 16px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: isTablet ? "wrap" : "nowrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: isMobile ? 42 : isTablet ? 44 : 50, height: isMobile ? 42 : isTablet ? 44 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
             {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
@@ -1269,13 +829,13 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           <Button variant="ghost" onClick={() => supabase.auth.signOut()} style={{ padding: isMobile ? "8px 10px" : undefined }}>Logout</Button>
         </div>
       </header>
-      <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+      <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 1080 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 14 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(130px,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 10 : 14, marginBottom: isTablet ? 12 : 16 }}>
           <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
           <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
           <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: isTablet ? "visible" : "auto", flexWrap: isTablet ? "wrap" : "nowrap", paddingBottom: 4 }}>
           {[["clients", "Clients"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
         </div>
         {tab === "clients" && <>
@@ -1441,6 +1001,7 @@ function ClientAvatar({ client, size = 54 }) {
 function ClientView({ client, updateClient, back, refresh, refreshClient, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
   const isMobile = useIsMobile(760);
+  const isTablet = useIsMobile(1180) && !isMobile;
   const tabs = isCoach ? [
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"], ["schedule", "Schedule"], ["packages", "Packages"], ["invite", "Invite"]
   ] : [["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"], ["profile", "Profile"]];
@@ -1452,17 +1013,18 @@ function ClientView({ client, updateClient, back, refresh, refreshClient, isCoac
   }
   return (
     <div style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text }}>
-      <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.96)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100vw", overflow: "hidden" }}>
+      <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : isTablet ? "12px 16px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.96)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100vw", overflow: "hidden" }}>
         {isCoach && <Button variant="ghost" onClick={back} style={{ padding: isMobile ? "8px 10px" : undefined }}>Back</Button>}
         <ClientAvatar client={client} size={isMobile ? 44 : 56} />
         <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
         {isCoach && <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>}
       </header>
-      <main style={{ width: "100%", maxWidth: isCoach ? (isMobile ? 430 : 960) : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+      <main style={{ width: "100%", maxWidth: isCoach ? (isMobile ? 430 : isTablet ? 1040 : 1080) : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : isTablet ? 16 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         <div style={{
           display: "flex",
           gap: isMobile ? 6 : 8,
-          overflowX: "auto",
+          overflowX: isTablet ? "visible" : "auto",
+          flexWrap: isTablet ? "wrap" : "nowrap",
           marginBottom: isMobile ? 8 : 14,
           padding: isMobile ? "2px 0 6px" : "0 0 6px",
           position: "relative",
