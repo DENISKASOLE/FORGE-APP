@@ -421,6 +421,7 @@ function mapClient(row, dataRows = [], index = 0) {
     checkIns: sections.sessions?.checkIns || row.checkIns || [],
     sessions: sections.sessions?.sessions || row.sessions_conducted || 0,
     workoutLogs: sections.workoutLogs || [],
+    sessionLogs: normalizeSessionLogs(sections.sessionLogs || row.sessionLogs || []),
     notes: profile.notes || row.notes || "",
   };
 }
@@ -794,14 +795,23 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
   const [clientView, setClientView] = useState("all");
+  const [templateBuilderOpen, setTemplateBuilderOpen] = useState(false);
+  const [templateBuilderClient, setTemplateBuilderClient] = useState(null);
+  const [templateBuilderProgram, setTemplateBuilderProgram] = useState(null);
+  const [templateClientId, setTemplateClientId] = useState(clients[0]?.id || "");
   const isMobile = useIsMobile(820);
   const isTablet = useIsMobile(1180) && !isMobile;
+  const availableTemplates = useMemo(() => allProgramTemplates(), []);
   const filtered = clients.filter((c) => {
     const matchesView = clientView === "all" || c.clientType === clientView;
     const matchesQuery = c.name.toLowerCase().includes(query.toLowerCase());
     return matchesView && matchesQuery;
   });
   const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
+
+  useEffect(() => {
+    if (!templateClientId && clients[0]?.id) setTemplateClientId(clients[0].id);
+  }, [clients, templateClientId]);
  
   async function createClient(form) {
     const color = form.color || getClientColor(uid(), clients.length);
@@ -814,6 +824,28 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     await refresh();
   }
  
+  async function openTemplateBuilder(templateKey) {
+    const targetClient = clients.find((c) => c.id === templateClientId) || clients[0];
+    if (!targetClient) return;
+    const template = availableTemplates.find((t) => t.key === templateKey) || availableTemplates[0];
+    const seeded = cloneTemplateProgram(template, targetClient, 4);
+    setTemplateBuilderClient(targetClient);
+    setTemplateBuilderProgram(seeded);
+    setTemplateBuilderOpen(true);
+  }
+
+  async function saveTemplateProgram(next) {
+    if (!templateBuilderClient) return;
+    const previous = templateBuilderClient.program || null;
+    const base = normalizeProgramRecord({ ...next, totalWeeks: Math.max(1, Number(next.totalWeeks || weeksFromProgram(next) || 4)) }, previous);
+    const periodized = applyPeriodization(base);
+    const final = { ...periodized, id: base.id, savedAt: new Date().toISOString(), weekLogs: [] };
+    await upsertSection(templateBuilderClient.id, "program", final);
+    setClients((prev) => prev.map((c) => c.id === templateBuilderClient.id ? { ...c, program: final } : c));
+    await refresh();
+    setTemplateBuilderOpen(false);
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: `radial-gradient(circle at top left, ${BRAND.gold}10, transparent 28%), ${BRAND.bg}`, color: BRAND.text }}>
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : isTablet ? "12px 16px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: isTablet ? "wrap" : "nowrap" }}>
@@ -835,6 +867,24 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
           <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
         </div>
+        <Card style={{ padding: isMobile ? 12 : 16, marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 1000, color: BRAND.gold }}>Templates</div>
+              <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>Choose a template and open it in Edit Program for customization.</div>
+            </div>
+            <select value={templateClientId} onChange={(e) => setTemplateClientId(e.target.value)} style={inputStyle({ minWidth: 180 })}>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginTop: 12 }}>
+            {availableTemplates.map((template) => <div key={template.key} style={{ border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, background: BRAND.card2 }}>
+              <div style={{ fontWeight: 1000 }}>{template.name}</div>
+              <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{template.description}</div>
+              <Button onClick={() => openTemplateBuilder(template.key)} style={{ marginTop: 10, width: "100%" }}>Open in Edit Program</Button>
+            </div>)}
+          </div>
+        </Card>
         <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: isTablet ? "visible" : "auto", flexWrap: isTablet ? "wrap" : "nowrap", paddingBottom: 4 }}>
           {[["clients", "Clients"], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
         </div>
@@ -860,6 +910,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
       </main>
       {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onCreate={createClient} />}
       {showSettings && <CoachSettingsModal user={user} trainer={trainer} onClose={() => setShowSettings(false)} onSaved={(next) => { setTrainer?.(next); setShowSettings(false); refresh(); }} />}
+      {templateBuilderOpen && templateBuilderClient && <ProgramBuilder client={templateBuilderClient} program={templateBuilderProgram} mode="edit" onClose={() => setTemplateBuilderOpen(false)} onSave={saveTemplateProgram} />}
     </div>
   );
 }
@@ -1201,7 +1252,7 @@ function ClientHome({ client }) {
   const metrics = computePerformanceMetrics(client.program);
   const deadHang = metrics.find((m) => m.name === "Dead Hang");
   const plank = metrics.find((m) => m.name === "Plank");
-  const todaysWorkout = client.program?.days?.[0]?.name || "Workout not assigned";
+  const todaysWorkout = getTodaysWorkoutLabel(client.program);
   const meals = ["Breakfast", "Lunch", "Dinner"];
   const mealDone = (meal) => stats.logs.some((l) => l.meal === meal) || stats.daily?.meals?.[meal];
   if (isMobile) {
@@ -1328,16 +1379,67 @@ function downloadProgramPDF(client, program) {
 function weeksFromProgram(program) {
   return Number(program?.totalWeeks || program?.periodizationPlan?.length || program?.weekLogs?.length || 4);
 }
+
+function normalizeSessionLogs(raw) {
+  const logs = Array.isArray(raw) ? raw : [];
+  return logs.map((entry, index) => ({
+    id: entry?.id || `${entry?.date || new Date().toISOString().slice(0, 10)}-${index}`,
+    date: entry?.date || new Date().toISOString().slice(0, 10),
+    createdAt: entry?.createdAt || new Date().toISOString(),
+    programId: entry?.programId || null,
+    programName: entry?.programName || "",
+    week: Number(entry?.week || 1),
+    dayName: entry?.dayName || "",
+    notes: entry?.notes || "",
+    metrics: entry?.metrics && typeof entry.metrics === "object" ? entry.metrics : {},
+    exercises: Array.isArray(entry?.exercises) ? entry.exercises.map((ex) => ({
+      name: ex?.name || "",
+      note: ex?.note || "",
+      sets: Array.isArray(ex?.sets) ? ex.sets.map((set) => ({
+        weight: set?.weight ?? "",
+        reps: set?.reps ?? "",
+        duration: set?.duration ?? "",
+        rpe: set?.rpe ?? "",
+      })) : [],
+    })) : [],
+  }));
+}
+
+function getProgramDayForDate(program, targetDate = new Date()) {
+  const days = Array.isArray(program?.days) ? program.days : [];
+  if (!days.length) return null;
+  const date = targetDate instanceof Date ? targetDate : new Date(targetDate);
+  const idx = date.getDay() % days.length;
+  return { index: idx, day: days[idx], label: days[idx]?.name || `Day ${idx + 1}` };
+}
+
+function getTodaysWorkoutLabel(program, targetDate = new Date()) {
+  return getProgramDayForDate(program, targetDate)?.label || "No workout assigned";
+}
+
+function getProgramWorkoutPreview(program, targetDate = new Date()) {
+  const workout = getProgramDayForDate(program, targetDate);
+  if (!workout) return null;
+  return {
+    ...workout,
+    exercises: (workout.day?.exercises || []).map((ex) => ({
+      ...ex,
+      sets: Array.from({ length: Math.max(1, Number(ex.numSets || 3)) }, () => ({ weight: "", reps: "", duration: "", rpe: "" })),
+    })),
+  };
+}
  
 function ProgramTab({ client, updateClient, isCoach, refreshClient }) {
   const isMobile = useIsMobile(760);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderMode, setBuilderMode] = useState("build");
   const [program, setProgram] = useState(client.program);
+  const [sessionLogs, setSessionLogs] = useState(() => normalizeSessionLogs(client.sessionLogs || []));
 
   useEffect(() => {
     setProgram(client.program || null);
-  }, [client.id, client.program?.id, client.program?.savedAt]);
+    setSessionLogs(normalizeSessionLogs(client.sessionLogs || []));
+  }, [client.id, client.program?.id, client.program?.savedAt, client.sessionLogs]);
 
   async function saveProgram(p) {
     if (!p) return;
@@ -1360,12 +1462,24 @@ function ProgramTab({ client, updateClient, isCoach, refreshClient }) {
     setBuilderOpen(false);
   }
 
+  async function saveSessionLog(nextLog) {
+    const existing = normalizeSessionLogs(client.sessionLogs || []);
+    const finalLogs = [nextLog, ...existing].sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)).slice(0, 50);
+    setSessionLogs(finalLogs);
+    const saved = await upsertSection(client.id, "sessionLogs", finalLogs);
+    updateClient({ ...client, sessionLogs: finalLogs });
+    if (typeof refreshClient === "function") {
+      try { await refreshClient(client.id); } catch (error) { console.warn("Session log refresh failed", error); }
+    }
+    if (saved?.queued) console.warn("Session log saved locally and queued for sync", saved?.error || "");
+  }
+
   function openBuilder(mode) {
     setBuilderMode(mode);
     setBuilderOpen(true);
   }
 
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => openBuilder("build")}>Build Program</Button><Button variant="dark" onClick={() => openBuilder("edit")}>Edit Program</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveProgram={saveProgram} isCoach={isCoach} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Create one with Build Program.</div></Card>}{builderOpen && <ProgramBuilder client={client} program={builderMode === "edit" ? (program || null) : null} mode={builderMode} onClose={() => setBuilderOpen(false)} onSave={saveProgram} />}</div>;
+  return <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}><Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000 }}>Program</div><div style={{ color: BRAND.muted }}>{program?.name || "No program yet"}</div>{isCoach && program?.templateName && <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, marginTop: 4 }}>Template: {program.templateName}</div>}{program?.periodizationStyle && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginTop: 4 }}>{program.trainingGoal || "General Fitness"} · {program.periodizationStyle}</div>}</div>{program && <Button variant="dark" onClick={() => downloadProgramPDF(client, program)} style={{ width: isMobile ? "100%" : undefined }}>Download PDF</Button>}{isCoach && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => openBuilder("build")}>Build Program</Button><Button variant="dark" onClick={() => openBuilder("edit")}>Edit Program</Button></div>}</div>{program && <div style={{ marginTop: 12, color: BRAND.green, fontWeight: 800 }}>{aiProgression(program, client)}</div>}</Card>{program ? <SessionTracker client={client} program={program} saveSessionLog={saveSessionLog} isCoach={isCoach} sessionLogs={sessionLogs} /> : <Card><div style={{ color: BRAND.muted }}>No program assigned yet. Create one with Build Program.</div></Card>}{builderOpen && <ProgramBuilder client={client} program={builderMode === "edit" ? (program || null) : null} mode={builderMode} onClose={() => setBuilderOpen(false)} onSave={saveProgram} />}</div>;
 }
  
  
@@ -1476,41 +1590,83 @@ function ProgramBuilder({ client, program, onClose, onSave, mode = "build" }) {
   );
 }
  
-function SessionTracker({ client, program, saveProgram, isCoach }) {
+function SessionTracker({ client, program, saveSessionLog, isCoach, sessionLogs = [] }) {
   const isMobile = useIsMobile(760);
-  const exerciseLibrary = useExerciseLibrary();
-  const logs = program.weekLogs || mergeProgramLogs(null, program);
-  const [wk, setWk] = useState(0);
-  const [dy, setDy] = useState(0);
-  const [subSearch, setSubSearch] = useState({});
-  const week = logs[wk];
-  const day = week?.days?.[dy];
-  const phase = program.periodizationPlan?.[wk] || buildPeriodizationPlan(program.totalWeeks || logs.length, program.periodizationStyle || "Simple 4-Week Cycle", program.trainingGoal || client.goal || "General Fitness")[wk];
-  function patch(fn) { const next = fn(logs); saveProgram({ ...program, weekLogs: next }); }
-  function setSet(ei, si, f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, sessionData: d.sessionData.map((ex, xi) => xi !== ei ? ex : { ...ex, sets: ex.sets.map((s, j) => j !== si ? s : { ...s, [f]: v }) }) }) })); }
-  function setExField(ei, f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, sessionData: d.sessionData.map((ex, xi) => xi !== ei ? ex : { ...ex, [f]: v }) }) })); }
-  function setMeta(f, v) { patch((ls) => ls.map((w, wi) => wi !== wk ? w : { ...w, days: w.days.map((d, di) => di !== dy ? d : { ...d, [f]: v }) })); }
-  function setMetric(f, v) { setMeta("metrics", { ...(day?.metrics || {}), [f]: v }); }
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  const [metrics, setMetrics] = useState({ kcal: "", maxHR: "", avgHR: "" });
+  const [exercises, setExercises] = useState([]);
+  const workout = useMemo(() => getProgramWorkoutPreview(program), [program?.id, JSON.stringify(program?.days || [])]);
+
+  useEffect(() => {
+    setSessionDate(new Date().toISOString().slice(0, 10));
+    setNotes("");
+    setMetrics({ kcal: "", maxHR: "", avgHR: "" });
+    setExercises(workout?.exercises || []);
+  }, [workout?.label, workout?.index, program?.id]);
+
+  function updateExerciseField(ei, field, value) {
+    setExercises((prev) => prev.map((ex, i) => i === ei ? { ...ex, [field]: value } : ex));
+  }
+  function updateSetValue(ei, si, field, value) {
+    setExercises((prev) => prev.map((ex, i) => i === ei ? { ...ex, sets: ex.sets.map((set, j) => j === si ? { ...set, [field]: value } : set) } : ex));
+  }
+  async function save() {
+    if (!workout) return;
+    const nextLog = {
+      id: uid(),
+      date: sessionDate,
+      createdAt: new Date().toISOString(),
+      programId: program?.id || null,
+      programName: program?.name || "Workout Program",
+      week: 1,
+      dayName: workout.label,
+      notes,
+      metrics,
+      exercises: exercises.map((ex) => ({ name: ex.name || "", note: ex.note || "", sets: ex.sets.map((set) => ({ weight: set.weight || "", reps: set.reps || "", duration: set.duration || "", rpe: set.rpe || "" })) })),
+    };
+    await saveSessionLog(nextLog);
+    setNotes("");
+    setMetrics({ kcal: "", maxHR: "", avgHR: "" });
+  }
+
   return <Card style={{ padding: isMobile ? 12 : 16 }}>
-    <div style={{ display: "flex", gap: 6, overflowX: "auto", flexWrap: isMobile ? "nowrap" : "wrap", marginBottom: 10, paddingBottom: 4 }}>{logs.map((_, i) => <Button key={i} variant={wk === i ? "gold" : "dark"} onClick={() => { setWk(i); setDy(0); }}>Week {i + 1}</Button>)}</div>
-    {phase && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 12, marginBottom: 12 }}><div style={{ color: BRAND.gold, fontWeight: 1000 }}>Week {wk + 1}: {phase.phase}</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>Focus: {phase.focus} · Target RPE {phase.rpe} · {phase.volume}</div></div>}
-    <div style={{ display: "flex", gap: 6, overflowX: "auto", flexWrap: isMobile ? "nowrap" : "wrap", marginBottom: 14, paddingBottom: 4 }}>{week?.days?.map((d, i) => <Button key={i} variant={dy === i ? "gold" : "dark"} onClick={() => setDy(i)}>{d.name}</Button>)}</div>
-    {day && <>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 10, flexWrap: "wrap" }}><div><div style={{ fontSize: 20, fontWeight: 1000 }}>{day.name}</div><div style={{ color: BRAND.muted }}>Week {wk + 1}</div></div><input type="date" value={day.date || ""} onChange={(e) => setMeta("date", e.target.value)} style={inputStyle({ maxWidth: 180 })} /></div>
-      {day.sessionData?.map((ex, ei) => {
-        const effectiveName = ex.substitute || ex.actualName || ex.name;
-        const timed = isTimedExercise(effectiveName);
-        const q = subSearch[ei] || "";
-        const suggestions = exerciseLibrary.filter((n) => n.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
-        return <div key={ei} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}><div><div style={{ color: client.color, fontWeight: 1000, fontSize: 18 }}>{effectiveName}</div>{ex.substitute && <div style={{ color: BRAND.muted, fontSize: 12 }}>Substituted for {ex.name}</div>}</div><Button variant="dark" onClick={() => setExField(ei, "substitute", "")}>Use Original</Button></div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginTop: 8, marginBottom: 10 }}><input placeholder="Substitute exercise if gym is busy..." value={q} onChange={(e) => setSubSearch({ ...subSearch, [ei]: e.target.value })} style={inputStyle()} /><Button variant="dark" onClick={() => q && setExField(ei, "substitute", q)}>Substitute</Button></div>
-          {q && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>{suggestions.map((n) => <button key={n} onClick={() => { setExField(ei, "substitute", n); setSubSearch({ ...subSearch, [ei]: "" }); }} style={{ border: `1px solid ${BRAND.line}`, background: BRAND.card2, color: BRAND.text, borderRadius: 999, padding: "6px 10px", cursor: "pointer", fontWeight: 800 }}>{n}</button>)}</div>}
-          {ex.sets.map((s, si) => <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "34px 1fr 1fr 76px" : "48px 1fr 1fr 100px", gap: 8, marginBottom: 6, alignItems: "center" }}><div style={{ color: BRAND.muted }}>S{si + 1}</div><input placeholder={timed ? "load/assist" : "kg"} value={s.weight || ""} onChange={(e) => setSet(ei, si, "weight", e.target.value)} style={inputStyle()} /><input placeholder={timed ? "time e.g. 30 sec" : "reps"} value={timed ? (s.duration || s.reps || "") : (s.reps || "")} onChange={(e) => setSet(ei, si, timed ? "duration" : "reps", e.target.value)} style={inputStyle()} /><select value={s.rpe || ""} onChange={(e) => setSet(ei, si, "rpe", e.target.value)} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></div>)}
-        </div>;
-      })}
-      <div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 14, paddingTop: 14 }}><div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 1000, marginBottom: 10 }}>METRIC DATA</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}><Field label="Kcals" value={day.metrics?.kcal || ""} onChange={(v) => setMetric("kcal", v)} type="number" /><Field label="Max HR" value={day.metrics?.maxHR || ""} onChange={(v) => setMetric("maxHR", v)} type="number" /><Field label="Average HR" value={day.metrics?.avgHR || ""} onChange={(v) => setMetric("avgHR", v)} type="number" /></div></div>
-      <Field label="Session notes" value={day.notes} onChange={(v) => setMeta("notes", v)} textarea />
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 1000 }}>Log Session</div>
+        <div style={{ color: BRAND.muted, marginTop: 4 }}>{workout ? `Today: ${workout.label}` : "No workout assigned"}</div>
+      </div>
+      <Button onClick={save} disabled={!workout}>Save Session Log</Button>
+    </div>
+    {workout && <>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "180px 1fr", gap: 10, marginBottom: 12 }}>
+        <Field label="Session date" value={sessionDate} onChange={setSessionDate} type="date" />
+        <Field label="Session notes" value={notes} onChange={setNotes} textarea />
+      </div>
+      <div style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 8 }}>
+        {exercises.map((ex, ei) => <div key={`${ex.name}-${ei}`} style={{ border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 10, marginBottom: 10, background: BRAND.card2 }}>
+          <div style={{ fontWeight: 1000, marginBottom: 8 }}>{ex.name}</div>
+          <input value={ex.note || ""} onChange={(e) => updateExerciseField(ei, "note", e.target.value)} placeholder="Exercise notes" style={inputStyle({ marginBottom: 8 })} />
+          {ex.sets.map((set, si) => <div key={`${ei}-${si}`} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "1fr 1fr 1fr 90px", gap: 8, marginBottom: 6, alignItems: "center" }}>
+            <div style={{ color: BRAND.muted, fontWeight: 800 }}>Set {si + 1}</div>
+            <input value={set.weight || ""} onChange={(e) => updateSetValue(ei, si, "weight", e.target.value)} placeholder="kg" style={inputStyle()} />
+            <input value={set.reps || ""} onChange={(e) => updateSetValue(ei, si, "reps", e.target.value)} placeholder="reps" style={inputStyle()} />
+            <input value={set.duration || ""} onChange={(e) => updateSetValue(ei, si, "duration", e.target.value)} placeholder="time" style={inputStyle()} />
+          </div>)}
+        </div>)}
+      </div>
+      <div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 14, paddingTop: 14 }}>
+        <div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 1000, marginBottom: 10 }}>METRIC DATA</div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
+          <Field label="Kcals" value={metrics.kcal || ""} onChange={(v) => setMetrics((prev) => ({ ...prev, kcal: v }))} type="number" />
+          <Field label="Max HR" value={metrics.maxHR || ""} onChange={(v) => setMetrics((prev) => ({ ...prev, maxHR: v }))} type="number" />
+          <Field label="Average HR" value={metrics.avgHR || ""} onChange={(v) => setMetrics((prev) => ({ ...prev, avgHR: v }))} type="number" />
+        </div>
+      </div>
+      <div style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 14, paddingTop: 14 }}>
+        <div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 1000, marginBottom: 10 }}>Recent Session History</div>
+        {sessionLogs.length ? <div style={{ display: "grid", gap: 8 }}>{sessionLogs.slice(0, 6).map((log) => <div key={log.id} style={{ border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10, background: BRAND.card2 }}><div style={{ fontWeight: 1000 }}>{log.dayName || "Session"}</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{log.date} · {log.exercises?.length || 0} exercises</div></div>)}</div> : <div style={{ color: BRAND.muted }}>No session logs yet. Save a session to keep a history for this client.</div>}
+      </div>
     </>}
   </Card>;
 }
