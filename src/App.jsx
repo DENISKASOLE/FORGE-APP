@@ -1324,7 +1324,7 @@ function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMoveDown, i
 
 // ---------- Coach: Program Builder ----------
 function ProgramBuilder({ client, program, onClose, onSave }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [p, setP] = useState(() => (program?.version === 2 ? JSON.parse(JSON.stringify(program)) : newProgram(`${client.name?.split(" ")[0] || "Client"}'s Program`, client.goal || "General Fitness", 4)));
   const [wk, setWk] = useState(0);
   const [wo, setWo] = useState(0);
@@ -1403,7 +1403,7 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
 
 // ---------- Client: Live Workout Session ----------
 function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const exerciseLibrary = useExerciseLibrary();
   const [subFor, setSubFor] = useState(null);
   const [subQuery, setSubQuery] = useState("");
@@ -1563,7 +1563,7 @@ function TrainingHistory({ client, logs }) {
 
 // ---------- ProgramTab: coach + client entry point ----------
 function ProgramTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [program, setProgram] = useState(client.program?.version === 2 ? client.program : null);
   const [logs, setLogs] = useState(client.trainingLogs || emptyTrainingLogs());
   const [view, setView] = useState("overview");
@@ -1930,7 +1930,7 @@ function Card({ children, style = {}, onClick }) {
   return <div onClick={onClick} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, padding: 18, ...style }}>{children}</div>;
 }
 function LoginScreen({ onReady }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -2175,7 +2175,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("clients");
   const [query, setQuery] = useState("");
-  const isMobile = useIsMobile(820);
+  const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
   const notifications = computeNotifications(clients);
@@ -2269,7 +2269,7 @@ function Kpi({ title, value, icon, color, onClick, compact = false }) {
   </Card>;
 }
 function ScheduledView({ clients, selectClient }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const scheduled = clients.flatMap((client) => (client.schedule || []).map((s) => ({
     id: `${client.id}_${s.day}_${s.time}`,
     client,
@@ -2306,7 +2306,7 @@ function ScheduledView({ clients, selectClient }) {
   );
 }
 function ClientCard({ client, onClick }) {
-  const isCompact = useIsMobile(920);
+  const isCompact = useIsMobile(520);
   const size = isCompact ? 146 : 162;
   const goals = client.goals?.join(" + ") || client.goal || "General Fitness";
   return (
@@ -2427,7 +2427,7 @@ function ClientSettingsModal({ client, onClose }) {
 function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   const [tab, setTab] = useState(isCoach ? "profile" : "home");
   const [showSettings, setShowSettings] = useState(false);
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const isOnline = client.clientType === "Online";
   const tabs = isCoach ? [
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"],
@@ -2584,7 +2584,7 @@ function CompactMetric({ label, value, total, color, percent }) {
   return <Card style={{ padding: 12, borderRadius: 20, minHeight: 98 }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 600 }}>{label}</div><div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, letterSpacing: -0.5 }}>{value}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>/{total}</div></div><div style={{ width: 44, height: 44, borderRadius: "50%", background: `conic-gradient(${color} ${n}%, ${BRAND.card2} ${n}% 100%)`, display: "grid", placeItems: "center" }}><div style={{ width: 33, height: 33, borderRadius: "50%", background: BRAND.card }} /></div></div><div style={{ color, fontSize: 11, fontWeight: 700, marginTop: 8 }}>{n}% complete</div></Card>;
 }
 function ClientHome({ client }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const stats = todaysNutritionStats(client);
   const metrics = computePerformanceMetrics(client.trainingLogs);
   const deadHang = metrics.find((m) => m.name === "Dead Hang");
@@ -2659,7 +2659,7 @@ function TrialLinkModal({ client, onClose, onLinked }) {
 const MOTIVATION_STYLES = ["", "Encouraging cheerleader", "Direct and tough-love", "Data and numbers focused", "Quiet accountability, no fuss"];
 const CELEBRATION_STYLES = ["", "A public shoutout", "A quiet high-five", "A message from you", "Just mark it in session"];
 function ProfileTab({ client, updateClient, isCoach = true }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [profile, setProfile] = useState({ ...emptyProfile(), ...(client.profile || {}) });
   const [name, setName] = useState(client.name || "");
   const [weight, setWeight] = useState(client.weight || "");
@@ -2884,7 +2884,7 @@ async function saveCustomFood(trainerId, food) {
 }
 
 function FoodSearchModal({ client, onClose, onAdd }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [tab, setTab] = useState("search");
   const [query, setQuery] = useState("");
   const [qty, setQty] = useState(1);
@@ -3068,7 +3068,7 @@ function MealSection({ meal, logs, plan, color, onAdd, onDelete }) {
 }
 
 function NutritionTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [nutrition, setNutrition] = useState(() => normalizeNutrition(client.nutrition));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [addingMeal, setAddingMeal] = useState(null);
@@ -3187,7 +3187,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
 }
 
 function TransformPhotos({ client, updateClient }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [photos, setPhotos] = useState(client.transformPhotos || []);
   const [form, setForm] = useState({ image: "", type: "Front", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
   const beforePhoto = [...photos].find((p) => String(p.type || "").toLowerCase() === "before") || photos[photos.length - 1];
@@ -3204,7 +3204,7 @@ function TransformPhotos({ client, updateClient }) {
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
 }
 function ProgressTab({ client }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const latest = client.progress?.[client.progress.length - 1] || {};
   const metrics = computePerformanceMetrics(client.trainingLogs);
   const coachSessions = recentCompletedSessions(client.trainingLogs, 8).map((d) => ({ ...d, source: "Coach/Program" }));
@@ -3262,7 +3262,7 @@ function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
   );
 }
 function CheckInsTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [template, setTemplate] = useState(DEFAULT_CHECKIN_QUESTIONS);
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -3326,7 +3326,7 @@ function paymentStatus(client) {
   return { label: `Due ${client.paymentDueDate}`, color: BRAND.text };
 }
 function PaymentsTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [dueDate, setDueDate] = useState(client.paymentDueDate || "");
   const [saving, setSaving] = useState(false);
   const status = paymentStatus(client);
@@ -3359,7 +3359,7 @@ function PaymentsTab({ client, updateClient, isCoach }) {
   );
 }
 function MessagesTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [messages, setMessages] = useState(client.messages || []);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -3407,7 +3407,7 @@ function MessagesTab({ client, updateClient, isCoach }) {
   );
 }
 function ScheduleTab({ client, updateClient }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [schedule, setSchedule] = useState(client.schedule || []);
   const [form, setForm] = useState({ day: "Mon", time: DEFAULT_TIME_SLOTS[0] });
   async function save(next) { setSchedule(next); await upsertSection(client.id, "sessions", { schedule: next, checkIns: client.legacyCheckIns || [], sessions: client.sessions || 0 }); updateClient({ ...client, schedule: next }); }
@@ -3420,14 +3420,14 @@ function InviteTab({ client, updateClient }) {
   return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Invite Client</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>Client uses this code to claim the profile you created.</div><Field label="Invite Code" value={code} onChange={(v) => setCode(v.toUpperCase())} /><Button onClick={saveInvite} style={{ marginTop: 10 }}>Save Invite</Button><div style={{ marginTop: 12, color: BRAND.green, wordBreak: "break-all" }}>{link}</div></Card>;
 }
 function ClientWorkoutLog({ client, updateClient }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [logs, setLogs] = useState(client.workoutLogs || []);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), workout: "", weights: "", cardio: "", rpe: "", notes: "" });
   async function add() { const next = [{ id: uid(), ...form }, ...logs]; setLogs(next); await upsertSection(client.id, "workoutLogs", next); updateClient({ ...client, workoutLogs: next }); setForm({ ...form, workout: "", weights: "", cardio: "", rpe: "", notes: "" }); }
   return <Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ fontSize: isMobile ? 20 : 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>RPE</div><select value={form.rpe || ""} onChange={(e) => setForm({ ...form, rpe: e.target.value })} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></label></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
 }
 function PackagesTab({ client, updateClient }) {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [packages, setPackages] = useState(client.packages || []);
   const [form, setForm] = useState({ name: "10 Session Pack", total: 10, used: 0, price: "", paid: false });
   async function save(next) { setPackages(next); await upsertSection(client.id, "packages", next); updateClient({ ...client, packages: next }); }
@@ -3504,7 +3504,7 @@ function Trials({ user, onConvert }) {
   return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{t.name}</b>{t.convertedClientId && <span style={{ background: BRAND.green, color: "#000", fontSize: 10, fontWeight: 1000, borderRadius: 999, padding: "2px 8px" }}>CLIENT</span>}</div><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div>{openTrial.convertedClientId ? <div style={{ background: `${BRAND.green}18`, border: `1px solid ${BRAND.green}`, borderRadius: 12, padding: 10, marginTop: 12, color: BRAND.green, fontWeight: 800, fontSize: 13 }}>Converted to a client on {String(openTrial.convertedAt || "").slice(0, 10)}.</div> : null}<div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>{!openTrial.convertedClientId && <Button onClick={() => convertToClient(openTrial)} disabled={converting} style={{ flex: 1 }}>{converting ? "Converting..." : "Convert to Client (client has paid)"}</Button>}<Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
 }
 export default function App() {
-  const isMobile = useIsMobile(760);
+  const isMobile = useIsMobile(520);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [trainer, setTrainer] = useState(null);
