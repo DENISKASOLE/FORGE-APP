@@ -2227,10 +2227,10 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
         </div>
       </header>
       <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(130px,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 10 : 14, marginBottom: isTablet ? 12 : 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 12 : 14, marginBottom: isTablet ? 12 : 16 }}>
           <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
           <Kpi title="Notifications" value={notifications.length} icon="🔔" color={notifications.length > 0 ? BRAND.red : BRAND.muted} onClick={() => setTab("notifications")} compact={isMobile || isTablet} />
-          <Kpi title="Trials" value="Open" icon="🔥" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
+          <Kpi title="Trials" value="Open" icon="" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
           <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
@@ -2243,7 +2243,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
           </div>
           <div style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(4,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
+            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(3,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
             gap: isMobile ? 12 : isTablet ? 14 : 18,
             alignItems: "start",
           }}>
@@ -3514,7 +3514,7 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
   useEffect(() => {
     ensureMobileViewport();
-    const goOnline = async () => { setSyncStatus("syncing"); await flushSyncQueue(); setSyncStatus("online"); if (session?.user) loadRole(session.user); };
+    const goOnline = async () => { setSyncStatus("syncing"); await flushSyncQueue(); setSyncStatus("online"); };
     const goOffline = () => setSyncStatus("offline");
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
@@ -3525,7 +3525,12 @@ export default function App() {
       }
     }, 20000);
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (data.session) boot(data.session.user); else setLoading(false); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => { setSession(sess); if (sess) boot(sess.user); else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); } });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+      if (_event === "TOKEN_REFRESHED" || _event === "USER_UPDATED") return; // session stayed the same, just the token renewed - don't reload data mid-session
+      if (sess) boot(sess.user);
+      else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); }
+    });
     return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); clearInterval(retryTimer); sub.subscription.unsubscribe(); };
   }, []);
   async function boot(user) {
@@ -3565,9 +3570,13 @@ export default function App() {
     if (clientMatch) {
       const { data: rows } = await supabase.from("client_data").select("*").eq("client_id", clientMatch.id);
       const mappedClient = mapClient(clientMatch, rows || []);
-      setClientPortal(mappedClient);
+      const hasPendingEdits = readJson(FORGE_SYNC_QUEUE_KEY, []).some((item) => item.clientId === clientMatch.id);
+      setClientPortal((prev) => {
+        const next = hasPendingEdits && prev?.id === mappedClient.id ? prev : mappedClient;
+        saveForgeCache(user.id, { trainer: null, clients: [], clientPortal: next });
+        return next;
+      });
       setSelected(null); setClients([]);
-      saveForgeCache(user.id, { trainer: null, clients: [], clientPortal: mappedClient });
       return;
     }
     await loadCoach(user);
@@ -3580,7 +3589,7 @@ export default function App() {
       await supabase.from("clients").update({ trainer_id: user.id }).is("trainer_id", null);
     }
     const { data: clientRows, error } = await supabase.from("clients").select("*").eq("trainer_id", user.id).order("created_at", { ascending: false });
-    if (error) { console.error(error); setClients([]); return; }
+    if (error) { console.error(error); return; }
     const ids = (clientRows || []).map((c) => c.id);
     let dataRows = [];
     if (ids.length) {
@@ -3588,7 +3597,12 @@ export default function App() {
       dataRows = data || [];
     }
     const mapped = (clientRows || []).map((r, i) => mapClient(r, dataRows, i));
-    setClients(mapped);
+    const pendingIds = new Set(readJson(FORGE_SYNC_QUEUE_KEY, []).map((item) => item.clientId).filter(Boolean));
+    setClients((prev) => {
+      const prevById = new Map(prev.map((c) => [c.id, c]));
+      // A client with edits still waiting to sync is newer than what we just fetched - keep the local version so we never silently revert unsaved work.
+      return mapped.map((c) => (pendingIds.has(c.id) && prevById.has(c.id) ? prevById.get(c.id) : c));
+    });
     saveForgeCache(user.id, { trainer: trainerRow || { id: user.id, name: user.email?.split("@")[0], email: user.email }, clients: mapped, clientPortal: null });
   }
   function updateClient(updated) {
