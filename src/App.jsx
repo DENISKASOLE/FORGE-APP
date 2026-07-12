@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 const textareaStyle = (extra = {}) => ({
   width: "100%",
   minHeight: 90,
@@ -12,7 +13,7 @@ const textareaStyle = (extra = {}) => ({
   outline: "none",
   boxSizing: "border-box",
   fontFamily: "inherit",
-  fontSize: 14,
+  fontSize: 16,
   ...extra,
 });
 /*
@@ -46,14 +47,14 @@ const textareaStyle = (extra = {}) => ({
   - V6.5: spreadsheet-style calendar zoom slider with Fit Week view
 */
 const BRAND = {
-  bg: "#000000",
-  panel: "#0a0a0c",
-  card: "#111114",
-  card2: "#18181c",
-  line: "#242428",
-  text: "#f5f5f7",
-  muted: "#8e8e93",
-  dim: "#5c5c60",
+  bg: "#050810",
+  panel: "#0a0e1a",
+  card: "#0f1424",
+  card2: "#161c30",
+  line: "#26314a",
+  text: "#ffffff",
+  muted: "#a8adba",
+  dim: "#78808f",
   gold: "#E8C547",
   red: "#FF5C5C",
   green: "#3DD68C",
@@ -62,6 +63,13 @@ const BRAND = {
   purple: "#A78BFA",
   orange: "#FFA94D",
 };
+const GLOBAL_TEXT_CSS = `
+  html, body, #root { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; box-shadow: none !important; background: ${BRAND.bg} !important; min-height: 100%; }
+  body { min-height: 100vh; }
+  * { font-weight: 700 !important; }
+  input, textarea, select, button { font-weight: 700 !important; }
+  ::placeholder { font-weight: 600 !important; opacity: 0.8; }
+`;
 const GOAL_OPTIONS = [
   "Fat Loss",
   "Muscle Gain",
@@ -74,13 +82,14 @@ const GOAL_OPTIONS = [
 ];
 const CLIENT_TYPES = ["1:1", "Online"];
 const DEFAULT_CHECKIN_QUESTIONS = [
-  { id: "q1", text: "What's your current weight?" },
-  { id: "q2", text: "How would you rate your energy this week? (1-10)" },
-  { id: "q3", text: "How was your sleep this week?" },
-  { id: "q4", text: "How well did you stick to your program this week? (1-10)" },
-  { id: "q5", text: "What's your biggest win this week?" },
-  { id: "q6", text: "What was your biggest challenge this week?" },
-  { id: "q7", text: "Anything your coach should know?" },
+  { id: "q1", text: "What's your current weight?", type: "text" },
+  { id: "q2", text: "Energy this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
+  { id: "q3", text: "How was your sleep this week?", type: "choice", options: ["Poor", "Fair", "Good", "Excellent"] },
+  { id: "q4", text: "Stuck to your program this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
+  { id: "q8", text: "Stuck to your nutrition this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
+  { id: "q5", text: "What's your biggest win this week?", type: "text" },
+  { id: "q6", text: "What was your biggest challenge this week?", type: "text" },
+  { id: "q7", text: "Anything your coach should know?", type: "text" },
 ];
 const CLIENT_COLORS = [
   "#E8C547",
@@ -936,9 +945,17 @@ function writeJson(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (_) {}
 }
+function stripPhotosForCache(clients) {
+  return (clients || []).map((c) => (c.transformPhotos?.length ? { ...c, transformPhotos: [] } : c));
+}
 function saveForgeCache(userId, snapshot) {
   if (!userId) return;
-  writeJson(cacheKey(userId), { ...snapshot, savedAt: new Date().toISOString() });
+  const lightweight = {
+    ...snapshot,
+    clients: stripPhotosForCache(snapshot.clients),
+    clientPortal: snapshot.clientPortal?.transformPhotos?.length ? { ...snapshot.clientPortal, transformPhotos: [] } : snapshot.clientPortal,
+  };
+  writeJson(cacheKey(userId), { ...lightweight, savedAt: new Date().toISOString() });
 }
 function readForgeCache(userId) {
   if (!userId) return null;
@@ -1216,31 +1233,108 @@ function detectSessionPBs(session, logsBefore) {
   }
   return pbs;
 }
-function downloadProgramPDF2(client, program) {
+// ---------------- Real PDF generation (pdf-lib) + download/share ----------------
+const PDF_PAGE = { width: 595.28, height: 841.89, margin: 50 }; // A4, points
+async function buildPdfDoc(title, subtitle, sections) {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const { width, height, margin } = PDF_PAGE;
+  const maxWidth = width - margin * 2;
+  let page = pdfDoc.addPage([width, height]);
+  let y = height - margin;
+
+  function ensureSpace(needed) {
+    if (y - needed < margin) { page = pdfDoc.addPage([width, height]); y = height - margin; }
+  }
+  function wrap(text, f, size) {
+    const words = String(text ?? "").split(" ");
+    const lines = [];
+    let line = "";
+    for (const w of words) {
+      const test = line ? `${line} ${w}` : w;
+      if (f.widthOfTextAtSize(test, size) > maxWidth && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines.length ? lines : [""];
+  }
+  function drawText(text, { size = 10.5, bold = false, color = rgb(0.12, 0.12, 0.14), gap = 6, indent = 0 } = {}) {
+    const f = bold ? boldFont : font;
+    for (const l of wrap(text, f, size)) {
+      ensureSpace(size + gap);
+      page.drawText(l, { x: margin + indent, y, size, font: f, color });
+      y -= size + gap;
+    }
+  }
+  function rule() { ensureSpace(14); y -= 4; page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: rgb(0.82, 0.82, 0.85) }); y -= 12; }
+
+  drawText(title, { size: 21, bold: true, gap: 4 });
+  if (subtitle) drawText(subtitle, { size: 10.5, color: rgb(0.45, 0.45, 0.5), gap: 16 });
+  rule();
+
+  for (const sec of sections) {
+    ensureSpace(28);
+    drawText(sec.heading, { size: 13.5, bold: true, gap: 8, color: rgb(0.55, 0.43, 0.08) });
+    for (const l of sec.lines || []) drawText(l.label ? `${l.label}: ${l.value ?? "-"}` : l, { size: 10, gap: 7, indent: 2 });
+    for (const row of sec.table || []) {
+      ensureSpace(13);
+      const tagW = 26, nameW = 150;
+      page.drawText(row[0] || "", { x: margin, y, size: 9.5, font: boldFont, color: rgb(0.55, 0.43, 0.08) });
+      page.drawText(row[1] || "", { x: margin + tagW, y, size: 9.5, font: boldFont, color: rgb(0.12, 0.12, 0.14) });
+      const rest = wrap(row.slice(2).filter(Boolean).join("  ·  "), font, 9);
+      page.drawText(rest[0] || "", { x: margin + tagW + nameW, y, size: 9, font, color: rgb(0.35, 0.35, 0.4) });
+      y -= 15;
+    }
+    y -= 12;
+  }
+  const bytes = await pdfDoc.save();
+  return new Blob([bytes], { type: "application/pdf" });
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+async function sharePdfBlob(blob, filename, shareTitle) {
+  try {
+    const file = new File([blob], filename, { type: "application/pdf" });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: shareTitle });
+      return "shared";
+    }
+  } catch (e) {
+    if (e?.name === "AbortError") return "cancelled"; // user closed the share sheet - not an error
+  }
+  downloadBlob(blob, filename);
+  return "downloaded";
+}
+function safeFilename(name) { return String(name || "file").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "").slice(0, 60); }
+
+async function downloadProgramPDF2(client, program) {
   if (!program) return;
-  const weeks = (program.weeks || []).map((w) => `
-    <h2 style="margin:24px 0 4px 0;">Week ${w.weekNum}${w.label ? ` — ${w.label}` : ""}</h2>
-    ${w.focus ? `<div style="color:#555;margin-bottom:10px;">${w.focus}${w.targetRpe ? ` · Target RPE ${w.targetRpe}` : ""}</div>` : ""}
-    ${(w.workouts || []).map((wo) => `
-      <section style="margin:12px 0;padding:14px;border:1px solid #ddd;border-radius:12px;">
-        <h3 style="margin:0 0 10px 0;">${wo.name}</h3>
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr><th></th><th style="text-align:left;">Exercise</th><th>Prescription</th><th>Notes</th></tr></thead>
-          <tbody>${(wo.blocks || []).map((b, bi) => (b.exercises || []).map((ex, ei) => `<tr>
-            <td style="padding:6px;font-weight:bold;">${exerciseTag(b, bi, ei)}</td>
-            <td style="padding:6px;">${ex.name}</td>
-            <td style="padding:6px;text-align:center;">${fmtExerciseSummary(ex)}</td>
-            <td style="padding:6px;">${ex.note || ""}</td>
-          </tr>`).join("")).join("")}</tbody>
-        </table>
-      </section>`).join("")}
-  `).join("");
-  const html = `<!doctype html><html><head><title>${program.name}</title></head><body style="font-family:Arial,sans-serif;padding:28px;color:#111;">
-    <h1>${program.name}</h1><div style="color:#555;">Client: ${client?.name || ""} · Goal: ${program.goal || ""} · ${program.weeks?.length || 0} weeks</div>
-    ${weeks}<script>window.onload = () => window.print();<\/script></body></html>`;
-  const win = window.open("", "_blank");
-  if (!win) { alert("Allow popups to download the program PDF."); return; }
-  win.document.write(html); win.document.close();
+  const sections = (program.weeks || []).map((w) => ({
+    heading: `Week ${w.weekNum}${w.label ? ` \u2014 ${w.label}` : ""}${w.focus ? `  ·  ${w.focus}` : ""}${w.targetRpe ? `  ·  Target RPE ${w.targetRpe}` : ""}`,
+    lines: (w.workouts || []).map((wo) => `${wo.name}`),
+    table: (w.workouts || []).flatMap((wo) => (wo.blocks || []).flatMap((b, bi) => (b.exercises || []).map((ex, ei) => [exerciseTag(b, bi, ei), ex.name, fmtExerciseSummary(ex), ex.note || ""]))),
+  }));
+  const subtitle = `Client: ${client?.name || ""}  ·  Goal: ${program.goal || ""}  ·  ${program.weeks?.length || 0} weeks`;
+  const blob = await buildPdfDoc(program.name, subtitle, sections);
+  return { blob, filename: `${safeFilename(program.name)}.pdf` };
+}
+async function downloadTrialPDF(trial) {
+  const sections = [
+    { heading: "Contact", lines: [{ label: "Phone", value: trial.phone }, { label: "Email", value: trial.email }] },
+    { heading: "Goals & History", lines: [{ label: "Goal", value: trial.goal }, { label: "Fitness history", value: trial.fitnessHistory }, { label: "Barriers", value: trial.barriers }] },
+    { heading: "Health", lines: [{ label: "Injuries", value: trial.injuries }, { label: "Medical issues", value: trial.medicalIssues }] },
+    { heading: "Lifestyle", lines: [{ label: "Nutrition", value: trial.nutrition }, { label: "Sleep", value: trial.sleep }, { label: "Daily activity (NEAT)", value: trial.neat }] },
+    { heading: "Priorities", lines: [{ label: "Fat loss", value: trial.fatLossImportance }, { label: "Muscle gain", value: trial.muscleGainImportance }, { label: "Strength/endurance", value: trial.strengthEnduranceImportance }, { label: "Mobility/flexibility", value: trial.mobilityFlexibilityImportance }] },
+    { heading: `Assessment${trial.assessmentDate ? ` \u2014 ${trial.assessmentDate}` : ""}`, lines: [{ label: "Cardiovascular", value: trial.cardiovascular }, { label: "Squat", value: trial.squat }, { label: "Push strength", value: trial.pushStrength }, { label: "Pull strength", value: trial.pullStrength }, { label: "Core strength", value: trial.coreStrength }, { label: "Flexibility", value: trial.flexibilityFitness }] },
+  ];
+  const subtitle = `Trial consultation${trial.savedAt ? `  ·  ${String(trial.savedAt).slice(0, 10)}` : ""}`;
+  const blob = await buildPdfDoc(trial.name || "Trial", subtitle, sections);
+  return { blob, filename: `${safeFilename(trial.name)}_trial.pdf` };
 }
 
 // ---------- Coach: Block editor ----------
@@ -1492,7 +1586,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
                       <div style={{ background: BRAND.gold, color: "#000", borderRadius: 8, padding: "4px 8px", fontWeight: 1000, fontSize: 12 }}>{entry.tag}</div>
                       <div><div style={{ color: client.color, fontWeight: 1000, fontSize: 17 }}>{effectiveName}</div>{entry.substitutedName && <div style={{ color: BRAND.muted, fontSize: 11 }}>Substituted for {entry.name}</div>}{(ex.tempo || ex.rest) && <div style={{ color: BRAND.muted, fontSize: 12 }}>{[ex.tempo && `Tempo ${ex.tempo}`, ex.rest && `Rest ${ex.rest}`].filter(Boolean).join(" · ")}</div>}</div>
                     </div>
-                    <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 13 }}>{subbing ? "Cancel" : "Swap"}</button>
+                    <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 13, padding: "10px 14px", minHeight: 40 }}>{subbing ? "Cancel" : "Swap"}</button>
                   </div>
                   {ex.note && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Coach: {ex.note}</div>}
                   {thumb && <a href={thumb.watchUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", position: "relative", marginTop: 8 }}><img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 14 }}>▶</div></div></a>}
@@ -1509,12 +1603,12 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
                       const target = ex.sets?.[si];
                       const targetText = target ? fmtSetTarget(target, ex) : "";
                       return (
-                        <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "30px 1fr 1fr 58px 40px" : "40px 1fr 1fr 84px 48px", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "26px 1fr 1fr 54px 44px" : "40px 1fr 1fr 84px 48px", gap: 8, marginBottom: 6, alignItems: "center" }}>
                           <div style={{ color: BRAND.muted, fontWeight: 900 }}>S{si + 1}</div>
                           <div>{targetText && <div style={{ color: BRAND.muted, fontSize: 10, marginBottom: 2 }}>{targetText}</div>}<input placeholder={timed ? "load/assist" : "kg"} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={inputStyle()} /></div>
                           <div style={{ alignSelf: "end" }}><input placeholder={timed ? "time e.g. 45s" : "reps"} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={inputStyle()} /></div>
                           <div style={{ alignSelf: "end" }}><input placeholder="RPE" value={s.rpe || ""} onChange={(e) => patchSet(entry.id, si, { rpe: e.target.value })} style={inputStyle()} /></div>
-                          <button onClick={() => toggleDone(entry, si)} style={{ alignSelf: "end", height: 38, borderRadius: 10, border: `1px solid ${s.done ? BRAND.gold : BRAND.line}`, background: s.done ? BRAND.gold : BRAND.panel, color: s.done ? "#000" : BRAND.muted, fontWeight: 1000, cursor: "pointer" }}>✓</button>
+                          <button onClick={() => toggleDone(entry, si)} style={{ alignSelf: "end", height: 44, minWidth: 44, borderRadius: 10, border: `1px solid ${s.done ? BRAND.gold : BRAND.line}`, background: s.done ? BRAND.gold : BRAND.panel, color: s.done ? "#000" : BRAND.muted, fontWeight: 1000, fontSize: 16, cursor: "pointer" }}>&#10003;</button>
                         </div>
                       );
                     })}
@@ -1570,10 +1664,13 @@ function ProgramTab({ client, updateClient, isCoach }) {
   const [wk, setWk] = useState(0);
   const [builder, setBuilder] = useState(false);
   const [live, setLive] = useState(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   async function persist(nextProgram, nextLogs) {
     updateClient({ ...client, program: nextProgram, trainingLogs: nextLogs });
-    if (nextProgram) await upsertSection(client.id, "program", nextProgram);
-    if (nextLogs) await upsertSection(client.id, "training_logs", nextLogs);
+    let failed = null;
+    if (nextProgram) { const r = await upsertSection(client.id, "program", nextProgram); if (r?.error) failed = r.error; }
+    if (nextLogs) { const r = await upsertSection(client.id, "training_logs", nextLogs); if (r?.error) failed = r.error; }
+    if (failed) alert(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`);
   }
   function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); }
   function saveLogs(l) { setLogs(l); persist(program, l); }
@@ -1600,7 +1697,8 @@ function ProgramTab({ client, updateClient, isCoach }) {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button variant={view === "overview" ? "gold" : "dark"} onClick={() => setView("overview")}>Program</Button>
             <Button variant={view === "history" ? "gold" : "dark"} onClick={() => setView("history")}>History</Button>
-            {program && <Button variant="dark" onClick={() => downloadProgramPDF2(client, program)}>PDF</Button>}
+            {program && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); downloadBlob(blob, filename); setPdfBusy(false); }}>{pdfBusy ? "..." : "Download PDF"}</Button>}
+            {program && typeof navigator !== "undefined" && navigator.share && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, program.name); setPdfBusy(false); }}>Share</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>
         </div>
@@ -1924,10 +2022,60 @@ function Field({ label, value, onChange, type = "text", placeholder = "", textar
   );
 }
 function inputStyle(extra = {}) {
-  return { width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 12, padding: "11px 12px", outline: "none", fontSize: 14, ...extra };
+  return { width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 12, padding: "11px 12px", outline: "none", fontSize: 16, ...extra };
 }
 function Card({ children, style = {}, onClick }) {
   return <div onClick={onClick} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, padding: 18, ...style }}>{children}</div>;
+}
+function AccountNotActiveScreen({ onBackToLogin }) {
+  return (
+    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
+        <div style={{ color: BRAND.gold, fontSize: 38, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
+        <Card style={{ marginTop: 26, padding: 26 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: BRAND.card2, display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke={BRAND.dim} strokeWidth="2" /><path d="M4 21C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 21" stroke={BRAND.dim} strokeWidth="2" strokeLinecap="round" /><line x1="4" y1="4" x2="20" y2="20" stroke={BRAND.dim} strokeWidth="2" /></svg>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>This Account Is No Longer Active</div>
+          <div style={{ color: BRAND.muted, fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, marginBottom: 20 }}>We couldn't find an active client profile for this login. If you think this is a mistake, reach out to your coach directly.</div>
+          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 12, marginBottom: 22 }}>
+            <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Contact</div>
+            <div style={{ color: BRAND.gold, fontSize: 14, fontWeight: 700, marginTop: 4 }}>Denis &middot; +971 567 088 638</div>
+          </div>
+          <Button onClick={onBackToLogin} style={{ width: "100%" }}>Back to Login</Button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+function ResetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  async function save() {
+    if (password.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+    if (password !== confirm) { setMsg("Passwords don't match."); return; }
+    setSaving(true); setMsg("");
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) { setMsg(error.message); setSaving(false); return; }
+    setMsg("Password updated. Redirecting to login...");
+    setTimeout(() => { window.location.href = window.location.origin; }, 1500);
+  }
+  return (
+    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
+      <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
+        <div style={{ color: BRAND.gold, fontSize: 30, fontWeight: 900, textAlign: "center" }}>FORGE</div>
+        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 12, textAlign: "center" }}>Set a New Password</div>
+        <div style={{ color: BRAND.muted, marginTop: 6, marginBottom: 20, textAlign: "center" }}>Choose a new password for your account.</div>
+        <Field label="New password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" />
+        <div style={{ height: 10 }} />
+        <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm} />
+        {msg && <div style={{ color: msg.includes("updated") ? BRAND.green : BRAND.red, fontWeight: 800, marginTop: 10, fontSize: 13 }}>{msg}</div>}
+        <Button disabled={saving} onClick={save} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Update Password"}</Button>
+      </Card>
+    </div>
+  );
 }
 function LoginScreen({ onReady }) {
   const isMobile = useIsMobile(520);
@@ -1960,7 +2108,7 @@ function LoginScreen({ onReady }) {
   }
   async function forgotPassword() {
     setLoading(true); setMsg("");
-    const redirectTo = window.location.origin;
+    const redirectTo = "https://forgeappbydenis.vercel.app/";
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     setMsg(error ? error.message : "Password reset link sent to your email.");
     setLoading(false);
@@ -1969,7 +2117,7 @@ function LoginScreen({ onReady }) {
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
       <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
         <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
-        <div style={{ fontSize: 25, fontWeight: 900, marginTop: 10 }}>Welcome back</div>
+        <div style={{ fontSize: 25, fontWeight: 900, marginTop: 10, textTransform: "uppercase" }}>Welcome back</div>
         <div style={{ color: BRAND.muted, marginBottom: 22 }}>Log in, or use an invite code your coach sent you.</div>
         <Field label="Email" value={email} onChange={setEmail} placeholder="you@email.com" />
         <div style={{ height: 10 }} />
@@ -2385,6 +2533,65 @@ function ClientCard({ client, onClick }) {
   );
 }
 function Mini({ label, value }) { return <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600 }}>{label}</div><div style={{ color: BRAND.text, fontWeight: 700 }}>{value}</div></div>; }
+const NAV_ICON_PATHS = {
+  home: <path d="M3 11L12 3L21 11V21H15V14H9V21H3V11Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
+  food: <><path d="M6 2V10C6 11.6569 7.34315 13 9 13V13C10.6569 13 12 11.6569 12 10V2M9 13V22M6 2V6M12 2V6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><path d="M18 2C16 4 16 8 18 10V22" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
+  train: <path d="M6 7V17M18 7V17M2 10V14M22 10V14M6 12H18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
+  me: <><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M4 21C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 21" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
+  back: <path d="M15 5L8 12L15 19" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
+  program: <><rect x="5" y="4" width="14" height="17" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M9 4V2H15V4M8 10H16M8 14H16M8 18H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
+  progress: <><path d="M3 17L9 11L13 15L21 7" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /><path d="M21 7H15M21 7V13" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
+  photo: <><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><circle cx="9" cy="10" r="1.6" fill="currentColor" /><path d="M21 15L16 10L7 19" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
+  msg: <path d="M21 12C21 16.4183 16.9706 20 12 20C10.5 20 9.1 19.7 7.9 19.1L3 20L4.3 15.9C3.5 14.8 3 13.5 3 12C3 7.58172 7.02944 4 12 4C16.9706 4 21 7.58172 21 12Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
+  card: <><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M2 10H22" stroke="currentColor" strokeWidth="2" /></>,
+  gear: <><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" fill="none" /><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" fill="none" /></>,
+  check: <><rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
+};
+function NavIcon({ name, size = 21, color = "currentColor", rotate = 0 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ color, display: "block", transform: rotate ? `rotate(${rotate}deg)` : undefined }}>{NAV_ICON_PATHS[name]}</svg>;
+}
+const CLIENT_BOTTOM_NAV = [
+  { key: "home", label: "Home", icon: "home", group: ["home"] },
+  { key: "nutrition", label: "Nutrition", icon: "food", group: ["nutrition"] },
+  { key: "train_hub", label: "Train", icon: "train", group: ["train_hub", "program", "progress", "photos"] },
+  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "messages", "payments", "profile", "checkins"] },
+];
+function ClientBottomNav({ tab, setTab, unreadMessages }) {
+  return (
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `1px solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+      {CLIENT_BOTTOM_NAV.map((item) => {
+        const active = item.group.includes(tab);
+        return (
+          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: 64, position: "relative", padding: 0 }}>
+            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `${BRAND.gold}22` : "transparent", display: "grid", placeItems: "center" }}>
+              <NavIcon name={item.icon} color={active ? BRAND.gold : BRAND.dim} />
+              {item.key === "me_hub" && unreadMessages > 0 && <div style={{ position: "absolute", top: -2, right: 6, width: 16, height: 16, borderRadius: "50%", background: BRAND.red, color: "#fff", fontSize: 9, fontWeight: 900, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: active ? BRAND.gold : BRAND.dim }}>{item.label}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+function HubScreen({ title, subtitle, cards, onOpen }) {
+  return (
+    <div>
+      <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 2 }}>{title}</div>
+      <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginBottom: 16 }}>{subtitle}</div>
+      {cards.map((c) => (
+        <button key={c.key} onClick={() => onOpen(c.key)} style={{ width: "100%", textAlign: "left", background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, padding: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
+          <div style={{ width: 48, height: 48, borderRadius: 15, background: `${c.color}18`, display: "grid", placeItems: "center", flexShrink: 0 }}><NavIcon name={c.icon} size={24} color={c.color} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 15 }}>{c.title}</div>
+            <div style={{ color: c.alert ? BRAND.red : BRAND.muted, fontWeight: 600, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
+          </div>
+          <NavIcon name="back" size={16} color={BRAND.dim} rotate={180} />
+        </button>
+      ))}
+    </div>
+  );
+}
 function ClientAvatar({ client, size = 54 }) {
   return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
 }
@@ -2446,60 +2653,94 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     await supabase.from("clients").delete().eq("id", client.id);
     back(); refresh();
   }
+  // ---- content block shared by both coach (tab bar) and client (bottom nav) ----
+  const content = <>
+    {tab === "home" && <ClientHome client={client} goTo={!isCoach ? setTab : undefined} />}
+    {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "nutrition" && <NutritionTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "progress" && <ProgressTab client={client} />}
+    {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
+    {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} />}
+    {tab === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "payments" && <PaymentsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
+    {tab === "workouts" && <ClientWorkoutLog client={client} updateClient={updateClient} />}
+  </>;
+
+  // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
+  if (isCoach) {
+    return (
+      <div style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text }}>
+        <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.96)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100vw", overflow: "hidden" }}>
+          <Button variant="ghost" onClick={back} style={{ padding: isMobile ? "8px 10px" : undefined }}>Back</Button>
+          <ClientAvatar client={client} size={isMobile ? 44 : 56} />
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
+          <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>
+        </header>
+        <main style={{ width: "100%", maxWidth: isMobile ? 430 : 960, margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+          <div style={{
+            display: "flex",
+            gap: isMobile ? 6 : 8,
+            overflowX: "auto",
+            marginBottom: isMobile ? 8 : 14,
+            padding: isMobile ? "2px 0 6px" : "0 0 6px",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none",
+          }}>
+            {tabs.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{
+              minWidth: isMobile ? 64 : 96,
+              height: isMobile ? 34 : 48,
+              borderRadius: 999,
+              border: `1px solid ${tab === k ? client.color : BRAND.line}`,
+              background: tab === k ? client.color : BRAND.card2,
+              color: tab === k ? "#000" : BRAND.text,
+              fontSize: isMobile ? 11 : 14,
+              fontWeight: 1000,
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+              flex: "0 0 auto",
+              boxShadow: "none",
+            }}>{l}</button>)}
+          </div>
+          {content}
+        </main>
+      </div>
+    );
+  }
+
+  // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
+  const parentHub = ["program", "progress", "photos"].includes(tab) ? "train_hub" : ["messages", "payments", "profile", "checkins"].includes(tab) ? "me_hub" : null;
+  const parentHubLabel = parentHub === "train_hub" ? "Train" : "Me";
+  const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
+  const trainCards = [
+    { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program?.name ? `${client.program.name} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
+    { key: "progress", icon: "progress", color: BRAND.cyan, title: "Progress", sub: "See your trends and personal bests" },
+    { key: "photos", icon: "photo", color: BRAND.purple, title: "Photos", sub: client.transformPhotos?.length ? `${client.transformPhotos.length} photo${client.transformPhotos.length === 1 ? "" : "s"} saved` : "No photos yet" },
+  ];
+  const meCards = [
+    { key: "profile", icon: "gear", color: BRAND.purple, title: "Profile", sub: "Your details & settings" },
+    { key: "checkins", icon: "check", color: BRAND.green, title: "Check-ins", sub: "Your weekly check-in" },
+    { key: "payments", icon: "card", color: BRAND.green, title: "Payments", sub: paymentStatus(client).label },
+    { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
+  ];
+  function handleMeOpen(key) { if (key === "settings") setShowSettings(true); else setTab(key); }
   return (
-    <div style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text }}>
-      <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.96)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100vw", overflow: "hidden" }}>
-        {isCoach && <Button variant="ghost" onClick={back} style={{ padding: isMobile ? "8px 10px" : undefined }}>Back</Button>}
-        <ClientAvatar client={client} size={isMobile ? 44 : 56} />
-        <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
-        {isCoach && <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>}
-        {!isCoach && <Button variant="ghost" onClick={() => setShowSettings(true)} style={{ padding: isMobile ? "8px 10px" : undefined }}>Settings</Button>}
-      </header>
-      <main style={{ width: "100%", maxWidth: isCoach ? (isMobile ? 430 : 960) : (isMobile ? 430 : 760), margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        <div style={{
-          display: "flex",
-          gap: isMobile ? 6 : 8,
-          overflowX: "auto",
-          marginBottom: isMobile ? 8 : 14,
-          padding: isMobile ? "2px 0 6px" : "0 0 6px",
-          position: "relative",
-          top: "auto",
-          zIndex: 1,
-          background: "transparent",
-          backdropFilter: "none",
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "none",
-        }}>
-          {tabs.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{
-            minWidth: isMobile ? 64 : 96,
-            height: isMobile ? 34 : 48,
-            borderRadius: 999,
-            border: `1px solid ${tab === k ? client.color : BRAND.line}`,
-            background: tab === k ? client.color : BRAND.card2,
-            color: tab === k ? "#000" : BRAND.text,
-            fontSize: isMobile ? 11 : 14,
-            fontWeight: 1000,
-            whiteSpace: "nowrap",
-            cursor: "pointer",
-            flex: "0 0 auto",
-            boxShadow: "none",
-          }}>{l}</button>)}
-        </div>
-        {tab === "home" && <ClientHome client={client} />}
-        {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "nutrition" && <NutritionTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "progress" && <ProgressTab client={client} />}
-        {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
-        {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} />}
-        {tab === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "payments" && <PaymentsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-        {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
-        {tab === "workouts" && <ClientWorkoutLog client={client} updateClient={updateClient} />}
+    <div style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, paddingBottom: 90 }}>
+      <main style={{ width: "100%", maxWidth: isMobile ? 430 : 760, margin: "0 auto", padding: isMobile ? "14px 10px 0" : "18px 16px 0", boxSizing: "border-box", overflowX: "hidden" }}>
+        {parentHub && (
+          <button onClick={() => setTab(parentHub)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontWeight: 800, fontSize: 13, padding: "10px 4px", margin: "-10px 0 4px -4px", minHeight: 44 }}>
+            <NavIcon name="back" size={15} /> Back to {parentHubLabel}
+          </button>
+        )}
+        {tab === "train_hub" && <HubScreen title="Train" subtitle="Program, progress, and photos" cards={trainCards} onOpen={setTab} />}
+        {tab === "me_hub" && <HubScreen title="Me" subtitle="Messages, payments, and account" cards={meCards} onOpen={handleMeOpen} />}
+        {tab !== "train_hub" && tab !== "me_hub" && content}
       </main>
       {showSettings && <ClientSettingsModal client={client} onClose={() => setShowSettings(false)} />}
+      <ClientBottomNav tab={tab} setTab={setTab} unreadMessages={unreadMessages} />
     </div>
   );
 }
@@ -2583,7 +2824,52 @@ function CompactMetric({ label, value, total, color, percent }) {
   const n = typeof percent === "number" ? percent : (Number(total) ? Math.min(100, Math.round(Number(value || 0) / Number(total || 1) * 100)) : 0);
   return <Card style={{ padding: 12, borderRadius: 20, minHeight: 98 }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 600 }}>{label}</div><div style={{ fontSize: 22, fontWeight: 700, marginTop: 4, letterSpacing: -0.5 }}>{value}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>/{total}</div></div><div style={{ width: 44, height: 44, borderRadius: "50%", background: `conic-gradient(${color} ${n}%, ${BRAND.card2} ${n}% 100%)`, display: "grid", placeItems: "center" }}><div style={{ width: 33, height: 33, borderRadius: "50%", background: BRAND.card }} /></div></div><div style={{ color, fontSize: 11, fontWeight: 700, marginTop: 8 }}>{n}% complete</div></Card>;
 }
-function ClientHome({ client }) {
+function isIOS() {
+  if (typeof navigator === "undefined") return false;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function isStandalone() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator?.standalone === true;
+}
+function InstallPrompt({ color = BRAND.gold }) {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [dismissed, setDismissed] = useState(() => (typeof localStorage !== "undefined" ? localStorage.getItem("forge_install_dismissed") === "1" : false));
+  const [showIOSHelp, setShowIOSHelp] = useState(false);
+  useEffect(() => {
+    function onPrompt(e) { e.preventDefault(); setDeferredPrompt(e); }
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+  if (isStandalone() || dismissed) return null;
+  if (!deferredPrompt && !isIOS()) return null; // Android/Chrome that hasn't fired the prompt yet, or an unsupported desktop browser - nothing useful to offer
+  function dismiss() { setDismissed(true); localStorage.setItem("forge_install_dismissed", "1"); }
+  async function install() {
+    if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; setDeferredPrompt(null); dismiss(); }
+    else setShowIOSHelp(true);
+  }
+  return (
+    <Card style={{ padding: 14, background: `${color}14`, border: `1px solid ${color}55`, marginBottom: 4 }}>
+      {!showIOSHelp ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 22 }}>&#128241;</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 14 }}>Add Forge to your Home Screen</div>
+            <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>One tap, and you'll never need the link again.</div>
+          </div>
+          <button onClick={dismiss} style={{ background: "transparent", border: "none", color: BRAND.dim, fontWeight: 900, fontSize: 16, cursor: "pointer", padding: 4 }}>&times;</button>
+        </div>
+      ) : (
+        <div>
+          <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Add to Home Screen</div>
+          <div style={{ color: BRAND.muted, fontSize: 12.5, fontWeight: 600, lineHeight: 1.5 }}>Tap the Share button <span style={{ color, fontWeight: 900 }}>&#9633;&#8593;</span> at the bottom of Safari, then choose "Add to Home Screen".</div>
+        </div>
+      )}
+      {!showIOSHelp && <Button onClick={install} style={{ width: "100%", marginTop: 12 }}>Add to Home Screen</Button>}
+    </Card>
+  );
+}
+function ClientHome({ client, goTo }) {
   const isMobile = useIsMobile(520);
   const stats = todaysNutritionStats(client);
   const metrics = computePerformanceMetrics(client.trainingLogs);
@@ -2594,10 +2880,11 @@ function ClientHome({ client }) {
   const mealDone = (meal) => stats.logs.some((l) => l.meal === meal) || stats.daily?.meals?.[meal];
   if (isMobile) {
     return <div style={{ display: "grid", gap: 12 }}>
+      <InstallPrompt color={client.color} />
       <Card style={{ borderColor: `${client.color}44`, padding: 14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
           <ClientAvatar client={client} size={58} />
-          <div style={{ minWidth: 0 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, letterSpacing: 1.8 }}>FORGE CLIENT</div><div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.05 }}>Welcome, {client.name}</div><div style={{ color: client.color, fontWeight: 1000, marginTop: 4, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
+          <div style={{ minWidth: 0 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, letterSpacing: 1.8 }}>FORGE CLIENT</div><div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.05, textTransform: "uppercase" }}>Welcome, {client.name}</div><div style={{ color: client.color, fontWeight: 1000, marginTop: 4, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
           <CompactScore value={stats.score} color={client.color} />
         </div>
       </Card>
@@ -2607,20 +2894,20 @@ function ClientHome({ client }) {
         <CompactMetric label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} />
         <CompactMetric label="Water" value={`${stats.daily.water || 0}L`} total={`${stats.waterTarget || 3}L`} percent={(stats.waterTarget || 3) ? Math.min(100, Math.round(Number(stats.daily.water || 0) / Number(stats.waterTarget || 3) * 100)) : 0} color={BRAND.blue} />
       </div>
-      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 8 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card>
-      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 22, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log your session.</div></Card>
+      <Card onClick={goTo ? () => goTo("nutrition") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 8 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card>
+      <Card onClick={goTo ? () => goTo("program") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 22, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Tap to open Program &rarr;</div></Card>
       <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card>
     </div>;
   }
   return <div style={{ display: "grid", gap: isMobile ? 10 : 16, maxWidth: "100%", overflowX: "hidden" }}>
     <Card style={{ borderColor: `${client.color}44`, padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}><ClientAvatar client={client} size={76} /><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>FORGE CLIENT</div><div style={{ fontSize: 31, fontWeight: 1000, lineHeight: 1 }}>Welcome back, {client.name}</div><div style={{ color: client.color, fontWeight: 900, marginTop: 6 }}>{client.goals?.join(" + ") || client.goal}</div></div></div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center" }}><ClientAvatar client={client} size={76} /><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>FORGE CLIENT</div><div style={{ fontSize: 31, fontWeight: 1000, lineHeight: 1, textTransform: "uppercase" }}>Welcome back, {client.name}</div><div style={{ color: client.color, fontWeight: 900, marginTop: 6 }}>{client.goals?.join(" + ") || client.goal}</div></div></div>
         <div style={{ width: 118, height: 118, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${client.color} ${stats.score}%, ${BRAND.card2} ${stats.score}% 100%)` }}><div style={{ width: 86, height: 86, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 30, fontWeight: 1000 }}>{stats.score}%</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000 }}>FORGE SCORE</div></div></div></div>
       </div>
     </Card>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}><ProgressRing label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} /><ProgressRing label="Protein" value={stats.totals.protein} total={stats.proteinTarget || 0} unit="g" color={BRAND.green} /><ProgressRing label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} /><ProgressRing label="Water L" value={stats.daily.water || 0} total={stats.waterTarget || 3} color={BRAND.blue} /></div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Open Program to log sets, reps, duration and RPE.</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card></div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card onClick={goTo ? () => goTo("nutrition") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card><Card onClick={goTo ? () => goTo("program") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Tap to open Program &rarr;</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card></div>
   </div>;
 }
 function TrialLinkModal({ client, onClose, onLinked }) {
@@ -2737,7 +3024,7 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
     </div>}
 
     <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>What are you working toward?</div>
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${(profile.goals || []).includes(g) ? currentColor : BRAND.line}`, background: (profile.goals || []).includes(g) ? currentColor : BRAND.card2, color: (profile.goals || []).includes(g) ? "#000" : BRAND.text, borderRadius: 999, padding: "8px 12px", fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.4 }}>{String(g).toUpperCase()}</button>)}</div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${(profile.goals || []).includes(g) ? currentColor : BRAND.line}`, background: (profile.goals || []).includes(g) ? currentColor : BRAND.card2, color: (profile.goals || []).includes(g) ? "#000" : BRAND.text, borderRadius: 999, padding: "11px 14px", minHeight: 40, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.4 }}>{String(g).toUpperCase()}</button>)}</div>
 
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 12 }}>
       <Field label="When's your birthday? We love celebrating with our clients" value={profile.birthday} onChange={(v) => set("birthday", v)} type="date" />
@@ -3067,6 +3354,54 @@ function MealSection({ meal, logs, plan, color, onAdd, onDelete }) {
   );
 }
 
+function startOfWeekMonday(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  return monday;
+}
+const WEEKDAY_LETTERS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+function WeekStrip({ date, onSelect, loggedDates, color = BRAND.gold }) {
+  const monday = startOfWeekMonday(date);
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+  const monthLabel = monday.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const todayIso = new Date().toISOString().slice(0, 10);
+  function shiftWeek(deltaDays) {
+    const d = new Date(date); d.setDate(d.getDate() + deltaDays);
+    onSelect(d.toISOString().slice(0, 10));
+  }
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginBottom: 16 }}>
+        <button onClick={() => shiftWeek(-7)} style={{ background: "transparent", border: "none", color: BRAND.dim, fontSize: 20, fontWeight: 800, cursor: "pointer", padding: "10px 16px", minHeight: 44, minWidth: 44 }}>&lsaquo;</button>
+        <div style={{ color: BRAND.text, fontSize: 16, fontWeight: 800 }}>{monthLabel}</div>
+        <button onClick={() => shiftWeek(7)} style={{ background: "transparent", border: "none", color: BRAND.dim, fontSize: 20, fontWeight: 800, cursor: "pointer", padding: "10px 16px", minHeight: 44, minWidth: 44 }}>&rsaquo;</button>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        {days.map((d, i) => {
+          const iso = d.toISOString().slice(0, 10);
+          const isToday = iso === todayIso;
+          const isSelected = iso === date;
+          const hasLog = loggedDates.has(iso);
+          return (
+            <button key={iso} onClick={() => onSelect(iso)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: 1, padding: 0 }}>
+              <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800, letterSpacing: 0.3 }}>{WEEKDAY_LETTERS[i]}</div>
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: 15, fontWeight: 700,
+                background: isSelected ? color : "transparent",
+                border: !isSelected && isToday ? `2px solid ${color}` : "none",
+                color: isSelected ? "#000" : isToday ? color : BRAND.muted,
+              }}>{d.getDate()}</div>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: hasLog ? (isSelected ? color : BRAND.dim) : "transparent" }} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 function NutritionTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [nutrition, setNutrition] = useState(() => normalizeNutrition(client.nutrition));
@@ -3079,6 +3414,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
   useEffect(() => { setNutrition(normalizeNutrition(client.nutrition)); }, [client.id, client.nutrition]);
 
   const todays = (nutrition.logs || []).filter((l) => l.date === date);
+  const loggedDates = useMemo(() => new Set((nutrition.logs || []).map((l) => l.date)), [nutrition.logs]);
   const daily = nutrition.daily?.[date] || {};
   const totals = todays.reduce((a, l) => ({ kcal: a.kcal + Number(l.kcal || 0), protein: a.protein + Number(l.protein || 0), carbs: a.carbs + Number(l.carbs || 0), fats: a.fats + Number(l.fats || 0) }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
   const targets = nutrition.targets || {};
@@ -3106,14 +3442,8 @@ function NutritionTab({ client, updateClient, isCoach }) {
   return (
     <div style={{ display: "grid", gap: isMobile ? 10 : 14, maxWidth: "100%", overflowX: "hidden" }}>
       <Card style={{ padding: isMobile ? 12 : 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 1000, color: BRAND.gold }}>Nutrition</div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => setDate((d) => new Date(new Date(d).getTime() - 86400000).toISOString().slice(0, 10))} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontWeight: 900 }}>&larr;</button>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle({ maxWidth: 150 })} />
-            <button onClick={() => setDate((d) => new Date(new Date(d).getTime() + 86400000).toISOString().slice(0, 10))} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontWeight: 900 }}>&rarr;</button>
-          </div>
-        </div>
+        <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 1000, color: BRAND.gold, marginBottom: 14 }}>Nutrition</div>
+        <WeekStrip date={date} onSelect={setDate} loggedDates={loggedDates} color={client.color} />
       </Card>
 
       <Card style={{ padding: isMobile ? 14 : 18 }}>
@@ -3186,44 +3516,317 @@ function NutritionTab({ client, updateClient, isCoach }) {
   );
 }
 
-function TransformPhotos({ client, updateClient }) {
+function PhotoUploadModal({ onClose, onSave }) {
+  const [form, setForm] = useState({ image: "", type: "Progress", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
+  const [saving, setSaving] = useState(false);
+  async function pickImage(file) { if (!file) return; const dataUrl = await readFileAsDataUrl(file); setForm((f) => ({ ...f, image: dataUrl })); }
+  async function save() {
+    if (!form.image) { alert("Choose a photo from your device first."); return; }
+    setSaving(true);
+    await onSave(form);
+    setSaving(false);
+  }
+  return (
+    <div style={modalBackdrop()}>
+      <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontSize: 20, fontWeight: 1000 }}>Add Photo</div>
+          <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        {form.image ? (
+          <div style={{ position: "relative", marginBottom: 14 }}>
+            <img src={form.image} alt="preview" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 16 }} />
+            <button onClick={() => setForm((f) => ({ ...f, image: "" }))} style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 30, height: 30, fontWeight: 900, cursor: "pointer" }}>x</button>
+          </div>
+        ) : (
+          <label style={{ display: "grid", placeItems: "center", height: 180, background: BRAND.card2, border: `2px dashed ${BRAND.line}`, borderRadius: 16, marginBottom: 14, cursor: "pointer", color: BRAND.muted, fontWeight: 800 }}>
+            + Choose a photo
+            <input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={{ display: "none" }} />
+          </label>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase" }}>Type</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+          <Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
+        </div>
+        <Field label="Weight (optional)" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
+        <Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea />
+        <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 12 }}>{saving ? "Saving..." : "Save Photo"}</Button>
+      </Card>
+    </div>
+  );
+}
+function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
+  const photo = photos[index];
+  if (!photo) return null;
+  return (
+    <div style={{ ...modalBackdrop(), padding: 0 }}>
+      <div style={{ position: "absolute", top: 14, right: 14, zIndex: 2, display: "flex", gap: 8 }}>
+        <Button variant="red" onClick={() => onDelete(photo.id)}>Delete</Button>
+        <Button variant="ghost" onClick={onClose}>X</Button>
+      </div>
+      {index > 0 && <button onClick={() => onNavigate(index - 1)} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&lsaquo;</button>}
+      {index < photos.length - 1 && <button onClick={() => onNavigate(index + 1)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&rsaquo;</button>}
+      <div style={{ maxWidth: 480, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <img src={photo.image || photo.url} alt={photo.type} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 12 }} />
+        <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 14, marginTop: 12, width: "100%" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.text, fontWeight: 800 }}><span>{photo.type}</span><span style={{ color: BRAND.muted, fontWeight: 600 }}>{photo.date}</span></div>
+          {photo.weight && <div style={{ color: BRAND.gold, fontWeight: 700, fontSize: 13, marginTop: 4 }}>{photo.weight}kg</div>}
+          {photo.notes && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 6 }}>{photo.notes}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+function PhotoCompareSlot({ label, photo, onPick }) {
+  return (
+    <button onClick={onPick} style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden", cursor: "pointer", padding: 0, textAlign: "left", width: "100%" }}>
+      <div style={{ padding: "10px 12px", color: BRAND.gold, fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+      {photo?.image || photo?.url ? <img src={photo.image || photo.url} alt={label} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover" }} /> : <div style={{ aspectRatio: "3/4", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 13, fontWeight: 700 }}>No photo</div>}
+      {photo && <div style={{ padding: "8px 12px 12px" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700 }}>{photo.date}{photo.weight ? ` · ${photo.weight}kg` : ""}</div></div>}
+      <div style={{ padding: "0 12px 12px", color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>Tap to change</div>
+    </button>
+  );
+}
+function PhotoPickerModal({ photos, onPick, onClose }) {
+  return (
+    <div style={modalBackdrop()}>
+      <Card style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontSize: 18, fontWeight: 1000 }}>Choose a Photo</div>
+          <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+          {photos.map((p) => (
+            <button key={p.id} onClick={() => onPick(p.id)} style={{ padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 12, overflow: "hidden", cursor: "pointer", background: "none" }}>
+              <img src={p.image || p.url} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+function TransformPhotos({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [photos, setPhotos] = useState(client.transformPhotos || []);
-  const [form, setForm] = useState({ image: "", type: "Front", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
-  const beforePhoto = [...photos].find((p) => String(p.type || "").toLowerCase() === "before") || photos[photos.length - 1];
-  const afterPhoto = [...photos].find((p) => String(p.type || "").toLowerCase() === "after") || photos[0];
-  async function pickImage(file) { if (!file) return; const dataUrl = await readFileAsDataUrl(file); setForm((f) => ({ ...f, image: dataUrl })); }
-  async function add() { if (!form.image) { alert("Choose a photo from your device first."); return; } const next = [{ id: uid(), ...form }, ...photos]; setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); setForm({ ...form, image: "", notes: "" }); }
-  async function del(id) { const next = photos.filter((p) => p.id !== id); setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); }
-  const photoCard = (photo, label) => <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 22, overflow: "hidden", minHeight: isMobile ? 210 : 260 }}><div style={{ padding: 12, color: BRAND.gold, fontWeight: 1000 }}>{label}</div>{photo?.image || photo?.url ? <img src={photo.image || photo.url} alt={label} style={{ width: "100%", height: isMobile ? 190 : 260, objectFit: "cover" }} /> : <div style={{ height: isMobile ? 190 : 260, display: "grid", placeItems: "center", color: BRAND.muted }}>No {label.toLowerCase()} photo yet</div>}{photo && <div style={{ padding: 12 }}><b>{photo.type}</b><div style={{ color: BRAND.muted }}>{photo.date} · {photo.weight ? `${photo.weight}kg` : "No weight"}</div><div style={{ color: BRAND.text }}>{photo.notes}</div></div>}</div>;
-  return <Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ fontSize: isMobile ? 20 : 22, fontWeight: 1000, marginBottom: 12 }}>Transform Photos</div>
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginBottom: 16 }}>
-      {photoCard(beforePhoto, "Before")}
-      {photoCard(afterPhoto, "After")}
+  const [loadingPhotos, setLoadingPhotos] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [picking, setPicking] = useState(null); // "left" | "right" | null
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("client_data").select("data").eq("client_id", client.id).eq("section", "transformPhotos").maybeSingle();
+      if (cancelled) return;
+      const fetched = data?.data || [];
+      setPhotos(fetched);
+      setLoadingPhotos(false);
+      updateClient({ ...client, transformPhotos: fetched });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id]);
+  const sorted = [...photos].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const [compareIds, setCompareIds] = useState(() => [sorted[0]?.id, sorted[sorted.length - 1]?.id]);
+  const leftPhoto = photos.find((p) => p.id === compareIds[0]);
+  const rightPhoto = photos.find((p) => p.id === compareIds[1]);
+  const gridPhotos = [...photos].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  async function persist(next) { setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); }
+  async function addPhoto(form) { await persist([{ id: uid(), ...form }, ...photos]); setShowUpload(false); }
+  async function delPhoto(id) { await persist(photos.filter((p) => p.id !== id)); setLightboxIndex(null); }
+  function pickCompare(id) { setCompareIds((prev) => (picking === "left" ? [id, prev[1]] : [prev[0], id])); setPicking(null); }
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800 }}>Transformation Photos</div>
+        <Button onClick={() => setShowUpload(true)}>+ Add Photo</Button>
+      </div>
+
+      {photos.length >= 2 && (
+        <div>
+          <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Compare</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <PhotoCompareSlot label="Before" photo={leftPhoto} onPick={() => setPicking("left")} />
+            <PhotoCompareSlot label="After" photo={rightPhoto} onPick={() => setPicking("right")} />
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>All Photos</div>
+        {loadingPhotos ? (
+          <Card><div style={{ color: BRAND.muted }}>Loading photos...</div></Card>
+        ) : photos.length === 0 ? (
+          <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No photos yet. Add the first one to start tracking visual progress." : "No photos yet. Tap + Add Photo to log your first one."}</div></Card>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(auto-fill,minmax(120px,1fr))", gap: 8 }}>
+            {gridPhotos.map((p) => {
+              const realIndex = gridPhotos.indexOf(p);
+              return (
+                <button key={p.id} onClick={() => setLightboxIndex(realIndex)} style={{ padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 14, overflow: "hidden", cursor: "pointer", background: BRAND.card2, position: "relative" }}>
+                  {p.image || p.url ? <img src={p.image || p.url} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} /> : <div style={{ aspectRatio: "1/1", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 11 }}>No image</div>}
+                  <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: "linear-gradient(0deg, rgba(0,0,0,.85), transparent)", padding: "12px 8px 6px", textAlign: "left" }}>
+                    <div style={{ color: "#fff", fontSize: 10, fontWeight: 800 }}>{p.date}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showUpload && <PhotoUploadModal onClose={() => setShowUpload(false)} onSave={addPhoto} />}
+      {lightboxIndex !== null && <PhotoLightbox photos={gridPhotos} index={lightboxIndex} onClose={() => setLightboxIndex(null)} onNavigate={setLightboxIndex} onDelete={delPhoto} />}
+      {picking && <PhotoPickerModal photos={sorted} onPick={pickCompare} onClose={() => setPicking(null)} />}
     </div>
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CHOOSE PHOTO</div><input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={inputStyle()} /></div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label><Field label="Weight" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} /><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /></div>{form.image && <img src={form.image} alt="preview" style={{ width: 160, height: 160, objectFit: "cover", borderRadius: 18, marginTop: 12 }} />}<Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea /><Button onClick={add} style={{ marginTop: 10 }}>Save Photo</Button><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 14 }}>{photos.map((p) => <div key={p.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>{p.image || p.url ? <img src={p.image || p.url} alt="progress" style={{ width: "100%", height: 180, objectFit: "cover" }} /> : <div style={{ height: 180, display: "grid", placeItems: "center", color: BRAND.muted }}>No image</div>}<div style={{ padding: 10 }}><b>{p.type}</b><div style={{ color: BRAND.muted }}>{p.date} · {p.weight}kg</div><div style={{ color: BRAND.text }}>{p.notes}</div><Button variant="red" onClick={() => del(p.id)} style={{ marginTop: 8 }}>Delete</Button></div></div>)}</div></Card>;
+  );
+}
+function recentPBsAcrossHistory(logs, limit = 5) {
+  const completed = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => a.date.localeCompare(b.date));
+  const found = [];
+  for (let i = 0; i < completed.length; i++) {
+    const before = { ...logs, sessions: completed.slice(0, i) };
+    const pbs = detectSessionPBs(completed[i], before);
+    pbs.forEach((pb) => { if (!pb.detail.includes("first log")) found.push({ ...pb, date: completed[i].date }); });
+  }
+  return found.slice(-limit).reverse();
+}
+function currentStreakWeeks(logs) {
+  const completed = (logs?.sessions || []).filter((s) => s.status === "completed" && s.date);
+  if (!completed.length) return 0;
+  const isoWeek = (dateStr) => {
+    const d = new Date(dateStr);
+    const target = new Date(d.valueOf());
+    const dayNr = (d.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = new Date(target.getFullYear(), 0, 4);
+    const diff = target - firstThursday;
+    return `${target.getFullYear()}-W${1 + Math.round(diff / (7 * 24 * 3600 * 1000))}`;
+  };
+  const weeksWithSessions = new Set(completed.map((s) => isoWeek(s.date)));
+  let streak = 0;
+  const cursor = new Date();
+  for (;;) {
+    const wk = isoWeek(cursor.toISOString().slice(0, 10));
+    if (weeksWithSessions.has(wk)) { streak += 1; cursor.setDate(cursor.getDate() - 7); }
+    else break;
+  }
+  return streak;
+}
+function overallAdherence(program, logs) {
+  if (!program?.weeks?.length) return { done: 0, total: 0, pct: 0 };
+  let done = 0, total = 0;
+  program.weeks.forEach((week) => {
+    (week.workouts || []).forEach((wo) => {
+      total += 1;
+      if (sessionForWorkout(logs, week.id, wo.id)?.status === "completed") done += 1;
+    });
+  });
+  return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+}
+function weeklyVolumeTrend(logs, weeksBack = 4) {
+  const completed = (logs?.sessions || []).filter((s) => s.status === "completed" && s.date);
+  const now = new Date();
+  const labels = [];
+  for (let i = weeksBack - 1; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i * 7);
+    labels.push(d.toISOString().slice(0, 10));
+  }
+  const volumes = Array(weeksBack).fill(0);
+  completed.forEach((s) => {
+    const d = new Date(s.date);
+    let idx = -1;
+    for (let i = 0; i < labels.length; i++) {
+      const end = new Date(labels[i]);
+      const start = new Date(end); start.setDate(start.getDate() - 6);
+      if (d >= start && d <= end) idx = i;
+    }
+    if (idx < 0) return;
+    idx >= 0 && (volumes[idx] += sessionStatsV2(s).volume);
+  });
+  return { labels, volumes };
+}
+function buildProgressInsight(streak, volumeTrend, pbs) {
+  const parts = [];
+  if (streak >= 2) parts.push(`${streak}-week streak${streak >= 4 ? ", your longest yet" : ""}`);
+  const v = volumeTrend.volumes;
+  if (v.length >= 2 && v[v.length - 2] > 0) {
+    const change = Math.round(((v[v.length - 1] - v[v.length - 2]) / v[v.length - 2]) * 100);
+    if (change >= 10) parts.push(`volume up ${change}% this week`);
+  }
+  if (parts.length === 0 && pbs.length > 0) parts.push(`new PB on ${pbs[0].name}`);
+  if (parts.length === 0) return { text: "Keep logging sessions to start seeing trends here." };
+  return { text: parts.join(" \u2014 ") };
 }
 function ProgressTab({ client }) {
   const isMobile = useIsMobile(520);
-  const latest = client.progress?.[client.progress.length - 1] || {};
-  const metrics = computePerformanceMetrics(client.trainingLogs);
-  const coachSessions = recentCompletedSessions(client.trainingLogs, 8).map((d) => ({ ...d, source: "Coach/Program" }));
-  const selfSessions = (client.workoutLogs || []).map((l) => ({ id: l.id, date: l.date, name: l.workout || "Self Training", source: "Client", notes: l.notes, summary: [l.weights, l.cardio, l.rpe && `RPE ${l.rpe}`].filter(Boolean).join(" · ") })).filter((l) => l.date || l.summary || l.notes);
-  const attendedSessions = [...coachSessions, ...selfSessions].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 8);
-  const nutritionStats = todaysNutritionStats(client);
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 16, maxWidth: "100%", overflowX: "hidden" }}>
-    <Card>
-      <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>PROGRESS DASHBOARD</div>
-      <div style={{ fontSize: isMobile ? 22 : 29, fontWeight: 1000, marginTop: 6 }}>Your performance trend</div>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 14 }}>
-        <PremiumTile label="Today Score" value={`${nutritionStats.score}%`} color={client.color} />
-        <PremiumTile label="Steps" value={nutritionStats.daily.steps || 0} sub="today" color={BRAND.gold} />
-        <PremiumTile label="Attended Sessions" value={attendedSessions.length} color={BRAND.cyan} />
-      </div>
-    </Card>
-    <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Performance Metrics</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 12 }}>{metrics.map((m) => <div key={m.name} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 22, padding: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000 }}>{m.name}</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}><Mini label="PB" value={metricDisplay(m.best, m.timed)} /><Mini label="Recent" value={metricDisplay(m.recent, m.timed)} /></div><div style={{ color: m.trend > 0 ? BRAND.green : BRAND.muted, fontSize: 12, fontWeight: 900, marginTop: 10 }}>Trend: {m.trend > 0 ? "+" : ""}{m.trend || 0}{m.timed ? " sec" : " kg"}</div></div>)}</div></Card>
-    <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Attended Session History</div>{attendedSessions.length === 0 && <div style={{ color: BRAND.muted }}>No attended sessions logged yet.</div>}{attendedSessions.map((d, i) => <div key={d.id || i} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><b>{d.date || "No date"} · {d.name}</b><span style={{ color: BRAND.muted }}>{d.source || (d.weekNum ? `Week ${d.weekNum}` : "Session")}</span></div>{d.sessionData ? <div style={{ color: BRAND.muted, marginTop: 6 }}>{(d.sessionData || []).map((ex) => `${ex.name}: ${(ex.sets || []).map((s) => isTimedExercise(ex.name) ? (s.duration || s.reps || "") : [s.weight && `${s.weight}kg`, s.reps && `${s.reps} reps`].filter(Boolean).join(" x ")).filter(Boolean).join(", ") || "not logged"}`).join(" | ")}</div> : <div style={{ color: BRAND.muted, marginTop: 6 }}>{d.summary || d.notes}</div>}{d.metrics && <div style={{ color: BRAND.gold, fontSize: 12, marginTop: 6 }}>Kcal {d.metrics.kcal || "-"} · Max HR {d.metrics.maxHR || "-"} · Avg HR {d.metrics.avgHR || "-"}</div>}</div>)}</Card>
-    <Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 12 }}>Classic Lifts</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>{LIFT_FIELDS.map((f) => <Mini key={f.key} label={f.label} value={latest[f.key] || "-"} />)}</div></Card>
+  const logs = client.trainingLogs;
+  const streak = currentStreakWeeks(logs);
+  const volumeTrend = weeklyVolumeTrend(logs, 4);
+  const pbs = recentPBsAcrossHistory(logs, 5);
+  const adherence = overallAdherence(client.program, logs);
+  const insight = buildProgressInsight(streak, volumeTrend, pbs);
+  const recentSessions = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
+  const maxVolume = Math.max(1, ...volumeTrend.volumes);
+  const pbsThisMonth = pbs.filter((pb) => pb.date && pb.date.slice(0, 7) === new Date().toISOString().slice(0, 7)).length;
+
+  return <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
+    <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 800, letterSpacing: -0.4 }}>Progress</div>
+
+    <div style={{ background: `${BRAND.gold}14`, border: `1px solid ${BRAND.gold}44`, borderRadius: 20, padding: 16 }}>
+      <div style={{ color: BRAND.text, fontWeight: 700, fontSize: 14, lineHeight: 1.35 }}>{insight.text}</div>
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center" }}><div style={{ color: adherence.total ? BRAND.green : BRAND.dim, fontSize: 22, fontWeight: 900 }}>{adherence.total ? `${adherence.pct}%` : "-"}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Adherence</div></div>
+      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: 22, fontWeight: 900 }}>{streak}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Wk Streak</div></div>
+      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center" }}><div style={{ color: BRAND.cyan, fontSize: 22, fontWeight: 900 }}>{pbsThisMonth}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>PBs / mo</div></div>
+    </div>
+
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Recent Personal Bests</div>
+      <Card style={{ padding: 16 }}>
+        {pbs.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No PBs yet - complete a few sessions and they'll show up here.</div>}
+        {pbs.slice(0, 3).map((pb, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
+            <div><div style={{ color: BRAND.text, fontWeight: 700, fontSize: 14 }}>{pb.name}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 600, marginTop: 2 }}>{pb.detail} &middot; {pb.date}</div></div>
+            <span style={{ background: `${BRAND.green}18`, color: BRAND.green, fontWeight: 800, fontSize: 10, padding: "4px 9px", borderRadius: 999 }}>NEW PB</span>
+          </div>
+        ))}
+      </Card>
+    </div>
+
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Weekly Volume</div>
+      <Card style={{ padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
+          {volumeTrend.volumes.map((v, i) => {
+            const isLast = i === volumeTrend.volumes.length - 1;
+            return (
+              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                <div style={{ width: "100%", height: Math.max(4, (v / maxVolume) * 56), background: isLast ? BRAND.gold : BRAND.card2, borderRadius: "3px 3px 0 0" }} />
+                <div style={{ color: isLast ? BRAND.gold : BRAND.dim, fontSize: 9, fontWeight: 700 }}>W{i + 1}</div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Recent Sessions</div>
+      <Card style={{ padding: 16 }}>
+        {recentSessions.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No sessions logged yet.</div>}
+        {recentSessions.map((s, i) => (
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
+            <span style={{ color: BRAND.text, fontWeight: 700, fontSize: 13 }}>{s.workoutName}</span>
+            <span style={{ color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>{s.date}</span>
+          </div>
+        ))}
+      </Card>
+    </div>
   </div>;
 }
 async function loadCheckInTemplate(trainerId) {
@@ -3231,12 +3834,13 @@ async function loadCheckInTemplate(trainerId) {
   const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "checkin_template").maybeSingle();
   return data?.data?.questions?.length ? data.data.questions : DEFAULT_CHECKIN_QUESTIONS;
 }
+const CHECKIN_QUESTION_TYPES = [["text", "Text"], ["scale", "1-10 Scale"], ["choice", "Multiple Choice"]];
 function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
-  const [questions, setQuestions] = useState(template);
+  const [questions, setQuestions] = useState(template.map((q) => ({ type: "text", ...q })));
   const [newQ, setNewQ] = useState("");
-  function updateQ(id, text) { setQuestions((qs) => qs.map((q) => (q.id === id ? { ...q, text } : q))); }
+  function updateQ(id, patch) { setQuestions((qs) => qs.map((q) => (q.id === id ? { ...q, ...patch } : q))); }
   function deleteQ(id) { setQuestions((qs) => qs.filter((q) => q.id !== id)); }
-  function addQ() { if (!newQ.trim()) return; setQuestions((qs) => [...qs, { id: uid(), text: newQ.trim() }]); setNewQ(""); }
+  function addQ() { if (!newQ.trim()) return; setQuestions((qs) => [...qs, { id: uid(), text: newQ.trim(), type: "text" }]); setNewQ(""); }
   async function save() { await upsertTrainerData(trainerId, "checkin_template", { questions }); onSave(questions); }
   return (
     <div style={modalBackdrop()}>
@@ -3245,11 +3849,21 @@ function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
           <div style={{ fontSize: 20, fontWeight: 1000 }}>Weekly Check-in Questions</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
-        <div style={{ color: BRAND.muted, fontSize: 13, marginBottom: 12 }}>These questions go to every client's weekly check-in.</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, marginBottom: 12 }}>These questions go to every client's weekly check-in. Scale and Multiple Choice let clients tap an answer instead of typing.</div>
         {questions.map((q) => (
-          <div key={q.id} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
-            <input value={q.text} onChange={(e) => updateQ(q.id, e.target.value)} style={inputStyle()} />
-            <button onClick={() => deleteQ(q.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18 }}>x</button>
+          <div key={q.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input value={q.text} onChange={(e) => updateQ(q.id, { text: e.target.value })} style={inputStyle()} />
+              <button onClick={() => deleteQ(q.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18, padding: "0 6px" }}>x</button>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: q.type === "choice" ? 8 : 0 }}>
+              {CHECKIN_QUESTION_TYPES.map(([val, label]) => (
+                <button key={val} onClick={() => updateQ(q.id, { type: val, options: val === "choice" ? (q.options || ["Struggling", "Steady", "Strong", "Crushing It"]) : undefined })} style={{ background: q.type === val ? BRAND.gold : BRAND.panel, color: q.type === val ? "#000" : BRAND.muted, border: `1px solid ${q.type === val ? BRAND.gold : BRAND.line}`, borderRadius: 999, padding: "6px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{label}</button>
+              ))}
+            </div>
+            {q.type === "choice" && (
+              <input value={(q.options || []).join(", ")} onChange={(e) => updateQ(q.id, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })} placeholder="Options, comma separated" style={inputStyle({ fontSize: 13 })} />
+            )}
           </div>
         ))}
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
@@ -3296,8 +3910,29 @@ function CheckInsTab({ client, updateClient, isCoach }) {
       {!isCoach && !loadingTemplate && (
         <Card style={{ padding: isMobile ? 12 : 16, border: dueForCheckIn ? `1px solid ${BRAND.gold}` : undefined }}>
           <div style={{ fontWeight: 1000, marginBottom: dueForCheckIn ? 4 : 0, color: dueForCheckIn ? BRAND.gold : BRAND.text }}>{dueForCheckIn ? "Your check-in is due" : "Check in early if you'd like"}</div>
-          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-            {template.map((q) => <Field key={q.id} label={q.text} value={answers[q.id] || ""} onChange={(v) => setAnswer(q.id, v)} textarea />)}
+          <div style={{ display: "grid", gap: 14, marginTop: 10 }}>
+            {template.map((q) => (
+              <div key={q.id}>
+                <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{q.text}</div>
+                {q.type === "scale" && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      <button key={n} onClick={() => setAnswer(q.id, String(n))} style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.line}`, background: String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.card2, color: String(answers[q.id]) === String(n) ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
+                    ))}
+                  </div>
+                )}
+                {q.type === "choice" && (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {(q.options || []).map((opt) => (
+                      <button key={opt} onClick={() => setAnswer(q.id, opt)} style={{ flex: 1, textAlign: "center", padding: "11px 4px", borderRadius: 12, border: `1px solid ${answers[q.id] === opt ? BRAND.green : BRAND.line}`, background: answers[q.id] === opt ? BRAND.green : BRAND.card2, color: answers[q.id] === opt ? "#000" : BRAND.muted, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", cursor: "pointer" }}>{opt}</button>
+                    ))}
+                  </div>
+                )}
+                {(!q.type || q.type === "text") && (
+                  <textarea value={answers[q.id] || ""} onChange={(e) => setAnswer(q.id, e.target.value)} placeholder="Type your answer..." style={textareaStyle({ minHeight: 64 })} />
+                )}
+              </div>
+            ))}
           </div>
           <Button onClick={submit} disabled={saving} style={{ marginTop: 12, width: "100%" }}>{saving ? "Submitting..." : "Submit Check-in"}</Button>
         </Card>
@@ -3487,6 +4122,7 @@ function Trials({ user, onConvert }) {
   const [tab, setTab] = useState("consultation");
   const [openTrial, setOpenTrial] = useState(null);
   const [converting, setConverting] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" });
   useEffect(() => { load(); }, []);
   async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "trials").maybeSingle(); setTrials(data?.data?.trials || []); }
@@ -3501,7 +4137,7 @@ function Trials({ user, onConvert }) {
     setConverting(false);
     if (clientId) save(trials.map((t) => (t.id === trial.id ? { ...t, convertedClientId: clientId, convertedAt: new Date().toISOString() } : t)));
   }
-  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{t.name}</b>{t.convertedClientId && <span style={{ background: BRAND.green, color: "#000", fontSize: 10, fontWeight: 1000, borderRadius: 999, padding: "2px 8px" }}>CLIENT</span>}</div><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div>{openTrial.convertedClientId ? <div style={{ background: `${BRAND.green}18`, border: `1px solid ${BRAND.green}`, borderRadius: 12, padding: 10, marginTop: 12, color: BRAND.green, fontWeight: 800, fontSize: 13 }}>Converted to a client on {String(openTrial.convertedAt || "").slice(0, 10)}.</div> : null}<div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>{!openTrial.convertedClientId && <Button onClick={() => convertToClient(openTrial)} disabled={converting} style={{ flex: 1 }}>{converting ? "Converting..." : "Convert to Client (client has paid)"}</Button>}<Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
+  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div><div style={{ display: "flex", gap: 8, margin: "12px 0" }}><Button variant={tab === "consultation" ? "gold" : "dark"} onClick={() => setTab("consultation")}>Consultation</Button><Button variant={tab === "assessment" ? "gold" : "dark"} onClick={() => setTab("assessment")}>Fitness Assessment</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} />{tab === "consultation" ? <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginTop: 8 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></> : <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}</div><Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{t.name}</b>{t.convertedClientId && <span style={{ background: BRAND.green, color: "#000", fontSize: 10, fontWeight: 1000, borderRadius: 999, padding: "2px 8px" }}>CLIENT</span>}</div><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div>{openTrial.convertedClientId ? <div style={{ background: `${BRAND.green}18`, border: `1px solid ${BRAND.green}`, borderRadius: 12, padding: 10, marginTop: 12, color: BRAND.green, fontWeight: 800, fontSize: 13 }}>Converted to a client on {String(openTrial.convertedAt || "").slice(0, 10)}.</div> : null}<div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>{!openTrial.convertedClientId && <Button onClick={() => convertToClient(openTrial)} disabled={converting} style={{ flex: 1 }}>{converting ? "Converting..." : "Convert to Client (client has paid)"}</Button>}<Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadTrialPDF(openTrial); downloadBlob(blob, filename); setPdfBusy(false); }}>{pdfBusy ? "..." : "Download PDF"}</Button>{typeof navigator !== "undefined" && navigator.share && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadTrialPDF(openTrial); await sharePdfBlob(blob, filename, openTrial.name); setPdfBusy(false); }}>Share</Button>}<Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
 }
 export default function App() {
   const isMobile = useIsMobile(520);
@@ -3511,6 +4147,8 @@ export default function App() {
   const [clients, setClients] = useState([]);
   const [selected, setSelected] = useState(null);
   const [clientPortal, setClientPortal] = useState(null);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [accountNotActive, setAccountNotActive] = useState(false);
   const [syncStatus, setSyncStatus] = useState(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
   useEffect(() => {
     ensureMobileViewport();
@@ -3524,10 +4162,25 @@ export default function App() {
         if (queued.length) await flushSyncQueue();
       }
     }, 20000);
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (data.session) boot(data.session.user); else setLoading(false); });
+    // Supabase's password-reset email can arrive as a PKCE "?code=" link (needs an explicit
+    // exchange) or the older "#access_token=...&type=recovery" hash link. Handle both so the
+    // link actually lands somewhere instead of failing to load.
+    const url = new URL(window.location.href);
+    const hasRecoveryCode = url.searchParams.get("type") === "recovery" && url.searchParams.get("code");
+    const hasRecoveryHash = window.location.hash.includes("type=recovery");
+    if (hasRecoveryCode) {
+      setRecoveryMode(true);
+      supabase.auth.exchangeCodeForSession(url.searchParams.get("code")).then(({ data }) => { if (data?.session) setSession(data.session); setLoading(false); });
+    } else if (hasRecoveryHash) {
+      setRecoveryMode(true);
+    } else {
+      supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (data.session) boot(data.session.user); else setLoading(false); });
+    }
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
+      if (_event === "PASSWORD_RECOVERY") { setRecoveryMode(true); setLoading(false); return; }
       if (_event === "TOKEN_REFRESHED" || _event === "USER_UPDATED") return; // session stayed the same, just the token renewed - don't reload data mid-session
+      if (recoveryMode) return; // don't auto-boot into the dashboard while someone is mid-way through setting a new password
       if (sess) boot(sess.user);
       else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); }
     });
@@ -3579,6 +4232,14 @@ export default function App() {
       setSelected(null); setClients([]);
       return;
     }
+    if ((user.email || "").toLowerCase() !== DENIS_EMAIL) {
+      // Not the coach, and no client profile found (deleted, or never existed) - never fall through to the coach dashboard.
+      await supabase.auth.signOut();
+      setSession(null); setTrainer(null); setClients([]); setClientPortal(null);
+      setAccountNotActive(true);
+      setLoading(false);
+      return;
+    }
     await loadCoach(user);
   }
   async function loadCoach(user = session?.user) {
@@ -3593,7 +4254,9 @@ export default function App() {
     const ids = (clientRows || []).map((c) => c.id);
     let dataRows = [];
     if (ids.length) {
-      const { data } = await supabase.from("client_data").select("*").in("client_id", ids);
+      // Photos are fetched lazily per-client when their Photos tab is opened (see TransformPhotos) -
+      // excluding them here is what keeps a 16-client sync fast instead of downloading every photo up front.
+      const { data } = await supabase.from("client_data").select("*").in("client_id", ids).neq("section", "transformPhotos");
       dataRows = data || [];
     }
     const mapped = (clientRows || []).map((r, i) => mapClient(r, dataRows, i));
@@ -3619,9 +4282,14 @@ export default function App() {
       return nextPortal;
     });
   }
-  if (loading) return <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: isMobile ? 13 : 15, fontWeight: 700, letterSpacing: 3, marginTop: 6 }}>COACH</div></div></div>;
-  if (!session) return <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />;
-  if (clientPortal) return <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} />;
-  if (selected) return <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />;
-  return <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />;
+  return <>
+    <style>{GLOBAL_TEXT_CSS}</style>
+    {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
+    : recoveryMode ? <ResetPasswordScreen onDone={() => setRecoveryMode(false)} />
+    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: isMobile ? 13 : 15, fontWeight: 700, letterSpacing: 3, marginTop: 6 }}>COACH</div></div></div>
+    : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
+    : clientPortal ? <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} />
+    : selected ? <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />
+    : <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />}
+  </>;
 }
