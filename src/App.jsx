@@ -1048,8 +1048,12 @@ function addDays(date, days) {
   d.setDate(d.getDate() + days);
   return d;
 }
-function isoDate(date) {
-  return new Date(date).toISOString().slice(0, 10);
+function isoDate(date = new Date()) {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 function weekKey(date) {
   return isoDate(startOfWeek(date));
@@ -1077,7 +1081,7 @@ function newBlock(type = "straight") { return { id: uid(), type, rounds: type ==
 function newWorkout(name = "Workout") { return { id: uid(), name, note: "", blocks: [], dayOfWeek: null }; }
 function newProgWeek(n = 1) { return { id: uid(), weekNum: n, label: "", focus: "", targetRpe: "", workouts: [], restDays: {} }; }
 function newProgram(name = "New Program", goal = "General Fitness", weeksCount = 4) {
-  return { version: 2, id: uid(), name, goal, startDate: new Date().toISOString().slice(0, 10), weeks: Array.from({ length: weeksCount }, (_, i) => newProgWeek(i + 1)) };
+  return { version: 2, id: uid(), name, goal, startDate: isoDate(), weeks: Array.from({ length: weeksCount }, (_, i) => newProgWeek(i + 1)) };
 }
 function cloneWithNewIds(node) {
   if (Array.isArray(node)) return node.map(cloneWithNewIds);
@@ -1096,8 +1100,9 @@ const DOW_LETTER = ["M", "T", "W", "T", "F", "S", "S"];
 const DOW_LABEL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function programStart(program) {
   const raw = program?.startDate;
-  const d = raw ? new Date(`${raw}T00:00:00`) : startOfWeek(new Date());
-  return isNaN(d.getTime()) ? startOfWeek(new Date()) : d;
+  const d = raw ? new Date(`${raw}T00:00:00`) : new Date();
+  const valid = isNaN(d.getTime()) ? new Date() : d;
+  return startOfWeek(valid);
 }
 function dayDate(program, weekNum, dow) {
   return addDays(programStart(program), (weekNum - 1) * 7 + (dow - 1));
@@ -1129,7 +1134,7 @@ function normalizeProgramDays(program) {
   if (!program?.weeks) return program;
   return {
     ...program,
-    startDate: program.startDate || new Date().toISOString().slice(0, 10),
+    startDate: program.startDate || isoDate(),
     weeks: program.weeks.map((week) => {
       const map = weekDayMap(week);
       const dowOf = {};
@@ -1280,7 +1285,7 @@ function emptyTrainingLogs() { return { version: 2, sessions: [] }; }
 function startSession(program, week, workout) {
   return {
     id: uid(), programId: program.id, programName: program.name, weekId: week.id, weekNum: week.weekNum,
-    workoutId: workout.id, workoutName: workout.name, date: new Date().toISOString().slice(0, 10),
+    workoutId: workout.id, workoutName: workout.name, date: isoDate(),
     startedAt: new Date().toISOString(), completedAt: null, status: "in_progress",
     entries: (workout.blocks || []).flatMap((block, bi) => (block.exercises || []).map((ex, ei) => ({
       id: uid(), exerciseId: ex.id, blockId: block.id, tag: exerciseTag(block, bi, ei), name: ex.name, substitutedName: "",
@@ -1315,6 +1320,15 @@ function fmtLoggedSet(set, timed) {
   const load = set.load ? `${set.load}kg` : "";
   const reps = set.reps ? `${set.reps} reps` : "";
   return [load, reps].filter(Boolean).join(" x ") || "-";
+}
+function lastSessionSetsFor(logs, exerciseName) {
+  const name = String(exerciseName || "").toLowerCase();
+  const sessions = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => a.date.localeCompare(b.date));
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const entry = (sessions[i].entries || []).find((e) => String(e.substitutedName || e.name || "").toLowerCase() === name);
+    if (entry && entry.sets?.length) return entry.sets;
+  }
+  return [];
 }
 function exerciseHistoryV2(logs, exerciseName) {
   const name = String(exerciseName || "").toLowerCase();
@@ -1570,7 +1584,7 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
   function loadTemplate(t) {
     if (!confirm(`Load "${t.name}"? This replaces the program you're editing. Logs are never touched.`)) return;
     const copy = cloneWithNewIds(t.program);
-    setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || new Date().toISOString().slice(0, 10) });
+    setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || isoDate() });
     setWk(0); setWo(0);
   }
   async function saveAsTemplate() {
@@ -1797,6 +1811,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
               const effectiveName = entry.substitutedName || entry.name;
               const timed = isTimedExercise(effectiveName);
               const history = exerciseHistoryV2(logsBefore, effectiveName);
+              const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
               const thumb = getVideoThumb(ex.videoUrl);
               const subbing = subFor === entry.id;
               const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
@@ -1826,8 +1841,8 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
                       return (
                         <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "26px 1fr 1fr 54px 44px" : "40px 1fr 1fr 84px 48px", gap: 8, marginBottom: 6, alignItems: "center", position: "relative" }}>
                           <div style={{ color: BRAND.muted, fontWeight: 900 }}>S{si + 1}</div>
-                          <div>{targetText && <div style={{ color: BRAND.muted, fontSize: 10, marginBottom: 2 }}>{targetText}</div>}<input placeholder={timed ? "load/assist" : "kg"} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={inputStyle()} /></div>
-                          <div style={{ alignSelf: "end" }}><input placeholder={timed ? "time e.g. 45s" : "reps"} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={inputStyle()} /></div>
+                          <div>{targetText && <div style={{ color: BRAND.muted, fontSize: 10, marginBottom: 2 }}>{targetText}</div>}<input placeholder={lastSets[si]?.load || (timed ? "load/assist" : "kg")} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={inputStyle()} /></div>
+                          <div style={{ alignSelf: "end" }}><input placeholder={timed ? (lastSets[si]?.duration || "time e.g. 45s") : (lastSets[si]?.reps || "reps")} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={inputStyle()} /></div>
                           <div style={{ alignSelf: "end", position: "relative" }}>
                             <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ ...inputStyle(), textAlign: "center", cursor: "pointer", color: s.rpe ? BRAND.text : BRAND.dim }}>{s.rpe || "RPE"}</button>
                             {rpePickerFor === `${entry.id}:${si}` && (
@@ -1998,7 +2013,7 @@ function ProgramMonthView({ days, cursor, setCursor, currentWeek, onOpen }) {
 // ---------- Completed day: the session report ----------
 // A record of what was actually done, not a place to log. Prescribed sits next
 // to actual, because the gap between them is the coaching.
-function SessionReport({ client, day, logs, onBack, onSaveCoachNote, isCoach }) {
+function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachNote, isCoach }) {
   const session = day.session;
   const [note, setNote] = useState(session?.coachNote || "");
   const [saved, setSaved] = useState(false);
@@ -2013,7 +2028,10 @@ function SessionReport({ client, day, logs, onBack, onSaveCoachNote, isCoach }) 
         <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
           {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
         </div>
-        <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 4 }}>{day.workout.name}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 4 }}>
+          <div style={{ fontSize: 24, fontWeight: 1000 }}>{day.workout.name}</div>
+          {onStart && <Button variant="dark" onClick={() => onStart(day)}>Log again</Button>}
+        </div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>
           Completed{stats.durationSec > 0 ? ` · ${fmtClock(stats.durationSec)}` : ""}{session.sessionRpe ? ` · Session RPE ${session.sessionRpe}` : ""}
         </div>
@@ -2188,8 +2206,8 @@ function ProgramTab({ client, updateClient, isCoach }) {
       {!program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
       {program && openDay && (
         openDay.state === "completed"
-          ? <SessionReport client={client} day={openDay} logs={logs} isCoach={isCoach} onBack={() => setOpenKey(null)} onSaveCoachNote={saveCoachNote} />
-          : <DayDetail day={openDay} onBack={() => setOpenKey(null)} onStart={startOrContinue} canStart={!openDay.isRest && (isCoach || openDay.dateISO <= todayISO)} />
+          ? <SessionReport client={client} day={openDay} logs={logs} isCoach={isCoach} onBack={() => setOpenKey(null)} onSaveCoachNote={saveCoachNote} onStart={startOrContinue} />
+          : <DayDetail day={openDay} onBack={() => setOpenKey(null)} onStart={startOrContinue} canStart={!openDay.isRest && (isCoach || (openDay.dateISO >= isoDate(startOfWeek(new Date())) && openDay.dateISO <= isoDate(addDays(startOfWeek(new Date()), 6))))} />
       )}
       {program && !openDay && (
         <>
@@ -2355,7 +2373,7 @@ function mapClient(row, dataRows = [], index = 0) {
     phone: row.phone || "",
     age: ageFromBirthday(profile.birthday) ?? (row.age || ""),
     weight: row.weight_kg || row.weight || "",
-    joinDate: row.created_at ? row.created_at.split("T")[0] : new Date().toISOString().slice(0, 10),
+    joinDate: row.created_at ? row.created_at.split("T")[0] : isoDate(),
     inviteCode: row.invite_code || "",
     inviteStatus: row.invite_status || "not_sent",
     goals: profile.goals,
@@ -2842,22 +2860,22 @@ function CoachTile({ icon, name, meta, count, quiet, wide, color = BRAND.gold, o
   return (
     <button onClick={onClick} style={{
       gridColumn: wide ? "1 / -1" : "auto",
-      background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20,
-      padding: 16, minHeight: wide ? 84 : 116, cursor: "pointer", position: "relative",
+      background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 22,
+      padding: 18, minHeight: wide ? 96 : 136, cursor: "pointer", position: "relative",
       display: "flex", flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start",
-      justifyContent: wide ? "flex-start" : "space-between", gap: wide ? 14 : 0, textAlign: "left", minWidth: 0,
+      justifyContent: wide ? "flex-start" : "space-between", gap: wide ? 16 : 0, textAlign: "left", minWidth: 0,
     }}>
       {count != null && !wide && (
-        <div style={{ position: "absolute", top: 14, right: 14, minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: quiet ? "transparent" : color, border: quiet ? `1px solid ${BRAND.line}` : "none", color: quiet ? BRAND.dim : "#000", fontSize: 10, fontWeight: 1000, display: "grid", placeItems: "center" }}>{count}</div>
+        <div style={{ position: "absolute", top: 16, right: 16, minWidth: 22, height: 22, padding: "0 7px", borderRadius: 999, background: quiet ? "transparent" : color, border: quiet ? `1px solid ${BRAND.line}` : "none", color: quiet ? BRAND.dim : "#000", fontSize: 11, fontWeight: 1000, display: "grid", placeItems: "center" }}>{count}</div>
       )}
-      <div style={{ width: 44, height: 44, borderRadius: 14, background: `${color}22`, display: "grid", placeItems: "center", flexShrink: 0 }}>
-        <CoachIcon name={icon} size={22} color={color} />
+      <div style={{ width: 52, height: 52, borderRadius: 16, background: `${color}22`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <CoachIcon name={icon} size={26} color={color} />
       </div>
       <div style={{ flex: wide ? 1 : "none", minWidth: 0, marginTop: wide ? 0 : "auto" }}>
-        <div style={{ fontWeight: 900, fontSize: 15, color: BRAND.text, textTransform: "uppercase", letterSpacing: 0.3 }}>{name}</div>
-        <div style={{ color, fontSize: 12, fontWeight: 700, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
+        <div style={{ fontWeight: 900, fontSize: 17, color: BRAND.text, textTransform: "uppercase", letterSpacing: 0.3 }}>{name}</div>
+        <div style={{ color, fontSize: 13, fontWeight: 700, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
       </div>
-      {wide && <NavIcon name="back" size={16} color={BRAND.dim} rotate={180} />}
+      {wide && <NavIcon name="back" size={18} color={BRAND.dim} rotate={180} />}
     </button>
   );
 }
@@ -2901,7 +2919,7 @@ function CoachHome({ trainer, user, clients, notifications, templatesCount, tria
         <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.red : BRAND.text} />
       </div>
       <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 4 }}>Go to</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12 }}>
         <CoachTile icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} color={BRAND.gold} onClick={onOpenClients} />
         <CoachTile icon="templates" name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet color={BRAND.purple} onClick={() => onTile("templates")} />
         <CoachTile icon="calendar" name="Calendar" meta={`${sessionsToday} session${sessionsToday === 1 ? "" : "s"} today`} count={sessionsToday || null} color={BRAND.cyan} onClick={() => onTile("calendar")} />
@@ -2968,6 +2986,9 @@ function CoachTemplates({ user, clients, onBack }) {
 function CoachAnalytics({ clients, selectClient, onBack }) {
   const isMobile = useIsMobile(520);
   const { cold, adherence, lastSessionOf } = coachStats(clients);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const pbsThisMonth = clients.reduce((n, c) => n + recentPBsAcrossHistory(c.trainingLogs, 20).filter((pb) => pb.date && pb.date.slice(0, 7) === thisMonth).length, 0);
+  const overduePayments = clients.filter((c) => c.clientType === "Online" && paymentStatus(c).label?.toLowerCase().includes("overdue")).length;
   // Completed sessions bucketed into the last 8 calendar weeks, across every client.
   const weeks = [];
   const thisMonday = startOfWeek(new Date());
@@ -2996,8 +3017,10 @@ function CoachAnalytics({ clients, selectClient, onBack }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
         <Mini label="Sessions" value={String(total)} />
-        <Mini label="Avg adherence" value={adherence != null ? `${adherence}%` : "-"} />
-        <Mini label="Going cold" value={String(cold.length)} />
+        <Mini label="Avg adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
+        <Mini label="Going cold" value={String(cold.length)} color={cold.length > 0 ? BRAND.red : BRAND.text} />
+        <Mini label="PBs this month" value={String(pbsThisMonth)} color={BRAND.cyan} />
+        <Mini label="Payments overdue" value={String(overduePayments)} color={overduePayments > 0 ? BRAND.red : BRAND.text} />
       </div>
       <div>
         <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Sessions completed per week</div>
@@ -3079,13 +3102,14 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("home");
+  const [clientTypeFilter, setClientTypeFilter] = useState("1:1"); // In-Person by default
   const [screen, setScreen] = useState(null); // templates | calendar | analytics | trials
   const [query, setQuery] = useState("");
   const [templatesCount, setTemplatesCount] = useState(0);
   const [trialsCount, setTrialsCount] = useState(0);
   const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
-  const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) && (c.clientType || "1:1") === clientTypeFilter);
   const notifications = computeNotifications(clients);
   useEffect(() => {
     let active = true;
@@ -3142,7 +3166,11 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     <div style={{ display: "grid", gap: 14 }}>
       <div>
         <div style={{ fontSize: 26, fontWeight: 900 }}>Clients</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{clients.length} active</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{filtered.length} {clientTypeFilter === "1:1" ? "in-person" : "online"}</div>
+      </div>
+      <div style={{ display: "flex", gap: 8, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: 4 }}>
+        <button onClick={() => setClientTypeFilter("1:1")} style={{ flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "1:1" ? BRAND.gold : "transparent", color: clientTypeFilter === "1:1" ? "#000" : BRAND.muted, fontWeight: 900, fontSize: 13, cursor: "pointer" }}>In-Person</button>
+        <button onClick={() => setClientTypeFilter("Online")} style={{ flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "Online" ? BRAND.gold : "transparent", color: clientTypeFilter === "Online" ? "#000" : BRAND.muted, fontWeight: 900, fontSize: 13, cursor: "pointer" }}>Online</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10 }}>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
@@ -3156,7 +3184,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
       }}>
         {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
       </div>
-      {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No clients match that search.</div></Card>}
+      {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No {clientTypeFilter === "1:1" ? "in-person" : "online"} clients{query ? " match that search" : " yet"}.</div></Card>}
     </div>
   );
   else if (tab === "alerts") body = (
@@ -3531,7 +3559,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     </div>
   );
 }
-function todaysNutritionStats(client, date = new Date().toISOString().slice(0, 10)) {
+function todaysNutritionStats(client, date = isoDate()) {
   const nutrition = normalizeNutrition(client.nutrition);
   const logs = (nutrition.logs || []).filter((l) => l.date === date);
   const totals = logs.reduce((a, l) => ({
@@ -3895,6 +3923,7 @@ function normalizeNutrition(raw) {
     mealPlan: { ...base.mealPlan, ...(n.mealPlan || {}) },
     logs: Array.isArray(n.logs) ? n.logs : [],
     daily: n.daily && typeof n.daily === "object" ? n.daily : {},
+    savedMeals: Array.isArray(n.savedMeals) ? n.savedMeals : [],
   };
 }
 // ================= NUTRITION SYSTEM (redesigned) =================
@@ -4082,7 +4111,7 @@ function FoodSearchModal({ client, onClose, onAdd }) {
 }
 
 function WeekAdherenceStrip({ nutrition, targets, color }) {
-  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return d.toISOString().slice(0, 10); });
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return isoDate(d); });
   const target = Number(targets.calories || 0);
   const totals = days.map((d) => (nutrition.logs || []).filter((l) => l.date === d).reduce((a, l) => a + Number(l.kcal || 0), 0));
   const loggedCount = days.filter((d, i) => totals[i] > 0).length;
@@ -4112,6 +4141,78 @@ function WeekAdherenceStrip({ nutrition, targets, color }) {
   );
 }
 
+function SavedMealsRow({ meal, savedMeals, onLog, onCreate }) {
+  const forThisMeal = savedMeals.filter((m) => m.mealType === meal);
+  if (forThisMeal.length === 0) {
+    return <button onClick={onCreate} style={{ background: "transparent", border: `1px dashed ${BRAND.line}`, borderRadius: 12, padding: "10px 12px", color: BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer", marginBottom: 10, width: "100%", textAlign: "left" }}>+ Save a {meal.toLowerCase()} you eat often</button>;
+  }
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginBottom: 6 }}>My Meals</div>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+        {forThisMeal.map((m) => {
+          const t = (m.items || []).reduce((a, i) => ({ kcal: a.kcal + Number(i.kcal || 0), protein: a.protein + Number(i.protein || 0) }), { kcal: 0, protein: 0 });
+          return (
+            <button key={m.id} onClick={() => onLog(m)} style={{ flexShrink: 0, width: 140, textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, cursor: "pointer" }}>
+              <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 13 }}>{m.name}</div>
+              <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(m.items || []).map((i) => i.name).join(", ")}</div>
+              <div style={{ color: BRAND.cyan, fontSize: 11, fontWeight: 800, marginTop: 8 }}>{t.kcal} kcal &middot; P{t.protein}</div>
+              <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 800, marginTop: 4 }}>Tap to log &rarr;</div>
+            </button>
+          );
+        })}
+        <button onClick={onCreate} style={{ flexShrink: 0, width: 90, background: "transparent", border: `1px dashed ${BRAND.line}`, borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, color: BRAND.dim, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+          <div style={{ fontSize: 18 }}>+</div>New Meal
+        </button>
+      </div>
+    </div>
+  );
+}
+function SaveMealModal({ client, mealType, onClose, onSave }) {
+  const [name, setName] = useState("");
+  const [items, setItems] = useState([]);
+  const [pickingFood, setPickingFood] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const totals = items.reduce((a, i) => ({ kcal: a.kcal + Number(i.kcal || 0), protein: a.protein + Number(i.protein || 0), carbs: a.carbs + Number(i.carbs || 0), fats: a.fats + Number(i.fats || 0) }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
+  function addItem(item) { setItems((prev) => [...prev, item]); setPickingFood(false); }
+  function removeItem(i) { setItems((prev) => prev.filter((_, idx) => idx !== i)); }
+  async function save() {
+    if (!name.trim()) { alert("Give this meal a name."); return; }
+    if (items.length === 0) { alert("Add at least one food item."); return; }
+    setSaving(true);
+    await onSave({ id: uid(), name: name.trim(), mealType, items });
+    setSaving(false);
+  }
+  return (
+    <div style={modalBackdrop()}>
+      <Card style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div style={{ fontSize: 19, fontWeight: 1000 }}>New {mealType} Meal</div>
+          <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 14 }}>Save a combo you eat often so you can log it in one tap.</div>
+        <Field label="Meal name" value={name} onChange={setName} placeholder="e.g. Oats + Eggs" />
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, margin: "14px 0 8px", textTransform: "uppercase" }}>Items in this meal</div>
+        {items.length === 0 && <div style={{ color: BRAND.dim, fontSize: 13, marginBottom: 8 }}>No items yet.</div>}
+        {items.map((it, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: BRAND.card2, borderRadius: 12, padding: "10px 12px", marginBottom: 6 }}>
+            <div><div style={{ fontWeight: 800, fontSize: 13 }}>{it.name}</div><div style={{ color: BRAND.muted, fontSize: 11 }}>{it.kcal} kcal &middot; P{it.protein} C{it.carbs} F{it.fats}</div></div>
+            <button onClick={() => removeItem(i)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 900, fontSize: 15, cursor: "pointer" }}>x</button>
+          </div>
+        ))}
+        <Button variant="dark" onClick={() => setPickingFood(true)} style={{ width: "100%", marginTop: 6 }}>+ Search &amp; add food</Button>
+        {items.length > 0 && (
+          <div style={{ background: BRAND.card2, borderRadius: 12, padding: 12, marginTop: 14, display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>Total</span>
+            <span style={{ color: BRAND.gold, fontWeight: 800, fontSize: 13 }}>{totals.kcal} kcal &middot; P{totals.protein} C{totals.carbs} F{totals.fats}</span>
+          </div>
+        )}
+        <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 14 }}>{saving ? "Saving..." : "Save Meal"}</Button>
+      </Card>
+      {pickingFood && <FoodSearchModal client={client} onClose={() => setPickingFood(false)} onAdd={addItem} />}
+    </div>
+  );
+}
 function MealSection({ meal, logs, plan, color, onAdd, onDelete }) {
   const totals = logs.reduce((a, l) => ({ kcal: a.kcal + Number(l.kcal || 0), protein: a.protein + Number(l.protein || 0), carbs: a.carbs + Number(l.carbs || 0), fats: a.fats + Number(l.fats || 0) }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
   return (
@@ -4123,7 +4224,7 @@ function MealSection({ meal, logs, plan, color, onAdd, onDelete }) {
       {plan && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10, marginBottom: 10, color: BRAND.muted, fontSize: 13, whiteSpace: "pre-wrap" }}><span style={{ color: BRAND.gold, fontWeight: 900 }}>Plan: </span>{plan}</div>}
       {logs.map((l) => (
         <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, paddingTop: 8, marginTop: 8 }}>
-          <div><div style={{ fontWeight: 800 }}>{l.food}{l.qty !== 1 ? ` (x${l.qty})` : ""}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{l.kcal} kcal · P{l.protein} C{l.carbs} F{l.fats}</div></div>
+          <div><div style={{ fontWeight: 800 }}>{l.food}{l.qty !== 1 ? ` (x${l.qty})` : ""}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{l.kcal} kcal · P{l.protein} C{l.carbs} F{l.fats}{l.savedMealName ? ` · from "${l.savedMealName}"` : ""}</div></div>
           <button onClick={() => onDelete(l.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 16 }}>x</button>
         </div>
       ))}
@@ -4144,10 +4245,10 @@ function WeekStrip({ date, onSelect, loggedDates, color = BRAND.gold }) {
   const monday = startOfWeekMonday(date);
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
   const monthLabel = monday.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = isoDate();
   function shiftWeek(deltaDays) {
     const d = new Date(date); d.setDate(d.getDate() + deltaDays);
-    onSelect(d.toISOString().slice(0, 10));
+    onSelect(isoDate(d));
   }
   return (
     <div>
@@ -4158,7 +4259,7 @@ function WeekStrip({ date, onSelect, loggedDates, color = BRAND.gold }) {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         {days.map((d, i) => {
-          const iso = d.toISOString().slice(0, 10);
+          const iso = isoDate(d);
           const isToday = iso === todayIso;
           const isSelected = iso === date;
           const hasLog = loggedDates.has(iso);
@@ -4182,8 +4283,9 @@ function WeekStrip({ date, onSelect, loggedDates, color = BRAND.gold }) {
 function NutritionTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [nutrition, setNutrition] = useState(() => normalizeNutrition(client.nutrition));
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(isoDate());
   const [addingMeal, setAddingMeal] = useState(null);
+  const [creatingMealFor, setCreatingMealFor] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [showTargets, setShowTargets] = useState(false);
@@ -4212,6 +4314,11 @@ function NutritionTab({ client, updateClient, isCoach }) {
     setAddingMeal(null);
   }
   async function delLog(id) { await persist({ ...nutrition, logs: (nutrition.logs || []).filter((l) => l.id !== id) }); }
+  async function logSavedMeal(meal, savedMeal) {
+    const entries = (savedMeal.items || []).map((it) => ({ id: uid(), date, meal, food: it.name, qty: it.qty || 1, kcal: Math.round(it.kcal || 0), protein: Math.round(it.protein || 0), carbs: Math.round(it.carbs || 0), fats: Math.round(it.fats || 0), savedMealName: savedMeal.name }));
+    await persist({ ...nutrition, logs: [...(nutrition.logs || []), ...entries] });
+  }
+  async function saveMeal(meal) { await persist({ ...nutrition, savedMeals: [...(nutrition.savedMeals || []), meal] }); setCreatingMealFor(null); }
   function setDaily(k, v) { const next = { ...nutrition, daily: { ...(nutrition.daily || {}), [date]: { ...(nutrition.daily?.[date] || {}), [k]: v } } }; setNutrition(next); persist(next); }
   const waterGlasses = 8;
   const waterFilled = Math.round((Number(daily.water || 0) / (Number(targets.water || 3) || 3)) * waterGlasses);
@@ -4258,7 +4365,10 @@ function NutritionTab({ client, updateClient, isCoach }) {
       </Card>
 
       {MEAL_ORDER.map((meal) => (
-        <MealSection key={meal} meal={meal} logs={todays.filter((l) => l.meal === meal)} plan={nutrition.mealPlan?.[meal]} color={client.color} onAdd={() => setAddingMeal(meal)} onDelete={delLog} />
+        <div key={meal}>
+          <SavedMealsRow meal={meal} savedMeals={nutrition.savedMeals || []} onLog={(m) => logSavedMeal(meal, m)} onCreate={() => setCreatingMealFor(meal)} />
+          <MealSection meal={meal} logs={todays.filter((l) => l.meal === meal)} plan={nutrition.mealPlan?.[meal]} color={client.color} onAdd={() => setAddingMeal(meal)} onDelete={delLog} />
+        </div>
       ))}
 
       <WeekAdherenceStrip nutrition={nutrition} targets={targets} color={client.color} />
@@ -4289,12 +4399,13 @@ function NutritionTab({ client, updateClient, isCoach }) {
       </Card>}
 
       {addingMeal && <FoodSearchModal client={client} onClose={() => setAddingMeal(null)} onAdd={(item) => addFoodTo(addingMeal, item)} />}
+      {creatingMealFor && <SaveMealModal client={client} mealType={creatingMealFor} onClose={() => setCreatingMealFor(null)} onSave={saveMeal} />}
     </div>
   );
 }
 
 function PhotoUploadModal({ onClose, onSave }) {
-  const [form, setForm] = useState({ image: "", type: "Progress", weight: "", notes: "", date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ image: "", type: "Progress", weight: "", notes: "", date: isoDate() });
   const [saving, setSaving] = useState(false);
   async function pickImage(file) { if (!file) return; const dataUrl = await readFileAsDataUrl(file); setForm((f) => ({ ...f, image: dataUrl })); }
   async function save() {
@@ -4486,7 +4597,7 @@ function currentStreakWeeks(logs) {
   let streak = 0;
   const cursor = new Date();
   for (;;) {
-    const wk = isoWeek(cursor.toISOString().slice(0, 10));
+    const wk = isoWeek(isoDate(cursor));
     if (weeksWithSessions.has(wk)) { streak += 1; cursor.setDate(cursor.getDate() - 7); }
     else break;
   }
@@ -4509,7 +4620,7 @@ function weeklyVolumeTrend(logs, weeksBack = 4) {
   const labels = [];
   for (let i = weeksBack - 1; i >= 0; i--) {
     const d = new Date(now); d.setDate(d.getDate() - i * 7);
-    labels.push(d.toISOString().slice(0, 10));
+    labels.push(isoDate(d));
   }
   const volumes = Array(weeksBack).fill(0);
   completed.forEach((s) => {
@@ -4661,7 +4772,7 @@ function CheckInsTab({ client, updateClient, isCoach }) {
   function setAnswer(id, v) { setAnswers((a) => ({ ...a, [id]: v })); }
   async function submit() {
     setSaving(true);
-    const entry = { id: uid(), date: new Date().toISOString().slice(0, 10), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })) };
+    const entry = { id: uid(), date: isoDate(), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })) };
     const next = [...submissions, entry];
     await upsertSection(client.id, "checkins", { submissions: next });
     updateClient({ ...client, checkIns: next });
@@ -4741,7 +4852,7 @@ function PaymentsTab({ client, updateClient, isCoach }) {
   }
   async function saveDueDate() { setSaving(true); await persist({ paymentDueDate: dueDate, paymentPaid: false }); setSaving(false); }
   async function markPaid() { await persist({ paymentPaid: true }); }
-  async function renew30() { const next = new Date(); next.setDate(next.getDate() + 30); const nextDate = next.toISOString().slice(0, 10); setDueDate(nextDate); await persist({ paymentDueDate: nextDate, paymentPaid: false }); }
+  async function renew30() { const next = new Date(); next.setDate(next.getDate() + 30); const nextDate = isoDate(next); setDueDate(nextDate); await persist({ paymentDueDate: nextDate, paymentPaid: false }); }
   return (
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Payments</div>
@@ -4827,7 +4938,7 @@ function InviteTab({ client, updateClient }) {
 function ClientWorkoutLog({ client, updateClient }) {
   const isMobile = useIsMobile(520);
   const [logs, setLogs] = useState(client.workoutLogs || []);
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), workout: "", weights: "", cardio: "", rpe: "", notes: "" });
+  const [form, setForm] = useState({ date: isoDate(), workout: "", weights: "", cardio: "", rpe: "", notes: "" });
   async function add() { const next = [{ id: uid(), ...form }, ...logs]; setLogs(next); await upsertSection(client.id, "workoutLogs", next); updateClient({ ...client, workoutLogs: next }); setForm({ ...form, workout: "", weights: "", cardio: "", rpe: "", notes: "" }); }
   return <Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ fontSize: isMobile ? 20 : 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>RPE</div><select value={form.rpe || ""} onChange={(e) => setForm({ ...form, rpe: e.target.value })} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></label></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
 }
