@@ -66,7 +66,7 @@ const BRAND = {
 const GLOBAL_TEXT_CSS = `
   html, body, #root { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; box-shadow: none !important; background: ${BRAND.bg} !important; min-height: 100%; }
   body { min-height: 100vh; }
-  * { font-weight: 700 !important; }
+  * { font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; }
   input, textarea, select, button { font-weight: 700 !important; }
   ::placeholder { font-weight: 600 !important; opacity: 0.8; }
 `;
@@ -1071,11 +1071,11 @@ function weekDays(start) {
 
 function newSet() { return { id: uid(), targetReps: "", targetLoad: "", targetRpe: "" }; }
 function newExercise(name = "") {
-  return { id: uid(), name, loadType: "kg", tempo: "", rest: "", note: "", videoUrl: "", sets: [newSet(), newSet(), newSet()] };
+  return { id: uid(), name, loadType: "kg", tempo: "", rest: "", note: "", videoUrl: DEFAULT_EXERCISE_VIDEOS[name] || "", sets: [newSet(), newSet(), newSet()] };
 }
 function newBlock(type = "straight") { return { id: uid(), type, rounds: type === "circuit" ? 3 : 1, exercises: [] }; }
-function newWorkout(name = "Workout") { return { id: uid(), name, note: "", blocks: [] }; }
-function newProgWeek(n = 1) { return { id: uid(), weekNum: n, label: "", focus: "", targetRpe: "", workouts: [] }; }
+function newWorkout(name = "Workout") { return { id: uid(), name, note: "", blocks: [], dayOfWeek: null }; }
+function newProgWeek(n = 1) { return { id: uid(), weekNum: n, label: "", focus: "", targetRpe: "", workouts: [], restDays: {} }; }
 function newProgram(name = "New Program", goal = "General Fitness", weeksCount = 4) {
   return { version: 2, id: uid(), name, goal, startDate: new Date().toISOString().slice(0, 10), weeks: Array.from({ length: weeksCount }, (_, i) => newProgWeek(i + 1)) };
 }
@@ -1088,6 +1088,101 @@ function cloneWithNewIds(node) {
     return out;
   }
   return node;
+}
+// ---------- Program calendar: day allocation + rest days ----------
+// A program day is derived from the program's start date, so the calendar and
+// the adherence numbers always agree. Any day without a workout is a rest day.
+const DOW_LETTER = ["M", "T", "W", "T", "F", "S", "S"];
+const DOW_LABEL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function programStart(program) {
+  const raw = program?.startDate;
+  const d = raw ? new Date(`${raw}T00:00:00`) : startOfWeek(new Date());
+  return isNaN(d.getTime()) ? startOfWeek(new Date()) : d;
+}
+function dayDate(program, weekNum, dow) {
+  return addDays(programStart(program), (weekNum - 1) * 7 + (dow - 1));
+}
+function restNoteFor(week, dow) { return week?.restDays?.[dow] || ""; }
+// Programs built before day allocation existed have no dayOfWeek on their workouts.
+// Rather than have those weeks render as seven rest days, lay the workouts out
+// Mon, Tue, Wed... in order. Nothing disappears, and the coach can move them after.
+function weekDayMap(week) {
+  const map = {};
+  const spare = [];
+  (week?.workouts || []).forEach((w) => {
+    const dow = Number(w.dayOfWeek);
+    if (dow >= 1 && dow <= 7 && !map[dow]) map[dow] = w;
+    else spare.push(w);
+  });
+  let cursor = 1;
+  spare.forEach((w) => {
+    while (cursor <= 7 && map[cursor]) cursor += 1;
+    if (cursor <= 7) map[cursor] = w;
+  });
+  return map;
+}
+function workoutForDay(week, dow) { return weekDayMap(week)[dow] || null; }
+function unassignedWorkouts(week) { return (week?.workouts || []).filter((w) => !w.dayOfWeek); }
+// Writes the implied layout back onto the workouts, so what the builder shows is
+// exactly what gets saved.
+function normalizeProgramDays(program) {
+  if (!program?.weeks) return program;
+  return {
+    ...program,
+    startDate: program.startDate || new Date().toISOString().slice(0, 10),
+    weeks: program.weeks.map((week) => {
+      const map = weekDayMap(week);
+      const dowOf = {};
+      Object.entries(map).forEach(([dow, w]) => { dowOf[w.id] = Number(dow); });
+      return {
+        ...week,
+        restDays: week.restDays || {},
+        workouts: (week.workouts || []).map((w) => ({ ...w, dayOfWeek: dowOf[w.id] ?? null })),
+      };
+    }),
+  };
+}
+function buildProgramDays(program, logs) {
+  if (!program?.weeks?.length) return [];
+  const todayISO = isoDate(new Date());
+  const out = [];
+  program.weeks.forEach((week) => {
+    for (let dow = 1; dow <= 7; dow++) {
+      const date = dayDate(program, week.weekNum, dow);
+      const dateISO = isoDate(date);
+      const workout = workoutForDay(week, dow);
+      const session = workout ? sessionForWorkout(logs, week.id, workout.id) : null;
+      let state;
+      if (!workout) state = "rest";
+      else if (session?.status === "completed") state = "completed";
+      else if (dateISO === todayISO) state = "today";
+      else if (session?.status === "in_progress") state = "in_progress";
+      else if (dateISO < todayISO) state = "missed";
+      else state = "scheduled";
+      out.push({
+        key: `${week.id}_${dow}`, week, weekNum: week.weekNum, dow,
+        date, dateISO, workout, session,
+        isRest: !workout, note: restNoteFor(week, dow), state,
+      });
+    }
+  });
+  return out;
+}
+function currentProgramWeek(program) {
+  if (!program?.weeks?.length) return 1;
+  const diff = Math.floor((new Date(`${isoDate(new Date())}T00:00:00`) - new Date(`${isoDate(programStart(program))}T00:00:00`)) / 86400000);
+  return Math.min(Math.max(1, Math.floor(diff / 7) + 1), program.weeks.length);
+}
+function exerciseCountOf(workout) {
+  return (workout?.blocks || []).reduce((n, b) => n + (b.exercises?.length || 0), 0);
+}
+function findPrescribedExercise(workout, entry) {
+  for (const b of workout?.blocks || []) {
+    for (const ex of b.exercises || []) {
+      if (ex.id === entry.exerciseId) return ex;
+    }
+  }
+  return null;
 }
 function fmtLoad(load, loadType = "kg") {
   if (loadType === "BW") return load ? `BW +${load}kg` : "BW";
@@ -1143,8 +1238,43 @@ function fmtClock(totalSec = 0) {
 function getVideoThumb(url = "") {
   if (!url) return null;
   const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]{6,})/);
-  if (yt) return { thumb: `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg`, watchUrl: `https://www.youtube.com/watch?v=${yt[1]}` };
+  if (yt) return { thumb: `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg`, watchUrl: `https://www.youtube.com/watch?v=${yt[1]}`, videoId: yt[1] };
   return null;
+}
+// Short (mostly under a minute), verified proper-form demonstrations for the exercises actually in use across client programs.
+const DEFAULT_EXERCISE_VIDEOS = {
+  "Back Squat": "https://www.youtube.com/shorts/iZTxa8NJH2g",
+  "Barbell Bench Press": "https://www.youtube.com/shorts/hWbUlkb5Ms4",
+  "Barbell Curl": "https://www.youtube.com/shorts/dIAxyJimXnA",
+  "Barbell Row": "https://www.youtube.com/shorts/Nqh7q3zDCoQ",
+  "Deadlift": "https://www.youtube.com/shorts/8np3vKDBJfc",
+  "Dumbbell Row": "https://www.youtube.com/shorts/H8jf3DwlIlo",
+  "Goblet Squat": "https://www.youtube.com/shorts/wjkoL-CagYE",
+  "Incline DB Press": "https://www.youtube.com/shorts/8fXfwG4ftaQ",
+  "Kettlebell Swing": "https://www.youtube.com/shorts/aSYap2yhW8s",
+  "Leg Press": "https://www.youtube.com/shorts/nDh_BlnLCGc",
+  "Overhead Press": "https://www.youtube.com/shorts/zoN5EH50Dro",
+  "Plank": "https://www.youtube.com/shorts/hoeNgjheDHk",
+  "Pull-Up": "https://www.youtube.com/shorts/ZPG8OsHKXLw",
+  "Push-Up": "https://www.youtube.com/shorts/zUymek3A64A",
+  "Romanian Deadlift": "https://www.youtube.com/shorts/8tm3JW1UpAs",
+  "Triceps Pushdown": "https://www.youtube.com/shorts/leazgWMaSo8",
+};
+function VideoPlayerModal({ videoId, title, onClose }) {
+  return (
+    <div style={modalBackdrop()}>
+      <Card style={{ width: "100%", maxWidth: 420, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{title}</div>
+          <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${BRAND.line}`, aspectRatio: "16/9", background: "#000" }}>
+          <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${videoId}?autoplay=1`} title={title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        </div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 600, marginTop: 10, textAlign: "center" }}>Form demonstration</div>
+      </Card>
+    </div>
+  );
 }
 function emptyTrainingLogs() { return { version: 2, sessions: [] }; }
 function startSession(program, week, workout) {
@@ -1341,6 +1471,7 @@ async function downloadTrialPDF(trial) {
 function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMoveDown, isMobile }) {
   const [addSearch, setAddSearch] = useState("");
   const [openEx, setOpenEx] = useState(null);
+  const [playingVideo, setPlayingVideo] = useState(null);
   const exerciseLibrary = useExerciseLibrary();
   const suggestions = addSearch ? exerciseLibrary.filter((n) => n.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 20) : [];
   function patch(p) { onChange({ ...block, ...p }); }
@@ -1352,6 +1483,7 @@ function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMoveDown, i
   function addSet(ei) { const sets = block.exercises[ei].sets; const last = sets[sets.length - 1]; patchEx(ei, { sets: [...sets, { id: uid(), targetReps: last?.targetReps || "", targetLoad: last?.targetLoad || "", targetRpe: last?.targetRpe || "" }] }); }
   function removeSet(ei, si) { const sets = block.exercises[ei].sets; if (sets.length <= 1) return; patchEx(ei, { sets: sets.filter((_, i) => i !== si) }); }
   return (
+    <>
     <div style={{ background: BRAND.card2, border: `1px solid ${block.type === "straight" ? BRAND.line : BRAND.gold + "77"}`, borderRadius: 16, padding: 12, marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1400,7 +1532,9 @@ function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMoveDown, i
             </div>
             {open && <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginTop: 8 }}>
               <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Coach note (client sees this)</div><input value={ex.note || ""} onChange={(e) => patchEx(ei, { note: e.target.value })} placeholder="Cue, setup, intent..." style={inputStyle()} /></label>
-              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Video link</div><input value={ex.videoUrl || ""} onChange={(e) => patchEx(ei, { videoUrl: e.target.value })} placeholder="https://..." style={inputStyle()} /></label>
+              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Video link</div><input value={ex.videoUrl || ""} onChange={(e) => patchEx(ei, { videoUrl: e.target.value })} placeholder="https://..." style={inputStyle()} />
+                {getVideoThumb(ex.videoUrl) && (() => { const t = getVideoThumb(ex.videoUrl); return <button onClick={() => setPlayingVideo({ videoId: t.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "inline-block", position: "relative", marginTop: 8 }}><img src={t.thumb} alt="Exercise video" style={{ width: 140, height: 79, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 12 }}>▶</div></div></button>; })()}
+              </label>
             </div>}
           </div>
         );
@@ -1413,15 +1547,44 @@ function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMoveDown, i
         </div>}
       </div>
     </div>
+    {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
+    </>
   );
 }
 
 // ---------- Coach: Program Builder ----------
 function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(520);
-  const [p, setP] = useState(() => (program?.version === 2 ? JSON.parse(JSON.stringify(program)) : newProgram(`${client.name?.split(" ")[0] || "Client"}'s Program`, client.goal || "General Fitness", 4)));
+  const [p, setP] = useState(() => normalizeProgramDays(program?.version === 2 ? JSON.parse(JSON.stringify(program)) : newProgram(`${client.name?.split(" ")[0] || "Client"}'s Program`, client.goal || "General Fitness", 4)));
   const [wk, setWk] = useState(0);
   const [wo, setWo] = useState(0);
+  const [templates, setTemplates] = useState([]);
+  const [savingTpl, setSavingTpl] = useState(false);
+  const trainerId = client.trainer_id;
+  useEffect(() => {
+    let active = true;
+    if (!trainerId) return;
+    loadTrainerTemplates(trainerId).then((list) => { if (active) setTemplates(list); });
+    return () => { active = false; };
+  }, [trainerId]);
+  function loadTemplate(t) {
+    if (!confirm(`Load "${t.name}"? This replaces the program you're editing. Logs are never touched.`)) return;
+    const copy = cloneWithNewIds(t.program);
+    setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || new Date().toISOString().slice(0, 10) });
+    setWk(0); setWo(0);
+  }
+  async function saveAsTemplate() {
+    if (!trainerId) { alert("No trainer linked to this client, so the template can't be saved."); return; }
+    const name = prompt("Template name", p.name || "New Template");
+    if (!name) return;
+    setSavingTpl(true);
+    const entry = { id: uid(), name, goal: p.goal, weeks: p.weeks.length, savedAt: new Date().toISOString(), program: cloneWithNewIds(p) };
+    const next = [entry, ...templates];
+    setTemplates(next);
+    await upsertTrainerData(trainerId, "templates", { templates: next });
+    setSavingTpl(false);
+    alert(`Saved "${name}" to Templates.`);
+  }
   const week = p.weeks[Math.min(wk, p.weeks.length - 1)];
   const workout = week?.workouts[Math.min(wo, Math.max(0, (week?.workouts.length || 1) - 1))];
   const safeWk = p.weeks.indexOf(week);
@@ -1433,6 +1596,17 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
   function duplicateWeek(i) { setP((prev) => { const copy = cloneWithNewIds(prev.weeks[i]); const weeks = [...prev.weeks.slice(0, i + 1), copy, ...prev.weeks.slice(i + 1)].map((w, j) => ({ ...w, weekNum: j + 1 })); return { ...prev, weeks }; }); }
   function deleteWeek(i) { setP((prev) => { const weeks = prev.weeks.filter((_, j) => j !== i).map((w, j) => ({ ...w, weekNum: j + 1 })); return { ...prev, weeks: weeks.length ? weeks : [newProgWeek(1)] }; }); setWk(0); setWo(0); }
   function copyWeekForward() { setP((prev) => ({ ...prev, weeks: prev.weeks.map((w, i) => (i > safeWk ? { ...cloneWithNewIds(prev.weeks[safeWk]), id: w.id, weekNum: w.weekNum, label: w.label, focus: w.focus, targetRpe: w.targetRpe } : w)) })); }
+  function assignDay(dow, workoutId) {
+    // One workout per day. Assigning a workout to a day pulls it off whatever day it was on.
+    patchWeek({
+      workouts: week.workouts.map((w) => {
+        if (workoutId && w.id === workoutId) return { ...w, dayOfWeek: dow };
+        if (Number(w.dayOfWeek) === dow) return { ...w, dayOfWeek: null };
+        return w;
+      }),
+    });
+  }
+  function setRestNote(dow, note) { patchWeek({ restDays: { ...(week.restDays || {}), [dow]: note } }); }
   function addWorkout() { patchWeek({ workouts: [...week.workouts, newWorkout(`Workout ${week.workouts.length + 1}`)] }); setWo(week.workouts.length); }
   function duplicateWorkout(i) { const copy = cloneWithNewIds(week.workouts[i]); copy.name = `${copy.name} (copy)`; patchWeek({ workouts: [...week.workouts.slice(0, i + 1), copy, ...week.workouts.slice(i + 1)] }); }
   function deleteWorkout(i) { patchWeek({ workouts: week.workouts.filter((_, j) => j !== i) }); setWo(0); }
@@ -1448,10 +1622,19 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
           <div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Program Builder</div><div style={{ color: BRAND.muted }}>Weeks → Workouts → Blocks. Logs live separately, so edit freely.</div></div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr", gap: 10 }}>
           <Field label="Program name (client sees this)" value={p.name} onChange={(v) => patchProgram({ name: v })} />
           <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Goal</div><select value={p.goal} onChange={(e) => patchProgram({ goal: e.target.value })} style={inputStyle()}>{GOAL_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}</select></label>
+          <Field label="Start date (drives the calendar)" type="date" value={p.startDate || ""} onChange={(v) => patchProgram({ startDate: v })} />
         </div>
+        {templates.length > 0 && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+            <select value="" onChange={(e) => { const t = templates.find((x) => x.id === e.target.value); if (t) loadTemplate(t); }} style={inputStyle({ maxWidth: 260 })}>
+              <option value="">Load from template...</option>
+              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.goal ? ` · ${t.goal}` : ""}</option>)}
+            </select>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 12, paddingBottom: 4, alignItems: "center" }}>
           {p.weeks.map((w, i) => <Button key={w.id} variant={i === safeWk ? "gold" : "dark"} onClick={() => { setWk(i); setWo(0); }}>W{w.weekNum}{w.label ? ` · ${w.label}` : ""}</Button>)}
           <Button variant="ghost" onClick={addWeek}>+ Week</Button>
@@ -1465,6 +1648,32 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
           <Field label="Phase label" value={week.label} onChange={(v) => patchWeek({ label: v })} />
           <Field label="Week focus" value={week.focus} onChange={(v) => patchWeek({ focus: v })} />
           <Field label="Target RPE" value={week.targetRpe} onChange={(v) => patchWeek({ targetRpe: v })} />
+        </div>
+        <div style={{ marginTop: 14, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 12 }}>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Week {week.weekNum} schedule</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 6 }}>
+            {[1, 2, 3, 4, 5, 6, 7].map((dow) => {
+              const assigned = workoutForDay(week, dow);
+              const d = dayDate(p, week.weekNum, dow);
+              return (
+                <div key={dow} style={{ background: assigned ? BRAND.card : "transparent", border: `1px ${assigned ? "solid" : "dashed"} ${BRAND.line}`, borderRadius: 12, padding: 7, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900, letterSpacing: 0.5 }}>{DOW_LABEL[dow - 1].toUpperCase()}</div>
+                    <div style={{ fontWeight: 900, fontSize: 13, color: BRAND.text }}>{d.getDate()}</div>
+                  </div>
+                  <select value={assigned?.id || ""} onChange={(e) => assignDay(dow, e.target.value)} style={inputStyle({ padding: "6px 3px", fontSize: 11, borderRadius: 8, background: BRAND.panel })}>
+                    <option value="">Rest</option>
+                    {week.workouts.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  {!assigned && <input value={restNoteFor(week, dow)} onChange={(e) => setRestNote(dow, e.target.value)} placeholder="Recovery" style={inputStyle({ padding: "6px 4px", fontSize: 10, borderRadius: 8, background: BRAND.panel })} />}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 600, marginTop: 8 }}>
+            Any day without a workout is a rest day. Add a recovery note (steps, mobility, walk) and the client sees it on their calendar.
+            {unassignedWorkouts(week).length > 0 && <span style={{ color: BRAND.gold }}> {unassignedWorkouts(week).length} workout{unassignedWorkouts(week).length === 1 ? " is" : "s are"} not on a day yet.</span>}
+          </div>
         </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 12, paddingBottom: 4, alignItems: "center" }}>
           {week.workouts.map((w, i) => <Button key={w.id} variant={i === safeWo ? "gold" : "dark"} onClick={() => setWo(i)}>{w.name}</Button>)}
@@ -1489,7 +1698,11 @@ function ProgramBuilder({ client, program, onClose, onSave }) {
             </div>
           </div>
         </> : <Card style={{ background: BRAND.card2, marginTop: 12 }}><div style={{ color: BRAND.muted }}>No workouts in week {week.weekNum} yet. Add one above, or duplicate another week.</div></Card>}
-        <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={() => onSave(p)} style={{ flex: 1 }}>Save Program</Button><Button variant="ghost" onClick={onClose}>Cancel</Button></div>
+        <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+          <Button onClick={() => onSave(p)} style={{ flex: 1, minWidth: 140 }}>Save Program</Button>
+          <Button variant="dark" disabled={savingTpl} onClick={saveAsTemplate}>{savingTpl ? "Saving..." : "Save as Template"}</Button>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        </div>
       </Card>
     </div>
   );
@@ -1503,12 +1716,19 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
   const [subQuery, setSubQuery] = useState("");
   const [rest, setRest] = useState(null);
   const [finished, setFinished] = useState(() => (session.status === "completed" ? session : null));
+  const [rpePickerFor, setRpePickerFor] = useState(null); // `${entryId}:${si}` of the set currently choosing an RPE, or null
+  const [playingVideo, setPlayingVideo] = useState(null); // { videoId, title } or null
   const [, forceTick] = useState(0);
   useEffect(() => { const t = setInterval(() => forceTick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const exById = {};
   (workout?.blocks || []).forEach((b) => (b.exercises || []).forEach((ex) => { exById[ex.id] = { ex, block: b }; }));
   function patchEntry(entryId, patch) { onUpdate({ ...session, entries: session.entries.map((e) => (e.id === entryId ? { ...e, ...patch } : e)) }); }
   function patchSet(entryId, si, patch) { onUpdate({ ...session, entries: session.entries.map((e) => (e.id === entryId ? { ...e, sets: e.sets.map((s, i) => (i === si ? { ...s, ...patch } : s)) } : e)) }); }
+  function addSet(entryId) {
+    const entry = session.entries.find((e) => e.id === entryId);
+    if (!entry) return;
+    patchEntry(entryId, { sets: [...entry.sets, { setId: null, reps: "", load: "", duration: "", rpe: "", done: false }] });
+  }
   function toggleDone(entry, si) {
     const meta = exById[entry.exerciseId];
     const target = meta?.ex.sets[si];
@@ -1551,6 +1771,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
     );
   }
   return (
+    <>
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
         <div><div style={{ fontSize: 22, fontWeight: 1000 }}>{workout?.name || session.workoutName}</div><div style={{ color: BRAND.muted, fontSize: 13 }}>Week {session.weekNum}{week?.label ? ` · ${week.label}` : ""}{week?.targetRpe ? ` · Target RPE ${week.targetRpe}` : ""}</div></div>
@@ -1589,7 +1810,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
                     <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 13, padding: "10px 14px", minHeight: 40 }}>{subbing ? "Cancel" : "Swap"}</button>
                   </div>
                   {ex.note && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Coach: {ex.note}</div>}
-                  {thumb && <a href={thumb.watchUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", position: "relative", marginTop: 8 }}><img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 14 }}>▶</div></div></a>}
+                  {thumb && <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "inline-block", position: "relative", marginTop: 8 }}><img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 14 }}>▶</div></div></button>}
                   {history.hasData && <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 12, flexWrap: "wrap" }}><span><span style={{ color: BRAND.gold, fontWeight: 1000 }}>PB </span>{history.best}</span><span><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Last </span>{history.recent}</span></div>}
                   {subbing && <div style={{ marginTop: 8 }}>
                     <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
@@ -1603,15 +1824,25 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
                       const target = ex.sets?.[si];
                       const targetText = target ? fmtSetTarget(target, ex) : "";
                       return (
-                        <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "26px 1fr 1fr 54px 44px" : "40px 1fr 1fr 84px 48px", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "26px 1fr 1fr 54px 44px" : "40px 1fr 1fr 84px 48px", gap: 8, marginBottom: 6, alignItems: "center", position: "relative" }}>
                           <div style={{ color: BRAND.muted, fontWeight: 900 }}>S{si + 1}</div>
                           <div>{targetText && <div style={{ color: BRAND.muted, fontSize: 10, marginBottom: 2 }}>{targetText}</div>}<input placeholder={timed ? "load/assist" : "kg"} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={inputStyle()} /></div>
                           <div style={{ alignSelf: "end" }}><input placeholder={timed ? "time e.g. 45s" : "reps"} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={inputStyle()} /></div>
-                          <div style={{ alignSelf: "end" }}><input placeholder="RPE" value={s.rpe || ""} onChange={(e) => patchSet(entry.id, si, { rpe: e.target.value })} style={inputStyle()} /></div>
+                          <div style={{ alignSelf: "end", position: "relative" }}>
+                            <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ ...inputStyle(), textAlign: "center", cursor: "pointer", color: s.rpe ? BRAND.text : BRAND.dim }}>{s.rpe || "RPE"}</button>
+                            {rpePickerFor === `${entry.id}:${si}` && (
+                              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 6, display: "flex", gap: 4, boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
+                                {[6, 7, 8, 9, 10].map((n) => (
+                                  <button key={n} onClick={() => { patchSet(entry.id, si, { rpe: String(n) }); setRpePickerFor(null); }} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${String(s.rpe) === String(n) ? BRAND.gold : BRAND.line}`, background: String(s.rpe) === String(n) ? BRAND.gold : BRAND.panel, color: String(s.rpe) === String(n) ? "#000" : BRAND.text, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <button onClick={() => toggleDone(entry, si)} style={{ alignSelf: "end", height: 44, minWidth: 44, borderRadius: 10, border: `1px solid ${s.done ? BRAND.gold : BRAND.line}`, background: s.done ? BRAND.gold : BRAND.panel, color: s.done ? "#000" : BRAND.muted, fontWeight: 1000, fontSize: 16, cursor: "pointer" }}>&#10003;</button>
                         </div>
                       );
                     })}
+                    <button onClick={() => addSet(entry.id)} style={{ width: "100%", marginTop: 4, padding: "10px", borderRadius: 10, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>+ Add Set</button>
                   </div>
                 </div>
               );
@@ -1621,50 +1852,299 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
       })}
       <Button onClick={finish} style={{ width: "100%", marginTop: 4 }}>Finish Workout</Button>
     </Card>
+    {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
+    </>
   );
 }
 
-// ---------- Client: Training History ----------
-function TrainingHistory({ client, logs }) {
-  const [open, setOpen] = useState(null);
-  const sessions = [...(logs?.sessions || [])].filter((s) => s.status === "completed").reverse();
-  if (!sessions.length) return <Card><div style={{ color: BRAND.muted }}>No completed sessions yet. Finished workouts will appear here.</div></Card>;
+
+// ---------- Program calendar: shared bits ----------
+function DayPill({ day, compact = false }) {
+  const base = { fontSize: compact ? 8 : 9, fontWeight: 900, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
+  if (day.isRest) return <div style={{ ...base, background: "transparent", color: BRAND.dim, border: `1px solid ${BRAND.line}` }}>Rest</div>;
+  if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid ${BRAND.green}66` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
+  if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.red, border: `1px solid ${BRAND.red}66` }}>{day.workout.name}</div>;
+  if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>{day.workout.name}</div>;
+  return <div style={{ ...base, background: BRAND.gold, color: "#000" }}>{day.workout.name}</div>;
+}
+function dayBorder(day) {
+  if (day.state === "today" || day.state === "in_progress") return BRAND.gold;
+  if (day.state === "completed") return `${BRAND.green}55`;
+  if (day.state === "missed") return `${BRAND.red}55`;
+  return BRAND.line;
+}
+function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) {
+  const isMobile = useIsMobile(520);
+  const week = program.weeks.find((w) => w.weekNum === weekNum) || program.weeks[0];
+  const weekDaysList = days.filter((d) => d.weekNum === week.weekNum).sort((a, b) => a.dow - b.dow);
+  const training = weekDaysList.filter((d) => !d.isRest);
+  const done = training.filter((d) => d.state === "completed").length;
+  const todayISO = isoDate(new Date());
+  const today = weekDaysList.filter((d) => d.dateISO === todayISO);
+  const upcoming = weekDaysList.filter((d) => d.dateISO > todayISO);
+  const past = weekDaysList.filter((d) => d.dateISO < todayISO && !d.isRest);
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      {sessions.map((s) => {
-        const stats = sessionStatsV2(s);
-        const expanded = open === s.id;
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+        {program.weeks.map((w) => {
+          const wd = days.filter((d) => d.weekNum === w.weekNum && !d.isRest);
+          const allDone = wd.length > 0 && wd.every((d) => d.state === "completed");
+          return <Button key={w.id} variant={w.weekNum === week.weekNum ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px" }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>;
+        })}
+      </div>
+      {(week.label || week.focus || week.targetRpe) && (
+        <Card style={{ background: BRAND.card2, padding: 12 }}>
+          <div style={{ color: BRAND.gold, fontWeight: 1000 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
+          {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
+        </Card>
+      )}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>
+          <span>This week</span><span>{done} of {training.length}</span>
+        </div>
+        <div style={{ height: 4, background: BRAND.card2, borderRadius: 3, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: BRAND.gold }} />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: isMobile ? 4 : 6 }}>
+        {weekDaysList.map((d) => (
+          <button key={d.key} onClick={() => onOpen(d)} style={{ background: d.isRest ? "transparent" : BRAND.card, border: `1px ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: 12, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
+            <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900 }}>{DOW_LETTER[d.dow - 1]}</div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
+            <DayPill day={d} compact />
+          </button>
+        ))}
+      </div>
+      {today.length > 0 && <DaySection title="Today" days={today} onOpen={onOpen} />}
+      {upcoming.length > 0 && <DaySection title="Coming up" days={upcoming} onOpen={onOpen} />}
+      {past.length > 0 && <DaySection title="Done this week" days={past} onOpen={onOpen} />}
+    </div>
+  );
+}
+function DaySection({ title, days, onOpen }) {
+  return (
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>{title}</div>
+      {days.map((d) => {
+        const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
         return (
-          <Card key={s.id} onClick={() => setOpen(expanded ? null : s.id)} style={{ cursor: "pointer", padding: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <div><div style={{ fontWeight: 1000, color: client.color }}>{s.workoutName}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{s.date || "No date"} · Week {s.weekNum}</div></div>
-              <div style={{ display: "flex", gap: 12, fontSize: 12, color: BRAND.muted, fontWeight: 800 }}><span>{stats.setsDone} sets</span><span>{stats.volume.toLocaleString()}kg</span>{stats.durationSec > 0 && <span>{fmtClock(stats.durationSec)}</span>}{s.sessionRpe && <span>RPE {s.sessionRpe}</span>}</div>
+          <button key={d.key} onClick={() => onOpen(d)} style={{ width: "100%", textAlign: "left", background: d.isRest ? "transparent" : BRAND.card, border: `1px ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: 16, padding: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+            <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
+              <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900 }}>{DOW_LABEL[d.dow - 1].toUpperCase()}</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
             </div>
-            {expanded && <div style={{ marginTop: 10, borderTop: `1px solid ${BRAND.line}`, paddingTop: 10 }}>
-              {(s.entries || []).map((e) => {
-                const loggedSets = (e.sets || []).filter((x) => x.done || x.reps || x.load || x.duration);
-                if (!loggedSets.length) return null;
-                return <div key={e.id} style={{ marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{e.tag ? `${e.tag} · ` : ""}{e.substitutedName || e.name}</div><div style={{ color: BRAND.muted, fontSize: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>{loggedSets.map((x, i) => <span key={i}>{[x.load && `${x.load}kg`, x.reps && `x${x.reps}`, x.duration, x.rpe && `@${x.rpe}`].filter(Boolean).join(" ")}</span>)}</div></div>;
-              })}
-              {s.notes && <div style={{ fontSize: 13, marginTop: 4 }}><span style={{ color: BRAND.gold, fontWeight: 900 }}>Notes: </span>{s.notes}</div>}
-            </div>}
-          </Card>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 900, fontSize: 15, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
+              <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>
+                {d.isRest
+                  ? (d.note || "Recovery")
+                  : d.state === "completed"
+                    ? `Completed · ${stats.setsDone} sets · ${stats.volume.toLocaleString()}kg`
+                    : `${exerciseCountOf(d.workout)} exercises`}
+              </div>
+            </div>
+            {d.state === "today" && <span style={{ background: BRAND.gold, color: "#000", fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "4px 10px" }}>START</span>}
+            {d.state === "in_progress" && <span style={{ border: `1px solid ${BRAND.gold}`, color: BRAND.gold, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "4px 10px" }}>RESUME</span>}
+            {d.state === "completed" && <span style={{ color: BRAND.green, fontSize: 16, fontWeight: 900 }}>✓</span>}
+            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.red}`, color: BRAND.red, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
+          </button>
         );
       })}
     </div>
   );
 }
-
+function ProgramMonthView({ days, cursor, setCursor, currentWeek, onOpen }) {
+  const byDate = new Map(days.map((d) => [d.dateISO, d]));
+  const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const lead = (first.getDay() + 6) % 7;
+  const cells = [];
+  const cur = addDays(first, -lead);
+  for (let i = 0; i < 42; i++) {
+    const date = addDays(cur, i);
+    cells.push({ date, inMonth: date.getMonth() === cursor.getMonth(), day: byDate.get(isoDate(date)) || null });
+  }
+  const shift = (n) => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + n, 1));
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Button variant="dark" onClick={() => shift(-1)} style={{ padding: "8px 14px" }}>‹</Button>
+        <div style={{ fontWeight: 1000, fontSize: 16 }}>{cursor.toLocaleString("en-GB", { month: "long", year: "numeric" })}</div>
+        <Button variant="dark" onClick={() => shift(1)} style={{ padding: "8px 14px" }}>›</Button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 4 }}>
+        {DOW_LETTER.map((l, i) => <div key={i} style={{ textAlign: "center", color: BRAND.dim, fontSize: 9, fontWeight: 900, paddingBottom: 4 }}>{l}</div>)}
+        {cells.map(({ date, inMonth, day }, i) => (
+          <button key={i} disabled={!day} onClick={() => day && onOpen(day)} style={{
+            aspectRatio: "1 / 1.2", minWidth: 0, boxSizing: "border-box",
+            background: day && !day.isRest ? BRAND.card : "transparent",
+            border: `1px ${day?.isRest ? "dashed" : "solid"} ${day ? dayBorder(day) : BRAND.line}`,
+            borderRadius: 10, padding: 4, display: "flex", flexDirection: "column", justifyContent: "space-between",
+            opacity: inMonth ? 1 : 0.28, cursor: day ? "pointer" : "default",
+            boxShadow: day && day.weekNum === currentWeek ? `inset 0 0 0 1px ${BRAND.card2}` : "none",
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 900, color: day?.state === "today" ? BRAND.gold : BRAND.muted, textAlign: "left" }}>{date.getDate()}</div>
+            {day && <DayPill day={day} compact />}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: BRAND.dim, fontSize: 10, fontWeight: 700 }}>
+        <span><span style={{ color: BRAND.green }}>✓</span> Completed</span>
+        <span style={{ color: BRAND.gold }}>■ Scheduled</span>
+        <span>▢ Rest</span>
+      </div>
+    </div>
+  );
+}
+// ---------- Completed day: the session report ----------
+// A record of what was actually done, not a place to log. Prescribed sits next
+// to actual, because the gap between them is the coaching.
+function SessionReport({ client, day, logs, onBack, onSaveCoachNote, isCoach }) {
+  const session = day.session;
+  const [note, setNote] = useState(session?.coachNote || "");
+  const [saved, setSaved] = useState(false);
+  const stats = sessionStatsV2(session);
+  const logsBefore = { ...logs, sessions: (logs?.sessions || []).filter((s) => s.id !== session.id) };
+  const pbs = detectSessionPBs(session, logsBefore);
+  const pbNames = new Set(pbs.map((p) => String(p.name).toLowerCase()));
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
+      <Card>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+          {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 4 }}>{day.workout.name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>
+          Completed{stats.durationSec > 0 ? ` · ${fmtClock(stats.durationSec)}` : ""}{session.sessionRpe ? ` · Session RPE ${session.sessionRpe}` : ""}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 14 }}>
+          <Mini label="Volume" value={`${stats.volume.toLocaleString()} kg`} />
+          <Mini label="Sets" value={`${stats.setsDone} / ${stats.setsTotal}`} />
+          <Mini label="PBs" value={String(pbs.length)} />
+        </div>
+      </Card>
+      <div>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>What was done</div>
+        {(session.entries || []).map((e) => {
+          const name = e.substitutedName || e.name;
+          const timed = isTimedExercise(name);
+          const prescribed = findPrescribedExercise(day.workout, e);
+          const loggedSets = (e.sets || []).filter((s) => s.done || s.reps || s.load || s.duration);
+          const isPb = pbNames.has(String(name).toLowerCase());
+          const short = prescribed && loggedSets.length > 0 && loggedSets.length < (prescribed.sets?.length || 0);
+          if (!loggedSets.length) return null;
+          return (
+            <Card key={e.id} style={{ padding: 13, marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ fontWeight: 900, fontSize: 15 }}>{e.tag ? <span style={{ color: BRAND.gold, marginRight: 6 }}>{e.tag}</span> : null}{name}</div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {isPb && <span style={{ background: BRAND.green, color: "#000", fontSize: 9, fontWeight: 1000, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
+                  {short && <span style={{ color: BRAND.red, fontSize: 10, fontWeight: 800 }}>{loggedSets.length} of {prescribed.sets.length} sets</span>}
+                </div>
+              </div>
+              {prescribed && <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 700, marginTop: 4 }}>Prescribed {fmtExerciseSummary(prescribed)}</div>}
+              <div style={{ marginTop: 8 }}>
+                {loggedSets.map((s, i) => {
+                  const prev = loggedSets[i - 1];
+                  const up = !timed && prev && (parseFloat(s.load) || 0) > (parseFloat(prev.load) || 0) ? (parseFloat(s.load) || 0) - (parseFloat(prev.load) || 0) : 0;
+                  const target = prescribed?.sets?.[i];
+                  return (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "20px 1fr auto", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}`, fontSize: 13 }}>
+                      <span style={{ color: BRAND.dim, fontSize: 10, fontWeight: 900 }}>{i + 1}</span>
+                      <span style={{ fontWeight: 900 }}>
+                        {fmtLoggedSet(s, timed)}
+                        {up > 0 && <span style={{ color: BRAND.green, fontSize: 11, marginLeft: 6 }}>↑ +{up}</span>}
+                        {target && <span style={{ color: BRAND.dim, fontWeight: 600, fontSize: 11, marginLeft: 8 }}>target {fmtSetTarget(target, prescribed)}</span>}
+                      </span>
+                      <span style={{ color: BRAND.gold, fontSize: 11, fontWeight: 800 }}>{s.rpe ? `RPE ${s.rpe}` : ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+      {session.notes && (
+        <Card style={{ borderLeft: `3px solid ${BRAND.gold}` }}>
+          <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>{client.name}</div>
+          <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.5 }}>{session.notes}</div>
+        </Card>
+      )}
+      {!isCoach && session.coachNote && (
+        <Card style={{ borderLeft: `3px solid ${BRAND.cyan}` }}>
+          <div style={{ color: BRAND.cyan, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Coach</div>
+          <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.5 }}>{session.coachNote}</div>
+        </Card>
+      )}
+      {isCoach && (
+        <Card>
+          <Field label="Coach note on this session" value={note} onChange={(v) => { setNote(v); setSaved(false); }} textarea />
+          <Button onClick={() => { onSaveCoachNote(session, note); setSaved(true); }} style={{ marginTop: 10, width: "100%" }}>{saved ? "Saved" : "Save note"}</Button>
+        </Card>
+      )}
+    </div>
+  );
+}
+// ---------- Upcoming / rest day detail ----------
+function DayDetail({ day, onBack, onStart, canStart }) {
+  const isFuture = day.dateISO > isoDate(new Date());
+  if (day.isRest) {
+    return (
+      <div style={{ display: "grid", gap: 14 }}>
+        <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
+        <Card>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+            {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 4 }}>Rest day</div>
+          <div style={{ color: BRAND.muted, fontSize: 14, marginTop: 10, lineHeight: 1.5 }}>{day.note || "No session scheduled. Recover well."}</div>
+        </Card>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
+      <Card>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+          {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 4 }}>{day.workout.name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{exerciseCountOf(day.workout)} exercises</div>
+        {day.workout.note && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 8 }}>{day.workout.note}</div>}
+      </Card>
+      <Card>
+        {(day.workout.blocks || []).map((b, bi) => (b.exercises || []).map((ex, ei) => (
+          <div key={ex.id} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "8px 0", borderTop: bi === 0 && ei === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
+            <span style={{ color: BRAND.gold, fontWeight: 1000, minWidth: 26, fontSize: 12 }}>{exerciseTag(b, bi, ei)}</span>
+            <span style={{ fontWeight: 900, flex: 1 }}>{ex.name}</span>
+            <span style={{ color: BRAND.muted, fontSize: 12 }}>{fmtExerciseSummary(ex)}</span>
+          </div>
+        )))}
+        {exerciseCountOf(day.workout) === 0 && <div style={{ color: BRAND.muted }}>Empty workout.</div>}
+      </Card>
+      {canStart
+        ? <Button onClick={() => onStart(day)} style={{ width: "100%" }}>{day.state === "in_progress" ? "Continue session" : "Start session"}</Button>
+        : isFuture
+          ? <Card style={{ background: BRAND.card2, textAlign: "center" }}><div style={{ color: BRAND.dim, fontSize: 13 }}>Opens {day.date.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} — this week comes first.</div></Card>
+          : null}
+    </div>
+  );
+}
 // ---------- ProgramTab: coach + client entry point ----------
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [program, setProgram] = useState(client.program?.version === 2 ? client.program : null);
   const [logs, setLogs] = useState(client.trainingLogs || emptyTrainingLogs());
-  const [view, setView] = useState("overview");
-  const [wk, setWk] = useState(0);
   const [builder, setBuilder] = useState(false);
   const [live, setLive] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [mode, setMode] = useState("week");
+  const [openKey, setOpenKey] = useState(null);
+  const [weekNum, setWeekNum] = useState(() => currentProgramWeek(client.program));
+  const [monthCursor, setMonthCursor] = useState(() => new Date());
+  const days = useMemo(() => buildProgramDays(program, logs), [program, logs]);
   async function persist(nextProgram, nextLogs) {
     updateClient({ ...client, program: nextProgram, trainingLogs: nextLogs });
     let failed = null;
@@ -1672,63 +2152,61 @@ function ProgramTab({ client, updateClient, isCoach }) {
     if (nextLogs) { const r = await upsertSection(client.id, "training_logs", nextLogs); if (r?.error) failed = r.error; }
     if (failed) alert(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`);
   }
-  function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); }
+  function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setWeekNum(currentProgramWeek(p)); }
   function saveLogs(l) { setLogs(l); persist(program, l); }
-  function startOrContinue(week, workout) {
-    const existing = sessionForWorkout(logs, week.id, workout.id);
+  function startOrContinue(day) {
+    const existing = sessionForWorkout(logs, day.week.id, day.workout.id);
     if (existing && existing.status === "in_progress") { setLive(existing); return; }
-    const fresh = startSession(program, week, workout);
+    const fresh = startSession(program, day.week, day.workout);
     setLive(fresh);
     saveLogs(upsertSessionInLogs(logs, fresh));
   }
   function updateLive(session) { setLive(session); saveLogs(upsertSessionInLogs(logs, session)); }
-  const week = program?.weeks?.[Math.min(wk, (program?.weeks?.length || 1) - 1)];
+  function saveCoachNote(session, coachNote) { saveLogs(upsertSessionInLogs(logs, { ...session, coachNote })); }
   if (live && program) {
-    const liveWeek = program.weeks.find((w) => w.id === live.weekId) || week;
+    const liveWeek = program.weeks.find((w) => w.id === live.weekId);
     const liveWorkout = liveWeek?.workouts.find((w) => w.id === live.workoutId);
     const logsBefore = { ...logs, sessions: (logs?.sessions || []).filter((s) => s.id !== live.id) };
-    return <WorkoutSession client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => setLive(null)} onExit={() => setLive(null)} />;
+    return <WorkoutSession client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} />;
   }
+  const openDay = openKey ? days.find((d) => d.key === openKey) : null;
+  const todayISO = isoDate(new Date());
   return (
     <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}>
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
-          <div><div style={{ fontSize: 22, fontWeight: 1000 }}>{program?.name || "No program yet"}</div>{program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · started ${program.startDate}` : ""}</div>}</div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 1000 }}>{program?.name || "No program yet"}</div>
+            {program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button variant={view === "overview" ? "gold" : "dark"} onClick={() => setView("overview")}>Program</Button>
-            <Button variant={view === "history" ? "gold" : "dark"} onClick={() => setView("history")}>History</Button>
-            {program && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); downloadBlob(blob, filename); setPdfBusy(false); }}>{pdfBusy ? "..." : "Download PDF"}</Button>}
-            {program && typeof navigator !== "undefined" && navigator.share && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, program.name); setPdfBusy(false); }}>Share</Button>}
+            {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, program.name); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>
         </div>
       </Card>
-      {view === "history" && <TrainingHistory client={client} logs={logs} />}
-      {view === "overview" && !program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
-      {view === "overview" && program && <>
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-          {program.weeks.map((w, i) => { const done = w.workouts.length > 0 && w.workouts.every((wo) => sessionForWorkout(logs, w.id, wo.id)?.status === "completed"); return <Button key={w.id} variant={i === wk ? "gold" : "dark"} onClick={() => setWk(i)}>W{w.weekNum}{done ? " ✓" : ""}</Button>; })}
-        </div>
-        {(week?.label || week?.focus || week?.targetRpe) && <Card style={{ background: BRAND.card2, padding: 12 }}><div style={{ color: BRAND.gold, fontWeight: 1000 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>{(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}</Card>}
-        {week?.workouts.map((wo) => {
-          const session = sessionForWorkout(logs, week.id, wo.id);
-          const status = session?.status === "completed" ? "completed" : session?.status === "in_progress" ? "in_progress" : "none";
-          const exCount = wo.blocks.reduce((n, b) => n + b.exercises.length, 0);
-          return (
-            <Card key={wo.id} style={{ padding: 14, border: `1px solid ${status === "completed" ? BRAND.green + "88" : status === "in_progress" ? BRAND.gold : BRAND.line}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <div><div style={{ fontWeight: 1000, fontSize: 17, color: client.color }}>{wo.name}</div><div style={{ color: BRAND.muted, fontSize: 12 }}>{exCount} exercises{status === "completed" ? ` · completed ${session.date || ""}` : status === "in_progress" ? " · in progress" : ""}</div></div>
-                <Button variant={status === "completed" ? "dark" : "gold"} onClick={() => startOrContinue(week, wo)}>{status === "in_progress" ? "Continue" : status === "completed" ? "Log again" : "Start Workout"}</Button>
-              </div>
-              <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
-                {wo.blocks.map((b, bi) => b.exercises.map((ex, ei) => <div key={ex.id} style={{ display: "flex", gap: 8, fontSize: 13, alignItems: "baseline" }}><span style={{ color: BRAND.gold, fontWeight: 1000, minWidth: 26 }}>{exerciseTag(b, bi, ei)}</span><span style={{ fontWeight: 800 }}>{ex.name}</span><span style={{ color: BRAND.muted }}>{fmtExerciseSummary(ex)}</span></div>))}
-                {wo.blocks.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>Empty workout</div>}
-              </div>
-            </Card>
-          );
-        })}
-        {week && week.workouts.length === 0 && <Card><div style={{ color: BRAND.muted }}>No workouts in this week{isCoach ? " — add some in Edit Program." : "."}</div></Card>}
-      </>}
+      {!program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
+      {program && openDay && (
+        openDay.state === "completed"
+          ? <SessionReport client={client} day={openDay} logs={logs} isCoach={isCoach} onBack={() => setOpenKey(null)} onSaveCoachNote={saveCoachNote} />
+          : <DayDetail day={openDay} onBack={() => setOpenKey(null)} onStart={startOrContinue} canStart={!openDay.isRest && (isCoach || openDay.dateISO <= todayISO)} />
+      )}
+      {program && !openDay && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>
+              Week {weekNum} of {program.weeks.length}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Button variant={mode === "week" ? "gold" : "dark"} onClick={() => setMode("week")} style={{ fontSize: 12, padding: "7px 14px" }}>Week</Button>
+              <Button variant={mode === "month" ? "gold" : "dark"} onClick={() => setMode("month")} style={{ fontSize: 12, padding: "7px 14px" }}>Month</Button>
+            </div>
+          </div>
+          {mode === "week"
+            ? <ProgramWeekView program={program} days={days} weekNum={weekNum} setWeekNum={setWeekNum} onOpen={(d) => setOpenKey(d.key)} />
+            : <ProgramMonthView days={days} cursor={monthCursor} setCursor={setMonthCursor} currentWeek={currentProgramWeek(program)} onOpen={(d) => setOpenKey(d.key)} />}
+        </>
+      )}
       {builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}
     </div>
   );
@@ -1941,6 +2419,11 @@ async function upsertTrainerData(trainerId, section, data) {
     enqueueSync({ type: "trainer_data", trainerId, section, data });
     return { queued: true, error };
   }
+}
+async function loadTrainerTemplates(trainerId) {
+  if (!trainerId) return [];
+  const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "templates").maybeSingle();
+  return data?.data?.templates || [];
 }
 async function safeSelect(table, queryBuilder) {
   try {
@@ -2318,16 +2801,299 @@ function NotificationsTab({ notifications, selectClient }) {
     </div>
   );
 }
+// ---------- Coach shell: Home · Clients · Alerts · Settings ----------
+const COACH_ICON_PATHS = {
+  clients: <><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M22 20v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
+  templates: <><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /><rect x="14" y="3" width="7" height="4" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /><rect x="14" y="11" width="7" height="10" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M16 3v4M8 3v4M3 10h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
+  analytics: <><path d="M3 3v18h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><path d="M7 15l4-5 3 3 5-7" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
+  trials: <path d="M12 2.5l2.6 6.3 6.9.5-5.3 4.5 1.7 6.7L12 16.9 6.1 20.5l1.7-6.7L2.5 9.3l6.9-.5z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
+  bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" /><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
+};
+function CoachIcon({ name, size = 22, color = "currentColor" }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ color, display: "block" }}>{COACH_ICON_PATHS[name]}</svg>;
+}
+const COACH_NAV = [
+  { key: "home", label: "Home", icon: "home" },
+  { key: "clients", label: "Clients", icon: "clients" },
+  { key: "alerts", label: "Alerts", icon: "bell" },
+  { key: "settings", label: "Settings", icon: "gear" },
+];
+function CoachBottomNav({ tab, setTab, unread }) {
+  return (
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `1px solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+      {COACH_NAV.map((item) => {
+        const active = tab === item.key;
+        const color = active ? BRAND.gold : BRAND.dim;
+        return (
+          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: 70, position: "relative", padding: 0 }}>
+            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `${BRAND.gold}22` : "transparent", display: "grid", placeItems: "center" }}>
+              {item.icon === "gear" || item.icon === "home" ? <NavIcon name={item.icon} color={color} /> : <CoachIcon name={item.icon} size={21} color={color} />}
+              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.red, color: "#fff", fontSize: 9, fontWeight: 900, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unread > 9 ? "9+" : unread}</div>}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 800, color }}>{item.label}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+function CoachTile({ icon, name, meta, count, quiet, wide, color = BRAND.gold, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      gridColumn: wide ? "1 / -1" : "auto",
+      background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20,
+      padding: 16, minHeight: wide ? 84 : 116, cursor: "pointer", position: "relative",
+      display: "flex", flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start",
+      justifyContent: wide ? "flex-start" : "space-between", gap: wide ? 14 : 0, textAlign: "left", minWidth: 0,
+    }}>
+      {count != null && !wide && (
+        <div style={{ position: "absolute", top: 14, right: 14, minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999, background: quiet ? "transparent" : color, border: quiet ? `1px solid ${BRAND.line}` : "none", color: quiet ? BRAND.dim : "#000", fontSize: 10, fontWeight: 1000, display: "grid", placeItems: "center" }}>{count}</div>
+      )}
+      <div style={{ width: 44, height: 44, borderRadius: 14, background: `${color}22`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <CoachIcon name={icon} size={22} color={color} />
+      </div>
+      <div style={{ flex: wide ? 1 : "none", minWidth: 0, marginTop: wide ? 0 : "auto" }}>
+        <div style={{ fontWeight: 900, fontSize: 15, color: BRAND.text, textTransform: "uppercase", letterSpacing: 0.3 }}>{name}</div>
+        <div style={{ color, fontSize: 12, fontWeight: 700, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
+      </div>
+      {wide && <NavIcon name="back" size={16} color={BRAND.dim} rotate={180} />}
+    </button>
+  );
+}
+function coachStats(clients) {
+  const lastSessionOf = (c) => (c.trainingLogs?.sessions || []).filter((s) => s.status === "completed" && s.date).map((s) => s.date).sort().pop();
+  const cold = clients.filter((c) => {
+    const last = lastSessionOf(c);
+    const d = last ? daysSince(last) : (c.joinDate ? daysSince(c.joinDate) : null);
+    return d !== null && d >= 7;
+  });
+  const scored = clients.map((c) => overallAdherence(c.program, c.trainingLogs)).filter((a) => a.total > 0);
+  const adherence = scored.length ? Math.round(scored.reduce((s, a) => s + a.pct, 0) / scored.length) : null;
+  const todayISO = isoDate(new Date());
+  const sessionsToday = clients.reduce((n, c) => {
+    const days = buildProgramDays(c.program, c.trainingLogs);
+    return n + days.filter((d) => d.dateISO === todayISO && !d.isRest).length;
+  }, 0);
+  return { cold, adherence, sessionsToday, lastSessionOf };
+}
+function CoachHome({ trainer, user, clients, notifications, templatesCount, trialsCount, onTile, onOpenClients }) {
+  const isMobile = useIsMobile(520);
+  const { cold, adherence, sessionsToday } = coachStats(clients);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
+  const name = (trainer?.name || user.email?.split("@")[0] || "Coach").split(" ")[0];
+  const flagged = cold.length;
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.9 }}>
+          {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+        </div>
+        <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 900, letterSpacing: -0.4, marginTop: 4 }}>{greeting}, {name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>
+          {sessionsToday} session{sessionsToday === 1 ? "" : "s"} scheduled today{flagged > 0 ? ` · ${flagged} need attention` : ""}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        <Mini label="Active" value={String(clients.length)} color={BRAND.gold} />
+        <Mini label="Adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
+        <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.red : BRAND.text} />
+      </div>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 4 }}>Go to</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 }}>
+        <CoachTile icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} color={BRAND.gold} onClick={onOpenClients} />
+        <CoachTile icon="templates" name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet color={BRAND.purple} onClick={() => onTile("templates")} />
+        <CoachTile icon="calendar" name="Calendar" meta={`${sessionsToday} session${sessionsToday === 1 ? "" : "s"} today`} count={sessionsToday || null} color={BRAND.cyan} onClick={() => onTile("calendar")} />
+        <CoachTile icon="analytics" name="Analytics" meta="Client activity trends" color={BRAND.green} onClick={() => onTile("analytics")} />
+        <CoachTile wide icon="trials" name="Trials" meta={trialsCount ? `${trialsCount} saved · consultations & assessments` : "Consultations & fitness assessments"} color={BRAND.orange} onClick={() => onTile("trials")} />
+      </div>
+    </div>
+  );
+}
+function CoachTemplates({ user, clients, onBack }) {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    loadTrainerTemplates(user.id).then((list) => { if (active) { setTemplates(list); setLoading(false); } });
+    return () => { active = false; };
+  }, [user.id]);
+  async function save(next) { setTemplates(next); await upsertTrainerData(user.id, "templates", { templates: next }); }
+  function remove(t) {
+    if (!confirm(`Delete the template "${t.name}"? Programs already assigned to clients are not affected.`)) return;
+    save(templates.filter((x) => x.id !== t.id));
+  }
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 900 }}>Templates</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{templates.length} saved program{templates.length === 1 ? "" : "s"}</div>
+      </div>
+      {loading && <Card><div style={{ color: BRAND.muted }}>Loading...</div></Card>}
+      {!loading && templates.length === 0 && (
+        <Card>
+          <div style={{ color: BRAND.text, fontWeight: 800, marginBottom: 6 }}>No templates yet</div>
+          <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.55 }}>
+            Open a client, build a program, then hit <b style={{ color: BRAND.gold }}>Save as Template</b> in the builder. It'll show up here and you can load it into any client.
+          </div>
+        </Card>
+      )}
+      {templates.map((t) => {
+        const usedBy = clients.filter((c) => c.program?.templateId === t.id).length;
+        return (
+          <Card key={t.id} style={{ padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 900, fontSize: 16 }}>{t.name}</div>
+                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>
+                  {[t.goal, `${t.weeks} week${t.weeks === 1 ? "" : "s"}`, t.savedAt ? `saved ${String(t.savedAt).slice(0, 10)}` : null].filter(Boolean).join(" · ")}
+                  {usedBy > 0 ? ` · used by ${usedBy}` : ""}
+                </div>
+              </div>
+              <Button variant="red" onClick={() => remove(t)} style={{ fontSize: 12, padding: "8px 14px" }}>Delete</Button>
+            </div>
+          </Card>
+        );
+      })}
+      <Card style={{ background: BRAND.card2 }}>
+        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.55 }}>
+          To use a template: open a client → Program → Edit Program → <b style={{ color: BRAND.gold }}>Load from template</b>.
+        </div>
+      </Card>
+    </div>
+  );
+}
+function CoachAnalytics({ clients, selectClient, onBack }) {
+  const isMobile = useIsMobile(520);
+  const { cold, adherence, lastSessionOf } = coachStats(clients);
+  // Completed sessions bucketed into the last 8 calendar weeks, across every client.
+  const weeks = [];
+  const thisMonday = startOfWeek(new Date());
+  for (let i = 7; i >= 0; i--) {
+    const start = addDays(thisMonday, -i * 7);
+    weeks.push({ start, startISO: isoDate(start), endISO: isoDate(addDays(start, 6)), count: 0 });
+  }
+  clients.forEach((c) => {
+    (c.trainingLogs?.sessions || []).forEach((s) => {
+      if (s.status !== "completed" || !s.date) return;
+      const bucket = weeks.find((w) => s.date >= w.startISO && s.date <= w.endISO);
+      if (bucket) bucket.count += 1;
+    });
+  });
+  const maxWeek = Math.max(1, ...weeks.map((w) => w.count));
+  const total = weeks.reduce((n, w) => n + w.count, 0);
+  const rows = clients
+    .map((c) => ({ client: c, adherence: overallAdherence(c.program, c.trainingLogs), last: lastSessionOf(c) }))
+    .sort((a, b) => (a.adherence.pct || 0) - (b.adherence.pct || 0));
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 900 }}>Analytics</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Client activity, last 8 weeks</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        <Mini label="Sessions" value={String(total)} />
+        <Mini label="Avg adherence" value={adherence != null ? `${adherence}%` : "-"} />
+        <Mini label="Going cold" value={String(cold.length)} />
+      </div>
+      <div>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Sessions completed per week</div>
+        <Card style={{ padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 110 }}>
+            {weeks.map((w, i) => {
+              const isLast = i === weeks.length - 1;
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", gap: 4 }}>
+                  <div style={{ color: isLast ? BRAND.gold : BRAND.dim, fontSize: 10, fontWeight: 900 }}>{w.count}</div>
+                  <div style={{ width: "100%", height: `${Math.max(3, (w.count / maxWeek) * 70)}%`, background: isLast ? BRAND.gold : BRAND.card2, borderRadius: "4px 4px 0 0" }} />
+                  <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 800 }}>{isLast ? "Now" : `-${weeks.length - 1 - i}`}</div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+      <div>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Adherence by client · lowest first</div>
+        <Card style={{ padding: 16 }}>
+          {rows.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No clients yet.</div>}
+          {rows.map(({ client, adherence: a, last }, i) => {
+            const pct = a.total ? a.pct : 0;
+            const days = last ? daysSince(last) : null;
+            const warn = pct < 70 || (days !== null && days >= 7);
+            return (
+              <div key={client.id} onClick={() => selectClient(client)} style={{ padding: "10px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}`, cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontWeight: 800, fontSize: 13 }}>{client.name}</span>
+                  <span style={{ color: warn ? BRAND.red : BRAND.muted, fontSize: 12, fontWeight: 800 }}>
+                    {a.total ? `${pct}%` : "No program"}{days !== null ? ` · ${days}d ago` : ""}
+                  </span>
+                </div>
+                <div style={{ height: 4, background: BRAND.card2, borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: warn ? BRAND.red : BRAND.gold }} />
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+      </div>
+    </div>
+  );
+}
+function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, syncStatus }) {
+  const [busy, setBusy] = useState(false);
+  async function logout() {
+    setBusy(true);
+    await supabase.auth.signOut();
+  }
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ fontSize: 26, fontWeight: 900 }}>Settings</div>
+      <Card onClick={onEditProfile} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000, flexShrink: 0 }}>
+          {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 900, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div>
+          <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+          <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Edit profile ›</div>
+        </div>
+      </Card>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
+        <Mini label="Clients" value={String(clientsCount)} />
+        <Mini label="Sync" value={syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"} />
+      </div>
+      <Card style={{ background: BRAND.card2 }}>
+        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.55 }}>
+          Forge Coach · The Forge Method. Program templates, trials, and the calendar all live on the Home tab.
+        </div>
+      </Card>
+      <Button variant="red" disabled={busy} onClick={logout} style={{ width: "100%" }}>{busy ? "Logging out..." : "Log Out"}</Button>
+    </div>
+  );
+}
 function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online" }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [tab, setTab] = useState("clients");
+  const [tab, setTab] = useState("home");
+  const [screen, setScreen] = useState(null); // templates | calendar | analytics | trials
   const [query, setQuery] = useState("");
+  const [templatesCount, setTemplatesCount] = useState(0);
+  const [trialsCount, setTrialsCount] = useState(0);
   const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()));
   const notifications = computeNotifications(clients);
-  const upcoming = clients.reduce((n, c) => n + (c.schedule?.length || 0), 0);
+  useEffect(() => {
+    let active = true;
+    loadTrainerTemplates(user.id).then((list) => { if (active) setTemplatesCount(list.length); });
+    supabase.from("trainer_data").select("data").eq("trainer_id", user.id).eq("section", "trials").maybeSingle()
+      .then(({ data }) => { if (active) setTrialsCount((data?.data?.trials || []).length); });
+    return () => { active = false; };
+  }, [user.id, screen]);
   async function createClient(form) {
     if (typeof navigator !== "undefined" && !navigator.onLine) { alert("You're offline. Creating a new client needs an internet connection - please try again once you're back online."); return; }
     const color = form.color || getClientColor(uid(), clients.length);
@@ -2359,49 +3125,70 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     await refresh();
     return data.id;
   }
+  function goHome() { setScreen(null); setTab("home"); }
+  let body;
+  if (screen === "templates") body = <CoachTemplates user={user} clients={clients} onBack={goHome} />;
+  else if (screen === "calendar") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Calendar clients={clients} refresh={refresh} user={user} /></>;
+  else if (screen === "analytics") body = <CoachAnalytics clients={clients} selectClient={selectClient} onBack={goHome} />;
+  else if (screen === "trials") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Trials user={user} onConvert={convertTrialToClient} /></>;
+  else if (tab === "home") body = (
+    <CoachHome
+      trainer={trainer} user={user} clients={clients} notifications={notifications}
+      templatesCount={templatesCount} trialsCount={trialsCount}
+      onTile={setScreen} onOpenClients={() => setTab("clients")}
+    />
+  );
+  else if (tab === "clients") body = (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 900 }}>Clients</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{clients.length} active</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10 }}>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
+        <Button onClick={() => setShowAdd(true)}>+ Add New Client</Button>
+      </div>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(3,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
+        gap: isMobile ? 12 : isTablet ? 14 : 18,
+        alignItems: "start",
+      }}>
+        {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
+      </div>
+      {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No clients match that search.</div></Card>}
+    </div>
+  );
+  else if (tab === "alerts") body = (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div>
+        <div style={{ fontSize: 26, fontWeight: 900 }}>Alerts</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{notifications.length ? `${notifications.length} need${notifications.length === 1 ? "s" : ""} a look` : "All caught up"}</div>
+      </div>
+      <NotificationsTab notifications={notifications} selectClient={selectClient} />
+    </div>
+  );
+  else body = <CoachSettingsTab user={user} trainer={trainer} onEditProfile={() => setShowSettings(true)} clientsCount={clients.length} syncStatus={syncStatus} />;
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : isTablet ? "10px 14px" : "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, paddingBottom: 96 }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: isMobile ? 42 : isTablet ? 44 : 50, height: isMobile ? 42 : isTablet ? 44 : 50, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+          <div style={{ width: isMobile ? 38 : 44, height: isMobile ? 38 : 44, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
             {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
           </div>
-          <div><div style={{ fontSize: isMobile ? 24 : isTablet ? 28 : 34, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div></div>
+          <div>
+            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <span style={{ color: syncStatus === "offline" ? BRAND.red : syncStatus === "syncing" ? BRAND.gold : BRAND.green, fontSize: 12, fontWeight: 1000 }}>{syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"}</span>
-          <Button variant="dark" onClick={() => setShowSettings(true)} style={{ padding: isMobile ? "8px 10px" : undefined }}>Settings</Button>
-          <Button variant="ghost" onClick={() => supabase.auth.signOut()} style={{ padding: isMobile ? "8px 10px" : undefined }}>Logout</Button>
-        </div>
+        <span style={{ color: syncStatus === "offline" ? BRAND.red : syncStatus === "syncing" ? BRAND.gold : BRAND.green, fontSize: 12, fontWeight: 1000 }}>
+          {syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"}
+        </span>
       </header>
-      <main style={{ width: "100%", maxWidth: isMobile ? 430 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 10 : isTablet ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(170px,1fr))", gap: isMobile ? 10 : isTablet ? 12 : 14, marginBottom: isTablet ? 12 : 16 }}>
-          <Kpi title="Active Clients" value={clients.length} icon="👥" color={BRAND.gold} onClick={() => setTab("clients")} compact={isMobile || isTablet} />
-          <Kpi title="Notifications" value={notifications.length} icon="🔔" color={notifications.length > 0 ? BRAND.red : BRAND.muted} onClick={() => setTab("notifications")} compact={isMobile || isTablet} />
-          <Kpi title="Trials" value="Open" icon="" color={BRAND.red} onClick={() => setTab("trials")} compact={isMobile || isTablet} />
-          <Kpi title="Calendar" value="Open" icon="📅" color={BRAND.green} onClick={() => setTab("calendar")} compact={isMobile || isTablet} />
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, overflowX: "auto", paddingBottom: 4 }}>
-          {[["clients", "Clients"], ["notifications", `Notifications${notifications.length > 0 ? ` (${notifications.length})` : ""}`], ["trials", "Trials"], ["calendar", "Calendar"]].map(([k, l]) => <Button key={k} variant={tab === k ? "gold" : "dark"} onClick={() => setTab(k)}>{l}</Button>)}
-        </div>
-        {tab === "clients" && <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, marginBottom: 14 }}>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
-            <Button onClick={() => setShowAdd(true)}>+ Add New Client</Button>
-          </div>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : isTablet ? "repeat(3,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))",
-            gap: isMobile ? 12 : isTablet ? 14 : 18,
-            alignItems: "start",
-          }}>
-            {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
-          </div>
-        </>}
-        {tab === "calendar" && <Calendar clients={clients} refresh={refresh} user={user} />}
-        {tab === "notifications" && <NotificationsTab notifications={notifications} selectClient={selectClient} />}
-        {tab === "trials" && <Trials user={user} onConvert={convertTrialToClient} />}
+      <main style={{ width: "100%", maxWidth: isMobile ? 480 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+        {body}
       </main>
+      <CoachBottomNav tab={screen ? "home" : tab} setTab={(t) => { setScreen(null); setTab(t); }} unread={notifications.length} />
       {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onCreate={createClient} />}
       {showSettings && <CoachSettingsModal user={user} trainer={trainer} onClose={() => setShowSettings(false)} onSaved={(next) => { setTrainer?.(next); setShowSettings(false); refresh(); }} />}
     </div>
@@ -2532,7 +3319,7 @@ function ClientCard({ client, onClick }) {
     </button>
   );
 }
-function Mini({ label, value }) { return <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600 }}>{label}</div><div style={{ color: BRAND.text, fontWeight: 700 }}>{value}</div></div>; }
+function Mini({ label, value, color }) { return <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600 }}>{label}</div><div style={{ color: color || BRAND.text, fontWeight: 700 }}>{value}</div></div>; }
 const NAV_ICON_PATHS = {
   home: <path d="M3 11L12 3L21 11V21H15V14H9V21H3V11Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
   food: <><path d="M6 2V10C6 11.6569 7.34315 13 9 13V13C10.6569 13 12 11.6569 12 10V2M9 13V22M6 2V6M12 2V6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><path d="M18 2C16 4 16 8 18 10V22" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
@@ -3097,16 +3884,6 @@ function computePerformanceMetrics(logs) {
     const trend = first && recent ? recent.value - first.value : 0;
     return { name, timed, best, recent, trend };
   });
-}
-function recentCompletedSessions(logs, limit = 6) {
-  const sessions = (logs?.sessions || []).filter((s) => s.status === "completed" && s.date);
-  return sessions.slice(-limit).reverse().map((s) => ({
-    id: s.id, date: s.date, name: s.workoutName, weekNum: s.weekNum, metrics: s.metrics, notes: s.notes,
-    sessionData: (s.entries || []).map((e) => ({
-      name: e.substitutedName || e.name,
-      sets: (e.sets || []).map((set) => ({ weight: set.load, reps: set.reps, duration: set.duration, rpe: set.rpe })),
-    })),
-  }));
 }
 function normalizeNutrition(raw) {
   const base = emptyNutrition();
@@ -3768,7 +4545,6 @@ function ProgressTab({ client }) {
   const pbs = recentPBsAcrossHistory(logs, 5);
   const adherence = overallAdherence(client.program, logs);
   const insight = buildProgressInsight(streak, volumeTrend, pbs);
-  const recentSessions = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
   const maxVolume = Math.max(1, ...volumeTrend.volumes);
   const pbsThisMonth = pbs.filter((pb) => pb.date && pb.date.slice(0, 7) === new Date().toISOString().slice(0, 7)).length;
 
@@ -3815,18 +4591,12 @@ function ProgressTab({ client }) {
       </Card>
     </div>
 
-    <div>
-      <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Recent Sessions</div>
-      <Card style={{ padding: 16 }}>
-        {recentSessions.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No sessions logged yet.</div>}
-        {recentSessions.map((s, i) => (
-          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
-            <span style={{ color: BRAND.text, fontWeight: 700, fontSize: 13 }}>{s.workoutName}</span>
-            <span style={{ color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>{s.date}</span>
-          </div>
-        ))}
-      </Card>
-    </div>
+    <Card style={{ background: BRAND.card2, padding: 14 }}>
+      <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 13 }}>Looking for past sessions?</div>
+      <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 4, lineHeight: 1.5 }}>
+        They live on the Program calendar now. Every completed day carries a tick — tap it to see exactly what was lifted, set by set.
+      </div>
+    </Card>
   </div>;
 }
 async function loadCheckInTemplate(trainerId) {
