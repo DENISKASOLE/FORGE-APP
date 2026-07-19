@@ -3377,6 +3377,7 @@ function CoachHome({ trainer, user, clients, notifications, templatesCount, tria
 function CoachTemplates({ user, clients, onBack }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingTemplate, setEditingTemplate] = useState(null);
   useEffect(() => {
     let active = true;
     loadTrainerTemplates(user.id).then((list) => { if (active) { setTemplates(list); setLoading(false); } });
@@ -3386,6 +3387,19 @@ function CoachTemplates({ user, clients, onBack }) {
   function remove(t) {
     if (!confirm(`Delete the template "${t.name}"? Programs already assigned to clients are not affected.`)) return;
     save(templates.filter((x) => x.id !== t.id));
+  }
+  async function saveEditedTemplate(updatedProgram) {
+    const next = templates.map((t) => (t.id === editingTemplate.id ? { ...t, name: updatedProgram.name || t.name, goal: updatedProgram.goal, weeks: updatedProgram.weeks.length, program: updatedProgram } : t));
+    await save(next);
+    setEditingTemplate(null);
+  }
+  if (editingTemplate) {
+    return <ProgramBuilder
+      client={{ id: null, trainer_id: user.id, name: editingTemplate.name, goal: editingTemplate.goal }}
+      program={editingTemplate.program}
+      onClose={() => setEditingTemplate(null)}
+      onSave={saveEditedTemplate}
+    />;
   }
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -3415,7 +3429,10 @@ function CoachTemplates({ user, clients, onBack }) {
                   {usedBy > 0 ? ` · used by ${usedBy}` : ""}
                 </div>
               </div>
-              <Button variant="red" onClick={() => remove(t)} style={{ fontSize: 12, padding: "8px 14px" }}>Delete</Button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button variant="dark" onClick={() => setEditingTemplate(t)} style={{ fontSize: 12, padding: "8px 14px" }}>Edit</Button>
+                <Button variant="red" onClick={() => remove(t)} style={{ fontSize: 12, padding: "8px 14px" }}>Delete</Button>
+              </div>
             </div>
           </Card>
         );
@@ -4440,7 +4457,7 @@ function FoodSearchModal({ client, onClose, onAdd }) {
   const isMobile = useIsMobile(520);
   const [tab, setTab] = useState("search");
   const [query, setQuery] = useState("");
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState("1");
   const [customName, setCustomName] = useState("");
   const [customMacros, setCustomMacros] = useState({ kcal: "", protein: "", carbs: "", fats: "" });
   const [smartText, setSmartText] = useState("");
@@ -4450,10 +4467,11 @@ function FoodSearchModal({ client, onClose, onAdd }) {
   const smartEstimate = useMemo(() => estimateSmartFood(smartText), [smartText]);
   useEffect(() => { loadCustomFoods(client?.trainer_id).then(setCustomFoods); }, [client?.trainer_id]);
   const combinedDb = useMemo(() => [...customFoods, ...FOOD_DB], [customFoods]);
+  const parsedQty = Number(qty) > 0 ? Number(qty) : 1;
   const results = query.trim() ? combinedDb.filter((f) => f.name.toLowerCase().includes(query.toLowerCase())).slice(0, 30) : combinedDb.slice(0, 12);
 
   function addFromSearch(f) {
-    onAdd({ name: f.name, kcal: Math.round(f.kcal * qty), protein: Math.round(f.protein * qty), carbs: Math.round(f.carbs * qty), fats: Math.round(f.fats * qty), qty });
+    onAdd({ name: f.name, kcal: Math.round(f.kcal * parsedQty), protein: Math.round(f.protein * parsedQty), carbs: Math.round(f.carbs * parsedQty), fats: Math.round(f.fats * parsedQty), qty: parsedQty });
   }
   function addCustom() {
     if (!customName.trim()) { alert("Give this food a name."); return; }
@@ -4471,7 +4489,7 @@ function FoodSearchModal({ client, onClose, onAdd }) {
   }
   function addFromLookup() {
     if (!lookupState || lookupState.error) return;
-    const mult = qty || 1;
+    const mult = parsedQty;
     const item = { name: lookupState.name, kcal: Math.round(lookupState.kcal * mult), protein: Math.round(lookupState.protein * mult), carbs: Math.round(lookupState.carbs * mult), fats: Math.round(lookupState.fats * mult), qty: mult };
     onAdd(item);
     if (saveToLibrary && client?.trainer_id) saveCustomFood(client.trainer_id, { name: lookupState.name, kcal: lookupState.kcal, protein: lookupState.protein, carbs: lookupState.carbs, fats: lookupState.fats });
@@ -4493,13 +4511,13 @@ function FoodSearchModal({ client, onClose, onAdd }) {
           <input value={query} onChange={(e) => { setQuery(e.target.value); setLookupState(null); }} placeholder="Search foods..." style={inputStyle({ marginBottom: 10 })} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>Servings</span>
-            <input type="number" step="0.5" min="0.5" value={qty} onChange={(e) => setQty(Number(e.target.value || 1))} style={inputStyle({ width: 80 })} />
+            <input type="number" step="0.5" min="0" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => { if (!qty || Number(qty) <= 0) setQty("1"); }} style={inputStyle({ width: 80 })} />
           </div>
           <div style={{ display: "grid", gap: 6, maxHeight: 320, overflowY: "auto" }}>
             {results.map((f) => (
               <button key={f.name} onClick={() => addFromSearch(f)} style={{ textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10, cursor: "pointer", color: BRAND.text }}>
                 <div style={{ fontWeight: 800 }}>{f.name}</div>
-                <div style={{ color: BRAND.muted, fontSize: 12 }}>{Math.round(f.kcal * qty)} kcal · P {Math.round(f.protein * qty)}g · C {Math.round(f.carbs * qty)}g · F {Math.round(f.fats * qty)}g</div>
+                <div style={{ color: BRAND.muted, fontSize: 12 }}>{Math.round(f.kcal * parsedQty)} kcal · P {Math.round(f.protein * parsedQty)}g · C {Math.round(f.carbs * parsedQty)}g · F {Math.round(f.fats * parsedQty)}g</div>
               </button>
             ))}
             {results.length === 0 && (
@@ -4519,10 +4537,10 @@ function FoodSearchModal({ client, onClose, onAdd }) {
                     <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 8 }}>Values are per 100g — adjust servings below before adding.</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>Servings (x100g)</span>
-                      <input type="number" step="0.5" min="0.25" value={qty} onChange={(e) => setQty(Number(e.target.value || 1))} style={inputStyle({ width: 80 })} />
+                      <input type="number" step="0.5" min="0" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => { if (!qty || Number(qty) <= 0) setQty("1"); }} style={inputStyle({ width: 80 })} />
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(80px,1fr))", gap: 8, marginBottom: 10 }}>
-                      <Mini label="Calories" value={Math.round(lookupState.kcal * qty)} /><Mini label="Protein" value={`${Math.round(lookupState.protein * qty)}g`} /><Mini label="Carbs" value={`${Math.round(lookupState.carbs * qty)}g`} /><Mini label="Fats" value={`${Math.round(lookupState.fats * qty)}g`} />
+                      <Mini label="Calories" value={Math.round(lookupState.kcal * parsedQty)} /><Mini label="Protein" value={`${Math.round(lookupState.protein * parsedQty)}g`} /><Mini label="Carbs" value={`${Math.round(lookupState.carbs * parsedQty)}g`} /><Mini label="Fats" value={`${Math.round(lookupState.fats * parsedQty)}g`} />
                     </div>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontSize: 12, marginBottom: 10 }}>
                       <input type="checkbox" checked={saveToLibrary} onChange={(e) => setSaveToLibrary(e.target.checked)} />
