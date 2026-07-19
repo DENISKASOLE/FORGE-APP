@@ -2431,6 +2431,136 @@ function DayDetail({ day, onBack, onStart, canStart }) {
   );
 }
 // ---------- ProgramTab: coach + client entry point ----------
+function isVacationActive(vacation) {
+  if (!vacation?.startDate || !vacation?.endDate) return false;
+  const today = isoDate();
+  return today >= vacation.startDate && today <= vacation.endDate;
+}
+function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) {
+  const [startDate, setStartDate] = useState(vacation?.startDate || isoDate());
+  const [endDate, setEndDate] = useState(vacation?.endDate || isoDate(addDays(new Date(), 6)));
+  const [workoutName, setWorkoutName] = useState(vacation?.workout?.name || "Bodyweight Full Body");
+  const [exercises, setExercises] = useState(vacation?.workout?.exercises?.length ? vacation.workout.exercises : [
+    { id: uid(), name: "Goblet Squat", sets: "3", reps: "15", videoUrl: DEFAULT_EXERCISE_VIDEOS["Goblet Squat"] || "" },
+    { id: uid(), name: "Push-Up", sets: "3", reps: "12", videoUrl: DEFAULT_EXERCISE_VIDEOS["Push-Up"] || "" },
+    { id: uid(), name: "Plank", sets: "3", reps: "45s", videoUrl: DEFAULT_EXERCISE_VIDEOS["Plank"] || "" },
+  ]);
+  const [saving, setSaving] = useState(false);
+  const [pickSource, setPickSource] = useState("library");
+  const [addSearch, setAddSearch] = useState("");
+  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [customLibrary, setCustomLibrary] = useState([]);
+  const exerciseLibrary = useExerciseLibrary();
+  useEffect(() => { if (client.trainer_id) loadExerciseLibraryData(client.trainer_id).then(setCustomLibrary); }, [client.trainer_id]);
+  const customVideoMap = Object.fromEntries(customLibrary.filter((it) => it.videoUrl).map((it) => [it.name, it.videoUrl]));
+  const customNames = customLibrary.map((it) => it.name);
+  const suggestions = !addSearch ? [] : (pickSource === "mine" ? customNames : exerciseLibrary).filter((n) => n.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 12);
+
+  function updateEx(id, patch) { setExercises((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))); }
+  function removeEx(id) { setExercises((prev) => prev.filter((e) => e.id !== id)); }
+  function addExercise(name) {
+    const videoUrl = customVideoMap[name] || DEFAULT_EXERCISE_VIDEOS[name] || "";
+    setExercises((prev) => [...prev, { id: uid(), name, sets: "3", reps: "12", videoUrl }]);
+    setAddSearch("");
+  }
+  async function save() {
+    if (!startDate || !endDate || startDate > endDate) { alert("Check the dates - start must be before end."); return; }
+    if (exercises.length === 0) { alert("Add at least one exercise."); return; }
+    setSaving(true);
+    await onSave({ startDate, endDate, workout: { name: workoutName, exercises } });
+    setSaving(false);
+  }
+  return (
+    <div style={modalBackdrop()}>
+      <Card style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div style={{ fontSize: 19, fontWeight: 1000 }}>Set Vacation Mode</div>
+          <Button variant="ghost" onClick={onClose}>X</Button>
+        </div>
+        <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 14 }}>{client.name?.split(" ")[0]}'s regular program stays exactly where it is - this just sits on top temporarily, then hands back automatically.</div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase" }}>Dates</div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle()} />
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={inputStyle()} />
+        </div>
+        <Field label="Workout name" value={workoutName} onChange={setWorkoutName} placeholder="e.g. Bodyweight Full Body" />
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, margin: "14px 0 8px", textTransform: "uppercase" }}>Home Workout Plan</div>
+        {exercises.map((ex) => {
+          const thumb = getVideoThumb(ex.videoUrl);
+          return (
+            <div key={ex.id} style={{ background: BRAND.card2, borderRadius: 12, padding: 10, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {thumb ? <img src={thumb.thumb} alt="Exercise video" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} /> : <div style={{ width: 40, height: 40, borderRadius: 8, background: BRAND.panel, flexShrink: 0 }} />}
+                <div style={{ flex: 1, fontWeight: 800, fontSize: 13, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.name}</div>
+                <button onClick={() => removeEx(ex.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 900, fontSize: 15, cursor: "pointer", flexShrink: 0 }}>x</button>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <input value={ex.sets} onChange={(e) => updateEx(ex.id, { sets: e.target.value })} placeholder="sets" style={inputStyle()} />
+                <input value={ex.reps} onChange={(e) => updateEx(ex.id, { reps: e.target.value })} placeholder="reps" style={inputStyle()} />
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginTop: 10, marginBottom: 8 }}>
+          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
+          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
+        </div>
+        <input placeholder={pickSource === "mine" ? "Search your exercises..." : "Search exercises to add..."} value={addSearch} onChange={(e) => setAddSearch(e.target.value)} style={inputStyle()} />
+        {addSearch && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>+ {n}</button>)}
+            {pickSource === "library" && suggestions.length === 0 && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: "#000", border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 900, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
+          </div>
+        )}
+        <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Activate Vacation Mode"}</Button>
+        {vacation && <Button variant="red" onClick={onEnd} style={{ width: "100%", marginTop: 8 }}>End Vacation Mode Now</Button>}
+      </Card>
+    </div>
+  );
+}
+function VacationBanner({ vacation, isCoach, onEdit, onToggleDone, doneToday }) {
+  const [playingVideo, setPlayingVideo] = useState(null);
+  const active = isVacationActive(vacation);
+  if (!active) return null;
+  const fmt = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return (
+    <Card style={{ padding: 14, background: `${BRAND.orange}14`, border: `1px solid ${BRAND.orange}55`, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 20 }}>🏖️</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: BRAND.orange, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Vacation Mode Active</div>
+          <div style={{ color: BRAND.text, fontWeight: 700, fontSize: 12, marginTop: 2 }}>{fmt(vacation.startDate)} - {fmt(vacation.endDate)} · Regular program paused, resumes automatically</div>
+        </div>
+        {isCoach && <button onClick={onEdit} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 12px", color: BRAND.text, fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Edit</button>}
+      </div>
+      <div style={{ background: BRAND.card2, borderRadius: 12, padding: 12, marginTop: 12 }}>
+        <div style={{ color: BRAND.orange, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 6 }}>Today's Home Workout</div>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>{vacation.workout?.name}</div>
+        {(vacation.workout?.exercises || []).map((ex) => {
+          const thumb = getVideoThumb(ex.videoUrl);
+          return (
+            <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${BRAND.line}` }}>
+              {thumb ? (
+                <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", position: "relative", flexShrink: 0 }}>
+                  <img src={thumb.thumb} alt="Exercise video" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} />
+                  <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 9 }}>▶</div></div>
+                </button>
+              ) : <div style={{ width: 44, height: 44, borderRadius: 10, background: BRAND.panel, flexShrink: 0 }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{ex.name}</div>
+                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>{ex.sets} x {ex.reps}</div>
+              </div>
+            </div>
+          );
+        })}
+        {!isCoach && (
+          <button onClick={onToggleDone} style={{ width: "100%", marginTop: 12, padding: 12, borderRadius: 999, border: "none", background: doneToday ? BRAND.green : BRAND.orange, color: "#000", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>{doneToday ? "✓ Marked Done Today" : "Mark Today's Workout Done"}</button>
+        )}
+      </div>
+      {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
+    </Card>
+  );
+}
 function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [program, setProgram] = useState(client.program?.version === 2 ? client.program : null);
@@ -2442,6 +2572,8 @@ function ProgramTab({ client, updateClient, isCoach }) {
   const [openKey, setOpenKey] = useState(null);
   const [weekNum, setWeekNum] = useState(() => currentProgramWeek(client.program));
   const [monthCursor, setMonthCursor] = useState(() => new Date());
+  const [vacation, setVacation] = useState(client.vacation || null);
+  const [showVacationModal, setShowVacationModal] = useState(false);
   const days = useMemo(() => buildProgramDays(program, logs), [program, logs]);
   async function persist(nextProgram, nextLogs) {
     updateClient({ ...client, program: nextProgram, trainingLogs: nextLogs });
@@ -2451,6 +2583,28 @@ function ProgramTab({ client, updateClient, isCoach }) {
     if (failed) alert(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`);
   }
   function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setWeekNum(currentProgramWeek(p)); }
+  async function saveVacation(data) {
+    const next = { ...vacation, ...data, completedDates: vacation?.completedDates || [] };
+    setVacation(next);
+    updateClient({ ...client, vacation: next });
+    await upsertSection(client.id, "vacation_mode", next);
+    setShowVacationModal(false);
+  }
+  async function endVacation() {
+    const next = { ...vacation, endDate: isoDate(addDays(new Date(), -1)) };
+    setVacation(next);
+    updateClient({ ...client, vacation: next });
+    await upsertSection(client.id, "vacation_mode", next);
+    setShowVacationModal(false);
+  }
+  async function toggleVacationDoneToday() {
+    const today = isoDate();
+    const completedDates = vacation.completedDates || [];
+    const next = { ...vacation, completedDates: completedDates.includes(today) ? completedDates.filter((d) => d !== today) : [...completedDates, today] };
+    setVacation(next);
+    updateClient({ ...client, vacation: next });
+    await upsertSection(client.id, "vacation_mode", next);
+  }
   function saveLogs(l) { setLogs(l); persist(program, l); }
   function startOrContinue(day) {
     const existing = sessionForWorkout(logs, day.week.id, day.workout.id);
@@ -2479,10 +2633,13 @@ function ProgramTab({ client, updateClient, isCoach }) {
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, program.name); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
+            {isCoach && <Button variant="dark" onClick={() => setShowVacationModal(true)}>{isVacationActive(vacation) ? "Vacation Mode" : "Set Vacation Mode"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>
         </div>
       </Card>
+      <VacationBanner vacation={vacation} isCoach={isCoach} onEdit={() => setShowVacationModal(true)} onToggleDone={toggleVacationDoneToday} doneToday={(vacation?.completedDates || []).includes(isoDate())} />
+      {showVacationModal && <VacationModeModal client={client} vacation={vacation} onClose={() => setShowVacationModal(false)} onSave={saveVacation} onEnd={endVacation} />}
       {!program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
       {program && openDay && (
         openDay.state === "completed"
@@ -2677,6 +2834,7 @@ function mapClient(row, dataRows = [], index = 0) {
     paymentDueDate: profile.paymentDueDate || "",
     paymentPaid: !!profile.paymentPaid,
     checkIns: sections.checkins?.submissions || [],
+    vacation: sections.vacation_mode || null,
     messages: sections.messages?.list || [],
     trainingLogs: sections.training_logs || null,
     notes: profile.notes || row.notes || "",
@@ -3152,9 +3310,9 @@ function CoachTile({ icon, name, meta, count, quiet, wide, isTablet, color = BRA
       <div style={{ width: isTablet ? 66 : 52, height: isTablet ? 66 : 52, borderRadius: isTablet ? 20 : 16, background: `${color}22`, display: "grid", placeItems: "center", flexShrink: 0 }}>
         <CoachIcon name={icon} size={isTablet ? 32 : 26} color={color} />
       </div>
-      <div style={{ flex: wide ? 1 : "none", minWidth: 0, marginTop: wide ? 0 : "auto" }}>
-        <div style={{ fontWeight: 900, fontSize: isTablet ? 20 : 17, color: BRAND.text, textTransform: "uppercase", letterSpacing: 0.3 }}>{name}</div>
-        <div style={{ color, fontSize: isTablet ? 15 : 13, fontWeight: 700, marginTop: isTablet ? 6 : 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
+      <div style={{ flex: wide ? 1 : "none", width: wide ? "auto" : "100%", minWidth: 0, marginTop: wide ? 0 : "auto" }}>
+        <div style={{ fontWeight: 900, fontSize: 15, color: BRAND.text, textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+        <div style={{ color, fontSize: 12, fontWeight: 700, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
       </div>
       {wide && <NavIcon name="back" size={18} color={BRAND.dim} rotate={180} />}
     </button>
@@ -3185,9 +3343,8 @@ function CoachHome({ trainer, user, clients, notifications, templatesCount, tria
   const name = (trainer?.name || user.email?.split("@")[0] || "Coach").split(" ")[0];
   const flagged = cold.length;
   const [customExerciseCount, setCustomExerciseCount] = useState(0);
-  const [agenda, setAgenda] = useState({ sessions: [], checkInsDue: [], paymentsDue: [] });
-  useEffect(() => { loadTodaysAgenda(clients, user.id).then(setAgenda); }, [clients, user.id]);
-  const todaysSessions = agenda.sessions.length;
+  const [todaysSessions, setTodaysSessions] = useState(null);
+  useEffect(() => { countTodaysCalendarSessions(clients, user.id).then(setTodaysSessions); }, [clients, user.id]);
   useEffect(() => { loadExerciseLibraryData(user.id).then((items) => setCustomExerciseCount(items.length)); }, [user.id]);
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -3205,35 +3362,6 @@ function CoachHome({ trainer, user, clients, notifications, templatesCount, tria
         <Mini label="Adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
         <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.red : BRAND.text} />
       </div>
-      {(agenda.sessions.length > 0 || agenda.checkInsDue.length > 0 || agenda.paymentsDue.length > 0) && (
-        <Card style={{ padding: 16 }}>
-          <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>Today</div>
-          {agenda.sessions.length > 0 && (
-            <div style={{ marginBottom: agenda.checkInsDue.length || agenda.paymentsDue.length ? 14 : 0 }}>
-              {agenda.sessions.map((s, i) => (
-                <div key={s.id || i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color || BRAND.gold, flexShrink: 0 }} />
-                  <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, minWidth: 66 }}>{s.time || "-"}</div>
-                  <div style={{ fontWeight: 800, fontSize: 13, flex: 1, minWidth: 0 }}>{s.title}</div>
-                  {s.hasInjury && <span title={s.injuryNote} style={{ background: `${BRAND.red}22`, color: BRAND.red, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "3px 8px", flexShrink: 0 }}>⚠ Injury</span>}
-                </div>
-              ))}
-            </div>
-          )}
-          {agenda.checkInsDue.length > 0 && (
-            <div style={{ marginBottom: agenda.paymentsDue.length ? 12 : 0 }}>
-              <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 4 }}>Check-ins due ({agenda.checkInsDue.length})</div>
-              <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 700 }}>{agenda.checkInsDue.map((c) => c.name).join(", ")}</div>
-            </div>
-          )}
-          {agenda.paymentsDue.length > 0 && (
-            <div>
-              <div style={{ color: BRAND.red, fontSize: 11, fontWeight: 800, marginBottom: 4 }}>Payments due ({agenda.paymentsDue.length})</div>
-              <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 700 }}>{agenda.paymentsDue.map((c) => c.name).join(", ")}</div>
-            </div>
-          )}
-        </Card>
-      )}
       <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 4 }}>Go to</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: isTablet ? 18 : 12 }}>
         <CoachTile isTablet={isTablet} icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} color={BRAND.gold} onClick={onOpenClients} />
