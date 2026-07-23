@@ -5534,6 +5534,7 @@ export default function App() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [accountNotActive, setAccountNotActive] = useState(false);
   const [syncStatus, setSyncStatus] = useState(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
+  const recoveryModeRef = useRef(false);
   useEffect(() => {
     ensureMobileViewport();
     const goOnline = async () => { setSyncStatus("syncing"); await flushSyncQueue(); setSyncStatus("online"); };
@@ -5547,24 +5548,28 @@ export default function App() {
       }
     }, 20000);
     // Supabase's password-reset email can arrive as a PKCE "?code=" link (needs an explicit
-    // exchange) or the older "#access_token=...&type=recovery" hash link. Handle both so the
-    // link actually lands somewhere instead of failing to load.
+    // exchange) or the older "#access_token=...&type=recovery" hash link. The "?code=" link
+    // doesn't always carry a "type=recovery" param alongside it, so we treat the presence of
+    // a bare "code" on the root landing page as a recovery link - this app has no other flow
+    // that would legitimately land a stray code param here.
     const url = new URL(window.location.href);
-    const hasRecoveryCode = url.searchParams.get("type") === "recovery" && url.searchParams.get("code");
+    const hasRecoveryCode = !!url.searchParams.get("code");
     const hasRecoveryHash = window.location.hash.includes("type=recovery");
     if (hasRecoveryCode) {
+      recoveryModeRef.current = true;
       setRecoveryMode(true);
       supabase.auth.exchangeCodeForSession(url.searchParams.get("code")).then(({ data }) => { if (data?.session) setSession(data.session); setLoading(false); });
     } else if (hasRecoveryHash) {
+      recoveryModeRef.current = true;
       setRecoveryMode(true);
     } else {
       supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (data.session) boot(data.session.user); else setLoading(false); });
     }
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
-      if (_event === "PASSWORD_RECOVERY") { setRecoveryMode(true); setLoading(false); return; }
+      if (_event === "PASSWORD_RECOVERY") { recoveryModeRef.current = true; setRecoveryMode(true); setLoading(false); return; }
       if (_event === "TOKEN_REFRESHED" || _event === "USER_UPDATED") return; // session stayed the same, just the token renewed - don't reload data mid-session
-      if (recoveryMode) return; // don't auto-boot into the dashboard while someone is mid-way through setting a new password
+      if (recoveryModeRef.current) return; // don't auto-boot into the dashboard while someone is mid-way through setting a new password - use the ref, not the state, since this callback is created once and would otherwise see a permanently stale value
       if (sess) boot(sess.user);
       else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); }
     });
@@ -5672,8 +5677,8 @@ export default function App() {
   return <>
     <style>{GLOBAL_TEXT_CSS}</style>
     {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
-    : recoveryMode ? <ResetPasswordScreen onDone={() => setRecoveryMode(false)} />
-    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div><div style={{ color: BRAND.muted, fontSize: isMobile ? 13 : 15, fontWeight: 700, letterSpacing: 3, marginTop: 6 }}>COACH</div></div></div>
+    : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
+    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div></div></div>
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
     : clientPortal ? <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} />
     : selected ? <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />
