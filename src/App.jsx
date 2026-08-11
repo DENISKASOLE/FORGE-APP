@@ -47,15 +47,15 @@ const textareaStyle = (extra = {}) => ({
   - V6.5: spreadsheet-style calendar zoom slider with Fit Week view
 */
 const BRAND = {
-  bg: "#050810",
-  panel: "#0a0e1a",
-  card: "#0f1424",
-  card2: "#161c30",
-  line: "#26314a",
+  bg: "#000000",
+  panel: "#070707",
+  card: "#0d0d0d",
+  card2: "#171717",
+  line: "#262626",
   text: "#ffffff",
-  muted: "#a8adba",
-  dim: "#78808f",
-  gold: "#E8C547",
+  muted: "#a1a1a1",
+  dim: "#6e6e6e",
+  gold: "#FFFFFF",
   red: "#FF5C5C",
   green: "#3DD68C",
   cyan: "#3FC7C0",
@@ -68,6 +68,8 @@ const GLOBAL_TEXT_CSS = `
   body { min-height: 100vh; }
   * { font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; }
   input, textarea, select, button { font-weight: 700 !important; }
+  button { color: inherit; background: none; }
+  button:disabled { opacity: 0.5; }
   ::placeholder { font-weight: 600 !important; opacity: 0.8; }
 `;
 const GOAL_OPTIONS = [
@@ -82,11 +84,12 @@ const GOAL_OPTIONS = [
 ];
 const CLIENT_TYPES = ["1:1", "Online"];
 const DEFAULT_CHECKIN_QUESTIONS = [
-  { id: "q1", text: "What's your current weight?", type: "text" },
+  { id: "q1", text: "What's your current weight? (kg)", type: "text" },
+  { id: "q9", text: "Roughly what % was your nutrition adherence this week?", type: "choice", options: ["90-100%", "75-89%", "50-74%", "Below 50%"] },
   { id: "q2", text: "Energy this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
   { id: "q3", text: "How was your sleep this week?", type: "choice", options: ["Poor", "Fair", "Good", "Excellent"] },
   { id: "q4", text: "Stuck to your program this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
-  { id: "q8", text: "Stuck to your nutrition this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
+  { id: "q10", text: "Any exercises causing pain or discomfort?", type: "text" },
   { id: "q5", text: "What's your biggest win this week?", type: "text" },
   { id: "q6", text: "What was your biggest challenge this week?", type: "text" },
   { id: "q7", text: "Anything your coach should know?", type: "text" },
@@ -2010,6 +2013,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
   const [finished, setFinished] = useState(() => (session.status === "completed" ? session : null));
   const [rpePickerFor, setRpePickerFor] = useState(null); // `${entryId}:${si}` of the set currently choosing an RPE, or null
   const [playingVideo, setPlayingVideo] = useState(null); // { videoId, title } or null
+  const [current, setCurrent] = useState(0);
   const [, forceTick] = useState(0);
   useEffect(() => { const t = setInterval(() => forceTick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const exById = {};
@@ -2028,14 +2032,17 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
     const s = entry.sets[si];
     if (s.done) { patchSet(entry.id, si, { done: false }); setRest(null); return; }
     const patch = { done: true };
-    if (timed) { if (!s.duration) patch.duration = target?.targetReps || ""; }
-    else { if (!s.reps) patch.reps = target?.targetReps || ""; if (!s.load && (meta?.ex.loadType || "kg") === "kg") patch.load = target?.targetLoad || ""; }
+    const lastSets = lastSessionSetsFor(logsBefore, entry.substitutedName || entry.name);
+    const prev = lastSets[si] || {};
+    if (timed) { if (!s.duration) patch.duration = prev.duration || target?.targetReps || ""; }
+    else { if (!s.reps) patch.reps = prev.reps || target?.targetReps || ""; if (!s.load && (meta?.ex.loadType || "kg") === "kg") patch.load = prev.load || target?.targetLoad || ""; }
     patchSet(entry.id, si, patch);
     const restSec = parseSeconds(meta?.ex.rest || "");
     if (restSec > 0) setRest({ until: Date.now() + restSec * 1000, total: restSec });
   }
   function finish() { const completed = { ...session, status: "completed", completedAt: new Date().toISOString() }; setFinished(completed); onUpdate(completed); }
-  const elapsed = session.startedAt ? Math.round((Date.now() - new Date(session.startedAt)) / 1000) : 0;
+  function handleExit() { if (session.startedAt && session.status !== "completed") { const e = Math.round((Date.now() - new Date(session.startedAt)) / 1000); onUpdate({ ...session, startedAt: null, elapsedSec: e }); } onExit(); }
+  const elapsed = session.startedAt ? Math.round((Date.now() - new Date(session.startedAt)) / 1000) : (session.elapsedSec || 0);
   const stats = sessionStatsV2(session);
   const restLeft = rest ? Math.ceil((rest.until - Date.now()) / 1000) : 0;
   if (rest && restLeft <= 0) setTimeout(() => setRest(null), 0);
@@ -2062,95 +2069,105 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
       </Card>
     );
   }
+  const allEntries = session.entries || [];
+  const total = allEntries.length;
+  const cur = Math.min(current, Math.max(0, total - 1));
+  const entry = allEntries[cur];
+  if (!entry) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
+  const meta = exById[entry.exerciseId];
+  const ex = meta?.ex || {};
+  const block = (workout?.blocks || []).find((b) => b.id === entry.blockId);
+  const effectiveName = entry.substitutedName || entry.name;
+  const timed = isTimedExercise(effectiveName);
+  const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
+  const thumb = getVideoThumb(ex.videoUrl);
+  const subbing = subFor === entry.id;
+  const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
+  const prog = suggestProgression(lastSets);
+  const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
+  const ringC = 2 * Math.PI * 26;
+  const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
+  const chip = { fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: 8, padding: "6px 10px" };
   return (
     <>
     <InjuryBanner client={client} />
-    <Card style={{ padding: isMobile ? 12 : 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-        <div><div style={{ fontSize: 22, fontWeight: 1000 }}>{workout?.name || session.workoutName}</div><div style={{ color: BRAND.muted, fontSize: 13 }}>Week {session.weekNum}{week?.label ? ` · ${week.label}` : ""}{week?.targetRpe ? ` · Target RPE ${week.targetRpe}` : ""}</div></div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}><div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 10, padding: "6px 12px", fontWeight: 1000, color: BRAND.gold }}>{session.startedAt ? fmtClock(elapsed) : ""}</div><Button variant="ghost" onClick={onExit}>Exit</Button></div>
+    <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer", padding: 0 }}>\u2039 Exit</button>
+        <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 9, padding: "5px 11px", fontWeight: 1000, color: BRAND.gold, fontSize: 13 }}>{elapsed > 0 ? fmtClock(elapsed) : "0:00"}</div>
       </div>
-      <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 10 }}>{stats.setsDone}/{stats.setsTotal} sets · {stats.volume.toLocaleString()}kg volume</div>
-      {workout?.note && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.gold}44`, borderRadius: 12, padding: 10, marginBottom: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Coach: </span>{workout.note}</div>}
-      {rest && restLeft > 0 && <div style={{ position: "sticky", top: 0, zIndex: 5, background: BRAND.gold, color: "#000", borderRadius: 14, padding: 12, marginBottom: 12, textAlign: "center" }}>
-        <div style={{ fontWeight: 1000, fontSize: 22 }}>REST {fmtClock(restLeft)}</div>
-        <div style={{ height: 6, background: "#00000033", borderRadius: 999, marginTop: 6 }}><div style={{ height: 6, width: `${Math.max(0, (restLeft / rest.total) * 100)}%`, background: "#000", borderRadius: 999 }} /></div>
-        <button onClick={() => setRest(null)} style={{ marginTop: 6, background: "transparent", border: "none", fontWeight: 900, cursor: "pointer" }}>Skip</button>
-      </div>}
-      {(workout?.blocks || []).map((block, bi) => {
-        const blockEntries = session.entries.filter((e) => e.blockId === block.id);
-        if (!blockEntries.length) return null;
-        return (
-          <div key={block.id} style={{ border: `1px solid ${block.type === "straight" ? BRAND.line : BRAND.gold + "77"}`, borderRadius: 16, padding: 12, marginBottom: 12, background: BRAND.card2 }}>
-            <div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 4 }}>{blockTitle(block, bi)}</div>
-            {block.type !== "straight" && <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 8 }}>{block.type === "circuit" ? `Rotate through ${blockEntries.map((e) => e.tag).join(" → ")} for ${block.rounds || 3} rounds.` : `Alternate ${blockEntries.map((e) => e.tag).join(" and ")} with minimal rest.`}</div>}
-            {blockEntries.map((entry) => {
-              const meta = exById[entry.exerciseId];
-              const ex = meta?.ex || {};
-              const effectiveName = entry.substitutedName || entry.name;
-              const timed = isTimedExercise(effectiveName);
-              const history = exerciseHistoryV2(logsBefore, effectiveName);
-              const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
-              const thumb = getVideoThumb(ex.videoUrl);
-              const subbing = subFor === entry.id;
-              const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
-              return (
-                <div key={entry.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 10, paddingTop: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <div style={{ background: BRAND.gold, color: "#000", borderRadius: 8, padding: "4px 8px", fontWeight: 1000, fontSize: 12 }}>{entry.tag}</div>
-                      <div><div style={{ color: client.color, fontWeight: 1000, fontSize: 17 }}>{effectiveName}</div>{entry.substitutedName && <div style={{ color: BRAND.muted, fontSize: 11 }}>Substituted for {entry.name}</div>}{(ex.tempo || ex.rest) && <div style={{ color: BRAND.muted, fontSize: 12 }}>{[ex.tempo && `Tempo ${ex.tempo}`, ex.rest && `Rest ${ex.rest}`].filter(Boolean).join(" · ")}</div>}</div>
-                    </div>
-                    <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 13, padding: "10px 14px", minHeight: 40 }}>{subbing ? "Cancel" : "Swap"}</button>
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.8 }}>Exercise {cur + 1} of {total}</div>
+          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "right" }}>{workout?.name || session.workoutName}</div>
+        </div>
+        <div style={{ fontSize: 26, fontWeight: 1000, textTransform: "uppercase", lineHeight: 1.05, marginTop: 6 }}>{effectiveName}</div>
+        {entry.substitutedName && <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700, marginTop: 3 }}>Substituted for {entry.name}</div>}
+        {block && block.type !== "straight" && <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", marginTop: 4 }}>{entry.tag} · {block.type}</div>}
+      </div>
+      {thumb ? <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ width: "100%", padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 18, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: BRAND.card2 }}>
+        <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.5 }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.5)", border: `2px solid ${BRAND.gold}`, display: "grid", placeItems: "center", color: BRAND.gold, fontSize: 20 }}>\u25b6</div></div></div>
+        {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
+      </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
+      {ex.note && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.gold}44`, borderRadius: 12, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Coach: </span>{ex.note}</div>}
+      <div>
+        <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, padding: "0 6px 6px" }}>{["Set", "Kg", "Reps", "RPE", ""].map((h, hi) => <div key={hi} style={{ color: BRAND.muted, fontSize: 9, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6, textAlign: hi >= 1 && hi <= 3 ? "center" : "left" }}>{h}</div>)}</div>
+        {entry.sets.map((s, si) => {
+          const prev = lastSets[si] || {};
+          return (
+            <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, alignItems: "center", padding: "13px 6px", marginBottom: 8, borderRadius: 13, background: s.done ? `${BRAND.gold}12` : BRAND.card2, border: `1px solid ${s.done ? BRAND.gold : BRAND.line}` }}>
+              <div style={{ fontWeight: 1000, fontSize: 15, textAlign: "center" }}>{si + 1}</div>
+              <input inputMode="decimal" placeholder={prev.load || (timed ? "load" : "kg")} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={{ width: "100%", minWidth: 0, background: "transparent", border: "none", color: BRAND.text, fontWeight: 1000, fontSize: 17, textAlign: "center", outline: "none" }} />
+              <input inputMode="numeric" placeholder={timed ? (prev.duration || "s") : (prev.reps || "reps")} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={{ width: "100%", minWidth: 0, background: "transparent", border: "none", color: BRAND.text, fontWeight: 1000, fontSize: 17, textAlign: "center", outline: "none" }} />
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ width: "100%", background: "transparent", border: "none", color: s.rpe ? BRAND.text : BRAND.dim, fontWeight: 1000, fontSize: 16, textAlign: "center", cursor: "pointer" }}>{s.rpe || "\u2014"}</button>
+                {rpePickerFor === `${entry.id}:${si}` && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 6, display: "flex", gap: 4, boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
+                    {[6, 7, 8, 9, 10].map((n) => (
+                      <button key={n} onClick={() => { patchSet(entry.id, si, { rpe: String(n) }); setRpePickerFor(null); }} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${String(s.rpe) === String(n) ? BRAND.gold : BRAND.line}`, background: String(s.rpe) === String(n) ? BRAND.gold : BRAND.panel, color: String(s.rpe) === String(n) ? "#000" : BRAND.text, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
+                    ))}
                   </div>
-                  {ex.note && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Coach: {ex.note}</div>}
-                  {thumb && <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "inline-block", position: "relative", marginTop: 8 }}><img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 14 }}>▶</div></div></button>}
-                  {history.hasData && <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 12, flexWrap: "wrap" }}><span><span style={{ color: BRAND.gold, fontWeight: 1000 }}>PB </span>{history.best}</span><span><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Last </span>{history.recent}</span></div>}
-                  {(() => { const sugg = suggestProgression(lastSets); return sugg && <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, background: `${BRAND.green}18`, border: `1px solid ${BRAND.green}55`, borderRadius: 10, padding: "7px 10px" }}><span style={{ fontSize: 13 }}>💡</span><span style={{ color: BRAND.green, fontSize: 12, fontWeight: 800 }}>Hit RPE {sugg.avgRpe} on every set last time - try +{sugg.bump}kg today</span></div>; })()}
-                  {subbing && <div style={{ marginTop: 8 }}>
-                    <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                      {entry.substitutedName && <button onClick={() => { patchEntry(entry.id, { substitutedName: "" }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>Use original: {entry.name}</button>}
-                      {suggestions.map((n) => <button key={n} onClick={() => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>{n}</button>)}
-                    </div>
-                  </div>}
-                  <div style={{ marginTop: 8 }}>
-                    {entry.sets.map((s, si) => {
-                      const target = ex.sets?.[si];
-                      const targetText = target ? fmtSetTarget(target, ex) : "";
-                      return (
-                        <div key={si} style={{ display: "grid", gridTemplateColumns: isMobile ? "26px 1fr 1fr 54px 44px" : "40px 1fr 1fr 84px 48px", gap: 8, marginBottom: 6, alignItems: "center", position: "relative" }}>
-                          <div style={{ color: BRAND.muted, fontWeight: 900 }}>S{si + 1}</div>
-                          <div>{targetText && <div style={{ color: BRAND.muted, fontSize: 10, marginBottom: 2 }}>{targetText}</div>}<input placeholder={lastSets[si]?.load || (timed ? "load/assist" : "kg")} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={inputStyle()} /></div>
-                          <div style={{ alignSelf: "end" }}><input placeholder={timed ? (lastSets[si]?.duration || "time e.g. 45s") : (lastSets[si]?.reps || "reps")} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={inputStyle()} /></div>
-                          <div style={{ alignSelf: "end", position: "relative" }}>
-                            <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ ...inputStyle(), textAlign: "center", cursor: "pointer", color: s.rpe ? BRAND.text : BRAND.dim }}>{s.rpe || "RPE"}</button>
-                            {rpePickerFor === `${entry.id}:${si}` && (
-                              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 6, display: "flex", gap: 4, boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
-                                {[6, 7, 8, 9, 10].map((n) => (
-                                  <button key={n} onClick={() => { patchSet(entry.id, si, { rpe: String(n) }); setRpePickerFor(null); }} style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${String(s.rpe) === String(n) ? BRAND.gold : BRAND.line}`, background: String(s.rpe) === String(n) ? BRAND.gold : BRAND.panel, color: String(s.rpe) === String(n) ? "#000" : BRAND.text, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <button onClick={() => toggleDone(entry, si)} style={{ alignSelf: "end", height: 44, minWidth: 44, borderRadius: 10, border: `1px solid ${s.done ? BRAND.gold : BRAND.line}`, background: s.done ? BRAND.gold : BRAND.panel, color: s.done ? "#000" : BRAND.muted, fontWeight: 1000, fontSize: 16, cursor: "pointer" }}>&#10003;</button>
-                        </div>
-                      );
-                    })}
-                    <button onClick={() => addSet(entry.id)} style={{ width: "100%", marginTop: 4, padding: "10px", borderRadius: 10, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>+ Add Set</button>
-                  </div>
-                </div>
-              );
-            })}
+                )}
+              </div>
+              <div style={{ display: "grid", placeItems: "center" }}>
+                <button onClick={() => toggleDone(entry, si)} style={{ width: 32, height: 32, borderRadius: 9, border: `1.5px solid ${s.done ? BRAND.gold : BRAND.dim}`, background: s.done ? BRAND.gold : "transparent", color: "#000", fontWeight: 1000, fontSize: 15, cursor: "pointer" }}>{s.done ? "\u2713" : ""}</button>
+              </div>
+            </div>
+          );
+        })}
+        <button onClick={() => addSet(entry.id)} style={{ width: "100%", marginTop: 2, padding: "12px", borderRadius: 12, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, cursor: "pointer" }}>+ Add set</button>
+        {prog && <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, textAlign: "center" }}>\u25b2 Progressive overload \u2014 +{prog.bump}kg vs last week</div>}
+      </div>
+      <div>
+        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
+        {subbing && <div style={{ marginTop: 8 }}>
+          <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            {entry.substitutedName && <button onClick={() => { patchEntry(entry.id, { substitutedName: "" }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>Use original: {entry.name}</button>}
+            {suggestions.map((n) => <button key={n} onClick={() => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>{n}</button>)}
           </div>
-        );
-      })}
-      <Button onClick={finish} style={{ width: "100%", marginTop: 4 }}>Finish Workout</Button>
-    </Card>
+        </div>}
+      </div>
+      <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}><svg width="60" height="60" style={{ transform: "rotate(-90deg)" }}><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.gold} strokeWidth="5" strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringC * (1 - restPct)} /></svg><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 1000 }}>{rest && restLeft > 0 ? fmtClock(restLeft) : fmtClock(restTotal)}</div></div>
+        <div style={{ flex: 1 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>Rest timer</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button onClick={() => setRest({ until: Date.now() + restTotal * 1000, total: restTotal })} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: BRAND.gold, color: "#000", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>Start {fmtClock(restTotal)}</button>
+            <button onClick={() => setRest(null)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: BRAND.gold, background: "transparent", border: `1px solid ${BRAND.line}`, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Skip</button>
+          </div>
+        </div>
+      </Card>
+      <div style={{ display: "flex", gap: 8 }}>
+        {cur > 0 && <Button variant="dark" onClick={() => { setCurrent(cur - 1); setRest(null); }} style={{ flex: 1 }}>Back</Button>}
+        {cur < total - 1 ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise \u203a</Button> : <Button onClick={finish} style={{ flex: 2 }}>Finish workout</Button>}
+      </div>
+      <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>{total - cur - 1 > 0 ? `${total - cur - 1} exercise${total - cur - 1 === 1 ? "" : "s"} left` : "Last exercise"}</div>
+    </div>
     {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
     </>
   );
 }
+
 
 
 // ---------- Program calendar: shared bits ----------
@@ -2785,13 +2802,7 @@ function emptyProfile() {
   };
 }
 function emptyNutrition() {
-  return {
-    targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 3, sleep: 7 },
-    mealPlan: { Breakfast: "", Lunch: "", Dinner: "", Snacks: "" },
-    planNotes: "",
-    logs: [],
-    daily: {},
-  };
+  return { targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 3 }, days: {}, recents: [] };
 }
 function mapClient(row, dataRows = [], index = 0) {
   const sections = {};
@@ -2833,9 +2844,11 @@ function mapClient(row, dataRows = [], index = 0) {
     clientType: profile.clientType || "1:1",
     paymentDueDate: profile.paymentDueDate || "",
     paymentPaid: !!profile.paymentPaid,
+    price: profile.price || "",
     checkIns: sections.checkins?.submissions || [],
     vacation: sections.vacation_mode || null,
     messages: sections.messages?.list || [],
+    intake: sections.intake || null,
     trainingLogs: sections.training_logs || null,
     notes: profile.notes || row.notes || "",
   };
@@ -3111,6 +3124,7 @@ function AddClientModal({ onClose, onCreate }) {
           <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           <Field label="Birthday (age is calculated from this)" value={form.profile.birthday} onChange={(v) => setProfile("birthday", v)} type="date" />
           <Field label="Weight kg" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
+          <Field label="Monthly price USD" value={form.profile.price || ""} onChange={(v) => setForm({ ...form, profile: { ...form.profile, price: v } })} type="number" />
         </div>
         <div style={{ marginTop: 14 }}>
           <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
@@ -3270,9 +3284,186 @@ const COACH_ICON_PATHS = {
 function CoachIcon({ name, size = 22, color = "currentColor" }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" style={{ color, display: "block" }}>{COACH_ICON_PATHS[name]}</svg>;
 }
+const DEFAULT_INTAKE_QUESTIONS = [
+  { id: "i1", text: "What are your main goals?" },
+  { id: "i2", text: "Any injuries or medical conditions I should know about?" },
+  { id: "i3", text: "Current training experience?" },
+  { id: "i4", text: "How many days per week can you train?" },
+  { id: "i5", text: "Any foods you avoid or dietary restrictions?" },
+];
+function CoachPaymentsScreen({ clients, selectClient, onBack }) {
+  const withDue = clients.filter((c) => c.paymentDueDate);
+  const rank = (c) => { const s = paymentStatus(c); if (s.color === BRAND.red) return 0; if (s.color === BRAND.gold) return 1; if (s.color === BRAND.green) return 3; return 2; };
+  const sorted = [...withDue].sort((a, b) => rank(a) - rank(b));
+  const overdue = withDue.filter((c) => !c.paymentPaid && daysUntil(c.paymentDueDate) < 0).length;
+  const dueSoon = withDue.filter((c) => !c.paymentPaid && daysUntil(c.paymentDueDate) >= 0 && daysUntil(c.paymentDueDate) <= 5).length;
+  const paid = withDue.filter((c) => c.paymentPaid).length;
+  return <div style={{ display: "grid", gap: 14 }}>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <div style={{ fontSize: 26, fontWeight: 900 }}>Payments</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+      <Mini label="Overdue" value={String(overdue)} color={overdue ? BRAND.red : BRAND.text} />
+      <Mini label="Due soon" value={String(dueSoon)} color={dueSoon ? BRAND.gold : BRAND.text} />
+      <Mini label="Paid" value={String(paid)} color={BRAND.green} />
+    </div>
+    <Card>
+      <div style={{ fontSize: 16, fontWeight: 1000, marginBottom: 4 }}>By client</div>
+      {sorted.length === 0 && <div style={{ color: BRAND.muted }}>No payment dates set yet. Add a due date on a client to track it here.</div>}
+      {sorted.map((c) => { const st = paymentStatus(c); return <div key={c.id} onClick={() => selectClient(c)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
+        <div><div style={{ fontWeight: 900 }}>{c.name}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>{c.paymentDueDate}</div></div>
+        <div style={{ color: st.color, fontWeight: 900, fontSize: 13, textAlign: "right" }}>{st.label}</div>
+      </div>; })}
+    </Card>
+  </div>;
+}
+function CoachBroadcastScreen({ clients, refresh, onBack }) {
+  const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sentCount, setSentCount] = useState(null);
+  async function sendAll() {
+    if (!msg.trim()) return;
+    if (!confirm(`Send this message to all ${clients.length} clients?`)) return;
+    setSending(true);
+    const text = msg.trim();
+    for (const c of clients) {
+      const entry = { id: uid(), from: "coach", text, date: new Date().toISOString(), read: false };
+      const list = [...(c.messages || []), entry];
+      await upsertSection(c.id, "messages", { list });
+    }
+    if (refresh) await refresh();
+    setSentCount(clients.length); setMsg(""); setSending(false);
+  }
+  return <div style={{ display: "grid", gap: 14 }}>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Broadcast</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Send one message to every client. Each one receives it in their Messages.</div></div>
+    {sentCount != null && <Card style={{ borderColor: BRAND.green }}><div style={{ color: BRAND.green, fontWeight: 900 }}>Sent to {sentCount} client{sentCount === 1 ? "" : "s"}.</div></Card>}
+    <Card style={{ display: "grid", gap: 10 }}>
+      <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Write your message to all clients..." style={inputStyle({ minHeight: 130, resize: "vertical" })} />
+      <Button onClick={sendAll} disabled={sending || !clients.length} style={{ width: "100%" }}>{sending ? "Sending..." : `Send to all ${clients.length} client${clients.length === 1 ? "" : "s"}`}</Button>
+    </Card>
+  </div>;
+}
+function CoachIntakeFormsScreen({ user, onBack }) {
+  return <div style={{ display: "grid", gap: 14 }}>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Intake Form</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>The application every new client completes in-app. Their answers land on their Profile.</div></div>
+    {INTAKE_FORM.map((s) => <Card key={s.name}>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>{s.name}</div>
+      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>{s.fields.map((f) => <div key={f.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}><div style={{ fontWeight: 800, fontSize: 14 }}>{f.q}{f.req ? "" : "  (optional)"}</div>{f.options && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>{f.options.join("  ·  ")}</div>}{f.type === "rating" && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>Rating 1 to 5</div>}</div>)}</div>
+    </Card>)}
+  </div>;
+}
+function CoachAutomationsScreen({ user, onBack }) {
+  const DEFAULTS = { staleWorkout: true, staleWorkoutDays: 3, checkinReminder: true, paymentReminder: true, welcomeMessage: false };
+  const [rules, setRules] = useState(null);
+  useEffect(() => {
+    supabase.from("trainer_data").select("data").eq("trainer_id", user.id).eq("section", "automations").maybeSingle().then(({ data }) => setRules({ ...DEFAULTS, ...(data?.data?.rules || {}) }));
+  }, [user.id]);
+  async function persist(next) { setRules(next); await upsertTrainerData(user.id, "automations", { rules: next }); }
+  if (rules === null) return <div style={{ display: "grid", gap: 14 }}><Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button><Card><div style={{ color: BRAND.muted }}>Loading...</div></Card></div>;
+  const Row = ({ k, title, desc }) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}>
+    <div><div style={{ fontWeight: 900, fontSize: 14 }}>{title}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>{desc}</div></div>
+    <button onClick={() => persist({ ...rules, [k]: !rules[k] })} style={{ width: 46, height: 26, borderRadius: 999, border: "none", cursor: "pointer", background: rules[k] ? BRAND.green : BRAND.card2, position: "relative", flexShrink: 0 }}><span style={{ position: "absolute", top: 3, left: rules[k] ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></button>
+  </div>;
+  return <div style={{ display: "grid", gap: 14 }}>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Automations</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Rules that keep clients on track in the background.</div></div>
+    <Card style={{ paddingTop: 4 }}>
+      <Row k="staleWorkout" title="Inactivity nudge" desc={`Remind clients who have not logged a workout in ${rules.staleWorkoutDays} days`} />
+      <Row k="checkinReminder" title="Weekly check-in reminder" desc="Nudge clients whose weekly check-in is due" />
+      <Row k="paymentReminder" title="Payment reminder" desc="Remind clients before a payment is due" />
+      <Row k="welcomeMessage" title="Welcome message" desc="Auto-message new clients when they join" />
+    </Card>
+    <Card style={{ borderColor: `${BRAND.gold}44` }}><div style={{ color: BRAND.gold, fontWeight: 900, fontSize: 13 }}>Heads up</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 4, lineHeight: 1.5 }}>These rules are saved, but sending on a schedule needs a small Supabase scheduled function (cron), since the app cannot run timers while it is closed. Ask me to add it when you want automations to actually fire.</div></Card>
+  </div>;
+}
+
+function CoachContentScreen({ user, onBack }) {
+  const CATS = { Training: BRAND.orange, Nutrition: BRAND.green, Mindset: BRAND.purple, Recovery: BRAND.blue };
+  const cats = ["Training", "Nutrition", "Mindset", "Recovery"];
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState("");
+  const [cat, setCat] = useState("Training");
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState(null);
+  useEffect(() => { loadArticles(user.id).then((a) => { setArticles(a); setLoading(false); }); }, [user.id]);
+  async function persist(next) { setArticles(next); await upsertTrainerData(user.id, "articles", { articles: next }); }
+  async function publish() {
+    if (!title.trim()) return;
+    setSaving(true);
+    const mins = Math.max(1, Math.round(body.split(/\s+/).filter(Boolean).length / 200)) + " min";
+    const next = editId
+      ? articles.map((a) => (a.id === editId ? { ...a, title: title.trim(), cat, body, read: mins } : a))
+      : [{ id: uid(), title: title.trim(), cat, body, read: mins, date: isoDate(), isNew: true }, ...articles];
+    await persist(next);
+    setTitle(""); setBody(""); setCat("Training"); setEditId(null); setSaving(false);
+  }
+  function edit(a) { setEditId(a.id); setTitle(a.title); setCat(a.cat); setBody(a.body || ""); }
+  async function remove(id) { if (!confirm("Delete this article?")) return; await persist(articles.filter((a) => a.id !== id)); }
+  return <div style={{ display: "grid", gap: 14 }}>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
+    <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 1.5 }}>Forge Academy</div><div style={{ fontSize: 26, fontWeight: 900 }}>{editId ? "Edit article" : "Write an article"}</div></div>
+    <Card style={{ display: "grid", gap: 10 }}>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" style={inputStyle()} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{cats.map((c) => <button key={c} onClick={() => setCat(c)} style={{ fontSize: 12, fontWeight: 900, color: cat === c ? "#000" : BRAND.muted, background: cat === c ? CATS[c] : BRAND.card2, border: `1px solid ${cat === c ? CATS[c] : BRAND.line}`, borderRadius: 999, padding: "8px 12px", cursor: "pointer" }}>{c}</button>)}</div>
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your article. Every client sees this in their Learn tab." style={inputStyle({ minHeight: 150, resize: "vertical" })} />
+      <div style={{ display: "flex", gap: 8 }}><Button onClick={publish} disabled={saving} style={{ flex: 1 }}>{saving ? "Publishing..." : editId ? "Update article" : "Publish to all clients"}</Button>{editId && <Button variant="dark" onClick={() => { setEditId(null); setTitle(""); setBody(""); }}>Cancel</Button>}</div>
+    </Card>
+    <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7 }}>Published ({articles.length})</div>
+    {loading && <Card><div style={{ color: BRAND.muted }}>Loading...</div></Card>}
+    {!loading && articles.length === 0 && <Card><div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 600 }}>No articles yet. Write your first one above.</div></Card>}
+    {articles.map((a) => <Card key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+      <div style={{ minWidth: 0 }}><div style={{ fontWeight: 1000, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</div><div style={{ color: CATS[a.cat] || BRAND.muted, fontSize: 11, fontWeight: 900, marginTop: 3 }}>{a.cat} · {a.date}</div></div>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}><Button variant="dark" onClick={() => edit(a)}>Edit</Button><Button variant="red" onClick={() => remove(a.id)}>x</Button></div>
+    </Card>)}
+  </div>;
+}
+
+function CoachToolsTab({ onOpen }) {
+  const isMobile = useIsMobile(520);
+  const TOOLS = [
+    { key: "templates", name: "Programs", meta: "Templates & builder", color: BRAND.purple },
+    { key: "exercise_library", name: "Exercise Library", meta: "Custom moves & video", color: BRAND.orange },
+    { key: "calendar", name: "Calendar", meta: "Sessions & bookings", color: BRAND.cyan },
+    { key: "analytics", name: "Analytics", meta: "Adherence & trends", color: BRAND.green },
+    { key: "trials", name: "Trials", meta: "Consults & assessments", color: BRAND.red },
+    { key: "content", name: "Content", meta: "Forge Academy articles", color: BRAND.blue },
+    { key: "payments", name: "Payments", meta: "Plans & invoices", color: BRAND.green },
+    { key: "forms", name: "Intake Forms", meta: "Onboarding & health", color: BRAND.cyan },
+  ];
+  return <div style={{ display: "grid", gap: 14 }}>
+    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Everything you run your coaching with</div></div>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
+      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ textAlign: "left", cursor: "pointer", background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 18, padding: 14 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: `${t.color}22`, display: "grid", placeItems: "center", marginBottom: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: t.color, display: "block" }} /></div>
+        <div style={{ fontSize: 13, fontWeight: 1000 }}>{t.name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700, marginTop: 3 }}>{t.meta}</div>
+      </button>)}
+    </div>
+  </div>;
+}
+function CoachToolPlaceholder({ screen, onBack }) {
+  const META = {
+    content: { name: "Content", desc: "Write articles for your Forge Academy and publish them to the Learn tab for all clients." },
+    payments: { name: "Payments", desc: "Plans, invoices, and PayPal across all your clients." },
+    forms: { name: "Intake Forms", desc: "Onboarding and health questionnaires new clients complete before starting." },
+    broadcast: { name: "Broadcast", desc: "Send one message to every client at once." },
+    automations: { name: "Automations", desc: "Auto check-in reminders, nudges, and sequences." },
+  };
+  const m = META[screen] || { name: "Tool", desc: "" };
+  return <div style={{ display: "grid", gap: 12 }}>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
+    <div style={{ fontSize: 26, fontWeight: 900 }}>{m.name}</div>
+    <Card><div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>{m.desc}</div><div style={{ color: BRAND.dim, fontSize: 12, fontWeight: 700, marginTop: 12 }}>The tab and navigation are wired — this screen gets built in a later phase.</div></Card>
+  </div>;
+}
+
 const COACH_NAV = [
   { key: "home", label: "Home", icon: "home" },
   { key: "clients", label: "Clients", icon: "clients" },
+  { key: "tools", label: "Tools", icon: "templates" },
   { key: "alerts", label: "Alerts", icon: "bell" },
   { key: "settings", label: "Settings", icon: "gear" },
 ];
@@ -3283,7 +3474,7 @@ function CoachBottomNav({ tab, setTab, unread }) {
         const active = tab === item.key;
         const color = active ? BRAND.gold : BRAND.dim;
         return (
-          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: 70, position: "relative", padding: 0 }}>
+          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
             <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `${BRAND.gold}22` : "transparent", display: "grid", placeItems: "center" }}>
               {item.icon === "gear" || item.icon === "home" ? <NavIcon name={item.icon} color={color} /> : <CoachIcon name={item.icon} size={21} color={color} />}
               {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.red, color: "#fff", fontSize: 9, fontWeight: 900, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unread > 9 ? "9+" : unread}</div>}
@@ -3530,42 +3721,46 @@ function CoachAnalytics({ clients, selectClient, onBack }) {
 }
 function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, syncStatus }) {
   const [busy, setBusy] = useState(false);
-  async function logout() {
-    setBusy(true);
-    await supabase.auth.signOut();
-  }
-  return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ fontSize: 26, fontWeight: 900 }}>Settings</div>
-      <Card onClick={onEditProfile} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000, flexShrink: 0 }}>
-          {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 900, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div>
-          <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
-          <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Edit profile ›</div>
-        </div>
-      </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
-        <Mini label="Clients" value={String(clientsCount)} />
-        <Mini label="Sync" value={syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"} />
-      </div>
-      <Card style={{ background: BRAND.card2 }}>
-        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.55 }}>
-          Forge Coach · The Forge Method. Program templates, trials, and the calendar all live on the Home tab.
-        </div>
-      </Card>
-      <Button variant="red" disabled={busy} onClick={logout} style={{ width: "100%" }}>{busy ? "Logging out..." : "Log Out"}</Button>
-    </div>
-  );
+  async function logout() { setBusy(true); await supabase.auth.signOut(); }
+  const Section = ({ t }) => <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 10, marginBottom: 2 }}>{t}</div>;
+  const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: last ? "none" : `1px solid ${BRAND.line}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 800, fontSize: 14 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 900, fontSize: 12, whiteSpace: "nowrap" }}>{v}</span></div>;
+  const syncLabel = syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced";
+  return <div style={{ display: "grid", gap: 12 }}>
+    <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 1.5, textTransform: "uppercase" }}>Coach</div><div style={{ fontSize: 26, fontWeight: 900 }}>Settings</div></div>
+    <Card onClick={onEditProfile} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000, flexShrink: 0 }}>{trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
+      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 900, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Edit profile ›</div></div>
+    </Card>
+    <Section t="Brand" />
+    <Card style={{ padding: "4px 16px" }}>
+      <Row k="Business name" v={`${trainer?.name || "Set"} ›`} onClick={onEditProfile} />
+      <Row k="Coach photo / logo" v={trainer?.photo ? "Set ›" : "Add ›"} onClick={onEditProfile} last />
+    </Card>
+    <Section t="Notifications" />
+    <Card style={{ padding: "4px 16px" }}>
+      <Row k="Automations & reminders" v="In Tools ›" last />
+    </Card>
+    <Section t="Payments" />
+    <Card style={{ padding: "4px 16px" }}>
+      <Row k="Provider" v="PayPal" />
+      <Row k="Client payments" v="Per client ›" last />
+    </Card>
+    <Section t="Account" />
+    <Card style={{ padding: "4px 16px" }}>
+      <Row k="Active clients" v={String(clientsCount)} />
+      <Row k="Sync" v={syncLabel} last />
+    </Card>
+    <Button variant="red" disabled={busy} onClick={logout} style={{ width: "100%", marginTop: 6 }}>{busy ? "Logging out..." : "Log Out"}</Button>
+  </div>;
 }
+
 function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online" }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("home");
   const [clientTypeFilter, setClientTypeFilter] = useState("1:1"); // In-Person by default
   const [screen, setScreen] = useState(null); // templates | calendar | analytics | trials
+  const [toolOrigin, setToolOrigin] = useState("tools");
   const [query, setQuery] = useState("");
   const [templatesCount, setTemplatesCount] = useState(0);
   const [trialsCount, setTrialsCount] = useState(0);
@@ -3611,18 +3806,21 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
     await refresh();
     return data.id;
   }
-  function goHome() { setScreen(null); setTab("home"); }
+  function goHome() { setScreen(null); setTab(toolOrigin); }
   let body;
   if (screen === "templates") body = <CoachTemplates user={user} clients={clients} onBack={goHome} />;
   else if (screen === "calendar") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Calendar clients={clients} refresh={refresh} user={user} /></>;
   else if (screen === "analytics") body = <CoachAnalytics clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "trials") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Trials user={user} onConvert={convertTrialToClient} /></>;
   else if (screen === "exercise_library") body = <ExerciseLibraryScreen trainerId={user.id} onBack={goHome} />;
+  else if (screen === "content") body = <CoachContentScreen user={user} onBack={goHome} />;
+  else if (screen === "payments") body = <CoachPaymentsScreen clients={clients} selectClient={selectClient} onBack={goHome} />;
+  else if (screen === "forms") body = <CoachIntakeFormsScreen user={user} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}
       templatesCount={templatesCount} trialsCount={trialsCount}
-      onTile={setScreen} onOpenClients={() => setTab("clients")}
+      onTile={(k) => { setToolOrigin("home"); setScreen(k); }} onOpenClients={() => setTab("clients")}
     />
   );
   else if (tab === "clients") body = (
@@ -3650,6 +3848,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
       {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No {clientTypeFilter === "1:1" ? "in-person" : "online"} clients{query ? " match that search" : " yet"}.</div></Card>}
     </div>
   );
+  else if (tab === "tools") body = <CoachToolsTab onOpen={(k) => { setToolOrigin("tools"); setScreen(k); }} />;
   else if (tab === "alerts") body = (
     <div style={{ display: "grid", gap: 14 }}>
       <div>
@@ -3679,7 +3878,7 @@ function CoachDashboard({ user, trainer, setTrainer, clients, setClients, select
       <main style={{ width: "100%", maxWidth: isMobile ? 480 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         {body}
       </main>
-      <CoachBottomNav tab={screen ? "home" : tab} setTab={(t) => { setScreen(null); setTab(t); }} unread={notifications.length} />
+      <CoachBottomNav tab={screen ? toolOrigin : tab} setTab={(t) => { setScreen(null); setTab(t); }} unread={notifications.length} />
       {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onCreate={createClient} />}
       {showSettings && <CoachSettingsModal user={user} trainer={trainer} onClose={() => setShowSettings(false)} onSaved={(next) => { setTrainer?.(next); setShowSettings(false); refresh(); }} />}
     </div>
@@ -3828,24 +4027,217 @@ const NAV_ICON_PATHS = {
 function NavIcon({ name, size = 21, color = "currentColor", rotate = 0 }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" style={{ color, display: "block", transform: rotate ? `rotate(${rotate}deg)` : undefined }}>{NAV_ICON_PATHS[name]}</svg>;
 }
-const CLIENT_BOTTOM_NAV = [
-  { key: "home", label: "Home", icon: "home", group: ["home"] },
-  { key: "nutrition", label: "Nutrition", icon: "food", group: ["nutrition"] },
-  { key: "train_hub", label: "Train", icon: "train", group: ["train_hub", "program", "progress", "photos"] },
-  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "messages", "payments", "profile", "checkins"] },
+function LearnTab({ client }) {
+  const CATS = { Training: BRAND.orange, Nutrition: BRAND.green, Mindset: BRAND.purple, Recovery: BRAND.blue };
+  const cats = ["All", "Training", "Nutrition", "Mindset", "Recovery"];
+  const [articles, setArticles] = useState(null);
+  const [cat, setCat] = useState("All");
+  const [open, setOpen] = useState(null);
+  useEffect(() => { loadArticles(client.trainer_id).then(setArticles); }, [client.trainer_id]);
+  const header = <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 1.5 }}>Forge Academy</div><div style={{ fontSize: 24, fontWeight: 1000 }}>Learn</div></div>;
+  if (open) {
+    return <div style={{ display: "grid", gap: 12 }}><Card>
+      <button onClick={() => setOpen(null)} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 12, cursor: "pointer", padding: 0 }}>{"< Back"}</button>
+      <div style={{ color: CATS[open.cat] || BRAND.muted, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 14 }}>{open.cat} · {open.read} read</div>
+      <div style={{ fontSize: 22, fontWeight: 1000, marginTop: 8, lineHeight: 1.2 }}>{open.title}</div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 800, marginTop: 6 }}>The Forge Method · {open.date}</div>
+      <div style={{ color: "#d8d8d8", fontSize: 14, lineHeight: 1.65, marginTop: 16, whiteSpace: "pre-line", fontWeight: 600 }}>{open.body}</div>
+    </Card></div>;
+  }
+  if (articles === null) return <div style={{ display: "grid", gap: 12 }}>{header}<Card><div style={{ color: BRAND.muted }}>Loading...</div></Card></div>;
+  const src = articles.length ? articles : DEFAULT_ARTICLES;
+  const list = cat === "All" ? src : src.filter((a) => a.cat === cat);
+  return <div style={{ display: "grid", gap: 12 }}>
+    {header}
+    <>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>{cats.map((c) => <button key={c} onClick={() => setCat(c)} style={{ whiteSpace: "nowrap", fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, color: cat === c ? "#000" : BRAND.muted, background: cat === c ? BRAND.gold : BRAND.card2, border: `1px solid ${cat === c ? BRAND.gold : BRAND.line}`, borderRadius: 999, padding: "8px 13px", cursor: "pointer" }}>{c}</button>)}</div>
+      {list.map((a) => <Card key={a.id} onClick={() => setOpen(a)} style={{ cursor: "pointer" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div style={{ color: CATS[a.cat] || BRAND.muted, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5 }}>{a.cat}</div>{a.isNew && <span style={{ fontSize: 9, fontWeight: 1000, color: "#000", background: BRAND.gold, borderRadius: 999, padding: "3px 8px" }}>NEW</span>}</div>
+        <div style={{ fontSize: 16, fontWeight: 1000, marginTop: 8, lineHeight: 1.25 }}>{a.title}</div>
+        <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 800, marginTop: 8 }}>{a.read} read · {a.date}</div>
+      </Card>)}
+      {list.length === 0 && <Card><div style={{ color: BRAND.muted }}>Nothing in {cat} yet.</div></Card>}
+    </>
+  </div>;
+}
+
+const INTAKE_FORM = [
+  { name: "About you", lede: "Welcome to The Forge Method. This takes about four minutes and gives me everything I need to build your plan. The more honest you are here, the sharper it gets.", fields: [
+    { id: "name", q: "Full name", type: "text", req: true },
+    { id: "email", q: "Email", type: "email", req: true },
+    { id: "phone", q: "WhatsApp number", type: "tel", req: true, hint: "Include the country code. This is how I will reply.", ph: "+971 5X XXX XXXX" },
+    { id: "age", q: "Age", type: "number", req: true },
+    { id: "city", q: "City and country", type: "text", req: true, ph: "Dubai, UAE" },
+    { id: "sex", q: "Sex", type: "choice", req: true, hint: "Used for calorie and programming calculations only.", options: ["Female", "Male", "Prefer not to say"] },
+  ] },
+  { name: "Your goal", lede: "Be specific. Get in shape tells me nothing. Drop 8kg before my wedding in March tells me everything.", fields: [
+    { id: "goal", q: "Main goal", type: "choice", req: true, options: ["Lose body fat", "Build muscle and size", "Lose fat and build muscle at the same time", "Get stronger on the main lifts", "Health, energy and habits", "Performance for a sport or event"] },
+    { id: "target", q: "Put a number on it", type: "textarea", req: true, hint: "Weight, size, a lift, a time. Whatever makes it measurable." },
+    { id: "deadline", q: "Is there a deadline?", type: "text", hint: "A wedding, a holiday, a competition. Leave blank if there is none." },
+    { id: "why", q: "Why now?", type: "textarea", req: true, hint: "What changed recently that made you fill this in today?" },
+  ] },
+  { name: "Where you are now", lede: "No judgement here. I need the truth, not the version that sounds good.", fields: [
+    { id: "exp", q: "Training experience", type: "choice", req: true, options: ["Beginner. Under a year, or starting again", "Intermediate. One to three years", "Advanced. Three years or more"] },
+    { id: "now", q: "How often are you training right now?", type: "choice", req: true, options: ["Not at all", "1 to 2 a week", "3 to 4 a week", "5 or more"] },
+    { id: "where", q: "Where will you train?", type: "choice", req: true, options: ["Full commercial gym", "Building or hotel gym, limited kit", "Home setup", "Mixed, I travel a lot"] },
+    { id: "prev", q: "Have you worked with a coach before?", type: "choice", req: true, options: ["No", "Yes, it worked", "Yes, it did not work"] },
+    { id: "history", q: "Your training history so far", type: "textarea", hint: "A few lines on what you have done and how it went." },
+    { id: "blocker", q: "What has stopped you before?", type: "textarea", req: true, hint: "The real reason. Consistency, travel, injury, motivation, life getting in the way." },
+  ] },
+  { name: "Body and health", lede: "I need this to programme safely. Everything here stays private and is never shared.", fields: [
+    { id: "height", q: "Height", type: "text", req: true, ph: "175cm" },
+    { id: "weight", q: "Current weight", type: "text", req: true, ph: "92kg" },
+    { id: "injuries", q: "Any injuries, current or past?", type: "textarea", req: true, hint: "Back, knees, shoulders, anything that changes how you move. Write none if none." },
+    { id: "medical", q: "Anything a doctor has told you to be careful about?", type: "textarea", req: true, hint: "Heart, blood pressure, joints, pregnancy or postpartum. Write none if none." },
+    { id: "cleared", q: "Are you currently cleared for exercise?", type: "choice", req: true, options: ["Yes", "Not sure", "No"] },
+  ] },
+  { name: "Food and lifestyle", lede: "Training is the easy part. This section is where results are usually won or lost.", fields: [
+    { id: "eating", q: "How would you describe your eating right now?", type: "choice", req: true, options: ["No structure, I eat whatever is around", "Mostly sensible, but it falls apart at weekends", "I have tracked before and know roughly what I am doing", "I am tracking calories or macros right now"] },
+    { id: "diet", q: "Any food restrictions?", type: "textarea", hint: "Allergies, vegetarian, halal, things you will not eat. Write none if none." },
+    { id: "cook", q: "Who does the cooking?", type: "choice", req: true, options: ["Me", "Partner or family", "Mostly eat out", "Meal prep service"] },
+    { id: "sleep", q: "Average sleep a night", type: "choice", req: true, options: ["Under 5h", "5 to 6h", "6 to 7h", "7h or more"] },
+    { id: "job", q: "How active is your job?", type: "choice", req: true, options: ["Desk bound", "Mixed", "On my feet all day", "Physically demanding"] },
+  ] },
+  { name: "Priorities", lede: "Rank what matters most to you. It tells me where to put the emphasis.", fields: [
+    { id: "priFat", q: "Fat loss", type: "rating", req: true, hint: "1 = low priority, 5 = top priority" },
+    { id: "priMuscle", q: "Muscle gain", type: "rating", req: true, hint: "1 = low priority, 5 = top priority" },
+    { id: "priStrength", q: "Strength and endurance", type: "rating", req: true, hint: "1 = low priority, 5 = top priority" },
+    { id: "priMobility", q: "Mobility and flexibility", type: "rating", req: true, hint: "1 = low priority, 5 = top priority" },
+  ] },
+  { name: "Commitment", lede: "I would rather build a plan around three honest days than five imaginary ones.", fields: [
+    { id: "days", q: "Days a week you can realistically train", type: "choice", req: true, options: ["2", "3", "4", "5", "6"] },
+    { id: "mins", q: "Time per session", type: "choice", req: true, options: ["30 min", "45 min", "60 min", "75 min", "90 min"] },
+    { id: "anything", q: "Anything else I should know?", type: "textarea", hint: "Optional. Anything that helps me build the right plan for you." },
+  ] },
 ];
+function IntakeForm({ client, updateClient, goTo }) {
+  const allFields = INTAKE_FORM.flatMap((s) => s.fields);
+  const [step, setStep] = useState(0);
+  const [resp, setResp] = useState(() => {
+    const seed = {};
+    (client.intake?.answers || []).forEach((a) => { const f = allFields.find((x) => x.q === a.question); if (f) seed[f.id] = a.answer; });
+    if (!seed.name && client.name) seed.name = client.name;
+    if (!seed.email && client.email) seed.email = client.email;
+    return seed;
+  });
+  const [saving, setSaving] = useState(false);
+  const [showErr, setShowErr] = useState(false);
+  const steps = INTAKE_FORM;
+  const total = steps.length + 1;
+  const isReview = step >= steps.length;
+  const set = (id, v) => setResp((r) => ({ ...r, [id]: v }));
+  const stepValid = isReview || steps[step].fields.every((f) => !f.req || String(resp[f.id] || "").trim());
+  function next() { if (!stepValid) { setShowErr(true); return; } setShowErr(false); setStep(step + 1); }
+  async function submit() {
+    setSaving(true);
+    const answers = allFields.map((f) => ({ question: f.q, answer: resp[f.id] || "" }));
+    const intake = { answers, completedAt: isoDate() };
+    await upsertSection(client.id, "intake", intake);
+    updateClient({ ...client, intake });
+    setSaving(false);
+    goTo("home");
+  }
+  function renderField(f) {
+    const missing = showErr && f.req && !String(resp[f.id] || "").trim();
+    return <div key={f.id} style={{ marginBottom: 18 }}>
+      <div style={{ fontWeight: 900, fontSize: 15 }}>{f.q}{f.req && <span style={{ color: BRAND.gold, fontSize: 11, marginLeft: 6, fontWeight: 800 }}>required</span>}</div>
+      {f.hint && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>{f.hint}</div>}
+      <div style={{ marginTop: 8 }}>
+        {f.type === "rating"
+          ? <div style={{ display: "flex", gap: 6 }}>{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" onClick={() => set(f.id, String(n))} style={{ flex: 1, padding: "12px 0", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 1000, color: String(resp[f.id]) === String(n) ? "#000" : BRAND.text, background: String(resp[f.id]) === String(n) ? BRAND.gold : BRAND.card2, border: `1px solid ${String(resp[f.id]) === String(n) ? BRAND.gold : BRAND.line}` }}>{n}</button>)}</div>
+          : f.type === "choice"
+          ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{f.options.map((o) => <button key={o} type="button" onClick={() => set(f.id, o)} style={{ padding: "11px 15px", borderRadius: 11, cursor: "pointer", fontSize: 14, fontWeight: 700, textAlign: "left", color: resp[f.id] === o ? "#000" : BRAND.text, background: resp[f.id] === o ? BRAND.gold : BRAND.card2, border: `1px solid ${resp[f.id] === o ? BRAND.gold : BRAND.line}` }}>{o}</button>)}</div>
+          : f.type === "textarea"
+            ? <textarea value={resp[f.id] || ""} onChange={(e) => set(f.id, e.target.value)} placeholder={f.ph || ""} style={inputStyle({ minHeight: 84, resize: "vertical", borderColor: missing ? BRAND.red : BRAND.line })} />
+            : <input type={f.type} value={resp[f.id] || ""} onChange={(e) => set(f.id, e.target.value)} placeholder={f.ph || ""} style={inputStyle({ borderColor: missing ? BRAND.red : BRAND.line })} />}
+      </div>
+      {missing && <div style={{ color: BRAND.red, fontSize: 12, fontWeight: 700, marginTop: 6 }}>Please answer this.</div>}
+    </div>;
+  }
+  return <div style={{ display: "grid", gap: 8 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 1.2, textTransform: "uppercase" }}>Application</div>
+      <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>{Math.min(step + 1, total)} / {total}</div>
+    </div>
+    <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden" }}><div style={{ height: 4, width: `${((step + 1) / total) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} /></div>
+    {!isReview && <><div style={{ fontSize: 26, fontWeight: 1000, margin: "14px 0 6px", textTransform: "uppercase" }}>{steps[step].name}</div><div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{steps[step].lede}</div></>}
+    <Card style={{ marginTop: 8 }}>
+      {isReview
+        ? <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ fontSize: 22, fontWeight: 1000 }}>Review and submit</div>
+            {allFields.map((f) => <div key={f.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900 }}>{f.q}</div><div style={{ fontSize: 13, fontWeight: 600, color: resp[f.id] ? BRAND.text : BRAND.dim }}>{resp[f.id] || "\u2014"}</div></div>)}
+          </div>
+        : steps[step].fields.map(renderField)}
+    </Card>
+    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+      {step > 0 && <Button variant="dark" onClick={() => { setShowErr(false); setStep(step - 1); }} style={{ flex: 1 }}>Back</Button>}
+      {!isReview ? <Button onClick={next} style={{ flex: 2 }}>Next</Button> : <Button onClick={submit} disabled={saving} style={{ flex: 2 }}>{saving ? "Submitting..." : "Submit application"}</Button>}
+    </div>
+  </div>;
+}
+
+const CLIENT_BOTTOM_NAV = [
+  { key: "home", label: "Home", icon: "home", group: ["home", "learn"] },
+  { key: "program", label: "Train", icon: "train", group: ["program", "train_hub"] },
+  { key: "nutrition", label: "Fuel", icon: "food", group: ["nutrition"] },
+  { key: "progress_hub", label: "Progress", icon: "progress", group: ["progress_hub", "progress", "photos", "checkins", "measurements"] },
+  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile"] },
+];
+const DEFAULT_ARTICLES = [
+  { id: "seed1", cat: "Training", title: "Progressive overload beats chasing soreness", read: "4 min", date: "Starter", body: "Soreness tells you a movement was unfamiliar, not that it was effective.\n\nThe real driver of progress is doing a little more over time: more weight, more reps, or cleaner execution. Each week, aim to beat one number from last week, even by a single rep." },
+  { id: "seed2", cat: "Nutrition", title: "Protein: how much you actually need", read: "3 min", date: "Starter", body: "For most people training hard, 1.6 to 2.2g per kg of bodyweight per day covers it.\n\nSpread it across three to four meals. Whole foods first; a shake is a top-up, not a foundation." },
+  { id: "seed3", cat: "Recovery", title: "Sleep is your best recovery tool", read: "3 min", date: "Starter", body: "You cannot out-train poor sleep.\n\nUnder six hours and strength, appetite, and mood all take a hit. Aim for seven to nine, keep a consistent wake time, and cut screens before bed." },
+  { id: "seed4", cat: "Mindset", title: "Consistency beats intensity", read: "2 min", date: "Starter", body: "The best programme is the one you actually follow.\n\nThree solid sessions every week for a year will out-build a perfect plan you abandon in a month. Show up, log it, repeat." },
+];
+const ART_COVER = { Training: ["#FFA94D", "#6b3d0e"], Nutrition: ["#3DD68C", "#0f5233"], Mindset: ["#A78BFA", "#382559"], Recovery: ["#38BDF8", "#0d4463"] };
+const ART_ICON = { Training: "\ud83c\udfcb", Nutrition: "\ud83e\udd57", Mindset: "\ud83e\udde0", Recovery: "\ud83d\ude34" };
+function ProgressHub({ client, updateClient, isCoach }) {
+  const [sub, setSub] = useState("trends");
+  const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
+  return <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? "#000" : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `1px solid ${sub === k ? BRAND.gold : BRAND.line}` }}>{l}</button>)}</div>
+    {sub === "trends" && <ProgressTab client={client} />}
+    {sub === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {sub === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+  </div>;
+}
+function HomeLearnStrip({ client, goTo }) {
+  const [arts, setArts] = useState([]);
+  const ref = useRef(null);
+  useEffect(() => { loadArticles(client.trainer_id).then((a) => setArts(a || [])); }, [client.trainer_id]);
+  const list = arts.length ? arts : DEFAULT_ARTICLES;
+  useEffect(() => {
+    if (list.length < 2) return;
+    const el = ref.current; if (!el) return;
+    const id = setInterval(() => { if (!el) return; if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 1) el.scrollLeft = 0; else el.scrollLeft += 1; }, 30);
+    return () => clearInterval(id);
+  }, [arts]);
+  return <div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase" }}>Learn</div>
+      {goTo && <button onClick={() => goTo("learn")} style={{ background: "none", border: "none", color: BRAND.muted, fontWeight: 900, fontSize: 11, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>See all \u203a</button>}
+    </div>
+    <div ref={ref} style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
+      {list.map((a) => { const cov = ART_COVER[a.cat] || ["#333", "#111"]; return <div key={a.id} onClick={() => goTo && goTo("learn")} style={{ flex: "0 0 210px", cursor: "pointer", borderRadius: 14, overflow: "hidden", border: `1px solid ${BRAND.line}`, background: BRAND.card }}>
+        <div style={{ height: 96, background: `linear-gradient(140deg, ${cov[0]}, ${cov[1]})`, display: "grid", placeItems: "center", position: "relative" }}><span style={{ fontSize: 30 }}>{ART_ICON[a.cat] || "\ud83d\udcd6"}</span><div style={{ position: "absolute", top: 8, left: 8, fontSize: 8, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, color: "#000", background: "rgba(255,255,255,0.88)", borderRadius: 6, padding: "3px 7px" }}>{a.cat}</div></div>
+        <div style={{ padding: 11 }}><div style={{ fontWeight: 1000, fontSize: 13, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.title}</div><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800, marginTop: 6, textTransform: "uppercase" }}>{a.read} read</div></div>
+      </div>; })}
+    </div>
+  </div>;
+}
+
 function ClientBottomNav({ tab, setTab, unreadMessages }) {
   return (
     <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `1px solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {CLIENT_BOTTOM_NAV.map((item) => {
         const active = item.group.includes(tab);
         return (
-          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: 64, position: "relative", padding: 0 }}>
+          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
             <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `${BRAND.gold}22` : "transparent", display: "grid", placeItems: "center" }}>
               <NavIcon name={item.icon} color={active ? BRAND.gold : BRAND.dim} />
               {item.key === "me_hub" && unreadMessages > 0 && <div style={{ position: "absolute", top: -2, right: 6, width: 16, height: 16, borderRadius: "50%", background: BRAND.red, color: "#fff", fontSize: 9, fontWeight: 900, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
             </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: active ? BRAND.gold : BRAND.dim }}>{item.label}</div>
+            <div style={{ fontSize: 9, fontWeight: 800, whiteSpace: "nowrap", color: active ? BRAND.gold : BRAND.dim }}>{item.label}</div>
           </button>
         );
       })}
@@ -3871,7 +4263,7 @@ function HubScreen({ title, subtitle, cards, onOpen }) {
   );
 }
 function ClientAvatar({ client, size = 54 }) {
-  return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.color, color: "#000", fontWeight: 700, overflow: "hidden", flexShrink: 0 }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : client.avatar}</div>;
+  return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.photo ? BRAND.card2 : client.color, color: "#000", fontWeight: 900, fontSize: size * 0.4, overflow: "hidden", flexShrink: 0, border: `2px solid ${client.color}`, boxShadow: `0 0 0 3px ${client.color}22` }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client.avatar || (client.name ? client.name[0] : "?"))}</div>;
 }
 function ClientSettingsModal({ client, onClose }) {
   const [changing, setChanging] = useState(false);
@@ -3951,12 +4343,14 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "nutrition" && <NutritionTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "progress" && <ProgressTab client={client} />}
+    {tab === "progress_hub" && <ProgressHub client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
     {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} />}
     {tab === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "learn" && <LearnTab client={client} />}
+    {tab === "intake" && <IntakeForm client={client} updateClient={updateClient} goTo={setTab} />}
     {tab === "payments" && <PaymentsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-    {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
     {tab === "workouts" && <ClientWorkoutLog client={client} updateClient={updateClient} />}
   </>;
@@ -4004,8 +4398,8 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
   }
 
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
-  const parentHub = ["program", "progress", "photos"].includes(tab) ? "train_hub" : ["messages", "payments", "profile", "checkins"].includes(tab) ? "me_hub" : null;
-  const parentHubLabel = parentHub === "train_hub" ? "Train" : "Me";
+  const parentHub = ["payments", "profile"].includes(tab) ? "me_hub" : null;
+  const parentHubLabel = "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
     { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program?.name ? `${client.program.name} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
@@ -4013,12 +4407,12 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     { key: "photos", icon: "photo", color: BRAND.purple, title: "Photos", sub: client.transformPhotos?.length ? `${client.transformPhotos.length} photo${client.transformPhotos.length === 1 ? "" : "s"} saved` : "No photos yet" },
   ];
   const meCards = [
+    ...(isCoach ? [] : [{ key: "whatsapp", icon: "me", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
     { key: "profile", icon: "gear", color: BRAND.purple, title: "Profile", sub: "Your details & settings" },
-    { key: "checkins", icon: "check", color: BRAND.green, title: "Check-ins", sub: "Your weekly check-in" },
     { key: "payments", icon: "card", color: BRAND.green, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
   ];
-  function handleMeOpen(key) { if (key === "settings") setShowSettings(true); else setTab(key); }
+  function handleMeOpen(key) { if (key === "settings") setShowSettings(true); else if (key === "whatsapp") window.open("https://wa.me/971567088638", "_blank"); else setTab(key); }
   return (
     <div style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, paddingBottom: 90 }}>
       <main style={{ width: "100%", maxWidth: isMobile ? 430 : 760, margin: "0 auto", padding: isMobile ? "14px 10px 0" : "18px 16px 0", boxSizing: "border-box", overflowX: "hidden" }}>
@@ -4028,7 +4422,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
           </button>
         )}
         {tab === "train_hub" && <HubScreen title="Train" subtitle="Program, progress, and photos" cards={trainCards} onOpen={setTab} />}
-        {tab === "me_hub" && <HubScreen title="Me" subtitle="Messages, payments, and account" cards={meCards} onOpen={handleMeOpen} />}
+        {tab === "me_hub" && <HubScreen title="Me" subtitle="Your coach, payments, and account" cards={meCards} onOpen={handleMeOpen} />}
         {tab !== "train_hub" && tab !== "me_hub" && content}
       </main>
       {showSettings && <ClientSettingsModal client={client} onClose={() => setShowSettings(false)} />}
@@ -4038,30 +4432,20 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
 }
 function todaysNutritionStats(client, date = isoDate()) {
   const nutrition = normalizeNutrition(client.nutrition);
-  const logs = (nutrition.logs || []).filter((l) => l.date === date);
-  const totals = logs.reduce((a, l) => ({
-    kcal: a.kcal + Number(l.kcal || 0),
-    protein: a.protein + Number(l.protein || 0),
-    carbs: a.carbs + Number(l.carbs || 0),
-    fats: a.fats + Number(l.fats || 0),
-  }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
-  const daily = nutrition.daily?.[date] || {};
-  const completedMeals = ["Breakfast", "Lunch", "Dinner"].filter((m) => logs.some((l) => l.meal === m) || daily?.meals?.[m]).length;
+  const day = nutrition.days[date] || emptyNutriDay();
+  const totals = nutriDayTotals(day);
   const calTarget = Number(nutrition.targets?.calories || 0);
   const proteinTarget = Number(nutrition.targets?.protein || 0);
   const stepsTarget = Number(nutrition.targets?.steps || 10000);
   const waterTarget = Number(nutrition.targets?.water || 3);
-  const sleepTarget = Number(nutrition.targets?.sleep || 7);
-  const scoreParts = [
-    completedMeals / 3,
+  const parts = [
     calTarget ? Math.min(totals.kcal / calTarget, 1) : 0,
     proteinTarget ? Math.min(totals.protein / proteinTarget, 1) : 0,
-    stepsTarget ? Math.min(Number(daily.steps || 0) / stepsTarget, 1) : 0,
-    waterTarget ? Math.min(Number(daily.water || 0) / waterTarget, 1) : 0,
-    sleepTarget ? Math.min(Number(daily.sleep || 0) / sleepTarget, 1) : 0,
+    waterTarget ? Math.min(Number(day.water || 0) / waterTarget, 1) : 0,
+    stepsTarget ? Math.min(Number(day.steps || 0) / stepsTarget, 1) : 0,
   ];
-  const score = Math.round((scoreParts.reduce((a, b) => a + b, 0) / scoreParts.length) * 100);
-  return { nutrition, logs, totals, daily, completedMeals, score, calTarget, proteinTarget, stepsTarget, waterTarget, sleepTarget };
+  const score = Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 100);
+  return { nutrition, totals, daily: { steps: day.steps || 0, water: day.water || 0 }, score, calTarget, proteinTarget, stepsTarget, waterTarget };
 }
 function parseNumberFromText(value) {
   const match = String(value || "").match(/\d+(?:\.\d+)?/);
@@ -4164,44 +4548,62 @@ function InstallPrompt({ color = BRAND.gold }) {
 function ClientHome({ client, goTo }) {
   const isMobile = useIsMobile(520);
   const stats = todaysNutritionStats(client);
-  const metrics = computePerformanceMetrics(client.trainingLogs);
-  const deadHang = metrics.find((m) => m.name === "Dead Hang");
-  const plank = metrics.find((m) => m.name === "Plank");
   const todaysWorkout = client.program?.weeks?.[0]?.workouts?.[0]?.name || "Workout not assigned";
-  const meals = ["Breakfast", "Lunch", "Dinner"];
-  const mealDone = (meal) => stats.logs.some((l) => l.meal === meal) || stats.daily?.meals?.[meal];
-  if (isMobile) {
-    return <div style={{ display: "grid", gap: 12 }}>
-      <InstallPrompt color={client.color} />
-      <Card style={{ borderColor: `${client.color}44`, padding: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
-          <ClientAvatar client={client} size={58} />
-          <div style={{ minWidth: 0 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, letterSpacing: 1.8 }}>FORGE CLIENT</div><div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.05, textTransform: "uppercase" }}>Welcome, {client.name}</div><div style={{ color: client.color, fontWeight: 1000, marginTop: 4, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
-          <CompactScore value={stats.score} color={client.color} />
+  const scoreSize = isMobile ? 80 : 118;
+  const scoreColor = stats.score >= 75 ? BRAND.green : stats.score >= 50 ? BRAND.orange : BRAND.red;
+  const habits = [
+    { k: "Calories", v: stats.totals.kcal, t: stats.calTarget || 0, c: BRAND.cyan, unit: "" },
+    { k: "Protein", v: stats.totals.protein, t: stats.proteinTarget || 0, c: BRAND.green, unit: "g" },
+    { k: "Steps", v: stats.daily.steps || 0, t: stats.stepsTarget || 10000, c: BRAND.orange, unit: "" },
+    { k: "Water", v: stats.daily.water || 0, t: stats.waterTarget || 3, c: BRAND.blue, unit: "L" },
+  ];
+  const C = 2 * Math.PI * 22;
+  return <div style={{ display: "grid", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
+    <InstallPrompt color={client.color} />
+    <Card style={{ padding: isMobile ? 16 : 22 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
+        <ClientAvatar client={client} size={isMobile ? 50 : 68} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 1000, letterSpacing: 1.4, textTransform: "uppercase" }}>The Forge Method</div>
+          <div style={{ fontSize: isMobile ? 20 : 28, fontWeight: 1000, lineHeight: 1.05, textTransform: "uppercase", marginTop: 5 }}>Welcome back,<br />{client.name}</div>
+          <div style={{ color: BRAND.muted, fontWeight: 800, marginTop: 7, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.goals?.join(" + ") || client.goal || ""}</div>
         </div>
-      </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <CompactMetric label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} />
-        <CompactMetric label="Protein" value={`${stats.totals.protein}g`} total={`${stats.proteinTarget || 0}g`} percent={stats.proteinTarget ? Math.min(100, Math.round(stats.totals.protein / stats.proteinTarget * 100)) : 0} color={BRAND.green} />
-        <CompactMetric label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} />
-        <CompactMetric label="Water" value={`${stats.daily.water || 0}L`} total={`${stats.waterTarget || 3}L`} percent={(stats.waterTarget || 3) ? Math.min(100, Math.round(Number(stats.daily.water || 0) / Number(stats.waterTarget || 3) * 100)) : 0} color={BRAND.blue} />
-      </div>
-      <Card onClick={goTo ? () => goTo("nutrition") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 8 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card>
-      <Card onClick={goTo ? () => goTo("program") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 8 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 22, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Tap to open Program &rarr;</div></Card>
-      <Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card>
-    </div>;
-  }
-  return <div style={{ display: "grid", gap: isMobile ? 10 : 16, maxWidth: "100%", overflowX: "hidden" }}>
-    <Card style={{ borderColor: `${client.color}44`, padding: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}><ClientAvatar client={client} size={76} /><div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, letterSpacing: 2 }}>FORGE CLIENT</div><div style={{ fontSize: 31, fontWeight: 1000, lineHeight: 1, textTransform: "uppercase" }}>Welcome back, {client.name}</div><div style={{ color: client.color, fontWeight: 900, marginTop: 6 }}>{client.goals?.join(" + ") || client.goal}</div></div></div>
-        <div style={{ width: 118, height: 118, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${client.color} ${stats.score}%, ${BRAND.card2} ${stats.score}% 100%)` }}><div style={{ width: 86, height: 86, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 30, fontWeight: 1000 }}>{stats.score}%</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000 }}>FORGE SCORE</div></div></div></div>
+        <div style={{ width: scoreSize, height: scoreSize, borderRadius: "50%", display: "grid", placeItems: "center", background: `conic-gradient(${scoreColor} ${stats.score}%, ${BRAND.card2} ${stats.score}% 100%)`, flexShrink: 0 }}>
+          <div style={{ width: scoreSize - 28, height: scoreSize - 28, borderRadius: "50%", background: BRAND.bg, display: "grid", placeItems: "center", textAlign: "center" }}>
+            <div><div style={{ fontSize: isMobile ? 22 : 30, fontWeight: 1000, color: scoreColor }}>{stats.score}</div><div style={{ color: BRAND.muted, fontSize: 8, fontWeight: 1000, letterSpacing: 0.5 }}>FORGE SCORE</div></div>
+          </div>
+        </div>
       </div>
     </Card>
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}><ProgressRing label="Calories" value={stats.totals.kcal} total={stats.calTarget || 0} color={BRAND.cyan} /><ProgressRing label="Protein" value={stats.totals.protein} total={stats.proteinTarget || 0} unit="g" color={BRAND.green} /><ProgressRing label="Steps" value={stats.daily.steps || 0} total={stats.stepsTarget || 10000} color={BRAND.gold} /><ProgressRing label="Water L" value={stats.daily.water || 0} total={stats.waterTarget || 3} color={BRAND.blue} /></div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card onClick={goTo ? () => goTo("nutrition") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S NUTRITION</div><div style={{ display: "grid", gap: 9 }}>{meals.map((m) => <MealStatusPill key={m} meal={m} done={mealDone(m)} color={client.color} />)}</div></Card><Card onClick={goTo ? () => goTo("program") : undefined} style={{ cursor: goTo ? "pointer" : "default" }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>TODAY'S WORKOUT</div><div style={{ fontSize: 24, fontWeight: 1000 }}>{todaysWorkout}</div><div style={{ color: BRAND.muted, marginTop: 6 }}>Tap to open Program &rarr;</div></Card><Card><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 10 }}>PERFORMANCE</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><PremiumTile label="Dead Hang PB" value={metricDisplay(deadHang?.best, true)} sub={`Recent ${metricDisplay(deadHang?.recent, true)}`} color={BRAND.cyan} /><PremiumTile label="Plank PB" value={metricDisplay(plank?.best, true)} sub={`Recent ${metricDisplay(plank?.recent, true)}`} color={BRAND.purple} /></div></Card></div>
+    {goTo && !client.intake?.completedAt && <Card onClick={() => goTo("intake")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: BRAND.cyan }}><div><div style={{ color: BRAND.cyan, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>COMPLETE YOUR INTAKE</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>A few questions so your coach can tailor your plan</div></div><div style={{ color: BRAND.cyan, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
+    {goTo && <Card onClick={() => goTo("checkins")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `${BRAND.gold}55` }}><div><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>WEEKLY CHECK-IN</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Log your week for your coach</div></div><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
+    <Card onClick={goTo ? () => goTo("program") : undefined} style={{ cursor: goTo ? "pointer" : "default", padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: 16 }}>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase" }}>Today's session</div>
+        <div style={{ fontSize: 22, fontWeight: 1000, marginTop: 8 }}>{todaysWorkout}</div>
+      </div>
+      {goTo && <div style={{ padding: 16, paddingTop: 0 }}><Button onClick={(e) => { e.stopPropagation(); goTo("program"); }} style={{ width: "100%" }}>Start session &rarr;</Button></div>}
+    </Card>
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>Daily habits</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+        {habits.map((h) => {
+          const pct = h.t ? Math.min(100, Math.round(Number(h.v) / Number(h.t) * 100)) : 0;
+          const disp = h.k === "Steps" && Number(h.v) >= 1000 ? (Number(h.v) / 1000).toFixed(1) + "k" : `${h.v}${h.unit}`;
+          return <Card key={h.k} style={{ padding: 10, display: "grid", justifyItems: "center", gap: 6 }}>
+            <div style={{ position: "relative", width: 52, height: 52 }}>
+              <svg width="52" height="52" style={{ transform: "rotate(-90deg)" }}><circle cx="26" cy="26" r="22" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="26" cy="26" r="22" fill="none" stroke={h.c} strokeWidth="5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} /></svg>
+              <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 1000 }}>{disp}</div>
+            </div>
+            <div style={{ color: h.c, fontSize: 8, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.4 }}>{h.k}</div>
+          </Card>;
+        })}
+      </div>
+    </div>
+    <HomeLearnStrip client={client} goTo={goTo} />
   </div>;
 }
+
 function TrialLinkModal({ client, onClose, onLinked }) {
   const [trials, setTrials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4269,7 +4671,7 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
     updateClient({ ...client, profile: nextProfile, name: cleanName, weight: cleanWeight, age: nextAge, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
     setSaving(false);
   }
-  return <Card style={{ padding: isMobile ? 14 : 18 }}>
+  return <Card style={{ padding: isMobile ? 14 : 18 }}>{client.intake?.answers?.length ? <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Intake answers</div>{client.intake.answers.map((a, i) => <div key={i} style={{ marginBottom: 8 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>{a.question}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{a.answer || "\u2014"}</div></div>)}</div> : null}{isCoach ? <div style={{ marginBottom: 16, padding: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Coaching type</div><div style={{ display: "flex", gap: 8 }}>{["1:1", "Online"].map((t) => <button key={t} onClick={async () => { const np = { ...profile, clientType: t }; setProfile(np); await upsertSection(client.id, "profile", np); updateClient({ ...client, clientType: t, profile: np }); }} style={{ flex: 1, border: `1px solid ${(profile.clientType || "1:1") === t ? BRAND.gold : BRAND.line}`, background: (profile.clientType || "1:1") === t ? BRAND.gold : "transparent", color: (profile.clientType || "1:1") === t ? "#000" : BRAND.text, borderRadius: 999, padding: "10px 0", fontWeight: 900, cursor: "pointer" }}>{t === "1:1" ? "In-Person (1:1)" : "Online"}</button>)}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 8 }}>{(profile.clientType || "1:1") === "Online" ? "Online: gets Check-ins & Payments." : "In-person: gets Schedule & Packages."} Switches instantly.</div></div> : null}
     <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 1000, marginBottom: 14, textAlign: isMobile ? "center" : "left" }}>Client Profile</div>
     <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
       <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000, border: `1px solid ${BRAND.line}`, cursor: "pointer", padding: 0 }}>
@@ -4391,17 +4793,18 @@ function computePerformanceMetrics(logs) {
   });
 }
 function normalizeNutrition(raw) {
-  const base = emptyNutrition();
   const n = raw && typeof raw === "object" ? raw : {};
   return {
-    ...base,
-    ...n,
-    targets: { ...base.targets, ...(n.targets || {}) },
-    mealPlan: { ...base.mealPlan, ...(n.mealPlan || {}) },
-    logs: Array.isArray(n.logs) ? n.logs : [],
-    daily: n.daily && typeof n.daily === "object" ? n.daily : {},
-    savedMeals: Array.isArray(n.savedMeals) ? n.savedMeals : [],
+    targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 3, ...(n.targets || {}) },
+    days: n.days && typeof n.days === "object" ? n.days : {},
+    recents: Array.isArray(n.recents) ? n.recents : [],
   };
+}
+function emptyNutriDay() { return { meals: { Breakfast: [], Lunch: [], Dinner: [], Snacks: [] }, water: 0, steps: 0 }; }
+function nutriDayTotals(day) {
+  const M = ["Breakfast", "Lunch", "Dinner", "Snacks"];
+  const sum = (arr, k) => (arr || []).reduce((a, x) => a + (Number(x[k]) || 0), 0);
+  return M.reduce((acc, m) => { const it = day.meals?.[m] || []; return { kcal: acc.kcal + sum(it, "kcal"), protein: acc.protein + sum(it, "protein"), carbs: acc.carbs + sum(it, "carbs"), fats: acc.fats + sum(it, "fats") }; }, { kcal: 0, protein: 0, carbs: 0, fats: 0 });
 }
 // ================= NUTRITION SYSTEM (redesigned) =================
 // Design borrows the best of MacroFactor (clean rings, low friction),
@@ -4453,139 +4856,297 @@ async function saveCustomFood(trainerId, food) {
   return next;
 }
 
-function FoodSearchModal({ client, onClose, onAdd }) {
-  const isMobile = useIsMobile(520);
-  const [tab, setTab] = useState("search");
-  const [query, setQuery] = useState("");
-  const [qty, setQty] = useState("1");
-  const [customName, setCustomName] = useState("");
-  const [customMacros, setCustomMacros] = useState({ kcal: "", protein: "", carbs: "", fats: "" });
-  const [smartText, setSmartText] = useState("");
-  const [customFoods, setCustomFoods] = useState([]);
-  const [lookupState, setLookupState] = useState(null); // null | "loading" | { result or error }
-  const [saveToLibrary, setSaveToLibrary] = useState(true);
-  const smartEstimate = useMemo(() => estimateSmartFood(smartText), [smartText]);
-  useEffect(() => { loadCustomFoods(client?.trainer_id).then(setCustomFoods); }, [client?.trainer_id]);
-  const combinedDb = useMemo(() => [...customFoods, ...FOOD_DB], [customFoods]);
-  const parsedQty = Number(qty) > 0 ? Number(qty) : 1;
-  const results = query.trim() ? combinedDb.filter((f) => f.name.toLowerCase().includes(query.toLowerCase())).slice(0, 30) : combinedDb.slice(0, 12);
+async function searchFatSecret(query) {
+  try {
+    const { data, error } = await supabase.functions.invoke("forge-fatsecret", { body: { action: "search", q: query } });
+    if (error || !data) return [];
+    return Array.isArray(data.foods) ? data.foods : [];
+  } catch { return []; }
+}
 
-  function addFromSearch(f) {
-    onAdd({ name: f.name, kcal: Math.round(f.kcal * parsedQty), protein: Math.round(f.protein * parsedQty), carbs: Math.round(f.carbs * parsedQty), fats: Math.round(f.fats * parsedQty), qty: parsedQty });
-  }
-  function addCustom() {
-    if (!customName.trim()) { alert("Give this food a name."); return; }
-    onAdd({ name: customName.trim(), kcal: Number(customMacros.kcal || 0), protein: Number(customMacros.protein || 0), carbs: Number(customMacros.carbs || 0), fats: Number(customMacros.fats || 0), qty: 1 });
-    if (saveToLibrary && client?.trainer_id) saveCustomFood(client.trainer_id, { name: customName.trim(), kcal: Number(customMacros.kcal || 0), protein: Number(customMacros.protein || 0), carbs: Number(customMacros.carbs || 0), fats: Number(customMacros.fats || 0) });
-  }
-  function addSmart() {
-    if (!smartText.trim()) return;
-    onAdd({ name: smartText.trim(), kcal: Number(smartEstimate.kcal || 0), protein: Number(smartEstimate.protein || 0), carbs: Number(smartEstimate.carbs || 0), fats: Number(smartEstimate.fats || 0), qty: 1, estimate: smartEstimate });
-  }
-  async function runOnlineLookup() {
-    setLookupState("loading");
-    const result = await lookupFoodOnline(query);
-    setLookupState(result);
-  }
-  function addFromLookup() {
-    if (!lookupState || lookupState.error) return;
-    const mult = parsedQty;
-    const item = { name: lookupState.name, kcal: Math.round(lookupState.kcal * mult), protein: Math.round(lookupState.protein * mult), carbs: Math.round(lookupState.carbs * mult), fats: Math.round(lookupState.fats * mult), qty: mult };
-    onAdd(item);
-    if (saveToLibrary && client?.trainer_id) saveCustomFood(client.trainer_id, { name: lookupState.name, kcal: lookupState.kcal, protein: lookupState.protein, carbs: lookupState.carbs, fats: lookupState.fats });
-  }
-  return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto", padding: isMobile ? 14 : 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 22, fontWeight: 1000 }}>Add Food</div>
-          <Button variant="ghost" onClick={onClose}>X</Button>
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          <Button variant={tab === "search" ? "gold" : "dark"} onClick={() => setTab("search")} style={{ flex: 1 }}>Search</Button>
-          <Button variant={tab === "smart" ? "gold" : "dark"} onClick={() => setTab("smart")} style={{ flex: 1 }}>Describe Meal</Button>
-          <Button variant={tab === "custom" ? "gold" : "dark"} onClick={() => setTab("custom")} style={{ flex: 1 }}>Custom</Button>
-        </div>
-
-        {tab === "search" && <>
-          <input value={query} onChange={(e) => { setQuery(e.target.value); setLookupState(null); }} placeholder="Search foods..." style={inputStyle({ marginBottom: 10 })} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>Servings</span>
-            <input type="number" step="0.5" min="0" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => { if (!qty || Number(qty) <= 0) setQty("1"); }} style={inputStyle({ width: 80 })} />
-          </div>
-          <div style={{ display: "grid", gap: 6, maxHeight: 320, overflowY: "auto" }}>
-            {results.map((f) => (
-              <button key={f.name} onClick={() => addFromSearch(f)} style={{ textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10, cursor: "pointer", color: BRAND.text }}>
-                <div style={{ fontWeight: 800 }}>{f.name}</div>
-                <div style={{ color: BRAND.muted, fontSize: 12 }}>{Math.round(f.kcal * parsedQty)} kcal · P {Math.round(f.protein * parsedQty)}g · C {Math.round(f.carbs * parsedQty)}g · F {Math.round(f.fats * parsedQty)}g</div>
-              </button>
-            ))}
-            {results.length === 0 && (
-              <div style={{ padding: 12, textAlign: "center" }}>
-                <div style={{ color: BRAND.muted, marginBottom: 10 }}>No matches in your food library.</div>
-                {lookupState !== "loading" && (!lookupState || lookupState.error) && (
-                  <Button onClick={runOnlineLookup}>Look up "{query.trim()}" online</Button>
-                )}
-                {lookupState === "loading" && <div style={{ color: BRAND.gold, fontWeight: 800 }}>Searching USDA food database...</div>}
-                {lookupState?.error && <div style={{ color: BRAND.orange, fontSize: 13, marginTop: 8 }}>{lookupState.error}</div>}
-                {lookupState && !lookupState.error && (
-                  <div style={{ marginTop: 12, padding: 12, border: `1px solid ${BRAND.green}`, borderRadius: 16, background: `${BRAND.green}12`, textAlign: "left" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                      <b>{lookupState.name}</b>
-                      <span style={{ color: BRAND.green, fontWeight: 900, fontSize: 12 }}>{lookupState.source}</span>
-                    </div>
-                    <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 8 }}>Values are per 100g — adjust servings below before adding.</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800 }}>Servings (x100g)</span>
-                      <input type="number" step="0.5" min="0" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => { if (!qty || Number(qty) <= 0) setQty("1"); }} style={inputStyle({ width: 80 })} />
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(80px,1fr))", gap: 8, marginBottom: 10 }}>
-                      <Mini label="Calories" value={Math.round(lookupState.kcal * parsedQty)} /><Mini label="Protein" value={`${Math.round(lookupState.protein * parsedQty)}g`} /><Mini label="Carbs" value={`${Math.round(lookupState.carbs * parsedQty)}g`} /><Mini label="Fats" value={`${Math.round(lookupState.fats * parsedQty)}g`} />
-                    </div>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontSize: 12, marginBottom: 10 }}>
-                      <input type="checkbox" checked={saveToLibrary} onChange={(e) => setSaveToLibrary(e.target.checked)} />
-                      Save to your food library so it's instant next time
-                    </label>
-                    <Button onClick={addFromLookup} style={{ width: "100%" }}>Add to Diary</Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </>}
-
-        {tab === "smart" && <>
-          <div style={{ color: BRAND.muted, fontSize: 13, marginBottom: 8 }}>Describe what you ate in plain words — portions and multiple items work.</div>
-          <textarea value={smartText} onChange={(e) => setSmartText(e.target.value)} placeholder="2 chapati + chicken curry + rice" style={textareaStyle({ minHeight: 80 })} />
-          {smartText.trim() && (
-            <div style={{ marginTop: 10, padding: 12, border: `1px solid ${smartEstimate.confidence === "High" ? BRAND.green : BRAND.gold}`, borderRadius: 16, background: `${smartEstimate.confidence === "High" ? BRAND.green : BRAND.gold}12` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}><b>Estimate</b><span style={{ color: smartEstimate.confidence === "High" ? BRAND.green : BRAND.gold, fontWeight: 1000 }}>{smartEstimate.confidence} confidence</span></div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(80px,1fr))", gap: 8 }}>
-                <Mini label="Calories" value={smartEstimate.kcal || 0} /><Mini label="Protein" value={`${smartEstimate.protein || 0}g`} /><Mini label="Carbs" value={`${smartEstimate.carbs || 0}g`} /><Mini label="Fats" value={`${smartEstimate.fats || 0}g`} />
-              </div>
-              {smartEstimate.unmatched.length > 0 && <div style={{ color: BRAND.orange, fontSize: 12, marginTop: 6 }}>Needs review: {smartEstimate.unmatched.join(", ")}</div>}
-            </div>
-          )}
-          <Button onClick={addSmart} style={{ width: "100%", marginTop: 12 }}>Add to Diary</Button>
-        </>}
-
-        {tab === "custom" && <>
-          <Field label="Food name" value={customName} onChange={setCustomName} placeholder="Homemade protein shake" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))", gap: 8, marginTop: 10 }}>
-            <Field label="Calories" value={customMacros.kcal} onChange={(v) => setCustomMacros((m) => ({ ...m, kcal: v }))} type="number" />
-            <Field label="Protein" value={customMacros.protein} onChange={(v) => setCustomMacros((m) => ({ ...m, protein: v }))} type="number" />
-            <Field label="Carbs" value={customMacros.carbs} onChange={(v) => setCustomMacros((m) => ({ ...m, carbs: v }))} type="number" />
-            <Field label="Fats" value={customMacros.fats} onChange={(v) => setCustomMacros((m) => ({ ...m, fats: v }))} type="number" />
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontSize: 12, marginTop: 10 }}>
-            <input type="checkbox" checked={saveToLibrary} onChange={(e) => setSaveToLibrary(e.target.checked)} />
-            Save to your food library so it's searchable next time
-          </label>
-          <Button onClick={addCustom} style={{ width: "100%", marginTop: 10 }}>Add to Diary</Button>
-        </>}
-      </Card>
+const FATSECRET_FEATURES = { foodSearch: true, foodDetails: true, barcode: true, recipes: true, autocomplete: false, foodImages: false, nlp: false };
+async function fsGetFood(foodId) {
+  try { const { data, error } = await supabase.functions.invoke("forge-fatsecret", { body: { action: "get", food_id: foodId } }); if (error || !data) return null; return data; } catch { return null; }
+}
+async function fsSearchRecipes(q) {
+  try { const { data, error } = await supabase.functions.invoke("forge-fatsecret", { body: { action: "recipes", q } }); if (error || !data || data.error) return { error: (data && data.error) || "unavailable", recipes: [] }; return { recipes: data.recipes || [] }; } catch { return { error: "unavailable", recipes: [] }; }
+}
+async function fsGetRecipe(id) {
+  try { const { data, error } = await supabase.functions.invoke("forge-fatsecret", { body: { action: "recipe", recipe_id: id } }); if (error || !data || data.error) return null; return data.recipe || null; } catch { return null; }
+}
+function BarcodeScanner({ onCode, onClose, lookupMsg }) {
+  const videoRef = useRef(null);
+  const supported = typeof window !== "undefined" && "BarcodeDetector" in window;
+  const [status, setStatus] = useState("");
+  const [manual, setManual] = useState("");
+  useEffect(() => {
+    if (!supported) return;
+    let stream, raf, cancelled = false;
+    (async () => {
+      try {
+        const detector = new window.BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play().catch(() => {}); }
+        const tick = async () => {
+          if (cancelled || !videoRef.current) return;
+          try { const codes = await detector.detect(videoRef.current); if (codes && codes[0] && codes[0].rawValue) { onCode(codes[0].rawValue); return; } } catch {}
+          raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+      } catch { setStatus("Camera unavailable. Enter the barcode number below."); }
+    })();
+    return () => { cancelled = true; if (raf) cancelAnimationFrame(raf); if (stream) stream.getTracks().forEach((t) => t.stop()); };
+  }, [supported]);
+  return <>
+    <button onClick={onClose} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+    <div style={{ fontSize: 20, fontWeight: 1000, margin: "12px 0" }}>Scan barcode</div>
+    {supported ? <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", background: "#000", aspectRatio: "4 / 3" }}>
+      <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <div style={{ position: "absolute", inset: "26% 12%", border: `2px solid ${BRAND.gold}`, borderRadius: 12, boxShadow: "0 0 0 999px rgba(0,0,0,.35)" }} />
+    </div> : <div style={{ color: BRAND.muted, fontSize: 13 }}>Live scanning isn't supported in this browser. Enter the barcode number below.</div>}
+    {status && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 8 }}>{status}</div>}
+    {lookupMsg && <div style={{ color: BRAND.gold, fontSize: 13, marginTop: 8, fontWeight: 700 }}>{lookupMsg}</div>}
+    <div style={{ color: BRAND.muted, fontSize: 11, marginTop: 16, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 900 }}>Or enter barcode</div>
+    <div style={{ display: "flex", gap: 8 }}>
+      <input inputMode="numeric" placeholder="e.g. 049000000443" value={manual} onChange={(e) => setManual(e.target.value)} style={inputStyle()} />
+      <Button onClick={() => manual.trim() && onCode(manual.trim())}>Look up</Button>
     </div>
-  );
+  </>;
+}
+
+function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
+  const [tab, setTab] = useState("foods");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [detail, setDetail] = useState(null);
+  const [favorites, setFavorites] = useState([]);
+  const [savedMeals, setSavedMeals] = useState([]);
+  const [builder, setBuilder] = useState(null);
+  const [recipes, setRecipes] = useState([]);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recErr, setRecErr] = useState("");
+  const [recipe, setRecipe] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [cm, setCm] = useState({ kcal: "", protein: "", carbs: "", fats: "" });
+  const recents = (normalizeNutrition(client.nutrition).recents) || [];
+
+  useEffect(() => {
+    (async () => {
+      try { const { data } = await supabase.from("client_data").select("data").eq("client_id", client.id).eq("section", "favorites").maybeSingle(); setFavorites(data?.data?.list || []); } catch {}
+      try { const { data } = await supabase.from("client_data").select("data").eq("client_id", client.id).eq("section", "saved_meals").maybeSingle(); setSavedMeals(data?.data?.list || []); } catch {}
+    })();
+  }, [client.id]);
+  useEffect(() => {
+    if (tab !== "foods" || query.trim().length < 2) { setResults([]); setLoading(false); setErr(""); return; }
+    setLoading(true); setErr("");
+    const t = setTimeout(async () => {
+      try { const foods = await searchFatSecret(query.trim()); setResults(foods); if (!foods.length) setErr("No foods found. Try another term."); }
+      catch { setErr("Search failed. Check your connection and try again."); }
+      setLoading(false);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [query, tab]);
+  useEffect(() => {
+    if (tab !== "recipes" || query.trim().length < 2) { return; }
+    setRecLoading(true); setRecErr("");
+    const t = setTimeout(async () => {
+      const r = await fsSearchRecipes(query.trim());
+      if (r.error) { setRecipes([]); setRecErr("Recipes aren't available on your FatSecret plan yet."); }
+      else { setRecipes(r.recipes); if (!r.recipes.length) setRecErr("No recipes found."); }
+      setRecLoading(false);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [query, tab]);
+
+  async function openDetail(food) {
+    setDetail({ food, servings: null, si: 0, qty: "1", meal: meal || "Breakfast" });
+    let servings = null;
+    if (food.id) { const data = await fsGetFood(food.id); if (data?.servings?.length) servings = data.servings; }
+    if (!servings) servings = [{ desc: food.serving || "1 serving", kcal: food.kcal, protein: food.protein, carbs: food.carbs, fats: food.fats }];
+    setDetail((d) => (d && d.food === food ? { ...d, servings } : d));
+  }
+  function macrosFor(d) {
+    const s = (d.servings || [])[d.si] || (d.servings || [])[0] || {};
+    const q = Number(d.qty) > 0 ? Number(d.qty) : 1;
+    return { kcal: Math.round((s.kcal || 0) * q), protein: Math.round((s.protein || 0) * q), carbs: Math.round((s.carbs || 0) * q), fats: Math.round((s.fats || 0) * q) };
+  }
+  function addDetail() {
+    const m = macrosFor(detail); const item = { name: detail.food.name, ...m, qty: Number(detail.qty) || 1 };
+    if (builder) { setBuilder({ ...builder, items: [...builder.items, item] }); setDetail(null); setTab("builder"); return; }
+    onAdd(item, detail.meal); setDetail(null);
+  }
+  async function toggleFav(food) {
+    const has = favorites.some((f) => f.name === food.name);
+    const next = has ? favorites.filter((f) => f.name !== food.name) : [{ id: food.id || uid(), name: food.name, brand: food.brand || "", kcal: food.kcal, protein: food.protein, carbs: food.carbs, fats: food.fats, serving: food.serving || "" }, ...favorites].slice(0, 60);
+    setFavorites(next); try { await upsertSection(client.id, "favorites", { list: next }); } catch {}
+  }
+  const isFav = (food) => favorites.some((f) => f.name === food.name);
+  function addCustom() { if (!customName.trim()) return; const item = { name: customName.trim(), kcal: Number(cm.kcal || 0), protein: Number(cm.protein || 0), carbs: Number(cm.carbs || 0), fats: Number(cm.fats || 0), qty: 1 }; if (builder) { setBuilder({ ...builder, items: [...builder.items, item] }); setCustomName(""); setCm({ kcal: "", protein: "", carbs: "", fats: "" }); setTab("builder"); return; } onAdd(item, meal); onClose(); }
+  function mealTotals(items) { return items.reduce((a, x) => ({ kcal: a.kcal + Number(x.kcal || 0), protein: a.protein + Number(x.protein || 0), carbs: a.carbs + Number(x.carbs || 0), fats: a.fats + Number(x.fats || 0) }), { kcal: 0, protein: 0, carbs: 0, fats: 0 }); }
+  async function saveBuilder() {
+    if (!builder.name.trim() || !builder.items.length) return;
+    const tot = mealTotals(builder.items);
+    const sm = { id: uid(), name: builder.name.trim(), items: builder.items, totals: tot };
+    const next = [sm, ...savedMeals].slice(0, 60);
+    setSavedMeals(next); try { await upsertSection(client.id, "saved_meals", { list: next }); } catch {}
+    setBuilder(null); setTab("meals");
+  }
+  async function deleteMeal(id) { const next = savedMeals.filter((m) => m.id !== id); setSavedMeals(next); try { await upsertSection(client.id, "saved_meals", { list: next }); } catch {} }
+  function addSavedMeal(sm) { (onAddMany || ((items, mm) => items.forEach((it) => onAdd(it, mm))))(sm.items, meal || "Breakfast"); onClose(); }
+  async function openRecipe(r) {
+    setRecipe({ ...r, full: null, loading: true, meal: meal || "Breakfast" });
+    const full = await fsGetRecipe(r.id);
+    setRecipe((x) => (x && x.id === r.id ? { ...x, full, loading: false } : x));
+  }
+  function addRecipe() { onAdd({ name: recipe.name, kcal: recipe.kcal, protein: recipe.protein, carbs: recipe.carbs, fats: recipe.fats, qty: 1 }, recipe.meal); setRecipe(null); onClose(); }
+
+  async function handleBarcode(code) {
+    setScanMsg("Looking up " + code + "...");
+    try {
+      const { data, error } = await supabase.functions.invoke("forge-fatsecret", { body: { action: "barcode", barcode: code } });
+      if (error || !data || data.error) { setScanMsg(data && data.error === "barcode not found" ? "Barcode not found. Try searching by name." : "Barcode scanning isn't available yet."); return; }
+      if (data.servings && data.servings.length) { setScanning(false); setScanMsg(""); setDetail({ food: { id: data.id, name: data.name, brand: data.brand || "" }, servings: data.servings, si: 0, qty: "1", meal: meal || "Breakfast" }); }
+      else setScanMsg("Barcode not found. Try searching by name.");
+    } catch { setScanMsg("Lookup failed. Try again."); }
+  }
+  const overlay = { position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.75)", display: "flex", alignItems: "flex-end", justifyContent: "center" };
+  const panel = { width: "100%", maxWidth: 520, maxHeight: "92vh", background: BRAND.bg, border: `1px solid ${BRAND.line}`, borderRadius: "20px 20px 0 0", padding: 16, overflowY: "auto" };
+  const foodRow = (f, onTap) => <div key={f.id || f.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <button onClick={() => onTap(f)} style={{ flex: 1, textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 11, cursor: "pointer", color: BRAND.text }}>
+      <div style={{ fontWeight: 900, fontSize: 14 }}>{f.name}{f.brand ? <span style={{ color: BRAND.dim, fontWeight: 700 }}> \u00b7 {f.brand}</span> : ""}</div>
+      <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{f.serving ? `${f.serving} \u00b7 ` : ""}{Math.round(f.kcal || 0)} kcal \u00b7 P {Math.round(f.protein || 0)} \u00b7 C {Math.round(f.carbs || 0)} \u00b7 F {Math.round(f.fats || 0)}</div>
+    </button>
+    <button onClick={() => toggleFav(f)} style={{ background: "none", border: "none", cursor: "pointer", color: isFav(f) ? BRAND.gold : BRAND.dim, fontSize: 20, flexShrink: 0 }}>{isFav(f) ? "\u2605" : "\u2606"}</button>
+  </div>;
+  const wrap = (inner) => <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}>{inner}</div></div>;
+
+  if (scanning) { return wrap(<BarcodeScanner onCode={handleBarcode} onClose={() => { setScanning(false); setScanMsg(""); }} lookupMsg={scanMsg} />); }
+  if (recipe) {
+    const r = recipe;
+    return wrap(<>
+      <button onClick={() => setRecipe(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+      {r.image && <img src={r.image} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 14, marginTop: 12 }} />}
+      <div style={{ fontSize: 20, fontWeight: 1000, marginTop: 12 }}>{r.name}</div>
+      {r.description && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{r.description}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "14px 0" }}>
+        <Mini label="Calories" value={r.kcal} /><Mini label="Protein" value={`${r.protein}g`} color={BRAND.green} /><Mini label="Carbs" value={`${r.carbs}g`} color={BRAND.orange} /><Mini label="Fats" value={`${r.fats}g`} color={BRAND.purple} />
+      </div>
+      {r.loading && <div style={{ color: BRAND.muted, fontSize: 13 }}>Loading recipe...</div>}
+      {r.full && <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 12 }}>Full ingredients and steps available from FatSecret.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 12 }}>{["Breakfast", "Lunch", "Dinner", "Snacks"].map((mm) => <button key={mm} onClick={() => setRecipe({ ...r, meal: mm })} style={{ padding: "9px 0", borderRadius: 10, fontSize: 11, fontWeight: 900, cursor: "pointer", color: r.meal === mm ? "#000" : BRAND.text, background: r.meal === mm ? BRAND.gold : BRAND.card2, border: `1px solid ${r.meal === mm ? BRAND.gold : BRAND.line}` }}>{mm}</button>)}</div>
+      <Button onClick={addRecipe} style={{ width: "100%" }}>Add to {r.meal}</Button>
+    </>);
+  }
+
+  if (builder) {
+    const tot = mealTotals(builder.items);
+    return wrap(<>
+      <button onClick={() => setBuilder(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+      <div style={{ fontSize: 20, fontWeight: 1000, margin: "12px 0" }}>Create meal</div>
+      <input placeholder="Meal name (e.g. Chicken Rice Bowl)" value={builder.name} onChange={(e) => setBuilder({ ...builder, name: e.target.value })} style={{ ...inputStyle(), marginBottom: 12 }} />
+      <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Ingredients</div>
+      {builder.items.map((it, k) => <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: `1px solid ${BRAND.line}` }}>
+        <div><div style={{ fontWeight: 800, fontSize: 13 }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10 }}>{it.kcal} kcal \u00b7 P{it.protein} C{it.carbs} F{it.fats}</div></div>
+        <button onClick={() => setBuilder({ ...builder, items: builder.items.filter((_, x) => x !== k) })} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18 }}>{"\u00d7"}</button>
+      </div>)}
+      {builder.items.length === 0 && <div style={{ color: BRAND.dim, fontSize: 12 }}>Search below to add ingredients.</div>}
+      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 1000, fontSize: 13, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${BRAND.line}` }}><span>Total</span><span>{Math.round(tot.kcal)} kcal \u00b7 P{Math.round(tot.protein)} C{Math.round(tot.carbs)} F{Math.round(tot.fats)}</span></div>
+      <input placeholder="Search a food to add..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ ...inputStyle(), margin: "12px 0" }} />
+      <div style={{ display: "grid", gap: 7 }}>
+        {loading && <div style={{ color: BRAND.gold, fontSize: 13 }}>Searching...</div>}
+        {results.map((f) => foodRow(f, openDetail))}
+      </div>
+      <Button onClick={saveBuilder} disabled={!builder.name.trim() || !builder.items.length} style={{ width: "100%", marginTop: 14 }}>Save meal</Button>
+    </>);
+  }
+
+  if (detail) {
+    const m = macrosFor(detail);
+    return wrap(<>
+      <button onClick={() => setDetail(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+      <div style={{ fontSize: 20, fontWeight: 1000, marginTop: 12 }}>{detail.food.name}</div>
+      {detail.food.brand && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>{detail.food.brand}</div>}
+      {!detail.servings && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 12 }}>Loading serving sizes...</div>}
+      {detail.servings && <>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "14px 0" }}>
+          <Mini label="Calories" value={m.kcal} /><Mini label="Protein" value={`${m.protein}g`} color={BRAND.green} /><Mini label="Carbs" value={`${m.carbs}g`} color={BRAND.orange} /><Mini label="Fats" value={`${m.fats}g`} color={BRAND.purple} />
+        </div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Serving size</div>
+        <select value={detail.si} onChange={(e) => setDetail({ ...detail, si: Number(e.target.value) })} style={{ ...inputStyle(), marginBottom: 10 }}>{detail.servings.map((sv, k) => <option key={k} value={k}>{sv.desc || `Serving ${k + 1}`}</option>)}</select>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Quantity</div>
+        <input inputMode="decimal" value={detail.qty} onChange={(e) => setDetail({ ...detail, qty: e.target.value })} style={{ ...inputStyle(), marginBottom: 12 }} />
+        {!builder && <><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Add to</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 14 }}>{["Breakfast", "Lunch", "Dinner", "Snacks"].map((mm) => <button key={mm} onClick={() => setDetail({ ...detail, meal: mm })} style={{ padding: "9px 0", borderRadius: 10, fontSize: 11, fontWeight: 900, cursor: "pointer", color: detail.meal === mm ? "#000" : BRAND.text, background: detail.meal === mm ? BRAND.gold : BRAND.card2, border: `1px solid ${detail.meal === mm ? BRAND.gold : BRAND.line}` }}>{mm}</button>)}</div></>}
+        <Button onClick={addDetail} style={{ width: "100%" }}>{builder ? "Add to meal" : `Add to ${detail.meal}`}</Button>
+      </>}
+    </>);
+  }
+
+  const TABS = [["foods", "Foods"], ...(FATSECRET_FEATURES.recipes ? [["recipes", "Recipes"]] : []), ["recent", "Recent"], ["favorites", "Favorites"], ["meals", "Meals"], ["custom", "Custom"]];
+  return wrap(<>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div style={{ fontSize: 20, fontWeight: 1000 }}>Add Food{meal ? ` \u00b7 ${meal}` : ""}</div>
+      <button onClick={onClose} style={{ background: "none", border: "none", color: BRAND.muted, fontSize: 22, cursor: "pointer" }}>{"\u00d7"}</button>
+    </div>
+    {(tab === "foods" || tab === "recipes") && <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <input autoFocus placeholder={tab === "recipes" ? "Search recipes..." : "Search foods..."} value={query} onChange={(e) => setQuery(e.target.value)} style={inputStyle()} />
+      {tab === "foods" && FATSECRET_FEATURES.barcode && <button onClick={() => { setScanning(true); setScanMsg(""); }} style={{ width: 44, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, cursor: "pointer", fontSize: 18 }}>{"\u25a4"}</button>}
+    </div>}
+    <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto" }}>{TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{ whiteSpace: "nowrap", fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 13px", borderRadius: 999, cursor: "pointer", color: tab === k ? "#000" : BRAND.muted, background: tab === k ? BRAND.gold : BRAND.card2, border: `1px solid ${tab === k ? BRAND.gold : BRAND.line}` }}>{l}</button>)}</div>
+
+    {tab === "foods" && <div style={{ display: "grid", gap: 7 }}>
+      {loading && <div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 800 }}>Searching FatSecret...</div>}
+      {err && !loading && <div style={{ color: BRAND.muted, fontSize: 13 }}>{err}</div>}
+      {query.trim().length < 2 && !loading && <div style={{ color: BRAND.dim, fontSize: 13 }}>Type at least 2 letters to search.</div>}
+      {results.map((f) => foodRow(f, openDetail))}
+    </div>}
+
+    {tab === "recipes" && <div style={{ display: "grid", gap: 8 }}>
+      {recLoading && <div style={{ color: BRAND.gold, fontSize: 13, fontWeight: 800 }}>Searching recipes...</div>}
+      {recErr && !recLoading && <div style={{ color: BRAND.muted, fontSize: 13 }}>{recErr}</div>}
+      {query.trim().length < 2 && !recLoading && <div style={{ color: BRAND.dim, fontSize: 13 }}>Search FatSecret recipes.</div>}
+      {recipes.map((r) => <button key={r.id} onClick={() => openRecipe(r)} style={{ textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 0, cursor: "pointer", color: BRAND.text, overflow: "hidden" }}>
+        {r.image && <img src={r.image} alt={r.name} style={{ width: "100%", height: 120, objectFit: "cover" }} />}
+        <div style={{ padding: 12 }}><div style={{ fontWeight: 1000, fontSize: 14 }}>{r.name}</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{r.kcal} kcal \u00b7 P {r.protein} \u00b7 C {r.carbs} \u00b7 F {r.fats}</div></div>
+      </button>)}
+    </div>}
+
+    {tab === "recent" && <div style={{ display: "grid", gap: 7 }}>
+      {recents.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>Foods you log will appear here.</div>}
+      {recents.map((f) => foodRow(f, openDetail))}
+    </div>}
+
+    {tab === "favorites" && <div style={{ display: "grid", gap: 7 }}>
+      {favorites.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>Tap the star on any food to save it here.</div>}
+      {favorites.map((f) => foodRow(f, openDetail))}
+    </div>}
+
+    {tab === "meals" && <div style={{ display: "grid", gap: 8 }}>
+      <Button onClick={() => { setBuilder({ name: "", items: [] }); setQuery(""); }} style={{ width: "100%" }}>+ Create meal</Button>
+      {savedMeals.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Build a meal from multiple foods and reuse it in one tap.</div>}
+      {savedMeals.map((sm) => <div key={sm.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 1000, fontSize: 14 }}>{sm.name}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 2 }}>{Math.round(sm.totals?.kcal || 0)} kcal \u00b7 {sm.items.length} items</div></div><button onClick={() => deleteMeal(sm.id)} style={{ background: "none", border: "none", color: BRAND.red, cursor: "pointer", fontSize: 16 }}>{"\u00d7"}</button></div>
+        <Button onClick={() => addSavedMeal(sm)} style={{ width: "100%", marginTop: 10 }}>Add to {meal || "diary"}</Button>
+      </div>)}
+    </div>}
+
+    {tab === "custom" && <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ color: BRAND.muted, fontSize: 12 }}>For foods not in the database. Enter the values yourself.</div>
+      <input placeholder="Food name" value={customName} onChange={(e) => setCustomName(e.target.value)} style={inputStyle()} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <Field label="Calories" value={cm.kcal} onChange={(v) => setCm({ ...cm, kcal: v })} type="number" />
+        <Field label="Protein g" value={cm.protein} onChange={(v) => setCm({ ...cm, protein: v })} type="number" />
+        <Field label="Carbs g" value={cm.carbs} onChange={(v) => setCm({ ...cm, carbs: v })} type="number" />
+        <Field label="Fats g" value={cm.fats} onChange={(v) => setCm({ ...cm, fats: v })} type="number" />
+      </div>
+      <Button onClick={addCustom} style={{ width: "100%" }}>Add to {meal || "meal"}</Button>
+    </div>}
+  </>);
 }
 
 function WeekAdherenceStrip({ nutrition, targets, color }) {
@@ -4760,124 +5321,115 @@ function WeekStrip({ date, onSelect, loggedDates, color = BRAND.gold }) {
 }
 function NutritionTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
-  const [nutrition, setNutrition] = useState(() => normalizeNutrition(client.nutrition));
+  const nutrition = normalizeNutrition(client.nutrition);
   const [date, setDate] = useState(isoDate());
   const [addingMeal, setAddingMeal] = useState(null);
-  const [creatingMealFor, setCreatingMealFor] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [tf, setTf] = useState(nutrition.targets);
   const [showTargets, setShowTargets] = useState(false);
+  const t = nutrition.targets;
+  const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
+  const day = nutrition.days[date] || emptyNutriDay();
+  const totals = nutriDayTotals(day);
+  const calTarget = Number(t.calories) || 0;
+  const calLeft = calTarget - totals.kcal;
+  const overCal = calTarget && totals.kcal > calTarget;
+  const calColor = overCal ? BRAND.red : BRAND.green;
+  const calPct = calTarget ? Math.min(1, totals.kcal / calTarget) : 0;
+  const today = isoDate();
 
-  useEffect(() => { setNutrition(normalizeNutrition(client.nutrition)); }, [client.id, client.nutrition]);
+  const clone = () => JSON.parse(JSON.stringify(nutrition));
+  const ensureDay = (n) => { if (!n.days[date]) n.days[date] = emptyNutriDay(); if (!n.days[date].meals) n.days[date].meals = { Breakfast: [], Lunch: [], Dinner: [], Snacks: [] }; return n.days[date]; };
+  async function persist(n) { updateClient({ ...client, nutrition: n }); await upsertSection(client.id, "nutrition", n); }
+  async function addFood(meal, item) {
+    const n = clone(); const d = ensureDay(n);
+    const e = { id: uid(), name: item.name, kcal: Math.round(Number(item.kcal) || 0), protein: Math.round(Number(item.protein) || 0), carbs: Math.round(Number(item.carbs) || 0), fats: Math.round(Number(item.fats) || 0), qty: item.qty || 1 };
+    d.meals[meal].push(e);
+    n.recents = [{ name: e.name, kcal: e.kcal, protein: e.protein, carbs: e.carbs, fats: e.fats }, ...(n.recents || []).filter((r) => r.name !== e.name)].slice(0, 24);
+    await persist(n);
+  }
+  async function removeFood(meal, id) { const n = clone(); const d = ensureDay(n); d.meals[meal] = d.meals[meal].filter((x) => x.id !== id); await persist(n); }
+  async function addFoods(meal, items) {
+    const n = clone(); const d = ensureDay(n);
+    items.forEach((item) => { const e = { id: uid(), name: item.name, kcal: Math.round(Number(item.kcal) || 0), protein: Math.round(Number(item.protein) || 0), carbs: Math.round(Number(item.carbs) || 0), fats: Math.round(Number(item.fats) || 0), qty: item.qty || 1 }; d.meals[meal].push(e); n.recents = [{ name: e.name, kcal: e.kcal, protein: e.protein, carbs: e.carbs, fats: e.fats }, ...(n.recents || []).filter((r) => r.name !== e.name)]; });
+    n.recents = (n.recents || []).slice(0, 24);
+    await persist(n);
+  }
+  async function setWater(v) { const n = clone(); const d = ensureDay(n); d.water = Math.max(0, Math.round(v * 100) / 100); await persist(n); }
+  async function saveTargets() { const n = clone(); n.targets = { ...tf }; await persist(n); setShowTargets(false); }
+  const shiftDate = (delta) => { const dt = new Date(date + "T00:00:00"); dt.setDate(dt.getDate() + delta); setDate(dt.toISOString().slice(0, 10)); };
 
-  const todays = (nutrition.logs || []).filter((l) => l.date === date);
-  const loggedDates = useMemo(() => new Set((nutrition.logs || []).map((l) => l.date)), [nutrition.logs]);
-  const daily = nutrition.daily?.[date] || {};
-  const totals = todays.reduce((a, l) => ({ kcal: a.kcal + Number(l.kcal || 0), protein: a.protein + Number(l.protein || 0), carbs: a.carbs + Number(l.carbs || 0), fats: a.fats + Number(l.fats || 0) }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
-  const targets = nutrition.targets || {};
-  const remaining = Math.max(0, Number(targets.calories || 0) - totals.kcal);
-
-  async function persist(next) {
-    const clean = normalizeNutrition(next);
-    setNutrition(clean);
-    await upsertSection(client.id, "nutrition", clean);
-    updateClient({ ...client, nutrition: clean });
-  }
-  function setTarget(k, v) { const next = { ...nutrition, targets: { ...nutrition.targets, [k]: v } }; setNutrition(next); }
-  function setMealPlan(k, v) { const next = { ...nutrition, mealPlan: { ...nutrition.mealPlan, [k]: v } }; setNutrition(next); }
-  async function saveTargets() { setSaving(true); await persist(nutrition); setMessage("Saved"); setSaving(false); setTimeout(() => setMessage(""), 1500); }
-  async function addFoodTo(meal, item) {
-    const entry = { id: uid(), date, meal, food: item.name, qty: item.qty || 1, kcal: Math.round(item.kcal || 0), protein: Math.round(item.protein || 0), carbs: Math.round(item.carbs || 0), fats: Math.round(item.fats || 0), estimate: item.estimate || null };
-    await persist({ ...nutrition, logs: [...(nutrition.logs || []), entry] });
-    setAddingMeal(null);
-  }
-  async function delLog(id) { await persist({ ...nutrition, logs: (nutrition.logs || []).filter((l) => l.id !== id) }); }
-  async function logSavedMeal(meal, savedMeal) {
-    const entries = (savedMeal.items || []).map((it) => ({ id: uid(), date, meal, food: it.name, qty: it.qty || 1, kcal: Math.round(it.kcal || 0), protein: Math.round(it.protein || 0), carbs: Math.round(it.carbs || 0), fats: Math.round(it.fats || 0), savedMealName: savedMeal.name }));
-    await persist({ ...nutrition, logs: [...(nutrition.logs || []), ...entries] });
-  }
-  async function saveMeal(meal) { await persist({ ...nutrition, savedMeals: [...(nutrition.savedMeals || []), meal] }); setCreatingMealFor(null); }
-  function setDaily(k, v) { const next = { ...nutrition, daily: { ...(nutrition.daily || {}), [date]: { ...(nutrition.daily?.[date] || {}), [k]: v } } }; setNutrition(next); persist(next); }
-  const waterGlasses = 8;
-  const waterFilled = Math.round((Number(daily.water || 0) / (Number(targets.water || 3) || 3)) * waterGlasses);
+  const macros = [
+    { k: "Protein", v: totals.protein, t: Number(t.protein) || 0, c: BRAND.green },
+    { k: "Carbs", v: totals.carbs, t: Number(t.carbs) || 0, c: BRAND.orange },
+    { k: "Fats", v: totals.fats, t: Number(t.fats) || 0, c: BRAND.purple },
+  ];
+  const ring = 2 * Math.PI * 34;
 
   return (
-    <div style={{ display: "grid", gap: isMobile ? 10 : 14, maxWidth: "100%", overflowX: "hidden" }}>
-      <Card style={{ padding: isMobile ? 12 : 16 }}>
-        <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 1000, color: BRAND.gold, marginBottom: 14 }}>Nutrition</div>
-        <WeekStrip date={date} onSelect={setDate} loggedDates={loggedDates} color={client.color} />
-      </Card>
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button onClick={() => shiftDate(-1)} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: "pointer" }}>{"\u2039"}</button>
+        <div style={{ fontWeight: 1000, fontSize: 16 }}>{date === today ? "Today" : date}</div>
+        <button onClick={() => shiftDate(1)} disabled={date >= today} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: date >= today ? "default" : "pointer", opacity: date >= today ? 0.4 : 1 }}>{"\u203a"}</button>
+      </div>
 
-      <Card style={{ padding: isMobile ? 14 : 18 }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "auto 1fr", gap: 20, alignItems: "center" }}>
-          <div style={{ display: "grid", placeItems: "center" }}>
-            <ProgressRing label="Calories left" value={remaining} total={Number(targets.calories || 0) || remaining || 1} unit="" color={client.color} size={isMobile ? 130 : 150} />
+      <Card style={{ padding: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <div style={{ position: "relative", width: 92, height: 92, flexShrink: 0 }}>
+            <svg width="92" height="92" style={{ transform: "rotate(-90deg)" }}><circle cx="46" cy="46" r="34" fill="none" stroke={BRAND.card2} strokeWidth="8" /><circle cx="46" cy="46" r="34" fill="none" stroke={calColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={ring} strokeDashoffset={ring * (1 - calPct)} /></svg>
+            <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000, color: calColor }}>{calTarget ? Math.abs(Math.round(calLeft)) : Math.round(totals.kcal)}</div><div style={{ fontSize: 8, fontWeight: 1000, color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{!calTarget ? "kcal" : overCal ? "over" : "left"}</div></div></div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, marginBottom: 4 }}><span style={{ color: BRAND.cyan }}>Protein</span><span style={{ color: BRAND.muted }}>{totals.protein}/{targets.protein || 0}g</span></div>
-              <div style={{ height: 8, background: BRAND.card2, borderRadius: 999 }}><div style={{ height: 8, width: `${macroPct(totals.protein, targets.protein)}%`, background: BRAND.cyan, borderRadius: 999 }} /></div>
-            </div>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, marginBottom: 4 }}><span style={{ color: BRAND.gold }}>Carbs</span><span style={{ color: BRAND.muted }}>{totals.carbs}/{targets.carbs || 0}g</span></div>
-              <div style={{ height: 8, background: BRAND.card2, borderRadius: 999 }}><div style={{ height: 8, width: `${macroPct(totals.carbs, targets.carbs)}%`, background: BRAND.gold, borderRadius: 999 }} /></div>
-            </div>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, marginBottom: 4 }}><span style={{ color: BRAND.purple }}>Fats</span><span style={{ color: BRAND.muted }}>{totals.fats}/{targets.fats || 0}g</span></div>
-              <div style={{ height: 8, background: BRAND.card2, borderRadius: 999 }}><div style={{ height: 8, width: `${macroPct(totals.fats, targets.fats)}%`, background: BRAND.purple, borderRadius: 999 }} /></div>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 14, borderTop: `1px solid ${BRAND.line}`, flexWrap: "wrap", gap: 10 }}>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            {Array.from({ length: waterGlasses }, (_, i) => (
-              <button key={i} onClick={() => setDaily("water", Number((((i + 1) / waterGlasses) * Number(targets.water || 3)).toFixed(1)))} style={{ width: 22, height: 26, borderRadius: 4, border: `1px solid ${BRAND.blue}`, background: i < waterFilled ? BRAND.blue : "transparent", cursor: "pointer", padding: 0 }} title="Tap to set water intake" />
-            ))}
-            <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, marginLeft: 4 }}>{daily.water || 0}L / {targets.water || 3}L</span>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <Field label="" value={daily.steps || ""} onChange={(v) => setDaily("steps", v)} type="number" placeholder="Steps today" />
-            <label><select value={daily.sleep || ""} onChange={(e) => setDaily("sleep", e.target.value)} style={inputStyle({ minWidth: 120 })}>{SLEEP_HOURS.map((h) => <option key={h} value={h}>{h ? `${h}h sleep` : "Sleep"}</option>)}</select></label>
+          <div style={{ flex: 1, display: "grid", gap: 11, minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 900 }}><span style={{ color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Calories</span><span>{Math.round(totals.kcal)} / {calTarget || "\u2014"}</span></div>
+            {macros.map((m) => { const pct = m.t ? Math.min(1, m.v / m.t) : 0; return <div key={m.k}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 900, marginBottom: 4 }}><span style={{ color: m.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{m.k}</span><span style={{ color: BRAND.muted }}>{Math.round(m.v)} / {m.t || "\u2014"}g</span></div>
+              <div style={{ height: 7, borderRadius: 999, background: BRAND.card2, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct * 100}%`, background: m.c, borderRadius: 999 }} /></div>
+            </div>; })}
           </div>
         </div>
       </Card>
 
-      {MEAL_ORDER.map((meal) => (
-        <div key={meal}>
-          <SavedMealsRow meal={meal} savedMeals={nutrition.savedMeals || []} onLog={(m) => logSavedMeal(meal, m)} onCreate={() => setCreatingMealFor(meal)} />
-          <MealSection meal={meal} logs={todays.filter((l) => l.meal === meal)} plan={nutrition.mealPlan?.[meal]} color={client.color} onAdd={() => setAddingMeal(meal)} onDelete={delLog} />
-        </div>
-      ))}
-
-      <WeekAdherenceStrip nutrition={nutrition} targets={targets} color={client.color} />
-
-      {isCoach && <Card style={{ padding: isMobile ? 12 : 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showTargets ? 12 : 0 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>Coach Nutrition Targets</div>
-          <Button variant="dark" onClick={() => setShowTargets((v) => !v)}>{showTargets ? "Hide" : "Edit Targets"}</Button>
-        </div>
+      {isCoach && <Card style={{ display: "grid", gap: 10 }}>
+        <button onClick={() => { setTf(nutrition.targets); setShowTargets(!showTargets); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", color: BRAND.text, padding: 0 }}><span style={{ fontWeight: 1000, fontSize: 14 }}>Daily targets</span><span style={{ color: BRAND.gold, fontWeight: 900, fontSize: 12 }}>{showTargets ? "Close" : "Edit"}</span></button>
         {showTargets && <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>
-            {["calories", "protein", "carbs", "fats", "water", "steps"].map((k) => <Field key={k} label={k} value={nutrition.targets[k] || ""} onChange={(v) => setTarget(k, v)} type="number" />)}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <Field label="Calories" value={tf.calories} onChange={(v) => setTf({ ...tf, calories: v })} type="number" />
+            <Field label="Protein g" value={tf.protein} onChange={(v) => setTf({ ...tf, protein: v })} type="number" />
+            <Field label="Carbs g" value={tf.carbs} onChange={(v) => setTf({ ...tf, carbs: v })} type="number" />
+            <Field label="Fats g" value={tf.fats} onChange={(v) => setTf({ ...tf, fats: v })} type="number" />
+            <Field label="Water L" value={tf.water} onChange={(v) => setTf({ ...tf, water: v })} type="number" />
+            <Field label="Steps" value={tf.steps} onChange={(v) => setTf({ ...tf, steps: v })} type="number" />
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginTop: 12 }}>
-            {MEAL_ORDER.map((m) => (
-              <div key={m}>
-                <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 5 }}>{m.toUpperCase()} PLAN</div>
-                <textarea value={nutrition.mealPlan?.[m] || ""} onChange={(e) => setMealPlan(m, e.target.value)} placeholder={`Write ${m.toLowerCase()} foods, portions, notes...`} style={textareaStyle({ minHeight: 80 })} />
-              </div>
-            ))}
-          </div>
-          <textarea value={nutrition.planNotes || ""} onChange={(e) => setNutrition((n) => ({ ...n, planNotes: e.target.value }))} placeholder="Coach notes: dietary restrictions, meal timing, foods to avoid..." style={textareaStyle({ minHeight: 70, marginTop: 10 })} />
-          <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
-            <Button onClick={saveTargets} disabled={saving}>{saving ? "Saving..." : "Save Targets & Plan"}</Button>
-            {message && <span style={{ color: BRAND.green, fontWeight: 900 }}>{message}</span>}
-          </div>
+          <Button onClick={saveTargets}>Save targets</Button>
         </>}
       </Card>}
 
-      {addingMeal && <FoodSearchModal client={client} onClose={() => setAddingMeal(null)} onAdd={(item) => addFoodTo(addingMeal, item)} />}
-      {creatingMealFor && <SaveMealModal client={client} mealType={creatingMealFor} onClose={() => setCreatingMealFor(null)} onSave={saveMeal} />}
+      {MEALS.map((m) => {
+        const items = day.meals?.[m] || [];
+        const mk = items.reduce((a, x) => a + (Number(x.kcal) || 0), 0);
+        return <Card key={m} style={{ padding: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontWeight: 1000, fontSize: 15 }}>{m}</div>
+            <div style={{ color: BRAND.muted, fontWeight: 900, fontSize: 13 }}>{Math.round(mk)} kcal</div>
+          </div>
+          {items.map((it) => <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: `1px solid ${BRAND.line}`, marginTop: 8 }}>
+            <div style={{ minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 700, marginTop: 2 }}>{it.kcal} kcal \u00b7 P{it.protein} C{it.carbs} F{it.fats}</div></div>
+            {!isCoach && <button onClick={() => removeFood(m, it.id)} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18, flexShrink: 0, marginLeft: 8 }}>{"\u00d7"}</button>}
+          </div>)}
+          {!isCoach && <button onClick={() => setAddingMeal(m)} style={{ width: "100%", marginTop: 10, padding: "10px", borderRadius: 10, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>+ Add food</button>}
+          {isCoach && items.length === 0 && <div style={{ color: BRAND.dim, fontSize: 12, fontWeight: 600, marginTop: 8 }}>Nothing logged.</div>}
+        </Card>;
+      })}
+
+      <Card style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div><div style={{ fontWeight: 1000, fontSize: 14 }}>Water</div><div style={{ color: BRAND.blue, fontSize: 13, fontWeight: 900, marginTop: 2 }}>{day.water || 0} / {t.water || 3} L</div></div>
+        {!isCoach && <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setWater((Number(day.water) || 0) - 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>{"\u2212"}</button>
+          <button onClick={() => setWater((Number(day.water) || 0) + 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.blue, border: "none", color: "#000", fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>+</button>
+        </div>}
+      </Card>
+
+      {addingMeal && <FoodSearchModal client={client} meal={addingMeal} onClose={() => setAddingMeal(null)} onAdd={(item, m) => addFood(m || addingMeal, item)} onAddMany={(items, m) => addFoods(m || addingMeal, items)} />}
     </div>
   );
 }
@@ -5198,6 +5750,16 @@ async function loadCheckInTemplate(trainerId) {
   const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "checkin_template").maybeSingle();
   return data?.data?.questions?.length ? data.data.questions : DEFAULT_CHECKIN_QUESTIONS;
 }
+async function loadArticles(trainerId) {
+  if (!trainerId) return [];
+  const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "articles").maybeSingle();
+  return data?.data?.articles || [];
+}
+async function loadIntakeTemplate(trainerId) {
+  if (!trainerId) return DEFAULT_INTAKE_QUESTIONS;
+  const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "intake_template").maybeSingle();
+  return data?.data?.questions?.length ? data.data.questions : DEFAULT_INTAKE_QUESTIONS;
+}
 const CHECKIN_QUESTION_TYPES = [["text", "Text"], ["scale", "1-10 Scale"], ["choice", "Multiple Choice"]];
 function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
   const [questions, setQuestions] = useState(template.map((q) => ({ type: "text", ...q })));
@@ -5239,6 +5801,17 @@ function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
     </div>
   );
 }
+function computeCheckInFlags(template, answers) {
+  const low = ["Struggling", "Poor", "Fair", "50-74%", "Below 50%"];
+  const flags = [];
+  template.forEach((q) => {
+    const a = answers[q.id];
+    if (!a) return;
+    if (low.includes(a)) flags.push({ q: q.text, a });
+    else if (q.type === "scale" && Number(a) > 0 && Number(a) <= 4) flags.push({ q: q.text, a: a + "/10" });
+  });
+  return flags;
+}
 function CheckInsTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [template, setTemplate] = useState(DEFAULT_CHECKIN_QUESTIONS);
@@ -5247,20 +5820,50 @@ function CheckInsTab({ client, updateClient, isCoach }) {
   const [answers, setAnswers] = useState({});
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(null);
+  const [step, setStep] = useState(0);
   const submissions = client.checkIns || [];
   const lastSubmission = submissions[submissions.length - 1];
   const daysSinceLast = lastSubmission ? daysSince(lastSubmission.date) : null;
   const dueForCheckIn = daysSinceLast === null || daysSinceLast >= 7;
   useEffect(() => { loadCheckInTemplate(client.trainer_id).then((qs) => { setTemplate(qs); setLoadingTemplate(false); }); }, [client.trainer_id]);
   function setAnswer(id, v) { setAnswers((a) => ({ ...a, [id]: v })); }
+  const perStep = 2;
+  const pages = [];
+  for (let i = 0; i < template.length; i += perStep) pages.push(template.slice(i, i + perStep));
+  const totalSteps = pages.length + 1;
+  const isReview = step >= pages.length;
+  const liveFlags = computeCheckInFlags(template, answers);
   async function submit() {
     setSaving(true);
-    const entry = { id: uid(), date: isoDate(), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })) };
+    const entry = { id: uid(), date: isoDate(), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })), flags: liveFlags };
     const next = [...submissions, entry];
     await upsertSection(client.id, "checkins", { submissions: next });
     updateClient({ ...client, checkIns: next });
-    setAnswers({});
-    setSaving(false);
+    setAnswers({}); setStep(0); setSaving(false);
+  }
+  function renderQuestion(q) {
+    return (
+      <div key={q.id}>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{q.text}</div>
+        {q.type === "scale" && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <button key={n} onClick={() => setAnswer(q.id, String(n))} style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.line}`, background: String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.card2, color: String(answers[q.id]) === String(n) ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
+            ))}
+          </div>
+        )}
+        {q.type === "choice" && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {(q.options || []).map((opt) => (
+              <button key={opt} onClick={() => setAnswer(q.id, opt)} style={{ flex: 1, minWidth: 72, textAlign: "center", padding: "11px 4px", borderRadius: 12, border: `1px solid ${answers[q.id] === opt ? BRAND.green : BRAND.line}`, background: answers[q.id] === opt ? BRAND.green : BRAND.card2, color: answers[q.id] === opt ? "#000" : BRAND.muted, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", cursor: "pointer" }}>{opt}</button>
+            ))}
+          </div>
+        )}
+        {(!q.type || q.type === "text") && (
+          <textarea value={answers[q.id] || ""} onChange={(e) => setAnswer(q.id, e.target.value)} placeholder="Type your answer..." style={textareaStyle({ minHeight: 64 })} />
+        )}
+      </div>
+    );
   }
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -5273,32 +5876,30 @@ function CheckInsTab({ client, updateClient, isCoach }) {
       </Card>
       {!isCoach && !loadingTemplate && (
         <Card style={{ padding: isMobile ? 12 : 16, border: dueForCheckIn ? `1px solid ${BRAND.gold}` : undefined }}>
-          <div style={{ fontWeight: 1000, marginBottom: dueForCheckIn ? 4 : 0, color: dueForCheckIn ? BRAND.gold : BRAND.text }}>{dueForCheckIn ? "Your check-in is due" : "Check in early if you'd like"}</div>
-          <div style={{ display: "grid", gap: 14, marginTop: 10 }}>
-            {template.map((q) => (
-              <div key={q.id}>
-                <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{q.text}</div>
-                {q.type === "scale" && (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                      <button key={n} onClick={() => setAnswer(q.id, String(n))} style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.line}`, background: String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.card2, color: String(answers[q.id]) === String(n) ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
-                    ))}
-                  </div>
-                )}
-                {q.type === "choice" && (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {(q.options || []).map((opt) => (
-                      <button key={opt} onClick={() => setAnswer(q.id, opt)} style={{ flex: 1, textAlign: "center", padding: "11px 4px", borderRadius: 12, border: `1px solid ${answers[q.id] === opt ? BRAND.green : BRAND.line}`, background: answers[q.id] === opt ? BRAND.green : BRAND.card2, color: answers[q.id] === opt ? "#000" : BRAND.muted, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", cursor: "pointer" }}>{opt}</button>
-                    ))}
-                  </div>
-                )}
-                {(!q.type || q.type === "text") && (
-                  <textarea value={answers[q.id] || ""} onChange={(e) => setAnswer(q.id, e.target.value)} placeholder="Type your answer..." style={textareaStyle({ minHeight: 64 })} />
-                )}
-              </div>
-            ))}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontWeight: 1000, color: dueForCheckIn ? BRAND.gold : BRAND.text }}>{isReview ? "Review & submit" : dueForCheckIn ? "Your check-in is due" : "Check in early if you'd like"}</div>
+            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 800 }}>{Math.min(step + 1, totalSteps)} / {totalSteps}</div>
           </div>
-          <Button onClick={submit} disabled={saving} style={{ marginTop: 12, width: "100%" }}>{saving ? "Submitting..." : "Submit Check-in"}</Button>
+          <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ height: 4, width: `${((step + 1) / totalSteps) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} />
+          </div>
+          {!isReview && <div style={{ display: "grid", gap: 16 }}>{pages[step].map(renderQuestion)}</div>}
+          {isReview && (
+            <div style={{ display: "grid", gap: 10 }}>
+              {template.map((q) => (
+                <div key={q.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}>
+                  <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900 }}>{q.text}</div>
+                  <div style={{ color: answers[q.id] ? BRAND.text : BRAND.dim, fontSize: 13 }}>{answers[q.id] || "-"}</div>
+                </div>
+              ))}
+              <div style={{ marginTop: 4, color: liveFlags.length ? BRAND.red : BRAND.green, fontSize: 12, fontWeight: 900 }}>{liveFlags.length ? `\u2691 ${liveFlags.length} thing${liveFlags.length === 1 ? "" : "s"} flagged for your coach` : "\u2713 Nothing flagged"}</div>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            {step > 0 && <Button variant="dark" onClick={() => setStep(step - 1)} style={{ flex: 1 }}>Back</Button>}
+            {!isReview && <Button onClick={() => setStep(step + 1)} style={{ flex: 2 }}>Next</Button>}
+            {isReview && <Button onClick={submit} disabled={saving} style={{ flex: 2 }}>{saving ? "Submitting..." : "Submit Check-in"}</Button>}
+          </div>
         </Card>
       )}
       <Card style={{ padding: isMobile ? 12 : 16 }}>
@@ -5306,7 +5907,10 @@ function CheckInsTab({ client, updateClient, isCoach }) {
         {submissions.length === 0 && <div style={{ color: BRAND.muted }}>No check-ins yet.</div>}
         {[...submissions].reverse().map((s) => (
           <div key={s.id} onClick={() => setOpen(open === s.id ? null : s.id)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}><b>{s.date}</b><span style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>{open === s.id ? "Hide" : "View"}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{s.date}</b>{s.flags && s.flags.length > 0 && <span style={{ color: BRAND.red, fontSize: 11, fontWeight: 900 }}>{"\u2691"} {s.flags.length}</span>}</div>
+              <span style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>{open === s.id ? "Hide" : "View"}</span>
+            </div>
             {open === s.id && <div style={{ marginTop: 8, display: "grid", gap: 6 }}>{s.answers.map((a, i) => <div key={i}><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>{a.question}</div><div style={{ color: BRAND.text, fontSize: 13 }}>{a.answer || "-"}</div></div>)}</div>}
           </div>
         ))}
@@ -5315,6 +5919,7 @@ function CheckInsTab({ client, updateClient, isCoach }) {
     </div>
   );
 }
+
 function paymentStatus(client) {
   if (!client.paymentDueDate) return { label: "Not scheduled", color: BRAND.muted };
   if (client.paymentPaid) return { label: "Paid", color: BRAND.green };
@@ -5324,9 +5929,62 @@ function paymentStatus(client) {
   if (d <= 5) return { label: `Due in ${d} days`, color: BRAND.gold };
   return { label: `Due ${client.paymentDueDate}`, color: BRAND.text };
 }
+const PAYPAL_CLIENT_ID = "BAAd5BGOGHj3CeXA5Ys4xWIQf5Ok_zHxmC0vodSe3IU15-aTtq4UNW_PVyAb5y370D0xcGx04v9Xgplnp8"; // sandbox; swap for Live client id when going live
+function PayPalCheckout({ client, amount, onPaid }) {
+  const ref = useRef(null);
+  const [status, setStatus] = useState("loading");
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    function render() {
+      if (cancelled || !ref.current || !window.paypal) return;
+      ref.current.innerHTML = "";
+      try {
+        window.paypal.Buttons({
+          style: { layout: "vertical", color: "black", shape: "pill", label: "pay" },
+          createOrder: async () => {
+            const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "create", amount: String(amount), currency: "USD", description: `Coaching - ${client.name}` } });
+            if (error || !data || !data.id) throw new Error("create failed");
+            return data.id;
+          },
+          onApprove: async (d) => {
+            setStatus("paying");
+            const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "capture", orderId: d.orderID } });
+            if (error || !data || data.status !== "COMPLETED") { setErr("Payment did not complete. Try again."); setStatus("ready"); return; }
+            setStatus("done");
+            if (onPaid) onPaid(data);
+          },
+          onError: () => { setErr("Payment error. Please try again."); setStatus("ready"); },
+        }).render(ref.current);
+        setStatus("ready");
+      } catch (e) { setErr("Could not load checkout."); setStatus("error"); }
+    }
+    if (window.paypal) { render(); return () => { cancelled = true; }; }
+    const id = "paypal-sdk";
+    let script = document.getElementById(id);
+    if (!script) {
+      script = document.createElement("script");
+      script.id = id;
+      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&components=buttons&enable-funding=card`;
+      script.onload = render;
+      script.onerror = () => { if (!cancelled) { setErr("Could not load PayPal."); setStatus("error"); } };
+      document.body.appendChild(script);
+    } else { script.addEventListener("load", render); render(); }
+    return () => { cancelled = true; };
+  }, [amount]);
+  if (status === "done") return <div style={{ background: `${BRAND.green}18`, border: `1px solid ${BRAND.green}`, borderRadius: 12, padding: 14, textAlign: "center" }}><div style={{ color: BRAND.green, fontWeight: 1000, fontSize: 16 }}>Payment received</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>Thanks, you are all set.</div></div>;
+  return <div>
+    {status === "loading" && <div style={{ color: BRAND.muted, fontSize: 13, marginBottom: 8 }}>Loading secure checkout...</div>}
+    {status === "paying" && <div style={{ color: BRAND.gold, fontSize: 13, marginBottom: 8 }}>Confirming payment...</div>}
+    <div ref={ref} />
+    {err && <div style={{ color: BRAND.red, fontSize: 12, marginTop: 8 }}>{err}</div>}
+  </div>;
+}
+
 function PaymentsTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [dueDate, setDueDate] = useState(client.paymentDueDate || "");
+  const [price, setPrice] = useState(client.price || "");
   const [saving, setSaving] = useState(false);
   const status = paymentStatus(client);
   async function persist(next) {
@@ -5336,14 +5994,27 @@ function PaymentsTab({ client, updateClient, isCoach }) {
   async function saveDueDate() { setSaving(true); await persist({ paymentDueDate: dueDate, paymentPaid: false }); setSaving(false); }
   async function markPaid() { await persist({ paymentPaid: true }); }
   async function renew30() { const next = new Date(); next.setDate(next.getDate() + 30); const nextDate = isoDate(next); setDueDate(nextDate); await persist({ paymentDueDate: nextDate, paymentPaid: false }); }
+  async function savePrice() { setSaving(true); await persist({ price }); setSaving(false); }
+  async function onPaid() { const next = new Date(); next.setDate(next.getDate() + 30); await persist({ paymentPaid: true, paymentDueDate: isoDate(next), lastPaidAt: new Date().toISOString() }); }
   return (
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Payments</div>
       <div style={{ background: BRAND.card2, border: `1px solid ${status.color}`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
         <div style={{ color: status.color, fontWeight: 1000, fontSize: 18 }}>{status.label}</div>
+        {client.price && <div style={{ color: BRAND.text, fontSize: 15, fontWeight: 900, marginTop: 4 }}>${client.price} / month</div>}
         {client.paymentDueDate && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Due date: {client.paymentDueDate}</div>}
       </div>
+      {!isCoach && client.price && !client.paymentPaid && <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 8, color: BRAND.muted }}>Pay ${client.price} — PayPal, card, Apple Pay or Google Pay</div>
+        <PayPalCheckout client={client} amount={client.price} onPaid={onPaid} />
+      </div>}
+      {!isCoach && !client.price && <div style={{ color: BRAND.muted, fontSize: 13 }}>Your coach has not set a price yet.</div>}
+      {!isCoach && client.paymentPaid && <div style={{ color: BRAND.green, fontWeight: 900, fontSize: 14 }}>You are paid up. Thank you.</div>}
       {isCoach && <>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginBottom: 12 }}>
+          <Field label="Monthly price (USD)" value={price} onChange={setPrice} type="number" />
+          <Button onClick={savePrice} disabled={saving} style={{ alignSelf: "end" }}>Set Price</Button>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginBottom: 12 }}>
           <Field label="Payment due date" value={dueDate} onChange={setDueDate} type="date" />
           <Button onClick={saveDueDate} disabled={saving} style={{ alignSelf: "end" }}>{saving ? "Saving..." : "Set Due Date"}</Button>
@@ -5352,7 +6023,7 @@ function PaymentsTab({ client, updateClient, isCoach }) {
           <Button variant="dark" onClick={markPaid}>Mark as Paid</Button>
           <Button variant="dark" onClick={renew30}>Mark Paid & Renew 30 Days</Button>
         </div>
-        <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 12 }}>You'll get a reminder 5 days before, another 2 days before, and one if a payment goes overdue.</div>
+        <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 12 }}>Set a monthly price so the client can pay in-app. Reminders go out 5 and 2 days before, and if overdue.</div>
       </>}
     </Card>
   );
