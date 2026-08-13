@@ -71,6 +71,9 @@ const GLOBAL_TEXT_CSS = `
   button { color: inherit; background: none; }
   button:disabled { opacity: 0.5; }
   ::placeholder { font-weight: 600 !important; opacity: 0.8; }
+  * { box-sizing: border-box; }
+  html, body, #root { max-width: 100vw; overflow-x: hidden; }
+  img, video { max-width: 100%; }
 `;
 const GOAL_OPTIONS = [
   "Fat Loss",
@@ -1570,7 +1573,7 @@ function safeFilename(name) { return String(name || "file").replace(/[^a-z0-9]+/
 async function downloadProgramPDF2(client, program) {
   if (!program) return;
   const sections = (program.weeks || []).map((w) => ({
-    heading: `Week ${w.weekNum}${w.label ? ` \u2014 ${w.label}` : ""}${w.focus ? `  ·  ${w.focus}` : ""}${w.targetRpe ? `  ·  Target RPE ${w.targetRpe}` : ""}`,
+    heading: `Week ${w.weekNum}${w.label ? ` — ${w.label}` : ""}${w.focus ? `  ·  ${w.focus}` : ""}${w.targetRpe ? `  ·  Target RPE ${w.targetRpe}` : ""}`,
     lines: (w.workouts || []).map((wo) => `${wo.name}`),
     table: (w.workouts || []).flatMap((wo) => (wo.blocks || []).flatMap((b, bi) => (b.exercises || []).map((ex, ei) => [exerciseTag(b, bi, ei), ex.name, fmtExerciseSummary(ex), ex.note || ""]))),
   }));
@@ -1585,7 +1588,7 @@ async function downloadTrialPDF(trial) {
     { heading: "Health", lines: [{ label: "Injuries", value: trial.injuries }, { label: "Medical issues", value: trial.medicalIssues }] },
     { heading: "Lifestyle", lines: [{ label: "Nutrition", value: trial.nutrition }, { label: "Sleep", value: trial.sleep }, { label: "Daily activity (NEAT)", value: trial.neat }] },
     { heading: "Priorities", lines: [{ label: "Fat loss", value: trial.fatLossImportance }, { label: "Muscle gain", value: trial.muscleGainImportance }, { label: "Strength/endurance", value: trial.strengthEnduranceImportance }, { label: "Mobility/flexibility", value: trial.mobilityFlexibilityImportance }] },
-    { heading: `Assessment${trial.assessmentDate ? ` \u2014 ${trial.assessmentDate}` : ""}`, lines: [{ label: "Cardiovascular", value: trial.cardiovascular }, { label: "Squat", value: trial.squat }, { label: "Push strength", value: trial.pushStrength }, { label: "Pull strength", value: trial.pullStrength }, { label: "Core strength", value: trial.coreStrength }, { label: "Flexibility", value: trial.flexibilityFitness }] },
+    { heading: `Assessment${trial.assessmentDate ? ` — ${trial.assessmentDate}` : ""}`, lines: [{ label: "Cardiovascular", value: trial.cardiovascular }, { label: "Squat", value: trial.squat }, { label: "Push strength", value: trial.pushStrength }, { label: "Pull strength", value: trial.pullStrength }, { label: "Core strength", value: trial.coreStrength }, { label: "Flexibility", value: trial.flexibilityFitness }] },
   ];
   const subtitle = `Trial consultation${trial.savedAt ? `  ·  ${String(trial.savedAt).slice(0, 10)}` : ""}`;
   const blob = await buildPdfDoc(trial.name || "Trial", subtitle, sections);
@@ -2042,6 +2045,9 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
   }
   function finish() { const completed = { ...session, status: "completed", completedAt: new Date().toISOString() }; setFinished(completed); onUpdate(completed); }
   function handleExit() { if (session.startedAt && session.status !== "completed") { const e = Math.round((Date.now() - new Date(session.startedAt)) / 1000); onUpdate({ ...session, startedAt: null, elapsedSec: e }); } onExit(); }
+  function adjustRest(delta) { if (rest && restLeft > 0) { const nl = Math.max(5, restLeft + delta); setRest({ until: Date.now() + nl * 1000, total: Math.max(rest.total, nl) }); } else { const base = Math.max(15, restTotal + delta); setRest({ until: Date.now() + base * 1000, total: base }); } }
+  const sessionRef = useRef(session); sessionRef.current = session;
+  useEffect(() => () => { const sn = sessionRef.current; if (sn && sn.startedAt && sn.status !== "completed") { const e = Math.round((Date.now() - new Date(sn.startedAt)) / 1000); onUpdate({ ...sn, startedAt: null, elapsedSec: e }); } }, []);
   const elapsed = session.startedAt ? Math.round((Date.now() - new Date(session.startedAt)) / 1000) : (session.elapsedSec || 0);
   const stats = sessionStatsV2(session);
   const restLeft = rest ? Math.ceil((rest.until - Date.now()) / 1000) : 0;
@@ -2093,7 +2099,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
     <InjuryBanner client={client} />
     <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer", padding: 0 }}>\u2039 Exit</button>
+        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer", padding: 0 }}>‹ Exit</button>
         <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 9, padding: "5px 11px", fontWeight: 1000, color: BRAND.gold, fontSize: 13 }}>{elapsed > 0 ? fmtClock(elapsed) : "0:00"}</div>
       </div>
       <div>
@@ -2106,7 +2112,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
         {block && block.type !== "straight" && <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", marginTop: 4 }}>{entry.tag} · {block.type}</div>}
       </div>
       {thumb ? <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ width: "100%", padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 18, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: BRAND.card2 }}>
-        <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.5 }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.5)", border: `2px solid ${BRAND.gold}`, display: "grid", placeItems: "center", color: BRAND.gold, fontSize: 20 }}>\u25b6</div></div></div>
+        <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.5 }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.5)", border: `2px solid ${BRAND.gold}`, display: "grid", placeItems: "center", color: BRAND.gold, fontSize: 20 }}>▶</div></div></div>
         {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
       {ex.note && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.gold}44`, borderRadius: 12, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Coach: </span>{ex.note}</div>}
@@ -2120,7 +2126,7 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
               <input inputMode="decimal" placeholder={prev.load || (timed ? "load" : "kg")} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={{ width: "100%", minWidth: 0, background: "transparent", border: "none", color: BRAND.text, fontWeight: 1000, fontSize: 17, textAlign: "center", outline: "none" }} />
               <input inputMode="numeric" placeholder={timed ? (prev.duration || "s") : (prev.reps || "reps")} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={{ width: "100%", minWidth: 0, background: "transparent", border: "none", color: BRAND.text, fontWeight: 1000, fontSize: 17, textAlign: "center", outline: "none" }} />
               <div style={{ position: "relative" }}>
-                <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ width: "100%", background: "transparent", border: "none", color: s.rpe ? BRAND.text : BRAND.dim, fontWeight: 1000, fontSize: 16, textAlign: "center", cursor: "pointer" }}>{s.rpe || "\u2014"}</button>
+                <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ width: "100%", background: "transparent", border: "none", color: s.rpe ? BRAND.text : BRAND.dim, fontWeight: 1000, fontSize: 16, textAlign: "center", cursor: "pointer" }}>{s.rpe || "—"}</button>
                 {rpePickerFor === `${entry.id}:${si}` && (
                   <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 6, display: "flex", gap: 4, boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
                     {[6, 7, 8, 9, 10].map((n) => (
@@ -2130,13 +2136,13 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
                 )}
               </div>
               <div style={{ display: "grid", placeItems: "center" }}>
-                <button onClick={() => toggleDone(entry, si)} style={{ width: 32, height: 32, borderRadius: 9, border: `1.5px solid ${s.done ? BRAND.gold : BRAND.dim}`, background: s.done ? BRAND.gold : "transparent", color: "#000", fontWeight: 1000, fontSize: 15, cursor: "pointer" }}>{s.done ? "\u2713" : ""}</button>
+                <button onClick={() => toggleDone(entry, si)} style={{ width: 32, height: 32, borderRadius: 9, border: `1.5px solid ${s.done ? BRAND.gold : BRAND.dim}`, background: s.done ? BRAND.gold : "transparent", color: "#000", fontWeight: 1000, fontSize: 15, cursor: "pointer" }}>{s.done ? "✓" : ""}</button>
               </div>
             </div>
           );
         })}
         <button onClick={() => addSet(entry.id)} style={{ width: "100%", marginTop: 2, padding: "12px", borderRadius: 12, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, cursor: "pointer" }}>+ Add set</button>
-        {prog && <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, textAlign: "center" }}>\u25b2 Progressive overload \u2014 +{prog.bump}kg vs last week</div>}
+        {prog && <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, textAlign: "center" }}>▲ Progressive overload — +{prog.bump}kg vs last week</div>}
       </div>
       <div>
         <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
@@ -2151,15 +2157,18 @@ function WorkoutSession({ client, program, week, workout, session, logsBefore, o
       <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}><svg width="60" height="60" style={{ transform: "rotate(-90deg)" }}><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.gold} strokeWidth="5" strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringC * (1 - restPct)} /></svg><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 1000 }}>{rest && restLeft > 0 ? fmtClock(restLeft) : fmtClock(restTotal)}</div></div>
         <div style={{ flex: 1 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>Rest timer</div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button onClick={() => setRest({ until: Date.now() + restTotal * 1000, total: restTotal })} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: BRAND.gold, color: "#000", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>Start {fmtClock(restTotal)}</button>
-            <button onClick={() => setRest(null)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: BRAND.gold, background: "transparent", border: `1px solid ${BRAND.line}`, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Skip</button>
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <button onClick={() => adjustRest(-30)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: BRAND.text, background: BRAND.card2, border: `1px solid ${BRAND.line}`, fontWeight: 1000, fontSize: 12 }}>-30s</button>
+            {rest && restLeft > 0
+              ? <button onClick={() => setRest(null)} style={{ flex: 1.5, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: "#000", background: BRAND.gold, border: "none", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Skip</button>
+              : <button onClick={() => setRest({ until: Date.now() + restTotal * 1000, total: restTotal })} style={{ flex: 1.5, padding: "10px 0", borderRadius: 10, border: "none", background: BRAND.gold, color: "#000", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>Start {fmtClock(restTotal)}</button>}
+            <button onClick={() => adjustRest(30)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: BRAND.text, background: BRAND.card2, border: `1px solid ${BRAND.line}`, fontWeight: 1000, fontSize: 12 }}>+30s</button>
           </div>
         </div>
       </Card>
       <div style={{ display: "flex", gap: 8 }}>
         {cur > 0 && <Button variant="dark" onClick={() => { setCurrent(cur - 1); setRest(null); }} style={{ flex: 1 }}>Back</Button>}
-        {cur < total - 1 ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise \u203a</Button> : <Button onClick={finish} style={{ flex: 2 }}>Finish workout</Button>}
+        {cur < total - 1 ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise ›</Button> : <Button onClick={finish} style={{ flex: 2 }}>Finish workout</Button>}
       </div>
       <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>{total - cur - 1 > 0 ? `${total - cur - 1} exercise${total - cur - 1 === 1 ? "" : "s"} left` : "Last exercise"}</div>
     </div>
@@ -3255,7 +3264,7 @@ function computeNotifications(clients) {
   });
   return items.sort((a, b) => a.severity - b.severity);
 }
-const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", payment: "\u{1F4B0}", food: "\u{1F37D}\uFE0F", exercise: "\u{1F4AA}" };
+const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", payment: "\u{1F4B0}", food: "\u{1F37D}️", exercise: "\u{1F4AA}" };
 function NotificationsTab({ notifications, selectClient }) {
   if (notifications.length === 0) return <Card><div style={{ color: BRAND.muted }}>You're all caught up. No notifications right now.</div></Card>;
   return (
@@ -3299,7 +3308,7 @@ function CoachPaymentsScreen({ clients, selectClient, onBack }) {
   const dueSoon = withDue.filter((c) => !c.paymentPaid && daysUntil(c.paymentDueDate) >= 0 && daysUntil(c.paymentDueDate) <= 5).length;
   const paid = withDue.filter((c) => c.paymentPaid).length;
   return <div style={{ display: "grid", gap: 14 }}>
-    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
     <div style={{ fontSize: 26, fontWeight: 900 }}>Payments</div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
       <Mini label="Overdue" value={String(overdue)} color={overdue ? BRAND.red : BRAND.text} />
@@ -3334,7 +3343,7 @@ function CoachBroadcastScreen({ clients, refresh, onBack }) {
     setSentCount(clients.length); setMsg(""); setSending(false);
   }
   return <div style={{ display: "grid", gap: 14 }}>
-    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
     <div><div style={{ fontSize: 26, fontWeight: 900 }}>Broadcast</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Send one message to every client. Each one receives it in their Messages.</div></div>
     {sentCount != null && <Card style={{ borderColor: BRAND.green }}><div style={{ color: BRAND.green, fontWeight: 900 }}>Sent to {sentCount} client{sentCount === 1 ? "" : "s"}.</div></Card>}
     <Card style={{ display: "grid", gap: 10 }}>
@@ -3345,7 +3354,7 @@ function CoachBroadcastScreen({ clients, refresh, onBack }) {
 }
 function CoachIntakeFormsScreen({ user, onBack }) {
   return <div style={{ display: "grid", gap: 14 }}>
-    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
     <div><div style={{ fontSize: 26, fontWeight: 900 }}>Intake Form</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>The application every new client completes in-app. Their answers land on their Profile.</div></div>
     {INTAKE_FORM.map((s) => <Card key={s.name}>
       <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>{s.name}</div>
@@ -3360,13 +3369,13 @@ function CoachAutomationsScreen({ user, onBack }) {
     supabase.from("trainer_data").select("data").eq("trainer_id", user.id).eq("section", "automations").maybeSingle().then(({ data }) => setRules({ ...DEFAULTS, ...(data?.data?.rules || {}) }));
   }, [user.id]);
   async function persist(next) { setRules(next); await upsertTrainerData(user.id, "automations", { rules: next }); }
-  if (rules === null) return <div style={{ display: "grid", gap: 14 }}><Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button><Card><div style={{ color: BRAND.muted }}>Loading...</div></Card></div>;
+  if (rules === null) return <div style={{ display: "grid", gap: 14 }}><Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button><Card><div style={{ color: BRAND.muted }}>Loading...</div></Card></div>;
   const Row = ({ k, title, desc }) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}>
     <div><div style={{ fontWeight: 900, fontSize: 14 }}>{title}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>{desc}</div></div>
     <button onClick={() => persist({ ...rules, [k]: !rules[k] })} style={{ width: 46, height: 26, borderRadius: 999, border: "none", cursor: "pointer", background: rules[k] ? BRAND.green : BRAND.card2, position: "relative", flexShrink: 0 }}><span style={{ position: "absolute", top: 3, left: rules[k] ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></button>
   </div>;
   return <div style={{ display: "grid", gap: 14 }}>
-    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>\u2039 Back</Button>
+    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
     <div><div style={{ fontSize: 26, fontWeight: 900 }}>Automations</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Rules that keep clients on track in the background.</div></div>
     <Card style={{ paddingTop: 4 }}>
       <Row k="staleWorkout" title="Inactivity nudge" desc={`Remind clients who have not logged a workout in ${rules.staleWorkoutDays} days`} />
@@ -4165,7 +4174,7 @@ function IntakeForm({ client, updateClient, goTo }) {
       {isReview
         ? <div style={{ display: "grid", gap: 10 }}>
             <div style={{ fontSize: 22, fontWeight: 1000 }}>Review and submit</div>
-            {allFields.map((f) => <div key={f.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900 }}>{f.q}</div><div style={{ fontSize: 13, fontWeight: 600, color: resp[f.id] ? BRAND.text : BRAND.dim }}>{resp[f.id] || "\u2014"}</div></div>)}
+            {allFields.map((f) => <div key={f.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900 }}>{f.q}</div><div style={{ fontSize: 13, fontWeight: 600, color: resp[f.id] ? BRAND.text : BRAND.dim }}>{resp[f.id] || "—"}</div></div>)}
           </div>
         : steps[step].fields.map(renderField)}
     </Card>
@@ -4190,7 +4199,7 @@ const DEFAULT_ARTICLES = [
   { id: "seed4", cat: "Mindset", title: "Consistency beats intensity", read: "2 min", date: "Starter", body: "The best programme is the one you actually follow.\n\nThree solid sessions every week for a year will out-build a perfect plan you abandon in a month. Show up, log it, repeat." },
 ];
 const ART_COVER = { Training: ["#FFA94D", "#6b3d0e"], Nutrition: ["#3DD68C", "#0f5233"], Mindset: ["#A78BFA", "#382559"], Recovery: ["#38BDF8", "#0d4463"] };
-const ART_ICON = { Training: "\ud83c\udfcb", Nutrition: "\ud83e\udd57", Mindset: "\ud83e\udde0", Recovery: "\ud83d\ude34" };
+const ART_ICON = { Training: "🏋", Nutrition: "🥗", Mindset: "🧠", Recovery: "😴" };
 function ProgressHub({ client, updateClient, isCoach }) {
   const [sub, setSub] = useState("trends");
   const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
@@ -4215,11 +4224,11 @@ function HomeLearnStrip({ client, goTo }) {
   return <div>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
       <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase" }}>Learn</div>
-      {goTo && <button onClick={() => goTo("learn")} style={{ background: "none", border: "none", color: BRAND.muted, fontWeight: 900, fontSize: 11, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>See all \u203a</button>}
+      {goTo && <button onClick={() => goTo("learn")} style={{ background: "none", border: "none", color: BRAND.muted, fontWeight: 900, fontSize: 11, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5 }}>See all ›</button>}
     </div>
     <div ref={ref} style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
       {list.map((a) => { const cov = ART_COVER[a.cat] || ["#333", "#111"]; return <div key={a.id} onClick={() => goTo && goTo("learn")} style={{ flex: "0 0 210px", cursor: "pointer", borderRadius: 14, overflow: "hidden", border: `1px solid ${BRAND.line}`, background: BRAND.card }}>
-        <div style={{ height: 96, background: `linear-gradient(140deg, ${cov[0]}, ${cov[1]})`, display: "grid", placeItems: "center", position: "relative" }}><span style={{ fontSize: 30 }}>{ART_ICON[a.cat] || "\ud83d\udcd6"}</span><div style={{ position: "absolute", top: 8, left: 8, fontSize: 8, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, color: "#000", background: "rgba(255,255,255,0.88)", borderRadius: 6, padding: "3px 7px" }}>{a.cat}</div></div>
+        <div style={{ height: 96, background: `linear-gradient(140deg, ${cov[0]}, ${cov[1]})`, display: "grid", placeItems: "center", position: "relative" }}><span style={{ fontSize: 30 }}>{ART_ICON[a.cat] || "📖"}</span><div style={{ position: "absolute", top: 8, left: 8, fontSize: 8, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, color: "#000", background: "rgba(255,255,255,0.88)", borderRadius: 6, padding: "3px 7px" }}>{a.cat}</div></div>
         <div style={{ padding: 11 }}><div style={{ fontWeight: 1000, fontSize: 13, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.title}</div><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800, marginTop: 6, textTransform: "uppercase" }}>{a.read} read</div></div>
       </div>; })}
     </div>
@@ -4671,7 +4680,7 @@ function ProfileTab({ client, updateClient, isCoach = true }) {
     updateClient({ ...client, profile: nextProfile, name: cleanName, weight: cleanWeight, age: nextAge, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
     setSaving(false);
   }
-  return <Card style={{ padding: isMobile ? 14 : 18 }}>{client.intake?.answers?.length ? <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Intake answers</div>{client.intake.answers.map((a, i) => <div key={i} style={{ marginBottom: 8 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>{a.question}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{a.answer || "\u2014"}</div></div>)}</div> : null}{isCoach ? <div style={{ marginBottom: 16, padding: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Coaching type</div><div style={{ display: "flex", gap: 8 }}>{["1:1", "Online"].map((t) => <button key={t} onClick={async () => { const np = { ...profile, clientType: t }; setProfile(np); await upsertSection(client.id, "profile", np); updateClient({ ...client, clientType: t, profile: np }); }} style={{ flex: 1, border: `1px solid ${(profile.clientType || "1:1") === t ? BRAND.gold : BRAND.line}`, background: (profile.clientType || "1:1") === t ? BRAND.gold : "transparent", color: (profile.clientType || "1:1") === t ? "#000" : BRAND.text, borderRadius: 999, padding: "10px 0", fontWeight: 900, cursor: "pointer" }}>{t === "1:1" ? "In-Person (1:1)" : "Online"}</button>)}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 8 }}>{(profile.clientType || "1:1") === "Online" ? "Online: gets Check-ins & Payments." : "In-person: gets Schedule & Packages."} Switches instantly.</div></div> : null}
+  return <Card style={{ padding: isMobile ? 14 : 18 }}>{client.intake?.answers?.length ? <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Intake answers</div>{client.intake.answers.map((a, i) => <div key={i} style={{ marginBottom: 8 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>{a.question}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{a.answer || "—"}</div></div>)}</div> : null}{isCoach ? <div style={{ marginBottom: 16, padding: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>Coaching type</div><div style={{ display: "flex", gap: 8 }}>{["1:1", "Online"].map((t) => <button key={t} onClick={async () => { const np = { ...profile, clientType: t }; setProfile(np); await upsertSection(client.id, "profile", np); updateClient({ ...client, clientType: t, profile: np }); }} style={{ flex: 1, border: `1px solid ${(profile.clientType || "1:1") === t ? BRAND.gold : BRAND.line}`, background: (profile.clientType || "1:1") === t ? BRAND.gold : "transparent", color: (profile.clientType || "1:1") === t ? "#000" : BRAND.text, borderRadius: 999, padding: "10px 0", fontWeight: 900, cursor: "pointer" }}>{t === "1:1" ? "In-Person (1:1)" : "Online"}</button>)}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 8 }}>{(profile.clientType || "1:1") === "Online" ? "Online: gets Check-ins & Payments." : "In-person: gets Schedule & Packages."} Switches instantly.</div></div> : null}
     <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 1000, marginBottom: 14, textAlign: isMobile ? "center" : "left" }}>Client Profile</div>
     <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
       <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000, border: `1px solid ${BRAND.line}`, cursor: "pointer", padding: 0 }}>
@@ -4899,7 +4908,7 @@ function BarcodeScanner({ onCode, onClose, lookupMsg }) {
     return () => { cancelled = true; if (raf) cancelAnimationFrame(raf); if (stream) stream.getTracks().forEach((t) => t.stop()); };
   }, [supported]);
   return <>
-    <button onClick={onClose} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+    <button onClick={onClose} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"‹ Back"}</button>
     <div style={{ fontSize: 20, fontWeight: 1000, margin: "12px 0" }}>Scan barcode</div>
     {supported ? <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", background: "#000", aspectRatio: "4 / 3" }}>
       <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -4942,7 +4951,7 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
     })();
   }, [client.id]);
   useEffect(() => {
-    if (tab !== "foods" || query.trim().length < 2) { setResults([]); setLoading(false); setErr(""); return; }
+    if ((tab !== "foods" && !builder) || query.trim().length < 2) { setResults([]); setLoading(false); setErr(""); return; }
     setLoading(true); setErr("");
     const t = setTimeout(async () => {
       try { const foods = await searchFatSecret(query.trim()); setResults(foods); if (!foods.length) setErr("No foods found. Try another term."); }
@@ -4950,7 +4959,7 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
       setLoading(false);
     }, 450);
     return () => clearTimeout(t);
-  }, [query, tab]);
+  }, [query, tab, !!builder]);
   useEffect(() => {
     if (tab !== "recipes" || query.trim().length < 2) { return; }
     setRecLoading(true); setRecErr("");
@@ -5018,10 +5027,10 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
   const panel = { width: "100%", maxWidth: 520, maxHeight: "92vh", background: BRAND.bg, border: `1px solid ${BRAND.line}`, borderRadius: "20px 20px 0 0", padding: 16, overflowY: "auto" };
   const foodRow = (f, onTap) => <div key={f.id || f.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
     <button onClick={() => onTap(f)} style={{ flex: 1, textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 11, cursor: "pointer", color: BRAND.text }}>
-      <div style={{ fontWeight: 900, fontSize: 14 }}>{f.name}{f.brand ? <span style={{ color: BRAND.dim, fontWeight: 700 }}> \u00b7 {f.brand}</span> : ""}</div>
-      <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{f.serving ? `${f.serving} \u00b7 ` : ""}{Math.round(f.kcal || 0)} kcal \u00b7 P {Math.round(f.protein || 0)} \u00b7 C {Math.round(f.carbs || 0)} \u00b7 F {Math.round(f.fats || 0)}</div>
+      <div style={{ fontWeight: 900, fontSize: 14 }}>{f.name}{f.brand ? <span style={{ color: BRAND.dim, fontWeight: 700 }}> · {f.brand}</span> : ""}</div>
+      <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{f.serving ? `${f.serving} · ` : ""}{Math.round(f.kcal || 0)} kcal · P {Math.round(f.protein || 0)} · C {Math.round(f.carbs || 0)} · F {Math.round(f.fats || 0)}</div>
     </button>
-    <button onClick={() => toggleFav(f)} style={{ background: "none", border: "none", cursor: "pointer", color: isFav(f) ? BRAND.gold : BRAND.dim, fontSize: 20, flexShrink: 0 }}>{isFav(f) ? "\u2605" : "\u2606"}</button>
+    <button onClick={() => toggleFav(f)} style={{ background: "none", border: "none", cursor: "pointer", color: isFav(f) ? BRAND.gold : BRAND.dim, fontSize: 20, flexShrink: 0 }}>{isFav(f) ? "★" : "☆"}</button>
   </div>;
   const wrap = (inner) => <div style={overlay} onClick={onClose}><div style={panel} onClick={(e) => e.stopPropagation()}>{inner}</div></div>;
 
@@ -5029,7 +5038,7 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
   if (recipe) {
     const r = recipe;
     return wrap(<>
-      <button onClick={() => setRecipe(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+      <button onClick={() => setRecipe(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"‹ Back"}</button>
       {r.image && <img src={r.image} alt={r.name} style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 14, marginTop: 12 }} />}
       <div style={{ fontSize: 20, fontWeight: 1000, marginTop: 12 }}>{r.name}</div>
       {r.description && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{r.description}</div>}
@@ -5046,16 +5055,16 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
   if (builder) {
     const tot = mealTotals(builder.items);
     return wrap(<>
-      <button onClick={() => setBuilder(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+      <button onClick={() => setBuilder(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"‹ Back"}</button>
       <div style={{ fontSize: 20, fontWeight: 1000, margin: "12px 0" }}>Create meal</div>
       <input placeholder="Meal name (e.g. Chicken Rice Bowl)" value={builder.name} onChange={(e) => setBuilder({ ...builder, name: e.target.value })} style={{ ...inputStyle(), marginBottom: 12 }} />
       <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Ingredients</div>
       {builder.items.map((it, k) => <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: `1px solid ${BRAND.line}` }}>
-        <div><div style={{ fontWeight: 800, fontSize: 13 }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10 }}>{it.kcal} kcal \u00b7 P{it.protein} C{it.carbs} F{it.fats}</div></div>
-        <button onClick={() => setBuilder({ ...builder, items: builder.items.filter((_, x) => x !== k) })} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18 }}>{"\u00d7"}</button>
+        <div><div style={{ fontWeight: 800, fontSize: 13 }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10 }}>{it.kcal} kcal · P{it.protein} C{it.carbs} F{it.fats}</div></div>
+        <button onClick={() => setBuilder({ ...builder, items: builder.items.filter((_, x) => x !== k) })} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18 }}>{"×"}</button>
       </div>)}
       {builder.items.length === 0 && <div style={{ color: BRAND.dim, fontSize: 12 }}>Search below to add ingredients.</div>}
-      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 1000, fontSize: 13, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${BRAND.line}` }}><span>Total</span><span>{Math.round(tot.kcal)} kcal \u00b7 P{Math.round(tot.protein)} C{Math.round(tot.carbs)} F{Math.round(tot.fats)}</span></div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 1000, fontSize: 13, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${BRAND.line}` }}><span>Total</span><span>{Math.round(tot.kcal)} kcal · P{Math.round(tot.protein)} C{Math.round(tot.carbs)} F{Math.round(tot.fats)}</span></div>
       <input placeholder="Search a food to add..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ ...inputStyle(), margin: "12px 0" }} />
       <div style={{ display: "grid", gap: 7 }}>
         {loading && <div style={{ color: BRAND.gold, fontSize: 13 }}>Searching...</div>}
@@ -5068,7 +5077,7 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
   if (detail) {
     const m = macrosFor(detail);
     return wrap(<>
-      <button onClick={() => setDetail(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"\u2039 Back"}</button>
+      <button onClick={() => setDetail(null)} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 900, fontSize: 13, cursor: "pointer", padding: 0 }}>{"‹ Back"}</button>
       <div style={{ fontSize: 20, fontWeight: 1000, marginTop: 12 }}>{detail.food.name}</div>
       {detail.food.brand && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>{detail.food.brand}</div>}
       {!detail.servings && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 12 }}>Loading serving sizes...</div>}
@@ -5090,12 +5099,12 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
   const TABS = [["foods", "Foods"], ...(FATSECRET_FEATURES.recipes ? [["recipes", "Recipes"]] : []), ["recent", "Recent"], ["favorites", "Favorites"], ["meals", "Meals"], ["custom", "Custom"]];
   return wrap(<>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-      <div style={{ fontSize: 20, fontWeight: 1000 }}>Add Food{meal ? ` \u00b7 ${meal}` : ""}</div>
-      <button onClick={onClose} style={{ background: "none", border: "none", color: BRAND.muted, fontSize: 22, cursor: "pointer" }}>{"\u00d7"}</button>
+      <div style={{ fontSize: 20, fontWeight: 1000 }}>Add Food{meal ? ` · ${meal}` : ""}</div>
+      <button onClick={onClose} style={{ background: "none", border: "none", color: BRAND.muted, fontSize: 22, cursor: "pointer" }}>{"×"}</button>
     </div>
     {(tab === "foods" || tab === "recipes") && <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
       <input autoFocus placeholder={tab === "recipes" ? "Search recipes..." : "Search foods..."} value={query} onChange={(e) => setQuery(e.target.value)} style={inputStyle()} />
-      {tab === "foods" && FATSECRET_FEATURES.barcode && <button onClick={() => { setScanning(true); setScanMsg(""); }} style={{ width: 44, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, cursor: "pointer", fontSize: 18 }}>{"\u25a4"}</button>}
+      {tab === "foods" && FATSECRET_FEATURES.barcode && <button onClick={() => { setScanning(true); setScanMsg(""); }} style={{ width: 44, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, cursor: "pointer", fontSize: 18 }}>{"▤"}</button>}
     </div>}
     <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto" }}>{TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={{ whiteSpace: "nowrap", fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 13px", borderRadius: 999, cursor: "pointer", color: tab === k ? "#000" : BRAND.muted, background: tab === k ? BRAND.gold : BRAND.card2, border: `1px solid ${tab === k ? BRAND.gold : BRAND.line}` }}>{l}</button>)}</div>
 
@@ -5112,7 +5121,7 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
       {query.trim().length < 2 && !recLoading && <div style={{ color: BRAND.dim, fontSize: 13 }}>Search FatSecret recipes.</div>}
       {recipes.map((r) => <button key={r.id} onClick={() => openRecipe(r)} style={{ textAlign: "left", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 0, cursor: "pointer", color: BRAND.text, overflow: "hidden" }}>
         {r.image && <img src={r.image} alt={r.name} style={{ width: "100%", height: 120, objectFit: "cover" }} />}
-        <div style={{ padding: 12 }}><div style={{ fontWeight: 1000, fontSize: 14 }}>{r.name}</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{r.kcal} kcal \u00b7 P {r.protein} \u00b7 C {r.carbs} \u00b7 F {r.fats}</div></div>
+        <div style={{ padding: 12 }}><div style={{ fontWeight: 1000, fontSize: 14 }}>{r.name}</div><div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{r.kcal} kcal · P {r.protein} · C {r.carbs} · F {r.fats}</div></div>
       </button>)}
     </div>}
 
@@ -5130,7 +5139,7 @@ function FoodSearchModal({ client, meal, onClose, onAdd, onAddMany }) {
       <Button onClick={() => { setBuilder({ name: "", items: [] }); setQuery(""); }} style={{ width: "100%" }}>+ Create meal</Button>
       {savedMeals.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Build a meal from multiple foods and reuse it in one tap.</div>}
       {savedMeals.map((sm) => <div key={sm.id} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 1000, fontSize: 14 }}>{sm.name}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 2 }}>{Math.round(sm.totals?.kcal || 0)} kcal \u00b7 {sm.items.length} items</div></div><button onClick={() => deleteMeal(sm.id)} style={{ background: "none", border: "none", color: BRAND.red, cursor: "pointer", fontSize: 16 }}>{"\u00d7"}</button></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontWeight: 1000, fontSize: 14 }}>{sm.name}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 2 }}>{Math.round(sm.totals?.kcal || 0)} kcal · {sm.items.length} items</div></div><button onClick={() => deleteMeal(sm.id)} style={{ background: "none", border: "none", color: BRAND.red, cursor: "pointer", fontSize: 16 }}>{"×"}</button></div>
         <Button onClick={() => addSavedMeal(sm)} style={{ width: "100%", marginTop: 10 }}>Add to {meal || "diary"}</Button>
       </div>)}
     </div>}
@@ -5368,9 +5377,9 @@ function NutritionTab({ client, updateClient, isCoach }) {
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={() => shiftDate(-1)} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: "pointer" }}>{"\u2039"}</button>
+        <button onClick={() => shiftDate(-1)} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: "pointer" }}>{"‹"}</button>
         <div style={{ fontWeight: 1000, fontSize: 16 }}>{date === today ? "Today" : date}</div>
-        <button onClick={() => shiftDate(1)} disabled={date >= today} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: date >= today ? "default" : "pointer", opacity: date >= today ? 0.4 : 1 }}>{"\u203a"}</button>
+        <button onClick={() => shiftDate(1)} disabled={date >= today} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: date >= today ? "default" : "pointer", opacity: date >= today ? 0.4 : 1 }}>{"›"}</button>
       </div>
 
       <Card style={{ padding: 18 }}>
@@ -5380,9 +5389,9 @@ function NutritionTab({ client, updateClient, isCoach }) {
             <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000, color: calColor }}>{calTarget ? Math.abs(Math.round(calLeft)) : Math.round(totals.kcal)}</div><div style={{ fontSize: 8, fontWeight: 1000, color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{!calTarget ? "kcal" : overCal ? "over" : "left"}</div></div></div>
           </div>
           <div style={{ flex: 1, display: "grid", gap: 11, minWidth: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 900 }}><span style={{ color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Calories</span><span>{Math.round(totals.kcal)} / {calTarget || "\u2014"}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 900 }}><span style={{ color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Calories</span><span>{Math.round(totals.kcal)} / {calTarget || "—"}</span></div>
             {macros.map((m) => { const pct = m.t ? Math.min(1, m.v / m.t) : 0; return <div key={m.k}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 900, marginBottom: 4 }}><span style={{ color: m.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{m.k}</span><span style={{ color: BRAND.muted }}>{Math.round(m.v)} / {m.t || "\u2014"}g</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 900, marginBottom: 4 }}><span style={{ color: m.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{m.k}</span><span style={{ color: BRAND.muted }}>{Math.round(m.v)} / {m.t || "—"}g</span></div>
               <div style={{ height: 7, borderRadius: 999, background: BRAND.card2, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct * 100}%`, background: m.c, borderRadius: 999 }} /></div>
             </div>; })}
           </div>
@@ -5413,8 +5422,8 @@ function NutritionTab({ client, updateClient, isCoach }) {
             <div style={{ color: BRAND.muted, fontWeight: 900, fontSize: 13 }}>{Math.round(mk)} kcal</div>
           </div>
           {items.map((it) => <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: `1px solid ${BRAND.line}`, marginTop: 8 }}>
-            <div style={{ minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 700, marginTop: 2 }}>{it.kcal} kcal \u00b7 P{it.protein} C{it.carbs} F{it.fats}</div></div>
-            {!isCoach && <button onClick={() => removeFood(m, it.id)} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18, flexShrink: 0, marginLeft: 8 }}>{"\u00d7"}</button>}
+            <div style={{ minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 700, marginTop: 2 }}>{it.kcal} kcal · P{it.protein} C{it.carbs} F{it.fats}</div></div>
+            {!isCoach && <button onClick={() => removeFood(m, it.id)} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18, flexShrink: 0, marginLeft: 8 }}>{"×"}</button>}
           </div>)}
           {!isCoach && <button onClick={() => setAddingMeal(m)} style={{ width: "100%", marginTop: 10, padding: "10px", borderRadius: 10, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>+ Add food</button>}
           {isCoach && items.length === 0 && <div style={{ color: BRAND.dim, fontSize: 12, fontWeight: 600, marginTop: 8 }}>Nothing logged.</div>}
@@ -5424,7 +5433,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
       <Card style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div><div style={{ fontWeight: 1000, fontSize: 14 }}>Water</div><div style={{ color: BRAND.blue, fontSize: 13, fontWeight: 900, marginTop: 2 }}>{day.water || 0} / {t.water || 3} L</div></div>
         {!isCoach && <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setWater((Number(day.water) || 0) - 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>{"\u2212"}</button>
+          <button onClick={() => setWater((Number(day.water) || 0) - 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>{"−"}</button>
           <button onClick={() => setWater((Number(day.water) || 0) + 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.blue, border: "none", color: "#000", fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>+</button>
         </div>}
       </Card>
@@ -5676,7 +5685,7 @@ function buildProgressInsight(streak, volumeTrend, pbs) {
   }
   if (parts.length === 0 && pbs.length > 0) parts.push(`new PB on ${pbs[0].name}`);
   if (parts.length === 0) return { text: "Keep logging sessions to start seeing trends here." };
-  return { text: parts.join(" \u2014 ") };
+  return { text: parts.join(" — ") };
 }
 function ProgressTab({ client }) {
   const isMobile = useIsMobile(520);
@@ -5892,7 +5901,7 @@ function CheckInsTab({ client, updateClient, isCoach }) {
                   <div style={{ color: answers[q.id] ? BRAND.text : BRAND.dim, fontSize: 13 }}>{answers[q.id] || "-"}</div>
                 </div>
               ))}
-              <div style={{ marginTop: 4, color: liveFlags.length ? BRAND.red : BRAND.green, fontSize: 12, fontWeight: 900 }}>{liveFlags.length ? `\u2691 ${liveFlags.length} thing${liveFlags.length === 1 ? "" : "s"} flagged for your coach` : "\u2713 Nothing flagged"}</div>
+              <div style={{ marginTop: 4, color: liveFlags.length ? BRAND.red : BRAND.green, fontSize: 12, fontWeight: 900 }}>{liveFlags.length ? `⚑ ${liveFlags.length} thing${liveFlags.length === 1 ? "" : "s"} flagged for your coach` : "✓ Nothing flagged"}</div>
             </div>
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -5908,7 +5917,7 @@ function CheckInsTab({ client, updateClient, isCoach }) {
         {[...submissions].reverse().map((s) => (
           <div key={s.id} onClick={() => setOpen(open === s.id ? null : s.id)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{s.date}</b>{s.flags && s.flags.length > 0 && <span style={{ color: BRAND.red, fontSize: 11, fontWeight: 900 }}>{"\u2691"} {s.flags.length}</span>}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{s.date}</b>{s.flags && s.flags.length > 0 && <span style={{ color: BRAND.red, fontSize: 11, fontWeight: 900 }}>{"⚑"} {s.flags.length}</span>}</div>
               <span style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>{open === s.id ? "Hide" : "View"}</span>
             </div>
             {open === s.id && <div style={{ marginTop: 8, display: "grid", gap: 6 }}>{s.answers.map((a, i) => <div key={i}><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>{a.question}</div><div style={{ color: BRAND.text, fontSize: 13 }}>{a.answer || "-"}</div></div>)}</div>}
