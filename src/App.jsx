@@ -4560,14 +4560,18 @@ function ClientHome({ client, goTo }) {
   const todaysWorkout = client.program?.weeks?.[0]?.workouts?.[0]?.name || "Workout not assigned";
   const scoreSize = isMobile ? 80 : 118;
   const scoreColor = stats.score >= 75 ? BRAND.green : stats.score >= 50 ? BRAND.orange : BRAND.red;
+  const w = client.program?.weeks?.[0]?.workouts?.[0];
+  const exs = (w?.blocks?.flatMap((b) => b.entries || b.exercises || []) || w?.exercises || []);
+  const chips = exs.slice(0, 3).map((e) => { const nm = e.substitutedName || e.name || e.exercise || ""; const sn = e.sets?.length; const rp = e.sets?.[0]?.targetReps || e.sets?.[0]?.reps || e.reps; return sn && rp ? `${nm} ${sn}×${rp}` : nm; }).filter(Boolean);
+  const estMin = w ? Math.max(20, (exs.length || 4) * 12) : null;
   const habits = [
-    { k: "Calories", v: stats.totals.kcal, t: stats.calTarget || 0, c: BRAND.cyan, unit: "" },
-    { k: "Protein", v: stats.totals.protein, t: stats.proteinTarget || 0, c: BRAND.green, unit: "g" },
-    { k: "Steps", v: stats.daily.steps || 0, t: stats.stepsTarget || 10000, c: BRAND.orange, unit: "" },
-    { k: "Water", v: stats.daily.water || 0, t: stats.waterTarget || 3, c: BRAND.blue, unit: "L" },
+    { k: "Water", v: stats.daily.water || 0, t: stats.waterTarget || 3, c: BRAND.blue },
+    { k: "Steps", v: stats.daily.steps || 0, t: stats.stepsTarget || 10000, c: BRAND.orange },
+    { k: "Sleep", v: stats.daily.sleep || 0, t: 8, c: BRAND.purple },
+    { k: "Protein", v: stats.totals.protein, t: stats.proteinTarget || 0, c: BRAND.green },
   ];
   const C = 2 * Math.PI * 22;
-  return <div style={{ display: "grid", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
+  return <div style={{ display: "grid", gap: 11, maxWidth: "100%", overflowX: "hidden" }}>
     <InstallPrompt color={client.color} />
     <Card style={{ padding: isMobile ? 16 : 22 }}>
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center" }}>
@@ -4586,25 +4590,29 @@ function ClientHome({ client, goTo }) {
     </Card>
     {goTo && !client.intake?.completedAt && <Card onClick={() => goTo("intake")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: BRAND.cyan }}><div><div style={{ color: BRAND.cyan, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>COMPLETE YOUR INTAKE</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>A few questions so your coach can tailor your plan</div></div><div style={{ color: BRAND.cyan, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
     {goTo && <Card onClick={() => goTo("checkins")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `${BRAND.gold}55` }}><div><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>WEEKLY CHECK-IN</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Log your week for your coach</div></div><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
-    <Card onClick={goTo ? () => goTo("program") : undefined} style={{ cursor: goTo ? "pointer" : "default", padding: 0, overflow: "hidden" }}>
-      <div style={{ padding: 16 }}>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase" }}>Today's session</div>
-        <div style={{ fontSize: 22, fontWeight: 1000, marginTop: 8 }}>{todaysWorkout}</div>
-      </div>
-      {goTo && <div style={{ padding: 16, paddingTop: 0 }}><Button onClick={(e) => { e.stopPropagation(); goTo("program"); }} style={{ width: "100%" }}>Start session &rarr;</Button></div>}
-    </Card>
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Today's session</div>
+      <Card style={{ padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+          <div style={{ fontSize: 22, fontWeight: 1000, textTransform: "uppercase", lineHeight: 1.1 }}>{todaysWorkout}</div>
+          {estMin && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", letterSpacing: 1 }}>~{estMin} MIN</div>}
+        </div>
+        {chips.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>{chips.map((c, i) => <div key={i} style={{ padding: "8px 13px", borderRadius: 999, border: `1px solid ${BRAND.line}`, background: BRAND.card2, fontSize: 12, fontWeight: 800, color: BRAND.muted, whiteSpace: "nowrap" }}>{c}</div>)}</div>}
+        {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", marginTop: 16, padding: "16px 0", borderRadius: 14, border: "none", background: "#fff", color: "#000", fontWeight: 1000, fontSize: 14, letterSpacing: 1, textTransform: "uppercase", cursor: "pointer" }}>Start session →</button>}
+      </Card>
+    </div>
     <div>
       <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>Daily habits</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
         {habits.map((h) => {
           const pct = h.t ? Math.min(100, Math.round(Number(h.v) / Number(h.t) * 100)) : 0;
-          const disp = h.k === "Steps" && Number(h.v) >= 1000 ? (Number(h.v) / 1000).toFixed(1) + "k" : `${h.v}${h.unit}`;
-          return <Card key={h.k} style={{ padding: 10, display: "grid", justifyItems: "center", gap: 6 }}>
-            <div style={{ position: "relative", width: 52, height: 52 }}>
-              <svg width="52" height="52" style={{ transform: "rotate(-90deg)" }}><circle cx="26" cy="26" r="22" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="26" cy="26" r="22" fill="none" stroke={h.c} strokeWidth="5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} /></svg>
-              <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 1000 }}>{disp}</div>
+          const disp = h.k === "Steps" ? (Number(h.v) >= 1000 ? (Number(h.v) / 1000).toFixed(1) + "K" : `${Math.round(Number(h.v))}`) : (h.k === "Water" ? `${h.v}` : `${Math.round(Number(h.v))}`);
+          return <Card key={h.k} style={{ padding: "12px 6px", display: "grid", justifyItems: "center", gap: 8 }}>
+            <div style={{ position: "relative", width: 58, height: 58 }}>
+              <svg width="58" height="58" style={{ transform: "rotate(-90deg)" }}><circle cx="29" cy="29" r="24" fill="none" stroke={BRAND.card2} strokeWidth="6" /><circle cx="29" cy="29" r="24" fill="none" stroke={h.c} strokeWidth="6" strokeLinecap="round" strokeDasharray={2 * Math.PI * 24} strokeDashoffset={2 * Math.PI * 24 * (1 - pct / 100)} /></svg>
+              <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 15, fontWeight: 1000 }}>{disp}</div>
             </div>
-            <div style={{ color: h.c, fontSize: 8, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.4 }}>{h.k}</div>
+            <div style={{ color: h.c, fontSize: 9, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5 }}>{h.k}</div>
           </Card>;
         })}
       </div>
@@ -5335,6 +5343,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
   const [addingMeal, setAddingMeal] = useState(null);
   const [tf, setTf] = useState(nutrition.targets);
   const [showTargets, setShowTargets] = useState(false);
+  const [savedMeals, setSavedMeals] = useState([]);
   const t = nutrition.targets;
   const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
   const day = nutrition.days[date] || emptyNutriDay();
@@ -5345,6 +5354,8 @@ function NutritionTab({ client, updateClient, isCoach }) {
   const calColor = overCal ? BRAND.red : BRAND.green;
   const calPct = calTarget ? Math.min(1, totals.kcal / calTarget) : 0;
   const today = isoDate();
+
+  useEffect(() => { (async () => { try { const { data } = await supabase.from("client_data").select("data").eq("client_id", client.id).eq("section", "saved_meals").maybeSingle(); setSavedMeals(data?.data?.list || []); } catch {} })(); }, [client.id]);
 
   const clone = () => JSON.parse(JSON.stringify(nutrition));
   const ensureDay = (n) => { if (!n.days[date]) n.days[date] = emptyNutriDay(); if (!n.days[date].meals) n.days[date].meals = { Breakfast: [], Lunch: [], Dinner: [], Snacks: [] }; return n.days[date]; };
@@ -5364,6 +5375,7 @@ function NutritionTab({ client, updateClient, isCoach }) {
     await persist(n);
   }
   async function setWater(v) { const n = clone(); const d = ensureDay(n); d.water = Math.max(0, Math.round(v * 100) / 100); await persist(n); }
+  async function setDayField(field, v) { const n = clone(); const d = ensureDay(n); d[field] = v === "" ? "" : Math.max(0, Number(v)); await persist(n); }
   async function saveTargets() { const n = clone(); n.targets = { ...tf }; await persist(n); setShowTargets(false); }
   const shiftDate = (delta) => { const dt = new Date(date + "T00:00:00"); dt.setDate(dt.getDate() + delta); setDate(dt.toISOString().slice(0, 10)); };
 
@@ -5374,24 +5386,35 @@ function NutritionTab({ client, updateClient, isCoach }) {
   ];
   const ring = 2 * Math.PI * 34;
 
+  // calendar day strip: last 14 days, dot on any day with logged food
+  const strip = [];
+  for (let k = 13; k >= 0; k--) { const dt = new Date(today + "T00:00:00"); dt.setDate(dt.getDate() - k); const iso = dt.toISOString().slice(0, 10); const dd = nutrition.days[iso]; const logged = dd && MEALS.some((m) => (dd.meals?.[m] || []).length); strip.push({ iso, dow: dt.toLocaleDateString(undefined, { weekday: "short" })[0], dom: dt.getDate(), logged }); }
+
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={() => shiftDate(-1)} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: "pointer" }}>{"‹"}</button>
-        <div style={{ fontWeight: 1000, fontSize: 16 }}>{date === today ? "Today" : date}</div>
-        <button onClick={() => shiftDate(1)} disabled={date >= today} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, width: 34, height: 34, color: BRAND.text, fontWeight: 1000, cursor: date >= today ? "default" : "pointer", opacity: date >= today ? 0.4 : 1 }}>{"›"}</button>
+      <div>
+        <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 1000, letterSpacing: 1.2, textTransform: "uppercase" }}>Nutrition</div>
+        <div style={{ fontSize: 28, fontWeight: 1000, textTransform: "uppercase", lineHeight: 1 }}>Fuel</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+        {strip.map((d) => { const sel = d.iso === date; return <button key={d.iso} onClick={() => setDate(d.iso)} style={{ flex: "0 0 auto", width: 42, padding: "8px 0", borderRadius: 12, cursor: "pointer", background: sel ? BRAND.gold : BRAND.card2, border: `1px solid ${sel ? BRAND.gold : BRAND.line}`, color: sel ? "#000" : BRAND.text, display: "grid", justifyItems: "center", gap: 3 }}>
+          <span style={{ fontSize: 9, fontWeight: 900, opacity: 0.7 }}>{d.dow}</span>
+          <span style={{ fontSize: 15, fontWeight: 1000 }}>{d.dom}</span>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: d.logged ? (sel ? "#000" : BRAND.green) : "transparent" }} />
+        </button>; })}
       </div>
 
       <Card style={{ padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <div style={{ position: "relative", width: 92, height: 92, flexShrink: 0 }}>
             <svg width="92" height="92" style={{ transform: "rotate(-90deg)" }}><circle cx="46" cy="46" r="34" fill="none" stroke={BRAND.card2} strokeWidth="8" /><circle cx="46" cy="46" r="34" fill="none" stroke={calColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={ring} strokeDashoffset={ring * (1 - calPct)} /></svg>
-            <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000, color: calColor }}>{calTarget ? Math.abs(Math.round(calLeft)) : Math.round(totals.kcal)}</div><div style={{ fontSize: 8, fontWeight: 1000, color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{!calTarget ? "kcal" : overCal ? "over" : "left"}</div></div></div>
+            <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}><div><div style={{ fontSize: 22, fontWeight: 1000, color: calColor }}>{calTarget ? Math.abs(Math.round(calLeft)) : Math.round(totals.kcal)}</div><div style={{ fontSize: 8, fontWeight: 1000, color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>{!calTarget ? "kcal" : overCal ? "over" : "kcal left"}</div></div></div>
           </div>
           <div style={{ flex: 1, display: "grid", gap: 11, minWidth: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 900 }}><span style={{ color: BRAND.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Calories</span><span>{Math.round(totals.kcal)} / {calTarget || "—"}</span></div>
+            <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Target {calTarget || "—"} kcal</div>
             {macros.map((m) => { const pct = m.t ? Math.min(1, m.v / m.t) : 0; return <div key={m.k}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 900, marginBottom: 4 }}><span style={{ color: m.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{m.k}</span><span style={{ color: BRAND.muted }}>{Math.round(m.v)} / {m.t || "—"}g</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 900, marginBottom: 4 }}><span style={{ color: m.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{m.k}</span><span style={{ color: BRAND.muted }}>{Math.round(m.v)}/{m.t || "—"}G</span></div>
               <div style={{ height: 7, borderRadius: 999, background: BRAND.card2, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct * 100}%`, background: m.c, borderRadius: 999 }} /></div>
             </div>; })}
           </div>
@@ -5408,11 +5431,15 @@ function NutritionTab({ client, updateClient, isCoach }) {
             <Field label="Fats g" value={tf.fats} onChange={(v) => setTf({ ...tf, fats: v })} type="number" />
             <Field label="Water L" value={tf.water} onChange={(v) => setTf({ ...tf, water: v })} type="number" />
             <Field label="Steps" value={tf.steps} onChange={(v) => setTf({ ...tf, steps: v })} type="number" />
+            <Field label="Sleep hrs" value={tf.sleep || ""} onChange={(v) => setTf({ ...tf, sleep: v })} type="number" />
           </div>
           <Button onClick={saveTargets}>Save targets</Button>
         </>}
       </Card>}
 
+      <button onClick={() => setAddingMeal("Breakfast")} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px dashed ${BRAND.line}`, background: BRAND.card2, color: BRAND.text, fontWeight: 1000, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>+ Search foods · Scan barcode · Saved meals</button>
+
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginTop: 2 }}>{date === today ? "Today's log" : "Log"}</div>
       {MEALS.map((m) => {
         const items = day.meals?.[m] || [];
         const mk = items.reduce((a, x) => a + (Number(x.kcal) || 0), 0);
@@ -5423,19 +5450,33 @@ function NutritionTab({ client, updateClient, isCoach }) {
           </div>
           {items.map((it) => <div key={it.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: `1px solid ${BRAND.line}`, marginTop: 8 }}>
             <div style={{ minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.name}</div><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 700, marginTop: 2 }}>{it.kcal} kcal · P{it.protein} C{it.carbs} F{it.fats}</div></div>
-            {!isCoach && <button onClick={() => removeFood(m, it.id)} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18, flexShrink: 0, marginLeft: 8 }}>{"×"}</button>}
+            <button onClick={() => removeFood(m, it.id)} style={{ background: "none", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", fontSize: 18, flexShrink: 0, marginLeft: 8 }}>{"×"}</button>
           </div>)}
-          {!isCoach && <button onClick={() => setAddingMeal(m)} style={{ width: "100%", marginTop: 10, padding: "10px", borderRadius: 10, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>+ Add food</button>}
-          {isCoach && items.length === 0 && <div style={{ color: BRAND.dim, fontSize: 12, fontWeight: 600, marginTop: 8 }}>Nothing logged.</div>}
+          <button onClick={() => setAddingMeal(m)} style={{ width: "100%", marginTop: 10, padding: "10px", borderRadius: 10, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>+ Add food{isCoach ? " for client" : ""}</button>
         </Card>;
       })}
 
-      <Card style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div><div style={{ fontWeight: 1000, fontSize: 14 }}>Water</div><div style={{ color: BRAND.blue, fontSize: 13, fontWeight: 900, marginTop: 2 }}>{day.water || 0} / {t.water || 3} L</div></div>
-        {!isCoach && <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setWater((Number(day.water) || 0) - 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>{"−"}</button>
-          <button onClick={() => setWater((Number(day.water) || 0) + 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.blue, border: "none", color: "#000", fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>+</button>
-        </div>}
+      {savedMeals.length > 0 && <div>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>Your meals</div>
+        <div style={{ display: "grid", gap: 8 }}>{savedMeals.map((sm) => <Card key={sm.id} style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ minWidth: 0 }}><div style={{ fontWeight: 1000, fontSize: 14 }}>{sm.name}</div><div style={{ color: BRAND.muted, fontSize: 11, marginTop: 2 }}>{Math.round(sm.totals?.kcal || 0)} kcal · {sm.items.length} items</div></div>
+          <button onClick={() => addFoods("Snacks", sm.items)} style={{ padding: "9px 14px", borderRadius: 999, border: "none", background: BRAND.gold, color: "#000", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer", flexShrink: 0 }}>Add</button>
+        </Card>)}</div>
+      </div>}
+
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginTop: 2 }}>Daily habits</div>
+      <Card style={{ display: "grid", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div style={{ fontWeight: 1000, fontSize: 14 }}>Water</div><div style={{ color: BRAND.blue, fontSize: 13, fontWeight: 900, marginTop: 2 }}>{day.water || 0} / {t.water || 3} L</div></div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setWater((Number(day.water) || 0) - 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>{"−"}</button>
+            <button onClick={() => setWater((Number(day.water) || 0) + 0.25)} style={{ width: 40, height: 40, borderRadius: 12, background: BRAND.blue, border: "none", color: "#000", fontWeight: 1000, fontSize: 18, cursor: "pointer" }}>+</button>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, borderTop: `1px solid ${BRAND.line}`, paddingTop: 12 }}>
+          <div><div style={{ color: BRAND.orange, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Steps {t.steps ? `/ ${t.steps}` : ""}</div><input inputMode="numeric" placeholder="0" value={day.steps || ""} onChange={(e) => setDayField("steps", e.target.value)} style={inputStyle()} /></div>
+          <div><div style={{ color: BRAND.purple, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Sleep hrs {t.sleep ? `/ ${t.sleep}` : ""}</div><input inputMode="decimal" placeholder="0" value={day.sleep || ""} onChange={(e) => setDayField("sleep", e.target.value)} style={inputStyle()} /></div>
+        </div>
       </Card>
 
       {addingMeal && <FoodSearchModal client={client} meal={addingMeal} onClose={() => setAddingMeal(null)} onAdd={(item, m) => addFood(m || addingMeal, item)} onAddMany={(items, m) => addFoods(m || addingMeal, items)} />}
