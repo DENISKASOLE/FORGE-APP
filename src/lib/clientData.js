@@ -3,6 +3,7 @@ import { isoDate } from "./dateUtils.js";
 import { enqueueSync, flushSyncQueue } from "./cache.js";
 import { normalizeSlotLabel } from "./browser.js";
 import { CLIENT_COLORS } from "./constants.js";
+import { BRAND } from "../theme/tokens.js";
 
 export function ageFromBirthday(birthday) {
   if (!birthday) return null;
@@ -61,6 +62,15 @@ export function timeLabel(t) {
 }
 export function moneyAED(n) {
   return `AED ${Number(n || 0).toLocaleString()}`;
+}
+export function paymentStatus(client) {
+  if (!client.paymentDueDate) return { label: "Not scheduled", color: BRAND.muted };
+  if (client.paymentPaid) return { label: "Paid", color: BRAND.green };
+  const d = daysUntil(client.paymentDueDate);
+  if (d < 0) return { label: `Overdue by ${Math.abs(d)} day${Math.abs(d) === 1 ? "" : "s"}`, color: BRAND.red };
+  if (d <= 2) return { label: d === 0 ? "Due today" : `Due in ${d} day${d === 1 ? "" : "s"}`, color: BRAND.red };
+  if (d <= 5) return { label: `Due in ${d} days`, color: BRAND.gold };
+  return { label: `Due ${client.paymentDueDate}`, color: BRAND.text };
 }
 export function makeInviteCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
