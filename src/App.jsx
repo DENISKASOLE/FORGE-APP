@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-const textareaStyle = (extra = {}) => ({
-  width: "100%",
-  minHeight: 90,
-  background: BRAND.card2,
-  border: `1px solid ${BRAND.line}`,
-  borderRadius: 12,
-  color: BRAND.text,
-  padding: "12px",
-  resize: "vertical",
-  outline: "none",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-  fontSize: 16,
-  ...extra,
-});
+import { BRAND, GLOBAL_TEXT_CSS } from "./theme/tokens.js";
+import { Button } from "./components/ui/Button.jsx";
+import { Card } from "./components/ui/Card.jsx";
+import { Field, inputStyle, textareaStyle } from "./components/ui/Field.jsx";
+import { modalBackdrop } from "./components/ui/modal.js";
+import { NavIcon } from "./components/ui/NavIcon.jsx";
+import { CoachIcon } from "./components/ui/CoachIcon.jsx";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
@@ -46,35 +38,6 @@ const textareaStyle = (extra = {}) => ({
   - V6.5: smart custom food macro estimator for combined meals like chapati + chicken curry + rice
   - V6.5: spreadsheet-style calendar zoom slider with Fit Week view
 */
-const BRAND = {
-  bg: "#000000",
-  panel: "#070707",
-  card: "#0d0d0d",
-  card2: "#171717",
-  line: "#262626",
-  text: "#ffffff",
-  muted: "#a1a1a1",
-  dim: "#6e6e6e",
-  gold: "#FFFFFF",
-  red: "#FF5C5C",
-  green: "#3DD68C",
-  cyan: "#3FC7C0",
-  blue: "#5B9EF9",
-  purple: "#A78BFA",
-  orange: "#FFA94D",
-};
-const GLOBAL_TEXT_CSS = `
-  html, body, #root { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; box-shadow: none !important; background: ${BRAND.bg} !important; min-height: 100%; }
-  body { min-height: 100vh; }
-  * { font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; }
-  input, textarea, select, button { font-weight: 700 !important; }
-  button { color: inherit; background: none; }
-  button:disabled { opacity: 0.5; }
-  ::placeholder { font-weight: 600 !important; opacity: 0.8; }
-  * { box-sizing: border-box; }
-  html, body, #root { max-width: 100vw; overflow-x: hidden; }
-  img, video { max-width: 100%; }
-`;
 const GOAL_OPTIONS = [
   "Fat Loss",
   "Muscle Gain",
@@ -2961,33 +2924,6 @@ function setScore(set, timed) {
   if (weight && reps) return weight * reps;
   return weight || reps;
 }
-function Button({ children, onClick, variant = "gold", type = "button", disabled = false, style = {} }) {
-  const bg = variant === "ghost" ? "transparent" : variant === "red" ? BRAND.red : variant === "dark" ? BRAND.card2 : BRAND.gold;
-  const color = variant === "ghost" ? BRAND.text : variant === "red" ? "#fff" : variant === "dark" ? BRAND.text : "#000";
-  return (
-    <button type={type} disabled={disabled} onClick={onClick} style={{ background: bg, color, border: variant === "ghost" ? `1px solid ${BRAND.line}` : "none", borderRadius: 999, padding: "10px 16px", fontWeight: 700, fontSize: 14, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, transition: "opacity .15s", ...style }}>
-      {children}
-    </button>
-  );
-}
-function Field({ label, value, onChange, type = "text", placeholder = "", textarea = false }) {
-  return (
-    <label style={{ display: "block" }}>
-      <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>{label}</div>
-      {textarea ? (
-        <textarea value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={inputStyle({ minHeight: 85, resize: "vertical" })} />
-      ) : (
-        <input type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={inputStyle()} />
-      )}
-    </label>
-  );
-}
-function inputStyle(extra = {}) {
-  return { width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card2, border: `1px solid ${BRAND.line}`, color: BRAND.text, borderRadius: 12, padding: "11px 12px", outline: "none", fontSize: 16, ...extra };
-}
-function Card({ children, style = {}, onClick }) {
-  return <div onClick={onClick} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, padding: 18, ...style }}>{children}</div>;
-}
 function AccountNotActiveScreen({ onBackToLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -3159,9 +3095,6 @@ function AddClientModal({ onClose, onCreate }) {
     </div>
   );
 }
-function modalBackdrop() {
-  return { position: "fixed", inset: 0, background: "rgba(0,0,0,.86)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
-}
 function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: trainer?.name || user?.user_metadata?.name || user?.email?.split("@")[0] || "",
@@ -3281,18 +3214,6 @@ function NotificationsTab({ notifications, selectClient }) {
   );
 }
 // ---------- Coach shell: Home · Clients · Alerts · Settings ----------
-const COACH_ICON_PATHS = {
-  clients: <><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M22 20v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
-  templates: <><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /><rect x="14" y="3" width="7" height="4" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /><rect x="14" y="11" width="7" height="10" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="2" fill="none" /></>,
-  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M16 3v4M8 3v4M3 10h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
-  analytics: <><path d="M3 3v18h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><path d="M7 15l4-5 3 3 5-7" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
-  trials: <path d="M12 2.5l2.6 6.3 6.9.5-5.3 4.5 1.7 6.7L12 16.9 6.1 20.5l1.7-6.7L2.5 9.3l6.9-.5z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
-  exlib: <><rect x="2" y="6" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M17 9.5l5-3v11l-5-3" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" /></>,
-  bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" /><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
-};
-function CoachIcon({ name, size = 22, color = "currentColor" }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ color, display: "block" }}>{COACH_ICON_PATHS[name]}</svg>;
-}
 const DEFAULT_INTAKE_QUESTIONS = [
   { id: "i1", text: "What are your main goals?" },
   { id: "i2", text: "Any injuries or medical conditions I should know about?" },
@@ -4019,23 +3940,6 @@ function ClientCard({ client, onClick }) {
   );
 }
 function Mini({ label, value, color }) { return <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600 }}>{label}</div><div style={{ color: color || BRAND.text, fontWeight: 700 }}>{value}</div></div>; }
-const NAV_ICON_PATHS = {
-  home: <path d="M3 11L12 3L21 11V21H15V14H9V21H3V11Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
-  food: <><path d="M6 2V10C6 11.6569 7.34315 13 9 13V13C10.6569 13 12 11.6569 12 10V2M9 13V22M6 2V6M12 2V6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><path d="M18 2C16 4 16 8 18 10V22" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
-  train: <path d="M6 7V17M18 7V17M2 10V14M22 10V14M6 12H18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
-  me: <><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M4 21C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 21" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
-  back: <path d="M15 5L8 12L15 19" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
-  program: <><rect x="5" y="4" width="14" height="17" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M9 4V2H15V4M8 10H16M8 14H16M8 18H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
-  progress: <><path d="M3 17L9 11L13 15L21 7" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /><path d="M21 7H15M21 7V13" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
-  photo: <><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><circle cx="9" cy="10" r="1.6" fill="currentColor" /><path d="M21 15L16 10L7 19" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
-  msg: <path d="M21 12C21 16.4183 16.9706 20 12 20C10.5 20 9.1 19.7 7.9 19.1L3 20L4.3 15.9C3.5 14.8 3 13.5 3 12C3 7.58172 7.02944 4 12 4C16.9706 4 21 7.58172 21 12Z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinejoin="round" />,
-  card: <><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M2 10H22" stroke="currentColor" strokeWidth="2" /></>,
-  gear: <><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" fill="none" /><circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" fill="none" /></>,
-  check: <><rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="2" fill="none" /><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>,
-};
-function NavIcon({ name, size = 21, color = "currentColor", rotate = 0 }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ color, display: "block", transform: rotate ? `rotate(${rotate}deg)` : undefined }}>{NAV_ICON_PATHS[name]}</svg>;
-}
 function LearnTab({ client }) {
   const CATS = { Training: BRAND.orange, Nutrition: BRAND.green, Mindset: BRAND.purple, Recovery: BRAND.blue };
   const cats = ["All", "Training", "Nutrition", "Mindset", "Recovery"];
