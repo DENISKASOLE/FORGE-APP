@@ -29,6 +29,8 @@ import { IntakeForm, INTAKE_FORM } from "./features/profile/IntakeForm.jsx";
 import { fmtLoad, fmtSetTarget, fmtExerciseSummary, blockTitle, exerciseTag, parseSeconds, fmtClock, emptyTrainingLogs, startSession, sessionForWorkout, upsertSessionInLogs, setScoreV2, fmtLoggedSet, suggestProgression, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs } from "./lib/trainingLogs.js";
 import { ProgressHub, ProgressTab, clampPercent } from "./features/progress/ProgressTab.jsx";
 import { TransformPhotos } from "./features/progress/TransformPhotos.jsx";
+import { getVideoThumb, DEFAULT_EXERCISE_VIDEOS } from "./lib/exerciseVideos.js";
+import { VideoPlayerModal } from "./components/ui/VideoPlayerModal.jsx";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
