@@ -1,0 +1,68 @@
+import { useState } from "react";
+import { supabase } from "../../supabaseClient.js";
+import { BRAND } from "../../theme/tokens.js";
+import { Button } from "../../components/ui/Button.jsx";
+import { Card } from "../../components/ui/Card.jsx";
+import { Field } from "../../components/ui/Field.jsx";
+import { useIsMobile } from "../../lib/browser.js";
+
+export function LoginScreen({ onReady }) {
+  const isMobile = useIsMobile(520);
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function login() {
+    setLoading(true); setMsg("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setMsg(error.message);
+    else onReady?.();
+    setLoading(false);
+  }
+  async function acceptInvite() {
+    setLoading(true); setMsg("");
+    const code = inviteCode.trim().toUpperCase();
+    const { data: found, error: findErr } = await supabase.from("clients").select("*").eq("invite_code", code).maybeSingle();
+    if (findErr || !found) { setMsg("Invite code not found."); setLoading(false); return; }
+    const { data, error } = await supabase.auth.signUp({ email: found.email || email, password, options: { data: { name: found.name, role: "client" } } });
+    if (error) { setMsg(error.message); setLoading(false); return; }
+    if (data.user) {
+      await supabase.from("clients").update({ client_user_id: data.user.id, invite_status: "accepted", email: found.email || email }).eq("id", found.id);
+      setMsg("Client account connected. Log in with the password you created.");
+      setMode("login");
+    }
+    setLoading(false);
+  }
+  async function forgotPassword() {
+    setLoading(true); setMsg("");
+    const redirectTo = "https://forgeappbydenis.vercel.app/";
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    setMsg(error ? error.message : "Password reset link sent to your email.");
+    setLoading(false);
+  }
+  return (
+    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
+      <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
+        <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
+        <div style={{ fontSize: 25, fontWeight: 900, marginTop: 10, textTransform: "uppercase" }}>Welcome back</div>
+        <div style={{ color: BRAND.muted, marginBottom: 22 }}>Log in, or use an invite code your coach sent you.</div>
+        <Field label="Email" value={email} onChange={setEmail} placeholder="you@email.com" />
+        <div style={{ height: 10 }} />
+        <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="Password" />
+        {mode === "invite" && <><div style={{ height: 10 }} /><Field label="Invite Code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" /></>}
+        {msg && <div style={{ marginTop: 12, color: msg.includes("sent") || msg.includes("created") || msg.includes("connected") ? BRAND.green : BRAND.red, fontSize: 13 }}>{msg}</div>}
+        <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
+          {mode === "login" && <Button disabled={loading} onClick={login}>Log in</Button>}
+          {mode === "invite" && <Button disabled={loading} onClick={acceptInvite}>Accept invite</Button>}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+          <Button variant="ghost" onClick={() => setMode("login")} style={{ flex: 1 }}>Login</Button>
+          <Button variant="ghost" onClick={() => setMode("invite")} style={{ flex: 1 }}>Have an invite code?</Button>
+        </div>
+        <button onClick={forgotPassword} style={{ marginTop: 14, background: "transparent", border: "none", color: BRAND.gold, cursor: "pointer", padding: 0 }}>Forgot password?</button>
+      </Card>
+    </div>
+  );
+}

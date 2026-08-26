@@ -14,6 +14,9 @@ import { DENIS_EMAIL, DEFAULT_TIME_SLOTS, RPE_OPTIONS, PHOTO_TYPES, WATER_LITERS
 import { isTimedExercise, readFileAsDataUrl, ensureMobileViewport, useIsMobile, normalizeSlotLabel, timeKey, normalizeSlots } from "./lib/browser.js";
 import { ageFromBirthday, daysUntil, nextBirthdayDaysAway, daysSince, initials, getClientColor, normalizeGoals, normalizeInjuries, timeLabel, moneyAED, makeInviteCode, emptyProfile, emptyNutrition, mapClient, upsertSection, upsertTrainerData, loadTrainerTemplates, safeSelect } from "./lib/clientData.js";
 import { buildPdfDoc, downloadBlob, sharePdfBlob, safeFilename } from "./lib/pdf.js";
+import { AccountNotActiveScreen } from "./features/auth/AccountNotActiveScreen.jsx";
+import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
+import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
@@ -2417,116 +2420,6 @@ function setScore(set, timed) {
   const reps = numberFromText(set.reps);
   if (weight && reps) return weight * reps;
   return weight || reps;
-}
-function AccountNotActiveScreen({ onBackToLogin }) {
-  return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
-        <div style={{ color: BRAND.gold, fontSize: 38, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
-        <Card style={{ marginTop: 26, padding: 26 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: BRAND.card2, display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke={BRAND.dim} strokeWidth="2" /><path d="M4 21C4 16.5 7.5 14 12 14C16.5 14 20 16.5 20 21" stroke={BRAND.dim} strokeWidth="2" strokeLinecap="round" /><line x1="4" y1="4" x2="20" y2="20" stroke={BRAND.dim} strokeWidth="2" /></svg>
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>This Account Is No Longer Active</div>
-          <div style={{ color: BRAND.muted, fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, marginBottom: 20 }}>We couldn't find an active client profile for this login. If you think this is a mistake, reach out to your coach directly.</div>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 12, marginBottom: 22 }}>
-            <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Contact</div>
-            <div style={{ color: BRAND.gold, fontSize: 14, fontWeight: 700, marginTop: 4 }}>Denis &middot; +971 567 088 638</div>
-          </div>
-          <Button onClick={onBackToLogin} style={{ width: "100%" }}>Back to Login</Button>
-        </Card>
-      </div>
-    </div>
-  );
-}
-function ResetPasswordScreen({ onDone }) {
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-  async function save() {
-    if (password.length < 6) { setMsg("Password must be at least 6 characters."); return; }
-    if (password !== confirm) { setMsg("Passwords don't match."); return; }
-    setSaving(true); setMsg("");
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) { setMsg(error.message); setSaving(false); return; }
-    setMsg("Password updated. Redirecting to login...");
-    setTimeout(() => { window.location.href = window.location.origin; }, 1500);
-  }
-  return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
-      <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
-        <div style={{ color: BRAND.gold, fontSize: 30, fontWeight: 900, textAlign: "center" }}>FORGE</div>
-        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 12, textAlign: "center" }}>Set a New Password</div>
-        <div style={{ color: BRAND.muted, marginTop: 6, marginBottom: 20, textAlign: "center" }}>Choose a new password for your account.</div>
-        <Field label="New password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" />
-        <div style={{ height: 10 }} />
-        <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm} />
-        {msg && <div style={{ color: msg.includes("updated") ? BRAND.green : BRAND.red, fontWeight: 800, marginTop: 10, fontSize: 13 }}>{msg}</div>}
-        <Button disabled={saving} onClick={save} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Update Password"}</Button>
-      </Card>
-    </div>
-  );
-}
-function LoginScreen({ onReady }) {
-  const isMobile = useIsMobile(520);
-  const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(false);
-  async function login() {
-    setLoading(true); setMsg("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setMsg(error.message);
-    else onReady?.();
-    setLoading(false);
-  }
-  async function acceptInvite() {
-    setLoading(true); setMsg("");
-    const code = inviteCode.trim().toUpperCase();
-    const { data: found, error: findErr } = await supabase.from("clients").select("*").eq("invite_code", code).maybeSingle();
-    if (findErr || !found) { setMsg("Invite code not found."); setLoading(false); return; }
-    const { data, error } = await supabase.auth.signUp({ email: found.email || email, password, options: { data: { name: found.name, role: "client" } } });
-    if (error) { setMsg(error.message); setLoading(false); return; }
-    if (data.user) {
-      await supabase.from("clients").update({ client_user_id: data.user.id, invite_status: "accepted", email: found.email || email }).eq("id", found.id);
-      setMsg("Client account connected. Log in with the password you created.");
-      setMode("login");
-    }
-    setLoading(false);
-  }
-  async function forgotPassword() {
-    setLoading(true); setMsg("");
-    const redirectTo = "https://forgeappbydenis.vercel.app/";
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    setMsg(error ? error.message : "Password reset link sent to your email.");
-    setLoading(false);
-  }
-  return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
-      <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
-        <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
-        <div style={{ fontSize: 25, fontWeight: 900, marginTop: 10, textTransform: "uppercase" }}>Welcome back</div>
-        <div style={{ color: BRAND.muted, marginBottom: 22 }}>Log in, or use an invite code your coach sent you.</div>
-        <Field label="Email" value={email} onChange={setEmail} placeholder="you@email.com" />
-        <div style={{ height: 10 }} />
-        <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="Password" />
-        {mode === "invite" && <><div style={{ height: 10 }} /><Field label="Invite Code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" /></>}
-        {msg && <div style={{ marginTop: 12, color: msg.includes("sent") || msg.includes("created") || msg.includes("connected") ? BRAND.green : BRAND.red, fontSize: 13 }}>{msg}</div>}
-        <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
-          {mode === "login" && <Button disabled={loading} onClick={login}>Log in</Button>}
-          {mode === "invite" && <Button disabled={loading} onClick={acceptInvite}>Accept invite</Button>}
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-          <Button variant="ghost" onClick={() => setMode("login")} style={{ flex: 1 }}>Login</Button>
-          <Button variant="ghost" onClick={() => setMode("invite")} style={{ flex: 1 }}>Have an invite code?</Button>
-        </div>
-        <button onClick={forgotPassword} style={{ marginTop: 14, background: "transparent", border: "none", color: BRAND.gold, cursor: "pointer", padding: 0 }}>Forgot password?</button>
-      </Card>
-    </div>
-  );
 }
 function AddClientModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", weight: "", color: CLIENT_COLORS[0], profile: emptyProfile() });
