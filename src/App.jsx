@@ -8,6 +8,11 @@ import { Field, inputStyle, textareaStyle } from "./components/ui/Field.jsx";
 import { modalBackdrop } from "./components/ui/modal.js";
 import { NavIcon } from "./components/ui/NavIcon.jsx";
 import { CoachIcon } from "./components/ui/CoachIcon.jsx";
+import { uid } from "./lib/uid.js";
+import { DAYS, startOfWeek, addDays, isoDate, weekKey, weekRangeLabel, weekDays } from "./lib/dateUtils.js";
+import { FORGE_SYNC_QUEUE_KEY, readJson, writeJson, saveForgeCache, readForgeCache, enqueueSync, flushSyncQueue, updateClientRow } from "./lib/cache.js";
+import { DENIS_EMAIL, DEFAULT_TIME_SLOTS, RPE_OPTIONS, PHOTO_TYPES, WATER_LITERS, SLEEP_HOURS, MEASUREMENT_FIELDS, TIMED_EXERCISES } from "./lib/constants.js";
+import { isTimedExercise, readFileAsDataUrl, ensureMobileViewport, useIsMobile, normalizeSlotLabel, timeKey, normalizeSlots } from "./lib/browser.js";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
@@ -838,205 +843,6 @@ function estimateSmartFood(text = "") {
     unmatched: total.unmatched,
     note: confidence === "High" ? "Smart estimate ready." : "Review and edit the estimate before adding.",
   };
-}
-const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const RPE_OPTIONS = ["", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
-const PHOTO_TYPES = ["Front", "Side", "Back", "Before", "After", "Progress", "Other"];
-const WATER_LITERS = ["", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5", "5.5", "6"];
-const SLEEP_HOURS = ["", "4", "4.5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
-const MEASUREMENT_FIELDS = [
-  ["bloodPressure", "Blood Pressure"],
-  ["bmi", "BMI"],
-  ["chest", "Chest"],
-  ["leftArm", "Left Arm"],
-  ["rightArm", "Right Arm"],
-  ["waist", "Waist"],
-  ["sternum", "Sternum"],
-  ["stomach", "Stomach"],
-  ["hip", "Hip"],
-  ["waistHipRatio", "Waist To Hip Ratio"],
-  ["push", "Push Strength"],
-  ["pull", "Pull Strength"],
-  ["leg", "Leg Strength"],
-  ["core", "Core Strength"],
-  ["cardio", "Cardio Fitness"],
-];
-const TIMED_EXERCISES = ["dead hang", "scapular pull-up", "plank", "side plank", "weighted plank", "rkc plank", "hollow hold", "wall sit", "farmer walk", "farmer's carry", "suitcase carry", "overhead carry", "waiter carry", "sled push", "sled pull", "battle ropes", "battle rope waves", "battle rope slams", "skierg", "elliptical", "rower", "rowing machine", "stair climber", "stairmaster", "assault bike", "air bike", "stationary bike", "treadmill", "incline treadmill", "versa climber", "versaclimber", "jump rope", "bear crawl", "crab walk", "copenhagen", "hollow rock", "pallof hold", "deep squat hold", "goblet squat hold", "stretch", "stretching", "mobility", "carry"];
-function isTimedExercise(name = "") {
-  const n = String(name).toLowerCase();
-  return TIMED_EXERCISES.some((x) => n.includes(x));
-}
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-function normalizeSlotLabel(value = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const match = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-  if (!match) return raw.toUpperCase();
-  const hour = Number(match[1]);
-  const mins = match[2] || "00";
-  const period = match[3] ? match[3].toUpperCase() : "";
-  return `${hour}:${mins}${period ? ` ${period}` : ""}`;
-}
-function timeKey(value = "") {
-  return normalizeSlotLabel(value).toLowerCase().replace(/\s+/g, " ").trim();
-}
-function normalizeSlots(raw) {
-  const hasAmPm = Array.isArray(raw) && raw.some((s) => /\b(am|pm)\b/i.test(typeof s === "string" ? s : s?.label || s?.time || ""));
-  const source = Array.isArray(raw) && raw.length && hasAmPm ? raw : DEFAULT_TIME_SLOTS;
-  return source.map((s, i) => {
-    const label = normalizeSlotLabel(typeof s === "string" ? s : s.label || s.time || String(s));
-    return { id: typeof s === "object" && s.id ? s.id : `slot_${i}_${label}`, label };
-  });
-}
-const FORGE_CACHE_PREFIX = "forge_v47_cache_";
-const FORGE_SYNC_QUEUE_KEY = "forge_v47_pending_sync";
-function cacheKey(userId) {
-  return `${FORGE_CACHE_PREFIX}${userId || "guest"}`;
-}
-function readJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (_) {
-    return fallback;
-  }
-}
-function writeJson(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (_) {}
-}
-function stripPhotosForCache(clients) {
-  return (clients || []).map((c) => (c.transformPhotos?.length ? { ...c, transformPhotos: [] } : c));
-}
-function saveForgeCache(userId, snapshot) {
-  if (!userId) return;
-  const lightweight = {
-    ...snapshot,
-    clients: stripPhotosForCache(snapshot.clients),
-    clientPortal: snapshot.clientPortal?.transformPhotos?.length ? { ...snapshot.clientPortal, transformPhotos: [] } : snapshot.clientPortal,
-  };
-  writeJson(cacheKey(userId), { ...lightweight, savedAt: new Date().toISOString() });
-}
-function readForgeCache(userId) {
-  if (!userId) return null;
-  return readJson(cacheKey(userId), null);
-}
-function enqueueSync(item) {
-  const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
-  queue.push({ id: uid(), createdAt: new Date().toISOString(), ...item });
-  writeJson(FORGE_SYNC_QUEUE_KEY, queue);
-}
-async function flushSyncQueue() {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
-  const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
-  if (!queue.length) return;
-  const remaining = [];
-  for (const item of queue) {
-    try {
-      if (item.type === "client_data") {
-        const { error } = await supabase.from("client_data").upsert(
-          { client_id: item.clientId, section: item.section, data: item.data },
-          { onConflict: "client_id,section" }
-        );
-        if (error) throw error;
-      }
-      if (item.type === "trainer_data") {
-        const { error } = await supabase.from("trainer_data").upsert(
-          { trainer_id: item.trainerId, section: item.section, data: item.data },
-          { onConflict: "trainer_id,section" }
-        );
-        if (error) throw error;
-      }
-      if (item.type === "clients_update") {
-        const { error } = await supabase.from("clients").update(item.patch).eq("id", item.clientId);
-        if (error) throw error;
-      }
-    } catch (e) {
-      remaining.push(item);
-    }
-  }
-  writeJson(FORGE_SYNC_QUEUE_KEY, remaining);
-}
-async function updateClientRow(clientId, patch) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    enqueueSync({ type: "clients_update", clientId, patch });
-    return { queued: true };
-  }
-  try {
-    const { error } = await supabase.from("clients").update(patch).eq("id", clientId);
-    if (error) throw error;
-    await flushSyncQueue();
-    return { queued: false };
-  } catch (error) {
-    enqueueSync({ type: "clients_update", clientId, patch });
-    return { queued: true, error };
-  }
-}
-const DENIS_EMAIL = "kendenisdubai@gmail.com";
-function ensureMobileViewport() {
-  if (typeof document === "undefined") return;
-  let meta = document.querySelector('meta[name="viewport"]');
-  if (!meta) {
-    meta = document.createElement("meta");
-    meta.setAttribute("name", "viewport");
-    document.head.appendChild(meta);
-  }
-  meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover");
-  document.documentElement.style.maxWidth = "100%";
-  document.body.style.maxWidth = "100%";
-  document.body.style.overflowX = "hidden";
-}
-function useIsMobile(breakpoint = 760) {
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth <= breakpoint : false);
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [breakpoint]);
-  return isMobile;
-}
-function startOfWeek(date = new Date()) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-function isoDate(date = new Date()) {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-function weekKey(date) {
-  return isoDate(startOfWeek(date));
-}
-function weekRangeLabel(start) {
-  const a = new Date(start);
-  const b = addDays(a, 6);
-  return `${a.toLocaleDateString(undefined, { month: "short", day: "numeric" })} - ${b.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
-}
-function weekDays(start) {
-  return DAYS.map((name, i) => {
-    const date = addDays(start, i);
-    return { name, date: isoDate(date), label: `${name} ${date.getDate()}` };
-  });
 }
 function autoBookingsFor(clients, weekStart) {
   const days = weekDays(weekStart);
@@ -2680,9 +2486,6 @@ function useExerciseLibrary() {
     return () => { active = false; };
   }, []);
   return library;
-}
-function uid() {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 function ageFromBirthday(birthday) {
   if (!birthday) return null;

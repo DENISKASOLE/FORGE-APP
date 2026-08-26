@@ -1,0 +1,25 @@
+export const DENIS_EMAIL = "kendenisdubai@gmail.com";
+
+export const DEFAULT_TIME_SLOTS = ["5:30 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM", "9:00 PM", "9:30 PM", "10:00 PM"];
+export const RPE_OPTIONS = ["", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
+export const PHOTO_TYPES = ["Front", "Side", "Back", "Before", "After", "Progress", "Other"];
+export const WATER_LITERS = ["", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5", "5.5", "6"];
+export const SLEEP_HOURS = ["", "4", "4.5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"];
+export const MEASUREMENT_FIELDS = [
+  ["bloodPressure", "Blood Pressure"],
+  ["bmi", "BMI"],
+  ["chest", "Chest"],
+  ["leftArm", "Left Arm"],
+  ["rightArm", "Right Arm"],
+  ["waist", "Waist"],
+  ["sternum", "Sternum"],
+  ["stomach", "Stomach"],
+  ["hip", "Hip"],
+  ["waistHipRatio", "Waist To Hip Ratio"],
+  ["push", "Push Strength"],
+  ["pull", "Pull Strength"],
+  ["leg", "Leg Strength"],
+  ["core", "Core Strength"],
+  ["cardio", "Cardio Fitness"],
+];
+export const TIMED_EXERCISES = ["dead hang", "scapular pull-up", "plank", "side plank", "weighted plank", "rkc plank", "hollow hold", "wall sit", "farmer walk", "farmer's carry", "suitcase carry", "overhead carry", "waiter carry", "sled push", "sled pull", "battle ropes", "battle rope waves", "battle rope slams", "skierg", "elliptical", "rower", "rowing machine", "stair climber", "stairmaster", "assault bike", "air bike", "stationary bike", "treadmill", "incline treadmill", "versa climber", "versaclimber", "jump rope", "bear crawl", "crab walk", "copenhagen", "hollow rock", "pallof hold", "deep squat hold", "goblet squat hold", "stretch", "stretching", "mobility", "carry"];
