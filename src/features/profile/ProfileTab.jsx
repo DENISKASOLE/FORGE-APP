@@ -6,10 +6,12 @@ import { Card } from "../../components/ui/Card.jsx";
 import { Field, inputStyle } from "../../components/ui/Field.jsx";
 import { Mini } from "../../components/ui/Mini.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
-import { useIsMobile, readFileAsDataUrl } from "../../lib/browser.js";
+import { useIsMobile } from "../../lib/browser.js";
 import { GOAL_OPTIONS, CLIENT_COLORS, MEASUREMENT_FIELDS } from "../../lib/constants.js";
 import { ageFromBirthday, initials, emptyProfile, upsertSection } from "../../lib/clientData.js";
 import { updateClientRow } from "../../lib/cache.js";
+import { compressImage } from "../../lib/compressImage.js";
+import { uploadClientPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
 
 function TrialLinkModal({ client, onClose, onLinked }) {
   const [trials, setTrials] = useState([]);
@@ -63,10 +65,14 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
   const setMeasurement = (k, v) => setProfile((p) => ({ ...p, measurements: { ...(p.measurements || {}), [k]: v } }));
   const toggleGoal = (g) => set("goals", (profile.goals || []).includes(g) ? (profile.goals || []).filter((x) => x !== g) : [...(profile.goals || []), g]);
+  const photoUrl = usePhotoUrl(profile.photo || client.photo);
   async function pickPhoto(file) {
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    set("photo", dataUrl);
+    const blob = await compressImage(file);
+    const previousPhoto = profile.photo;
+    const path = await uploadClientPhoto(client.id, "profile", blob);
+    set("photo", path);
+    if (isStoragePath(previousPhoto)) await deleteClientPhoto(previousPhoto);
   }
   async function save() {
     setSaving(true);
@@ -83,7 +89,7 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
     <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 1000, marginBottom: 14, textAlign: isMobile ? "center" : "left" }}>Client Profile</div>
     <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
       <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000, border: `1px solid ${BRAND.line}`, cursor: "pointer", padding: 0 }}>
-        {profile.photo || client.photo ? <img src={profile.photo || client.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(client.name || client.avatar)}
+        {photoUrl ? <img src={photoUrl} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(client.name || client.avatar)}
       </button>
       <input ref={fileRef} type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={{ display: "none" }} />
       <div style={{ flex: 1, minWidth: 190 }}>

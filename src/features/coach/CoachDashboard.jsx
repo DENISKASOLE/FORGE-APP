@@ -8,7 +8,9 @@ import { Mini } from "../../components/ui/Mini.jsx";
 import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { CoachIcon } from "../../components/ui/CoachIcon.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
-import { useIsMobile, readFileAsDataUrl } from "../../lib/browser.js";
+import { useIsMobile } from "../../lib/browser.js";
+import { compressImage } from "../../lib/compressImage.js";
+import { uploadClientPhoto, uploadTrainerPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
 import {
@@ -35,12 +37,14 @@ async function loadExerciseLibraryData(trainerId) {
 export function AddClientModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ name: "", email: "", phone: "", weight: "", color: CLIENT_COLORS[0], profile: emptyProfile() });
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const setProfile = (k, v) => setForm((f) => ({ ...f, profile: { ...f.profile, [k]: v } }));
   const toggleGoal = (g) => setProfile("goals", form.profile.goals.includes(g) ? form.profile.goals.filter((x) => x !== g) : [...form.profile.goals, g]);
-  async function pickPhoto(file) {
+  function pickPhoto(file) {
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setProfile("photo", dataUrl);
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
   }
   return (
     <div style={modalBackdrop()}>
@@ -55,7 +59,7 @@ export function AddClientModal({ onClose, onCreate }) {
           <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 6 }}>{form.profile.clientType === "Online" ? "Online clients get Check-ins and Payments instead of Schedule and Packages." : "1:1 clients keep the in-person Schedule and Packages tabs."}</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 22, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{form.profile.photo ? <img src={form.profile.photo} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
+          <div style={{ width: 72, height: 72, borderRadius: 22, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{photoPreview ? <img src={photoPreview} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
           <div style={{ flex: 1 }}>
             <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT PHOTO</div>
             <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
@@ -86,7 +90,7 @@ export function AddClientModal({ onClose, onCreate }) {
           <Field label="Work Schedule" value={form.profile.workSchedule} onChange={(v) => setProfile("workSchedule", v)} textarea />
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-          <Button onClick={() => onCreate(form)} style={{ flex: 1 }}>Create client</Button>
+          <Button onClick={() => onCreate({ ...form, photoFile })} style={{ flex: 1 }}>Create client</Button>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
       </Card>
@@ -103,10 +107,14 @@ export function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const photoUrl = usePhotoUrl(form.photo);
   async function pickPhoto(file) {
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    set("photo", dataUrl);
+    const blob = await compressImage(file);
+    const previousPhoto = form.photo;
+    const path = await uploadTrainerPhoto(user.id, "profile", blob);
+    set("photo", path);
+    if (isStoragePath(previousPhoto)) await deleteClientPhoto(previousPhoto);
   }
   async function save() {
     setSaving(true);
@@ -146,7 +154,7 @@ export function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
           <div style={{ width: 84, height: 84, borderRadius: 24, background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
-            {form.photo ? <img src={form.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}
+            {photoUrl ? <img src={photoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}
           </div>
           <label style={{ flex: 1 }}>
             <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>PROFILE PHOTO</div>
@@ -599,6 +607,7 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
 }
 export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, syncStatus }) {
   const [busy, setBusy] = useState(false);
+  const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   async function logout() { setBusy(true); await supabase.auth.signOut(); }
   const Section = ({ t }) => <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 10, marginBottom: 2 }}>{t}</div>;
   const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: last ? "none" : `1px solid ${BRAND.line}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 800, fontSize: 14 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 900, fontSize: 12, whiteSpace: "nowrap" }}>{v}</span></div>;
@@ -606,7 +615,7 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   return <div style={{ display: "grid", gap: 12 }}>
     <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 1.5, textTransform: "uppercase" }}>Coach</div><div style={{ fontSize: 26, fontWeight: 900 }}>Settings</div></div>
     <Card onClick={onEditProfile} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000, flexShrink: 0 }}>{trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
+      <div style={{ width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
       <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 900, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Edit profile ›</div></div>
     </Card>
     <Section t="Brand" />
@@ -633,6 +642,7 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
 }
 
 export function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online" }) {
+  const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("home");
@@ -660,7 +670,13 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     const payload = { trainer_id: user.id, name: form.name, email: form.email, phone: form.phone, age: ageFromBirthday(form.profile.birthday) || 0, weight_kg: Number(form.weight || 0), goal: form.profile.goals?.[0] || "General Fitness", color, invite_code, invite_status: "not_sent" };
     const { data, error } = await supabase.from("clients").insert(payload).select("*").single();
     if (error) { alert(error.message); return; }
-    await upsertSection(data.id, "profile", form.profile);
+    let profile = form.profile;
+    if (form.photoFile) {
+      const blob = await compressImage(form.photoFile);
+      const path = await uploadClientPhoto(data.id, "profile", blob);
+      profile = { ...profile, photo: path };
+    }
+    await upsertSection(data.id, "profile", profile);
     setShowAdd(false);
     await refresh();
   }
@@ -742,7 +758,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: isMobile ? 38 : 44, height: isMobile ? 38 : 44, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
-            {trainer?.photo ? <img src={trainer.photo} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
+            {trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
           </div>
           <div>
             <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div>

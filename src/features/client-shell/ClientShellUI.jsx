@@ -9,6 +9,7 @@ import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
 import { DAYS } from "../../lib/dateUtils.js";
 import { timeLabel } from "../../lib/clientData.js";
+import { usePhotoUrl } from "../../lib/storage.js";
 
 export function ScheduledView({ clients, selectClient }) {
   const isMobile = useIsMobile(520);
@@ -170,7 +171,8 @@ export function HubScreen({ title, subtitle, cards, onOpen }) {
   );
 }
 export function ClientAvatar({ client, size = 54 }) {
-  return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: client.photo ? BRAND.card2 : client.color, color: "#000", fontWeight: 900, fontSize: size * 0.4, overflow: "hidden", flexShrink: 0, border: `2px solid ${client.color}`, boxShadow: `0 0 0 3px ${client.color}22` }}>{client.photo ? <img src={client.photo} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client.avatar || (client.name ? client.name[0] : "?"))}</div>;
+  const photoUrl = usePhotoUrl(client.photo);
+  return <div style={{ width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : client.color, color: "#000", fontWeight: 900, fontSize: size * 0.4, overflow: "hidden", flexShrink: 0, border: `2px solid ${client.color}`, boxShadow: `0 0 0 3px ${client.color}22` }}>{photoUrl ? <img src={photoUrl} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client.avatar || (client.name ? client.name[0] : "?"))}</div>;
 }
 export function ClientSettingsModal({ client, onClose }) {
   const [changing, setChanging] = useState(false);

@@ -5,20 +5,34 @@ import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field, inputStyle } from "../../components/ui/Field.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
-import { useIsMobile, readFileAsDataUrl } from "../../lib/browser.js";
+import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { PHOTO_TYPES } from "../../lib/constants.js";
 import { upsertSection } from "../../lib/clientData.js";
+import { compressImage } from "../../lib/compressImage.js";
+import { uploadClientPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
+
+function PhotoImg({ photo, alt, style }) {
+  const url = usePhotoUrl(photo?.image || photo?.url);
+  if (!url) return null;
+  return <img src={url} alt={alt} style={style} />;
+}
 
 function PhotoUploadModal({ onClose, onSave }) {
-  const [form, setForm] = useState({ image: "", type: "Progress", weight: "", notes: "", date: isoDate() });
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [form, setForm] = useState({ type: "Progress", weight: "", notes: "", date: isoDate() });
   const [saving, setSaving] = useState(false);
-  async function pickImage(file) { if (!file) return; const dataUrl = await readFileAsDataUrl(file); setForm((f) => ({ ...f, image: dataUrl })); }
+  function pickImage(f) {
+    if (!f) return;
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+  }
   async function save() {
-    if (!form.image) { alert("Choose a photo from your device first."); return; }
+    if (!file) { alert("Choose a photo from your device first."); return; }
     setSaving(true);
-    await onSave(form);
+    await onSave({ file, ...form });
     setSaving(false);
   }
   return (
@@ -28,10 +42,10 @@ function PhotoUploadModal({ onClose, onSave }) {
           <div style={{ fontSize: 20, fontWeight: 1000 }}>Add Photo</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
-        {form.image ? (
+        {previewUrl ? (
           <div style={{ position: "relative", marginBottom: 14 }}>
-            <img src={form.image} alt="preview" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 16 }} />
-            <button onClick={() => setForm((f) => ({ ...f, image: "" }))} style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 30, height: 30, fontWeight: 900, cursor: "pointer" }}>x</button>
+            <img src={previewUrl} alt="preview" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 16 }} />
+            <button onClick={() => { setFile(null); setPreviewUrl(""); }} style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 30, height: 30, fontWeight: 900, cursor: "pointer" }}>x</button>
           </div>
         ) : (
           <label style={{ display: "grid", placeItems: "center", height: 180, background: BRAND.card2, border: `2px dashed ${BRAND.line}`, borderRadius: 16, marginBottom: 14, cursor: "pointer", color: BRAND.muted, fontWeight: 800 }}>
@@ -45,7 +59,7 @@ function PhotoUploadModal({ onClose, onSave }) {
         </div>
         <Field label="Weight (optional)" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
         <Field label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} textarea />
-        <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 12 }}>{saving ? "Saving..." : "Save Photo"}</Button>
+        <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 12 }}>{saving ? "Uploading..." : "Save Photo"}</Button>
       </Card>
     </div>
   );
@@ -62,7 +76,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
       {index > 0 && <button onClick={() => onNavigate(index - 1)} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&lsaquo;</button>}
       {index < photos.length - 1 && <button onClick={() => onNavigate(index + 1)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&rsaquo;</button>}
       <div style={{ maxWidth: 480, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <img src={photo.image || photo.url} alt={photo.type} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 12 }} />
+        <PhotoImg photo={photo} alt={photo.type} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 12 }} />
         <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 14, marginTop: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.text, fontWeight: 800 }}><span>{photo.type}</span><span style={{ color: BRAND.muted, fontWeight: 600 }}>{photo.date}</span></div>
           {photo.weight && <div style={{ color: BRAND.gold, fontWeight: 700, fontSize: 13, marginTop: 4 }}>{photo.weight}kg</div>}
@@ -76,7 +90,7 @@ function PhotoCompareSlot({ label, photo, onPick }) {
   return (
     <button onClick={onPick} style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden", cursor: "pointer", padding: 0, textAlign: "left", width: "100%" }}>
       <div style={{ padding: "10px 12px", color: BRAND.gold, fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-      {photo?.image || photo?.url ? <img src={photo.image || photo.url} alt={label} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover" }} /> : <div style={{ aspectRatio: "3/4", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 13, fontWeight: 700 }}>No photo</div>}
+      {photo?.image || photo?.url ? <PhotoImg photo={photo} alt={label} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover" }} /> : <div style={{ aspectRatio: "3/4", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 13, fontWeight: 700 }}>No photo</div>}
       {photo && <div style={{ padding: "8px 12px 12px" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700 }}>{photo.date}{photo.weight ? ` · ${photo.weight}kg` : ""}</div></div>}
       <div style={{ padding: "0 12px 12px", color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>Tap to change</div>
     </button>
@@ -93,7 +107,7 @@ function PhotoPickerModal({ photos, onPick, onClose }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
           {photos.map((p) => (
             <button key={p.id} onClick={() => onPick(p.id)} style={{ padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 12, overflow: "hidden", cursor: "pointer", background: "none" }}>
-              <img src={p.image || p.url} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+              <PhotoImg photo={p} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
             </button>
           ))}
         </div>
@@ -128,8 +142,18 @@ export function TransformPhotos({ client, updateClient, isCoach }) {
   const gridPhotos = [...photos].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
   async function persist(next) { setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); }
-  async function addPhoto(form) { await persist([{ id: uid(), ...form }, ...photos]); setShowUpload(false); }
-  async function delPhoto(id) { await persist(photos.filter((p) => p.id !== id)); setLightboxIndex(null); }
+  async function addPhoto({ file, ...form }) {
+    const blob = await compressImage(file);
+    const path = await uploadClientPhoto(client.id, "transform", blob);
+    await persist([{ id: uid(), image: path, ...form }, ...photos]);
+    setShowUpload(false);
+  }
+  async function delPhoto(id) {
+    const removed = photos.find((p) => p.id === id);
+    await persist(photos.filter((p) => p.id !== id));
+    setLightboxIndex(null);
+    if (removed && isStoragePath(removed.image)) await deleteClientPhoto(removed.image);
+  }
   function pickCompare(id) { setCompareIds((prev) => (picking === "left" ? [id, prev[1]] : [prev[0], id])); setPicking(null); }
 
   return (
@@ -161,7 +185,7 @@ export function TransformPhotos({ client, updateClient, isCoach }) {
               const realIndex = gridPhotos.indexOf(p);
               return (
                 <button key={p.id} onClick={() => setLightboxIndex(realIndex)} style={{ padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 14, overflow: "hidden", cursor: "pointer", background: BRAND.card2, position: "relative" }}>
-                  {p.image || p.url ? <img src={p.image || p.url} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} /> : <div style={{ aspectRatio: "1/1", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 11 }}>No image</div>}
+                  {p.image || p.url ? <PhotoImg photo={p} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} /> : <div style={{ aspectRatio: "1/1", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 11 }}>No image</div>}
                   <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: "linear-gradient(0deg, rgba(0,0,0,.85), transparent)", padding: "12px 8px 6px", textAlign: "left" }}>
                     <div style={{ color: "#fff", fontSize: 10, fontWeight: 800 }}>{p.date}</div>
                   </div>
