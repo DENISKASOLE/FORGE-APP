@@ -4,6 +4,25 @@ import { isoDate, startOfWeek } from "../../lib/dateUtils.js";
 export const NUTRITION_PHASES = ["baseline", "report", "adjustment", "maintenance"];
 export const MEAL_SLOTS = ["breakfast", "lunch", "dinner"];
 
+export const SUPPLEMENT_TIMINGS = [
+  { key: "any", label: "Any time" },
+  { key: "morning", label: "Morning" },
+  { key: "pre", label: "Pre-workout" },
+  { key: "post", label: "Post-workout" },
+  { key: "with_meals", label: "With meals" },
+  { key: "bed", label: "Before bed" },
+];
+
+export const SUPPLEMENT_PRESETS = [
+  { name: "Creatine monohydrate", dose: "5g", timing: "any" },
+  { name: "Fish oil", dose: "2 caps", timing: "with_meals" },
+  { name: "Vitamin D3", dose: "2000 IU", timing: "morning" },
+  { name: "Magnesium", dose: "400mg", timing: "bed" },
+  { name: "Multivitamin", dose: "1 tablet", timing: "morning" },
+  { name: "Zinc", dose: "15mg", timing: "with_meals" },
+  { name: "Electrolytes", dose: "1 serving", timing: "pre" },
+];
+
 export function weekOfFor(date = new Date()) {
   return isoDate(startOfWeek(date));
 }
@@ -20,6 +39,7 @@ export function emptyNutritionState() {
   return {
     phase: "baseline",
     week_of: weekOfFor(),
+    setup_complete: false,
     supplement_stack: [],
     food_log: {},
     report: null,
@@ -42,6 +62,7 @@ export function normalizeNutritionState(raw) {
   return {
     phase: NUTRITION_PHASES.includes(raw.phase) ? raw.phase : base.phase,
     week_of: raw.week_of || base.week_of,
+    setup_complete: !!raw.setup_complete,
     supplement_stack: Array.isArray(raw.supplement_stack) ? raw.supplement_stack : [],
     food_log: foodLog,
     report: raw.report || null,
