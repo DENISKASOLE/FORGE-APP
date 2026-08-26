@@ -34,6 +34,10 @@ import { VideoPlayerModal } from "./components/ui/VideoPlayerModal.jsx";
 import { ExerciseLibraryScreen, ProgramBuilder, ProgramTab } from "./features/train/TrainScreens.jsx";
 import { buildProgramDays } from "./lib/programModel.js";
 import { InjuryBanner } from "./components/ui/InjuryBanner.jsx";
+import { ClientWorkoutLog } from "./features/scheduling/ClientWorkoutLog.jsx";
+import { Calendar } from "./features/coach/Calendar.jsx";
+import { Trials } from "./features/coach/Trials.jsx";
+import { countTodaysCalendarSessions } from "./features/coach/coachHelpers.js";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
@@ -425,75 +429,11 @@ function estimateSmartFood(text = "") {
     note: confidence === "High" ? "Smart estimate ready." : "Review and edit the estimate before adding.",
   };
 }
-function autoBookingsFor(clients, weekStart) {
-  const days = weekDays(weekStart);
-  const currentWeekKey = weekKey(weekStart);
-  return clients.flatMap((c) => (c.schedule || []).map((s) => {
-    const foundDay = days.find((d) => d.name === s.day);
-    return { id: `auto_${currentWeekKey}_${c.id}_${s.day}_${s.time}`, weekKey: currentWeekKey, date: foundDay?.date || "", day: s.day, time: s.time, title: c.name, type: "Client Session", color: c.color, auto: true, clientId: c.id };
-  }));
-}
-async function countTodaysCalendarSessions(clients, trainerId) {
-  const todayISO = isoDate(new Date());
-  const weekStart = startOfWeek(new Date());
-  const currentWeekKey = weekKey(weekStart);
-  const auto = autoBookingsFor(clients, weekStart);
-  let saved = [];
-  if (trainerId) {
-    const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "calendar").maybeSingle();
-    saved = data?.data?.bookings || [];
-  }
-  const all = [...auto, ...saved.filter((b) => b.weekKey === currentWeekKey || b.date === todayISO)];
-  return all.filter((b) => b.date === todayISO).length;
-}
-async function loadTodaysAgenda(clients, trainerId) {
-  const todayISO = isoDate(new Date());
-  const weekStart = startOfWeek(new Date());
-  const currentWeekKey = weekKey(weekStart);
-  const auto = autoBookingsFor(clients, weekStart);
-  let saved = [];
-  if (trainerId) {
-    const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "calendar").maybeSingle();
-    saved = data?.data?.bookings || [];
-  }
-  const all = [...auto, ...saved.filter((b) => b.weekKey === currentWeekKey || b.date === todayISO)];
-  const sessions = all.filter((b) => b.date === todayISO)
-    .map((b) => {
-      const client = clients.find((c) => c.id === b.clientId);
-      const hasInjury = !!(client?.profile?.injuries || "").trim() && !/^none\b|^no\b|^n\/a$/i.test((client?.profile?.injuries || "").trim());
-      return { ...b, hasInjury, injuryNote: hasInjury ? client.profile.injuries : "" };
-    })
-    .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-
-  const checkInsDue = clients.filter((c) => {
-    const submissions = c.checkIns || [];
-    const last = submissions[submissions.length - 1];
-    const daysSinceLast = last ? daysSince(last.date) : null;
-    return daysSinceLast === null || daysSinceLast >= 7;
-  });
-
-  const paymentsDue = clients.filter((c) => c.clientType === "Online" && ["overdue", "due"].some((k) => (paymentStatus(c).label || "").toLowerCase().includes(k)));
-
-  return { sessions, checkInsDue, paymentsDue };
-}
 // ================= PROGRAM SYSTEM (V2 — fresh design) =================
 // Model: Program { weeks: [{ workouts: [{ blocks: [{ exercises: [{ sets: [] }] }] }] }] }
 // Logs are separate from the program so editing a program never touches history.
 
 // ---------------- Real PDF generation (pdf-lib) + download/share ----------------
-async function downloadTrialPDF(trial) {
-  const sections = [
-    { heading: "Contact", lines: [{ label: "Phone", value: trial.phone }, { label: "Email", value: trial.email }] },
-    { heading: "Goals & History", lines: [{ label: "Goal", value: trial.goal }, { label: "Fitness history", value: trial.fitnessHistory }, { label: "Barriers", value: trial.barriers }] },
-    { heading: "Health", lines: [{ label: "Injuries", value: trial.injuries }, { label: "Medical issues", value: trial.medicalIssues }] },
-    { heading: "Lifestyle", lines: [{ label: "Nutrition", value: trial.nutrition }, { label: "Sleep", value: trial.sleep }, { label: "Daily activity (NEAT)", value: trial.neat }] },
-    { heading: "Priorities", lines: [{ label: "Fat loss", value: trial.fatLossImportance }, { label: "Muscle gain", value: trial.muscleGainImportance }, { label: "Strength/endurance", value: trial.strengthEnduranceImportance }, { label: "Mobility/flexibility", value: trial.mobilityFlexibilityImportance }] },
-    { heading: `Assessment${trial.assessmentDate ? ` — ${trial.assessmentDate}` : ""}`, lines: [{ label: "Cardiovascular", value: trial.cardiovascular }, { label: "Squat", value: trial.squat }, { label: "Push strength", value: trial.pushStrength }, { label: "Pull strength", value: trial.pullStrength }, { label: "Core strength", value: trial.coreStrength }, { label: "Flexibility", value: trial.flexibilityFitness }] },
-  ];
-  const subtitle = `Trial consultation${trial.savedAt ? `  ·  ${String(trial.savedAt).slice(0, 10)}` : ""}`;
-  const blob = await buildPdfDoc(trial.name || "Trial", subtitle, sections);
-  return { blob, filename: `${safeFilename(trial.name)}_trial.pdf` };
-}
 
 function aiFoodSuggestions(client) {
   const profile = client.profile || emptyProfile();
@@ -2426,101 +2366,6 @@ async function loadIntakeTemplate(trainerId) {
   return data?.data?.questions?.length ? data.data.questions : DEFAULT_INTAKE_QUESTIONS;
 }
 
-function ClientWorkoutLog({ client, updateClient }) {
-  const isMobile = useIsMobile(520);
-  const [logs, setLogs] = useState(client.workoutLogs || []);
-  const [form, setForm] = useState({ date: isoDate(), workout: "", weights: "", cardio: "", rpe: "", notes: "" });
-  async function add() { const next = [{ id: uid(), ...form }, ...logs]; setLogs(next); await upsertSection(client.id, "workoutLogs", next); updateClient({ ...client, workoutLogs: next }); setForm({ ...form, workout: "", weights: "", cardio: "", rpe: "", notes: "" }); }
-  return <Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ fontSize: isMobile ? 20 : 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>RPE</div><select value={form.rpe || ""} onChange={(e) => setForm({ ...form, rpe: e.target.value })} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></label></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
-}
-function Calendar({ clients, refresh, user }) {
-  const [slots, setSlots] = useState(() => normalizeSlots(JSON.parse(localStorage.getItem("forge_time_slots") || "null")));
-  const [zoom, setZoom] = useState(() => Number(localStorage.getItem("forge_calendar_zoom") || 1));
-  const [bookings, setBookings] = useState([]);
-  const [newSlot, setNewSlot] = useState("");
-  const [draft, setDraft] = useState(null);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const days = weekDays(weekStart);
-  const currentWeekKey = weekKey(weekStart);
-  useEffect(() => { load(); }, []);
-  async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "calendar").maybeSingle(); setBookings(data?.data?.bookings || []); }
-  async function save(next) { setBookings(next); const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; await upsertTrainerData(uidVal, "calendar", { bookings: next }); }
-  function autoBookings() { return autoBookingsFor(clients, weekStart); }
-  const all = [...autoBookings(), ...bookings.filter((b) => b.weekKey === currentWeekKey || days.some((d) => d.date === b.date))];
-  function removeSlot(id) { const next = slots.filter((x) => x.id !== id); setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); }
-  function addSlot() { if (!newSlot) return; const next = [...slots, { id: uid(), label: newSlot }]; setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); setNewSlot(""); }
-  function openBooking(dayObj, slot, existing) { const b = existing || {}; const client = clients.find((c) => c.id === b.clientId) || clients[0]; setDraft({ id: b.id || null, weekKey: currentWeekKey, date: dayObj.date, day: dayObj.name, time: b.time || slot.label, type: b.type || "Client Session", clientId: b.clientId || client?.id || "", title: b.title || client?.name || "", color: b.color || client?.color || BRAND.blue, auto: !!b.auto }); }
-  function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; const clean = { ...draft, color, auto: false, id: draft.id?.startsWith("auto_") ? uid() : draft.id || uid() }; save([...(bookings.filter((x) => x.id !== draft.id)), clean]); setDraft(null); }
-  const goWeek = (n) => setWeekStart((w) => addDays(w, n * 7));
-  function setCalendarZoom(next) {
-    const clean = Math.max(0.45, Math.min(1.8, Number(next)));
-    setZoom(clean);
-    localStorage.setItem("forge_calendar_zoom", String(clean));
-  }
-  const calendarCellHeight = zoom <= 0.7 ? 48 : zoom >= 1.25 ? 82 : 64;
-  const calendarMinWidth = zoom <= 0.75 ? 760 : 920;
-  return <Card style={{ overflowX: "auto" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-      <div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Calendar</div><div style={{ color: BRAND.muted }}>{weekRangeLabel(weekStart)}</div></div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="dark" onClick={() => goWeek(-1)}>Previous Week</Button><Button variant="dark" onClick={() => setWeekStart(startOfWeek(new Date()))}>This Week</Button><Button variant="dark" onClick={() => goWeek(1)}>Next Week</Button></div>
-    </div>
-    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-      <input value={newSlot} onChange={(e) => setNewSlot(e.target.value)} placeholder="Add time e.g. 6:30 PM" style={inputStyle({ maxWidth: 190 })} /><Button onClick={addSlot}>Add time</Button>
-      <Button variant="dark" onClick={() => setCalendarZoom(zoom - 0.1)}>Zoom -</Button><input type="range" min="0.45" max="1.8" step="0.05" value={zoom} onChange={(e) => setCalendarZoom(e.target.value)} style={{ width: 180 }} /><div style={{ color: BRAND.muted, fontWeight: 900 }}>{Math.round(zoom * 100)}%</div><Button variant="dark" onClick={() => setCalendarZoom(zoom + 0.1)}>Zoom +</Button><Button variant="ghost" onClick={() => setCalendarZoom(0.65)}>Fit Week</Button><Button variant="ghost" onClick={() => setCalendarZoom(1)}>Reset</Button>
-    </div>
-    <div style={{ overflowX: "auto", overflowY: "hidden", width: "100%" }}>
-      <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", width: `${100 / zoom}%`, minWidth: calendarMinWidth }}>
-        <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "separate", borderSpacing: zoom < 0.75 ? 4 : 6, minWidth: calendarMinWidth }}><thead><tr><th style={{ width: 90 }}></th>{days.map((d) => <th key={d.date} style={{ color: BRAND.gold }}>{d.label}</th>)}</tr></thead><tbody>{slots.map((slot) => <tr key={slot.id}><td style={{ color: BRAND.muted, fontWeight: 900, width: 90 }}>{timeLabel(slot.label)} <button onClick={() => removeSlot(slot.id)} style={{ background: "transparent", border: "none", color: BRAND.red, cursor: "pointer" }}>x</button></td>{days.map((d) => { const b = all.find((x) => (x.date === d.date || x.day === d.name) && timeKey(x.time) === timeKey(slot.label)); return <td key={d.date} onClick={() => openBooking(d, slot, b)} style={{ height: calendarCellHeight, width: 120, background: b ? b.color : "#0b0c10", color: b ? "#000" : BRAND.dim, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: zoom < 0.75 ? 5 : 8, cursor: "pointer", fontWeight: 900, verticalAlign: "top", overflow: "hidden" }}>{b ? <><div style={{ fontSize: zoom < 0.75 ? 10 : 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.type === "Free Trial" ? "TRIAL" : b.title}</div><div style={{ fontSize: 10, opacity: .75 }}>{b.time}</div></> : ""}{b && !b.auto && <button onClick={(e) => { e.stopPropagation(); save(bookings.filter((x) => x.id !== b.id)); }} style={{ float: "right", background: "transparent", border: "none", cursor: "pointer" }}>x</button>}</td>; })}</tr>)}</tbody></table>
-      </div>
-    </div>
-    {draft && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 540 }}><div style={{ fontSize: 24, fontWeight: 1000, marginBottom: 12 }}>{draft.auto ? "Reschedule" : "Book"} {draft.day} · {draft.time}</div><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TYPE</div><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value, color: e.target.value === "Free Trial" ? BRAND.red : draft.color })} style={inputStyle()}><option>Client Session</option><option>Free Trial</option><option>Consultation</option></select></label>{draft.type !== "Free Trial" && <label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT</div><select value={draft.clientId} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setDraft({ ...draft, clientId: e.target.value, title: c?.name || draft.title, color: c?.color || draft.color }); }} style={inputStyle()}>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}<Field label="Booking name" value={draft.title} onChange={(v) => setDraft({ ...draft, title: v })} /><label style={{ display: "block", marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>TIME</div><select value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} style={inputStyle()}>{slots.map((s) => <option key={s.id}>{s.label}</option>)}</select></label><div style={{ marginTop: 10 }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>COLOR</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{CLIENT_COLORS.map((c) => <button key={c} disabled={draft.type === "Free Trial"} onClick={() => setDraft({ ...draft, color: c })} style={{ width: 34, height: 34, borderRadius: 12, border: draft.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: draft.type === "Free Trial" ? BRAND.red : c, opacity: draft.type === "Free Trial" ? .45 : 1, cursor: "pointer" }} />)}</div></div><div style={{ display: "flex", gap: 10, marginTop: 14 }}><Button onClick={saveDraft} style={{ flex: 1 }}>Save booking</Button><Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button></div></Card></div>}
-  </Card>;
-}
-function RatingSelect({ label, value, onChange }) {
-  return <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>{label}</div><select value={value || ""} onChange={(e) => onChange(e.target.value)} style={inputStyle()}><option value="">Choose 1-5</option>{[1,2,3,4,5].map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
-}
-function Trials({ user, onConvert }) {
-  const [trials, setTrials] = useState([]);
-  const [tab, setTab] = useState("contact");
-  const [openTrial, setOpenTrial] = useState(null);
-  const [converting, setConverting] = useState(false);
-  const [pdfBusy, setPdfBusy] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" });
-  useEffect(() => { load(); }, []);
-  async function load() { const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", uidVal).eq("section", "trials").maybeSingle(); setTrials(data?.data?.trials || []); }
-  async function save(next) { setTrials(next); const uidVal = user?.id || (await supabase.auth.getUser()).data.user?.id; await upsertTrainerData(uidVal, "trials", { trials: next }); }
-  function set(k, v) { setForm({ ...form, [k]: v }); }
-  function saveTrial() { const saved = { id: form.id || uid(), ...form, savedAt: new Date().toISOString() }; save([saved, ...trials.filter((t) => t.id !== saved.id)]); setForm({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" }); }
-  async function convertToClient(trial) {
-    if (!onConvert) return;
-    if (!confirm(`Convert ${trial.name} to a paying client? A client profile will be created with their trial details attached.`)) return;
-    setConverting(true);
-    const clientId = await onConvert(trial);
-    setConverting(false);
-    if (clientId) save(trials.map((t) => (t.id === trial.id ? { ...t, convertedClientId: clientId, convertedAt: new Date().toISOString() } : t)));
-  }
-  const TRIAL_TABS = [
-    { key: "contact", label: "Contact" },
-    { key: "goals", label: "Goals" },
-    { key: "health", label: "Health" },
-    { key: "lifestyle", label: "Lifestyle" },
-    { key: "priorities", label: "Priorities" },
-    { key: "assessment", label: "Assessment" },
-  ];
-  return <div style={{ display: "grid", gap: 14 }}><Card><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Trials</div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, margin: "12px 0" }}>
-      {TRIAL_TABS.map((t) => <Button key={t.key} variant={tab === t.key ? "gold" : "dark"} onClick={() => setTab(t.key)}>{t.label}</Button>)}
-    </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-      {tab === "contact" && <><Field label="Name" value={form.name} onChange={(v) => set("name", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} /><Field label="Email" value={form.email} onChange={(v) => set("email", v)} /></>}
-      {tab === "goals" && <><Field label="Goal" value={form.goal} onChange={(v) => set("goal", v)} textarea /><Field label="Fitness history" value={form.fitnessHistory} onChange={(v) => set("fitnessHistory", v)} textarea /><Field label="Barriers" value={form.barriers} onChange={(v) => set("barriers", v)} textarea /></>}
-      {tab === "health" && <><Field label="Injuries" value={form.injuries} onChange={(v) => set("injuries", v)} textarea /><Field label="Medical issues" value={form.medicalIssues} onChange={(v) => set("medicalIssues", v)} textarea /></>}
-      {tab === "lifestyle" && <><Field label="Nutrition" value={form.nutrition} onChange={(v) => set("nutrition", v)} textarea /><Field label="Sleep" value={form.sleep} onChange={(v) => set("sleep", v)} textarea /><Field label="NEAT / daily activity" value={form.neat} onChange={(v) => set("neat", v)} textarea /></>}
-      {tab === "priorities" && <><div style={{ gridColumn: "1 / -1", color: BRAND.gold, fontWeight: 1000, marginBottom: 4 }}>On a scale of 1-5, rate how important these are to the client:</div><RatingSelect label="Fat loss" value={form.fatLossImportance} onChange={(v) => set("fatLossImportance", v)} /><RatingSelect label="Muscle gain" value={form.muscleGainImportance} onChange={(v) => set("muscleGainImportance", v)} /><RatingSelect label="Strength and endurance" value={form.strengthEnduranceImportance} onChange={(v) => set("strengthEnduranceImportance", v)} /><RatingSelect label="Mobility & flexibility" value={form.mobilityFlexibilityImportance} onChange={(v) => set("mobilityFlexibilityImportance", v)} /></>}
-      {tab === "assessment" && <><Field label="Date" type="date" value={form.assessmentDate} onChange={(v) => set("assessmentDate", v)} /><Field label="Cardiovascular fitness" value={form.cardiovascular} onChange={(v) => set("cardiovascular", v)} /><Field label="Squat" value={form.squat} onChange={(v) => set("squat", v)} /><Field label="Push strength" value={form.pushStrength} onChange={(v) => set("pushStrength", v)} /><Field label="Pull strength" value={form.pullStrength} onChange={(v) => set("pullStrength", v)} /><Field label="Core strength" value={form.coreStrength} onChange={(v) => set("coreStrength", v)} /><Field label="Flexibility fitness" value={form.flexibilityFitness} onChange={(v) => set("flexibilityFitness", v)} /></>}
-    </div>
-    <Button onClick={saveTrial} style={{ marginTop: 12 }}>Save Trial</Button></Card><Card><div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Saved Trials</div>{trials.length === 0 && <div style={{ color: BRAND.muted }}>No saved trials yet.</div>}{trials.map((t) => <div key={t.id} onClick={() => setOpenTrial(t)} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12, cursor: "pointer" }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><b>{t.name}</b>{t.convertedClientId && <span style={{ background: BRAND.green, color: "#000", fontSize: 10, fontWeight: 1000, borderRadius: 999, padding: "2px 8px" }}>CLIENT</span>}</div><div style={{ color: BRAND.muted }}>{t.phone} · {t.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 900 }}>Tap to open</div></div>)}</Card>{openTrial && <div style={modalBackdrop()}><Card style={{ width: "100%", maxWidth: 760, maxHeight: "90vh", overflow: "auto" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 12 }}><div><div style={{ fontSize: 24, fontWeight: 1000 }}>{openTrial.name}</div><div style={{ color: BRAND.muted }}>{openTrial.phone} · {openTrial.email}</div></div><Button variant="ghost" onClick={() => setOpenTrial(null)}>X</Button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>{Object.entries(openTrial).filter(([k]) => !["id","savedAt"].includes(k)).map(([k,v]) => <Mini key={k} label={k.replace(/([A-Z])/g, " $1")} value={String(v || "-")} />)}</div>{openTrial.convertedClientId ? <div style={{ background: `${BRAND.green}18`, border: `1px solid ${BRAND.green}`, borderRadius: 12, padding: 10, marginTop: 12, color: BRAND.green, fontWeight: 800, fontSize: 13 }}>Converted to a client on {String(openTrial.convertedAt || "").slice(0, 10)}.</div> : null}<div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>{!openTrial.convertedClientId && <Button onClick={() => convertToClient(openTrial)} disabled={converting} style={{ flex: 1 }}>{converting ? "Converting..." : "Convert to Client (client has paid)"}</Button>}<Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadTrialPDF(openTrial); downloadBlob(blob, filename); setPdfBusy(false); }}>{pdfBusy ? "..." : "Download PDF"}</Button>{typeof navigator !== "undefined" && navigator.share && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadTrialPDF(openTrial); await sharePdfBlob(blob, filename, openTrial.name); setPdfBusy(false); }}>Share</Button>}<Button variant="dark" onClick={() => { setForm(openTrial); setOpenTrial(null); }}>Edit</Button><Button variant="red" onClick={() => { save(trials.filter((x) => x.id !== openTrial.id)); setOpenTrial(null); }}>Delete</Button></div></Card></div>}</div>;
-}
 export default function App() {
   const isMobile = useIsMobile(520);
   const [session, setSession] = useState(null);
