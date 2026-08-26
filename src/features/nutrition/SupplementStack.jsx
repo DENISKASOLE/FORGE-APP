@@ -6,7 +6,7 @@ import { Field } from "../../components/ui/Field.jsx";
 import { Chip } from "../../components/ui/Chip.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { uid } from "../../lib/uid.js";
-import { SUPPLEMENT_PRESETS, SUPPLEMENT_TIMINGS } from "./data.js";
+import { SUPPLEMENT_PRESETS, SUPPLEMENT_TIMINGS } from "../../lib/nutrition.js";
 
 export function SupplementStack({ nutrition, onSave, onContinue }) {
   const [stack, setStack] = useState(nutrition.supplement_stack || []);

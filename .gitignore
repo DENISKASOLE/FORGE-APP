@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ad-hoc smoke-test screenshots
+smoke_screenshot.png

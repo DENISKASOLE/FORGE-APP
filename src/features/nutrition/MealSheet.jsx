@@ -7,7 +7,7 @@ import { Sheet } from "../../components/ui/Sheet.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { usePhotoUrl, uploadClientPhoto, deleteClientPhoto, isStoragePath } from "../../lib/storage.js";
 import { compressImage } from "../../lib/compressImage.js";
-import { emptyMealEntry } from "./data.js";
+import { emptyMealEntry } from "../../lib/nutrition.js";
 
 const COOKING_METHODS = [
   { key: "none", label: "None / raw" },

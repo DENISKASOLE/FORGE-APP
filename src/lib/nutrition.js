@@ -1,5 +1,5 @@
-import { upsertSection } from "../../lib/clientData.js";
-import { isoDate, startOfWeek } from "../../lib/dateUtils.js";
+import { upsertSection } from "./clientData.js";
+import { isoDate, startOfWeek } from "./dateUtils.js";
 
 export const NUTRITION_PHASES = ["baseline", "report", "adjustment", "maintenance"];
 export const MEAL_SLOTS = ["breakfast", "lunch", "dinner"];

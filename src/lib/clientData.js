@@ -4,6 +4,7 @@ import { enqueueSync, flushSyncQueue } from "./cache.js";
 import { normalizeSlotLabel } from "./browser.js";
 import { CLIENT_COLORS } from "./constants.js";
 import { BRAND } from "../theme/tokens.js";
+import { normalizeNutritionState } from "./nutrition.js";
 
 export function ageFromBirthday(birthday) {
   if (!birthday) return null;
@@ -103,9 +104,6 @@ export function emptyProfile() {
     measurements: {},
   };
 }
-export function emptyNutrition() {
-  return { targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 3 }, days: {}, recents: [] };
-}
 export function mapClient(row, dataRows = [], index = 0) {
   const sections = {};
   dataRows.forEach((r) => {
@@ -134,7 +132,7 @@ export function mapClient(row, dataRows = [], index = 0) {
     avatar: initials(row.name),
     packages: sections.packages || row.packages || [],
     program: sections.program || row.program || null,
-    nutrition: { ...emptyNutrition(), ...(sections.nutrition || {}) },
+    nutrition: normalizeNutritionState(sections.nutrition),
     transformPhotos: sections.transformPhotos || [],
     progress: sections.progress?.progress || row.progress || [],
     measurements: sections.progress?.measurements || row.measurements || {},

@@ -4,7 +4,7 @@ import { Card } from "../../components/ui/Card.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { usePhotoUrl, deleteClientPhoto, isStoragePath } from "../../lib/storage.js";
 import { isoDate, addDays } from "../../lib/dateUtils.js";
-import { MEAL_SLOTS, dayLogFor, saveNutritionState } from "./data.js";
+import { MEAL_SLOTS, dayLogFor, saveNutritionState } from "../../lib/nutrition.js";
 import { MealSheet } from "./MealSheet.jsx";
 
 function MealThumb({ photo, size = 44 }) {
