@@ -11,8 +11,9 @@ import { CoachIcon } from "./components/ui/CoachIcon.jsx";
 import { uid } from "./lib/uid.js";
 import { DAYS, startOfWeek, addDays, isoDate, weekKey, weekRangeLabel, weekDays } from "./lib/dateUtils.js";
 import { FORGE_SYNC_QUEUE_KEY, readJson, writeJson, saveForgeCache, readForgeCache, enqueueSync, flushSyncQueue, updateClientRow } from "./lib/cache.js";
-import { DENIS_EMAIL, DEFAULT_TIME_SLOTS, RPE_OPTIONS, PHOTO_TYPES, WATER_LITERS, SLEEP_HOURS, MEASUREMENT_FIELDS, TIMED_EXERCISES } from "./lib/constants.js";
+import { DENIS_EMAIL, DEFAULT_TIME_SLOTS, RPE_OPTIONS, PHOTO_TYPES, WATER_LITERS, SLEEP_HOURS, MEASUREMENT_FIELDS, TIMED_EXERCISES, GOAL_OPTIONS, CLIENT_TYPES, DEFAULT_CHECKIN_QUESTIONS, CLIENT_COLORS, LIFT_FIELDS, DEFAULT_INTAKE_QUESTIONS } from "./lib/constants.js";
 import { isTimedExercise, readFileAsDataUrl, ensureMobileViewport, useIsMobile, normalizeSlotLabel, timeKey, normalizeSlots } from "./lib/browser.js";
+import { ageFromBirthday, daysUntil, nextBirthdayDaysAway, daysSince, initials, getClientColor, normalizeGoals, normalizeInjuries, timeLabel, moneyAED, makeInviteCode, emptyProfile, emptyNutrition, mapClient, upsertSection, upsertTrainerData, loadTrainerTemplates, safeSelect } from "./lib/clientData.js";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
@@ -43,48 +44,6 @@ import { isTimedExercise, readFileAsDataUrl, ensureMobileViewport, useIsMobile, 
   - V6.5: smart custom food macro estimator for combined meals like chapati + chicken curry + rice
   - V6.5: spreadsheet-style calendar zoom slider with Fit Week view
 */
-const GOAL_OPTIONS = [
-  "Fat Loss",
-  "Muscle Gain",
-  "Strength",
-  "Endurance",
-  "Mobility",
-  "General Fitness",
-  "Rehab",
-  "Lifestyle",
-];
-const CLIENT_TYPES = ["1:1", "Online"];
-const DEFAULT_CHECKIN_QUESTIONS = [
-  { id: "q1", text: "What's your current weight? (kg)", type: "text" },
-  { id: "q9", text: "Roughly what % was your nutrition adherence this week?", type: "choice", options: ["90-100%", "75-89%", "50-74%", "Below 50%"] },
-  { id: "q2", text: "Energy this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
-  { id: "q3", text: "How was your sleep this week?", type: "choice", options: ["Poor", "Fair", "Good", "Excellent"] },
-  { id: "q4", text: "Stuck to your program this week", type: "choice", options: ["Struggling", "Steady", "Strong", "Crushing It"] },
-  { id: "q10", text: "Any exercises causing pain or discomfort?", type: "text" },
-  { id: "q5", text: "What's your biggest win this week?", type: "text" },
-  { id: "q6", text: "What was your biggest challenge this week?", type: "text" },
-  { id: "q7", text: "Anything your coach should know?", type: "text" },
-];
-const CLIENT_COLORS = [
-  "#E8C547",
-  "#4ECDC4",
-  "#A78BFA",
-  "#6EE7B7",
-  "#FB923C",
-  "#60A5FA",
-  "#F472B6",
-  "#F97316",
-  "#22D3EE",
-  "#84CC16",
-  "#C084FC",
-];
-const LIFT_FIELDS = [
-  { key: "benchPress", label: "Bench" },
-  { key: "squat", label: "Squat" },
-  { key: "deadlift", label: "Deadlift" },
-  { key: "ohp", label: "OHP" },
-  { key: "deadHang", label: "Dead Hang" },
-];
 const EXERCISE_LIBRARY = [
   "Barbell Bench Press",
   "Flat Barbell Bench Press",
@@ -2487,196 +2446,6 @@ function useExerciseLibrary() {
   }, []);
   return library;
 }
-function ageFromBirthday(birthday) {
-  if (!birthday) return null;
-  const b = new Date(birthday);
-  if (isNaN(b.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - b.getFullYear();
-  const m = now.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
-  return age >= 0 && age < 130 ? age : null;
-}
-function daysUntil(dateStr) {
-  if (!dateStr) return null;
-  const target = new Date(dateStr);
-  if (isNaN(target.getTime())) return null;
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-  return Math.round((t1 - t0) / (24 * 3600 * 1000));
-}
-function nextBirthdayDaysAway(birthday) {
-  if (!birthday) return null;
-  const b = new Date(birthday);
-  if (isNaN(b.getTime())) return null;
-  const today = new Date();
-  let next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
-  if (next < new Date(today.getFullYear(), today.getMonth(), today.getDate())) next.setFullYear(today.getFullYear() + 1);
-  return Math.round((next - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / (24 * 3600 * 1000));
-}
-function daysSince(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  return Math.round((Date.now() - d.getTime()) / (24 * 3600 * 1000));
-}
-function initials(name = "") {
-  return name.split(" ").filter(Boolean).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "??";
-}
-function getClientColor(id, index = 0) {
-  const raw = String(id || index);
-  const seed = raw.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return CLIENT_COLORS[(seed + index) % CLIENT_COLORS.length];
-}
-function normalizeGoals(value) {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  return String(value).split(/[,;]+/).map((x) => x.trim()).filter(Boolean);
-}
-function normalizeInjuries(value) {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  return String(value).split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
-}
-function timeLabel(t) {
-  return normalizeSlotLabel(t).replace(/^0/, "");
-}
-function moneyAED(n) {
-  return `AED ${Number(n || 0).toLocaleString()}`;
-}
-function makeInviteCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
-function emptyProfile() {
-  return {
-    clientType: "1:1",
-    paymentDueDate: "",
-    paymentPaid: false,
-    goals: [],
-    birthday: "",
-    injuries: "",
-    medicalIssues: "",
-    barriers: "",
-    sleep: "",
-    neat: "",
-    workSchedule: "",
-    vegetarianStatus: "non-vegetarian",
-    allergies: "",
-    lactoseIntolerant: false,
-    glutenIntolerant: false,
-    lifeContext: "",
-    proudGoal: "",
-    motivationStyle: "",
-    celebrationStyle: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    notes: "",
-    photo: "",
-    measurements: {},
-  };
-}
-function emptyNutrition() {
-  return { targets: { calories: "", protein: "", carbs: "", fats: "", steps: 10000, water: 3 }, days: {}, recents: [] };
-}
-function mapClient(row, dataRows = [], index = 0) {
-  const sections = {};
-  dataRows.forEach((r) => {
-    if (r.client_id === row.id) sections[r.section] = r.data || {};
-  });
-  const profile = { ...emptyProfile(), ...(sections.profile || {}) };
-  profile.goals = normalizeGoals(profile.goals?.length ? profile.goals : row.goal);
-  if (!profile.injuries && row.injuries) profile.injuries = normalizeInjuries(row.injuries).join("\n");
-  return {
-    id: row.id,
-    trainer_id: row.trainer_id,
-    client_user_id: row.client_user_id || null,
-    name: row.name || "Unnamed Client",
-    email: row.email || "",
-    phone: row.phone || "",
-    age: ageFromBirthday(profile.birthday) ?? (row.age || ""),
-    weight: row.weight_kg || row.weight || "",
-    joinDate: row.created_at ? row.created_at.split("T")[0] : isoDate(),
-    inviteCode: row.invite_code || "",
-    inviteStatus: row.invite_status || "not_sent",
-    goals: profile.goals,
-    goal: profile.goals?.[0] || row.goal || "General Fitness",
-    profile,
-    color: row.color || profile.color || getClientColor(row.id, index),
-    photo: profile.photo || row.photo || "",
-    avatar: initials(row.name),
-    packages: sections.packages || row.packages || [],
-    program: sections.program || row.program || null,
-    nutrition: { ...emptyNutrition(), ...(sections.nutrition || {}) },
-    transformPhotos: sections.transformPhotos || [],
-    progress: sections.progress?.progress || row.progress || [],
-    measurements: sections.progress?.measurements || row.measurements || {},
-    schedule: sections.sessions?.schedule || row.schedule || [],
-    legacyCheckIns: sections.sessions?.checkIns || row.checkIns || [],
-    sessions: sections.sessions?.sessions || row.sessions_conducted || 0,
-    workoutLogs: sections.workoutLogs || [],
-    trialData: sections.trial || null,
-    clientType: profile.clientType || "1:1",
-    paymentDueDate: profile.paymentDueDate || "",
-    paymentPaid: !!profile.paymentPaid,
-    price: profile.price || "",
-    checkIns: sections.checkins?.submissions || [],
-    vacation: sections.vacation_mode || null,
-    messages: sections.messages?.list || [],
-    intake: sections.intake || null,
-    trainingLogs: sections.training_logs || null,
-    notes: profile.notes || row.notes || "",
-  };
-}
-async function upsertSection(clientId, section, data) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    enqueueSync({ type: "client_data", clientId, section, data });
-    return { queued: true };
-  }
-  try {
-    const { error } = await supabase.from("client_data").upsert(
-      { client_id: clientId, section, data },
-      { onConflict: "client_id,section" }
-    );
-    if (error) throw error;
-    await flushSyncQueue();
-    return { queued: false };
-  } catch (error) {
-    enqueueSync({ type: "client_data", clientId, section, data });
-    return { queued: true, error };
-  }
-}
-async function upsertTrainerData(trainerId, section, data) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    enqueueSync({ type: "trainer_data", trainerId, section, data });
-    return { queued: true };
-  }
-  try {
-    const { error } = await supabase.from("trainer_data").upsert(
-      { trainer_id: trainerId, section, data },
-      { onConflict: "trainer_id,section" }
-    );
-    if (error) throw error;
-    await flushSyncQueue();
-    return { queued: false };
-  } catch (error) {
-    enqueueSync({ type: "trainer_data", trainerId, section, data });
-    return { queued: true, error };
-  }
-}
-async function loadTrainerTemplates(trainerId) {
-  if (!trainerId) return [];
-  const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "templates").maybeSingle();
-  return data?.data?.templates || [];
-}
-async function safeSelect(table, queryBuilder) {
-  try {
-    const res = await queryBuilder(supabase.from(table));
-    return res;
-  } catch (e) {
-    return { data: null, error: e };
-  }
-}
 function aiFoodSuggestions(client) {
   const profile = client.profile || emptyProfile();
   const target = client.nutrition?.targets || {};
@@ -3017,13 +2786,6 @@ function NotificationsTab({ notifications, selectClient }) {
   );
 }
 // ---------- Coach shell: Home · Clients · Alerts · Settings ----------
-const DEFAULT_INTAKE_QUESTIONS = [
-  { id: "i1", text: "What are your main goals?" },
-  { id: "i2", text: "Any injuries or medical conditions I should know about?" },
-  { id: "i3", text: "Current training experience?" },
-  { id: "i4", text: "How many days per week can you train?" },
-  { id: "i5", text: "Any foods you avoid or dietary restrictions?" },
-];
 function CoachPaymentsScreen({ clients, selectClient, onBack }) {
   const withDue = clients.filter((c) => c.paymentDueDate);
   const rank = (c) => { const s = paymentStatus(c); if (s.color === BRAND.red) return 0; if (s.color === BRAND.gold) return 1; if (s.color === BRAND.green) return 3; return 2; };
