@@ -84,7 +84,7 @@ function computePerformanceMetrics(logs) {
     return { name, timed, best, recent, trend };
   });
 }
-function recentPBsAcrossHistory(logs, limit = 5) {
+export function recentPBsAcrossHistory(logs, limit = 5) {
   const completed = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => a.date.localeCompare(b.date));
   const found = [];
   for (let i = 0; i < completed.length; i++) {
@@ -116,7 +116,7 @@ function currentStreakWeeks(logs) {
   }
   return streak;
 }
-function overallAdherence(program, logs) {
+export function overallAdherence(program, logs) {
   if (!program?.weeks?.length) return { done: 0, total: 0, pct: 0 };
   let done = 0, total = 0;
   program.weeks.forEach((week) => {
