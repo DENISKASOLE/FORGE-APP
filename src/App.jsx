@@ -18,6 +18,10 @@ import { AccountNotActiveScreen } from "./features/auth/AccountNotActiveScreen.j
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { CheckInsTab } from "./features/checkin/CheckInsTab.jsx";
+import { Mini } from "./components/ui/Mini.jsx";
+import { MessagesTab } from "./features/messages/MessagesTab.jsx";
+import { ScheduleTab, InviteTab } from "./features/scheduling/ScheduleTab.jsx";
+import { PackagesTab } from "./features/scheduling/PackagesTab.jsx";
 /*
   FORGE V6.7 - Tablet Coach UI + Client Program Label Polish
   ------------------------------------------------
@@ -3320,7 +3324,6 @@ function ClientCard({ client, onClick }) {
     </button>
   );
 }
-function Mini({ label, value, color }) { return <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 10 }}><div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600 }}>{label}</div><div style={{ color: color || BRAND.text, fontWeight: 700 }}>{value}</div></div>; }
 function LearnTab({ client }) {
   const CATS = { Training: BRAND.orange, Nutrition: BRAND.green, Mindset: BRAND.purple, Recovery: BRAND.blue };
   const cats = ["All", "Training", "Nutrition", "Mindset", "Recovery"];
@@ -5199,83 +5202,12 @@ function PaymentsTab({ client, updateClient, isCoach }) {
     </Card>
   );
 }
-function MessagesTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(520);
-  const [messages, setMessages] = useState(client.messages || []);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  useEffect(() => {
-    const unread = messages.filter((m) => (isCoach ? m.from === "client" : m.from === "coach") && !m.read);
-    if (unread.length > 0) {
-      const marked = messages.map((m) => (unread.some((u) => u.id === m.id) ? { ...m, read: true } : m));
-      setMessages(marked);
-      upsertSection(client.id, "messages", { list: marked });
-      updateClient({ ...client, messages: marked });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  async function send() {
-    if (!text.trim()) return;
-    setSending(true);
-    const entry = { id: uid(), from: isCoach ? "coach" : "client", text: text.trim(), date: new Date().toISOString(), read: false };
-    const next = [...messages, entry];
-    setMessages(next);
-    setText("");
-    await upsertSection(client.id, "messages", { list: next });
-    updateClient({ ...client, messages: next });
-    setSending(false);
-  }
-  return (
-    <Card style={{ padding: isMobile ? 12 : 16, display: "flex", flexDirection: "column", height: isMobile ? "60vh" : "65vh" }}>
-      <div style={{ fontSize: 20, fontWeight: 1000, marginBottom: 10 }}>Messages</div>
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
-        {messages.length === 0 && <div style={{ color: BRAND.muted, textAlign: "center", marginTop: 30 }}>No messages yet. Say hello.</div>}
-        {messages.map((m) => {
-          const mine = (isCoach && m.from === "coach") || (!isCoach && m.from === "client");
-          return (
-            <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "80%" }}>
-              <div style={{ background: mine ? client.color : BRAND.card2, color: mine ? "#000" : BRAND.text, borderRadius: 16, padding: "8px 12px", fontWeight: mine ? 800 : 600 }}>{m.text}</div>
-              <div style={{ color: BRAND.muted, fontSize: 10, marginTop: 2, textAlign: mine ? "right" : "left" }}>{m.from === "coach" ? "Coach" : client.name} &middot; {new Date(m.date).toLocaleString()}</div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Type a message..." style={inputStyle()} />
-        <Button onClick={send} disabled={sending}>Send</Button>
-      </div>
-    </Card>
-  );
-}
-function ScheduleTab({ client, updateClient }) {
-  const isMobile = useIsMobile(520);
-  const [schedule, setSchedule] = useState(client.schedule || []);
-  const [form, setForm] = useState({ day: "Mon", time: DEFAULT_TIME_SLOTS[0] });
-  async function save(next) { setSchedule(next); await upsertSection(client.id, "sessions", { schedule: next, checkIns: client.legacyCheckIns || [], sessions: client.sessions || 0 }); updateClient({ ...client, schedule: next }); }
-  return <Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ fontSize: isMobile ? 20 : 22, fontWeight: 1000, marginBottom: 12 }}>Recurring Schedule</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>These recurring times automatically appear in the main Calendar.</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr auto", gap: 8 }}><select value={form.day} onChange={(e) => setForm({ ...form, day: e.target.value })} style={inputStyle()}>{DAYS.map((d) => <option key={d}>{d}</option>)}</select><select value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} style={inputStyle()}>{DEFAULT_TIME_SLOTS.map((t, i) => <option key={`${t}_${i}`} value={t}>{timeLabel(t)}</option>)}</select><Button onClick={() => save([...schedule, { ...form, id: uid() }])}>Add</Button></div><div style={{ marginTop: 12 }}>{schedule.map((s, i) => <div key={s.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, padding: 10 }}><b>{s.day} · {timeLabel(s.time)}</b><Button variant="red" onClick={() => save(schedule.filter((_, j) => j !== i))}>x</Button></div>)}</div></Card>;
-}
-function InviteTab({ client, updateClient }) {
-  const [code, setCode] = useState(client.inviteCode || makeInviteCode());
-  async function saveInvite() { await updateClientRow(client.id, { invite_code: code, invite_status: "sent" }); updateClient({ ...client, inviteCode: code, inviteStatus: "sent" }); }
-  const link = `${window.location.origin}?invite=${code}`;
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000 }}>Invite Client</div><div style={{ color: BRAND.muted, marginBottom: 12 }}>Client uses this code to claim the profile you created.</div><Field label="Invite Code" value={code} onChange={(v) => setCode(v.toUpperCase())} /><Button onClick={saveInvite} style={{ marginTop: 10 }}>Save Invite</Button><div style={{ marginTop: 12, color: BRAND.green, wordBreak: "break-all" }}>{link}</div></Card>;
-}
 function ClientWorkoutLog({ client, updateClient }) {
   const isMobile = useIsMobile(520);
   const [logs, setLogs] = useState(client.workoutLogs || []);
   const [form, setForm] = useState({ date: isoDate(), workout: "", weights: "", cardio: "", rpe: "", notes: "" });
   async function add() { const next = [{ id: uid(), ...form }, ...logs]; setLogs(next); await upsertSection(client.id, "workoutLogs", next); updateClient({ ...client, workoutLogs: next }); setForm({ ...form, workout: "", weights: "", cardio: "", rpe: "", notes: "" }); }
   return <Card style={{ padding: isMobile ? 12 : 16 }}><div style={{ fontSize: isMobile ? 20 : 22, fontWeight: 1000 }}>Workout Log</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} /><Field label="Workout done" value={form.workout} onChange={(v) => setForm({ ...form, workout: v })} /><Field label="Weights / reps" value={form.weights} onChange={(v) => setForm({ ...form, weights: v })} /><Field label="Cardio" value={form.cardio} onChange={(v) => setForm({ ...form, cardio: v })} /><label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>RPE</div><select value={form.rpe || ""} onChange={(e) => setForm({ ...form, rpe: e.target.value })} style={inputStyle()}>{RPE_OPTIONS.map((r) => <option key={r} value={r}>{r || "RPE"}</option>)}</select></label></div><Field label="Notes" textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} /><Button onClick={add} style={{ marginTop: 10 }}>Log Workout</Button>{logs.map((l) => <div key={l.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 12, paddingTop: 12 }}><b>{l.date} - {l.workout}</b><div style={{ color: BRAND.muted }}>{l.weights} · {l.cardio} · RPE {l.rpe}</div><div>{l.notes}</div></div>)}</Card>;
-}
-function PackagesTab({ client, updateClient }) {
-  const isMobile = useIsMobile(520);
-  const [packages, setPackages] = useState(client.packages || []);
-  const [form, setForm] = useState({ name: "10 Session Pack", total: 10, used: 0, price: "", paid: false });
-  async function save(next) { setPackages(next); await upsertSection(client.id, "packages", next); updateClient({ ...client, packages: next }); }
-  function addPackage() { const next = [{ id: uid(), ...form, total: Number(form.total || 0), used: Number(form.used || 0), price: Number(form.price || 0) }, ...packages]; save(next); setForm({ name: "10 Session Pack", total: 10, used: 0, price: "", paid: false }); }
-  const totalSessions = packages.reduce((a, p) => a + Number(p.total || 0), 0);
-  const usedSessions = packages.reduce((a, p) => a + Number(p.used || 0), 0);
-  return <Card><div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 12 }}>Packages</div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 14 }}><Mini label="Total Sessions" value={totalSessions} /><Mini label="Used" value={usedSessions} /><Mini label="Left" value={Math.max(totalSessions - usedSessions, 0)} /></div><div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}><Field label="Package name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} /><Field label="Total sessions" type="number" value={form.total} onChange={(v) => setForm({ ...form, total: v })} /><Field label="Used sessions" type="number" value={form.used} onChange={(v) => setForm({ ...form, used: v })} /><Field label="Price AED" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} /></div><label style={{ display: "block", marginTop: 10, color: BRAND.muted }}><input type="checkbox" checked={form.paid} onChange={(e) => setForm({ ...form, paid: e.target.checked })} /> Paid</label><Button onClick={addPackage} style={{ marginTop: 12 }}>Add Package</Button><div style={{ marginTop: 14 }}>{packages.map((p) => { const left = Math.max(Number(p.total || 0) - Number(p.used || 0), 0); return <div key={p.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><div><b>{p.name}</b><div style={{ color: BRAND.muted }}>{Number(p.used || 0)}/{Number(p.total || 0)} used · {left} left · {moneyAED(p.price)} · {p.paid ? "Paid" : "Unpaid"}</div></div><div style={{ display: "flex", gap: 6 }}><Button variant="dark" onClick={() => save(packages.map((x) => x.id === p.id ? { ...x, used: Math.min(Number(x.used || 0) + 1, Number(x.total || 0)) } : x))}>+ Use</Button><Button variant="red" onClick={() => save(packages.filter((x) => x.id !== p.id))}>x</Button></div></div></div>})}</div></Card>;
 }
 function Calendar({ clients, refresh, user }) {
   const [slots, setSlots] = useState(() => normalizeSlots(JSON.parse(localStorage.getItem("forge_time_slots") || "null")));
