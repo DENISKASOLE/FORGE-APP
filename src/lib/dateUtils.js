@@ -34,3 +34,15 @@ export function weekDays(start) {
     return { name, date: isoDate(date), label: `${name} ${date.getDate()}` };
   });
 }
+// Counts consecutive weeks (this week backwards) that have at least one date
+// in `dates` (an array of ISO date strings). Used for streak indicators.
+export function currentStreakWeeks(dates) {
+  const weeksWithActivity = new Set((dates || []).filter(Boolean).map((d) => weekKey(new Date(d))));
+  let streak = 0;
+  let cursor = new Date();
+  while (weeksWithActivity.has(weekKey(cursor))) {
+    streak += 1;
+    cursor = addDays(cursor, -7);
+  }
+  return streak;
+}

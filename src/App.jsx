@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient.js";
 import { BRAND, GLOBAL_TEXT_CSS } from "./theme/tokens.js";
+import { ToastHost, showToast } from "./components/ui/Toast.jsx";
+import { ConfirmHost, confirmDialog } from "./components/ui/ConfirmDialog.jsx";
 import { Button } from "./components/ui/Button.jsx";
 import { Card } from "./components/ui/Card.jsx";
 import { Field, inputStyle, textareaStyle } from "./components/ui/Field.jsx";
@@ -34,7 +36,6 @@ import { VideoPlayerModal } from "./components/ui/VideoPlayerModal.jsx";
 import { ExerciseLibraryScreen, ProgramBuilder, ProgramTab } from "./features/train/TrainScreens.jsx";
 import { buildProgramDays } from "./lib/programModel.js";
 import { InjuryBanner } from "./components/ui/InjuryBanner.jsx";
-import { ClientWorkoutLog } from "./features/scheduling/ClientWorkoutLog.jsx";
 import { Calendar } from "./features/coach/Calendar.jsx";
 import { Trials } from "./features/coach/Trials.jsx";
 import { countTodaysCalendarSessions } from "./features/coach/coachHelpers.js";
@@ -88,8 +89,9 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     ["messages", "Messages"], ["profile", "Profile"],
   ];
   async function delClient() {
-    if (!confirm(`Delete ${client.name}? This cannot be undone.`)) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) { alert("You're offline. Deleting a client needs an internet connection - please try again once you're back online."); return; }
+    const ok = await confirmDialog(`Delete ${client.name}? This cannot be undone.`, { danger: true, confirmLabel: "Delete" });
+    if (!ok) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) { showToast("You're offline. Deleting a client needs an internet connection - please try again once you're back online.", "warn"); return; }
     await supabase.from("client_data").delete().eq("client_id", client.id);
     await supabase.from("clients").delete().eq("id", client.id);
     back(); refresh();
@@ -112,7 +114,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     {tab === "intake" && <IntakeForm client={client} updateClient={updateClient} goTo={setTab} />}
     {tab === "payments" && <PaymentsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
-    {tab === "workouts" && <ClientWorkoutLog client={client} updateClient={updateClient} />}
+    {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
   </>;
 
   // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
@@ -438,6 +440,8 @@ export default function App() {
   }
   return <>
     <style>{GLOBAL_TEXT_CSS}</style>
+    <ToastHost />
+    <ConfirmHost />
     {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
     : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div></div></div>

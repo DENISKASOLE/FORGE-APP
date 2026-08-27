@@ -7,6 +7,7 @@ import { inputStyle } from "../../components/ui/Field.jsx";
 import { uid } from "../../lib/uid.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { upsertTrainerData } from "../../lib/clientData.js";
+import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 
 async function loadArticles(trainerId) {
   if (!trainerId) return [];
@@ -46,7 +47,7 @@ export function CoachContentScreen({ user, onBack }) {
     setTitle(""); setBody(""); setCat("Training"); setEditId(null); setSaving(false);
   }
   function edit(a) { setEditId(a.id); setTitle(a.title); setCat(a.cat); setBody(a.body || ""); }
-  async function remove(id) { if (!confirm("Delete this article?")) return; await persist(articles.filter((a) => a.id !== id)); }
+  async function remove(id) { if (!await confirmDialog("Delete this article?", { danger: true, confirmLabel: "Delete" })) return; await persist(articles.filter((a) => a.id !== id)); }
   return <div style={{ display: "grid", gap: 14 }}>
     <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
     <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 1.5 }}>Forge Academy</div><div style={{ fontSize: 26, fontWeight: 900 }}>{editId ? "Edit article" : "Write an article"}</div></div>

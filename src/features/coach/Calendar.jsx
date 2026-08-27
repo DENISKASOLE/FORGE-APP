@@ -11,6 +11,7 @@ import { startOfWeek, addDays, weekKey, weekRangeLabel, weekDays } from "../../l
 import { upsertTrainerData, timeLabel } from "../../lib/clientData.js";
 import { CLIENT_COLORS } from "../../lib/constants.js";
 import { autoBookingsFor } from "./coachHelpers.js";
+import { showToast } from "../../components/ui/Toast.jsx";
 
 export function Calendar({ clients, refresh, user }) {
   const [slots, setSlots] = useState(() => normalizeSlots(JSON.parse(localStorage.getItem("forge_time_slots") || "null")));
@@ -29,7 +30,7 @@ export function Calendar({ clients, refresh, user }) {
   function removeSlot(id) { const next = slots.filter((x) => x.id !== id); setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); }
   function addSlot() { if (!newSlot) return; const next = [...slots, { id: uid(), label: newSlot }]; setSlots(next); localStorage.setItem("forge_time_slots", JSON.stringify(next)); setNewSlot(""); }
   function openBooking(dayObj, slot, existing) { const b = existing || {}; const client = clients.find((c) => c.id === b.clientId) || clients[0]; setDraft({ id: b.id || null, weekKey: currentWeekKey, date: dayObj.date, day: dayObj.name, time: b.time || slot.label, type: b.type || "Client Session", clientId: b.clientId || client?.id || "", title: b.title || client?.name || "", color: b.color || client?.color || BRAND.blue, auto: !!b.auto }); }
-  function saveDraft() { if (!draft?.title) { alert("Add a booking name or choose a client."); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; const clean = { ...draft, color, auto: false, id: draft.id?.startsWith("auto_") ? uid() : draft.id || uid() }; save([...(bookings.filter((x) => x.id !== draft.id)), clean]); setDraft(null); }
+  function saveDraft() { if (!draft?.title) { showToast("Add a booking name or choose a client.", "warn"); return; } const color = draft.type === "Free Trial" ? BRAND.red : draft.color; const clean = { ...draft, color, auto: false, id: draft.id?.startsWith("auto_") ? uid() : draft.id || uid() }; save([...(bookings.filter((x) => x.id !== draft.id)), clean]); setDraft(null); }
   const goWeek = (n) => setWeekStart((w) => addDays(w, n * 7));
   function setCalendarZoom(next) {
     const clean = Math.max(0.45, Math.min(1.8, Number(next)));

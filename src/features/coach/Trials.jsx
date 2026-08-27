@@ -9,6 +9,7 @@ import { modalBackdrop } from "../../components/ui/modal.js";
 import { uid } from "../../lib/uid.js";
 import { upsertTrainerData } from "../../lib/clientData.js";
 import { buildPdfDoc, downloadBlob, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
+import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 
 async function downloadTrialPDF(trial) {
   const sections = [
@@ -41,7 +42,7 @@ export function Trials({ user, onConvert }) {
   function saveTrial() { const saved = { id: form.id || uid(), ...form, savedAt: new Date().toISOString() }; save([saved, ...trials.filter((t) => t.id !== saved.id)]); setForm({ name: "", phone: "", email: "", goal: "", fitnessHistory: "", barriers: "", injuries: "", medicalIssues: "", nutrition: "", sleep: "", neat: "", fatLossImportance: "", muscleGainImportance: "", strengthEnduranceImportance: "", mobilityFlexibilityImportance: "", assessmentDate: "", cardiovascular: "", squat: "", pushStrength: "", pullStrength: "", coreStrength: "", flexibilityFitness: "" }); }
   async function convertToClient(trial) {
     if (!onConvert) return;
-    if (!confirm(`Convert ${trial.name} to a paying client? A client profile will be created with their trial details attached.`)) return;
+    if (!await confirmDialog(`Convert ${trial.name} to a paying client? A client profile will be created with their trial details attached.`, { confirmLabel: "Convert" })) return;
     setConverting(true);
     const clientId = await onConvert(trial);
     setConverting(false);

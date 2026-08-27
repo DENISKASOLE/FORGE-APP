@@ -18,6 +18,9 @@ import {
   emptyProfile, paymentStatus, makeInviteCode, upsertSection, upsertTrainerData, loadTrainerTemplates,
 } from "../../lib/clientData.js";
 import { GOAL_OPTIONS, CLIENT_TYPES, CLIENT_COLORS } from "../../lib/constants.js";
+import { showToast } from "../../components/ui/Toast.jsx";
+import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { MEAL_SLOTS } from "../../lib/nutrition.js";
 import { buildProgramDays } from "../../lib/programModel.js";
 import { overallAdherence, recentPBsAcrossHistory } from "../progress/ProgressTab.jsx";
 import { ExerciseLibraryScreen, ProgramBuilder } from "../train/TrainScreens.jsx";
@@ -26,7 +29,8 @@ import { INTAKE_FORM } from "../profile/IntakeForm.jsx";
 import { ClientCard } from "../client-shell/ClientShellUI.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
-import { countTodaysCalendarSessions } from "./coachHelpers.js";
+import { loadTodaysAgenda } from "./coachHelpers.js";
+import { timeLabel } from "../../lib/clientData.js";
 
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
@@ -138,7 +142,7 @@ export function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
       onSaved?.(payload);
       setMessage(emailChanged ? "Saved. Check your email to confirm the new login email." : "Settings saved.");
     } catch (e) {
-      alert(e.message || "Could not save coach settings");
+      showToast(e.message || "Could not save coach settings", "error");
     }
     setSaving(false);
   }
@@ -191,7 +195,9 @@ export function computeNotifications(clients) {
       else if (d <= 5) items.push({ id: `pay_5_${c.id}`, type: "payment", severity: 2, client: c, text: `${c.name}'s payment is due in ${d} days` });
     }
 
-    const lastFoodDate = (c.nutrition?.logs || []).map((l) => l.date).sort().pop();
+    const lastFoodDate = Object.entries(c.nutrition?.food_log || {})
+      .filter(([, day]) => MEAL_SLOTS.some((slot) => day?.[slot]) || day?.snacks?.length)
+      .map(([date]) => date).sort().pop();
     const daysSinceFood = lastFoodDate ? daysSince(lastFoodDate) : (c.joinDate ? daysSince(c.joinDate) : null);
     if (daysSinceFood !== null && daysSinceFood >= 7) items.push({ id: `food_${c.id}`, type: "food", severity: 4, client: c, text: `${c.name} hasn't logged food in ${daysSinceFood} days` });
 
@@ -251,7 +257,7 @@ export function CoachBroadcastScreen({ clients, refresh, onBack }) {
   const [sentCount, setSentCount] = useState(null);
   async function sendAll() {
     if (!msg.trim()) return;
-    if (!confirm(`Send this message to all ${clients.length} clients?`)) return;
+    if (!await confirmDialog(`Send this message to all ${clients.length} clients?`, { confirmLabel: "Send" })) return;
     setSending(true);
     const text = msg.trim();
     for (const c of clients) {
@@ -318,6 +324,8 @@ export function CoachToolsTab({ onOpen }) {
     { key: "content", name: "Content", meta: "Forge Academy articles", color: BRAND.blue },
     { key: "payments", name: "Payments", meta: "Plans & invoices", color: BRAND.green },
     { key: "forms", name: "Intake Forms", meta: "Onboarding & health", color: BRAND.cyan },
+    { key: "broadcast", name: "Broadcast", meta: "Message every client", color: BRAND.purple },
+    { key: "automations", name: "Automations", meta: "Reminders & nudges", color: BRAND.orange },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontSize: 26, fontWeight: 900 }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Everything you run your coaching with</div></div>
@@ -330,22 +338,6 @@ export function CoachToolsTab({ onOpen }) {
     </div>
   </div>;
 }
-export function CoachToolPlaceholder({ screen, onBack }) {
-  const META = {
-    content: { name: "Content", desc: "Write articles for your Forge Academy and publish them to the Learn tab for all clients." },
-    payments: { name: "Payments", desc: "Plans, invoices, and PayPal across all your clients." },
-    forms: { name: "Intake Forms", desc: "Onboarding and health questionnaires new clients complete before starting." },
-    broadcast: { name: "Broadcast", desc: "Send one message to every client at once." },
-    automations: { name: "Automations", desc: "Auto check-in reminders, nudges, and sequences." },
-  };
-  const m = META[screen] || { name: "Tool", desc: "" };
-  return <div style={{ display: "grid", gap: 12 }}>
-    <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
-    <div style={{ fontSize: 26, fontWeight: 900 }}>{m.name}</div>
-    <Card><div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>{m.desc}</div><div style={{ color: BRAND.dim, fontSize: 12, fontWeight: 700, marginTop: 12 }}>The tab and navigation are wired — this screen gets built in a later phase.</div></Card>
-  </div>;
-}
-
 export const COACH_NAV = [
   { key: "home", label: "Home", icon: "home" },
   { key: "clients", label: "Clients", icon: "clients" },
@@ -411,7 +403,7 @@ export function coachStats(clients) {
   }, 0);
   return { cold, adherence, sessionsToday, lastSessionOf };
 }
-export function CoachHome({ trainer, user, clients, notifications, templatesCount, trialsCount, onTile, onOpenClients }) {
+export function CoachHome({ trainer, user, clients, notifications, templatesCount, trialsCount, onTile, onOpenClients, selectClient }) {
   const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
   const { cold, adherence, sessionsToday } = coachStats(clients);
@@ -420,8 +412,9 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
   const name = (trainer?.name || user.email?.split("@")[0] || "Coach").split(" ")[0];
   const flagged = cold.length;
   const [customExerciseCount, setCustomExerciseCount] = useState(0);
-  const [todaysSessions, setTodaysSessions] = useState(null);
-  useEffect(() => { countTodaysCalendarSessions(clients, user.id).then(setTodaysSessions); }, [clients, user.id]);
+  const [agenda, setAgenda] = useState(null);
+  const todaysSessions = agenda ? agenda.sessions.length : null;
+  useEffect(() => { let active = true; loadTodaysAgenda(clients, user.id).then((a) => { if (active) setAgenda(a); }); return () => { active = false; }; }, [clients, user.id]);
   useEffect(() => { loadExerciseLibraryData(user.id).then((items) => setCustomExerciseCount(items.length)); }, [user.id]);
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -439,6 +432,33 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
         <Mini label="Adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
         <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.red : BRAND.text} />
       </div>
+      {agenda && (agenda.sessions.length > 0 || agenda.checkInsDue.length > 0 || agenda.paymentsDue.length > 0) && (
+        <Card style={{ padding: 16 }}>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 }}>Today</div>
+          {agenda.sessions.map((s) => {
+            const client = clients.find((c) => c.id === s.clientId);
+            return (
+              <div key={s.id} onClick={() => client && selectClient?.(client)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `1px solid ${BRAND.line}`, cursor: client ? "pointer" : "default" }}>
+                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 900, width: 58, flexShrink: 0 }}>{timeLabel(s.time)}</div>
+                <div style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+                {s.hasInjury && <span title={s.injuryNote} style={{ color: BRAND.red, fontSize: 12, fontWeight: 900, flexShrink: 0 }}>⚠</span>}
+              </div>
+            );
+          })}
+          {agenda.checkInsDue.length > 0 && (
+            <div onClick={onOpenClients} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: agenda.paymentsDue.length > 0 ? `1px solid ${BRAND.line}` : "none", cursor: "pointer" }}>
+              <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>Check-ins due</span>
+              <span style={{ color: BRAND.orange, fontWeight: 900, fontSize: 12 }}>{agenda.checkInsDue.length}</span>
+            </div>
+          )}
+          {agenda.paymentsDue.length > 0 && (
+            <div onClick={onOpenClients} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", cursor: "pointer" }}>
+              <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>Payments due</span>
+              <span style={{ color: BRAND.red, fontWeight: 900, fontSize: 12 }}>{agenda.paymentsDue.length}</span>
+            </div>
+          )}
+        </Card>
+      )}
       <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 4 }}>Go to</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: isTablet ? 18 : 12 }}>
         <CoachTile isTablet={isTablet} icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} color={BRAND.gold} onClick={onOpenClients} />
@@ -461,8 +481,8 @@ export function CoachTemplates({ user, clients, onBack }) {
     return () => { active = false; };
   }, [user.id]);
   async function save(next) { setTemplates(next); await upsertTrainerData(user.id, "templates", { templates: next }); }
-  function remove(t) {
-    if (!confirm(`Delete the template "${t.name}"? Programs already assigned to clients are not affected.`)) return;
+  async function remove(t) {
+    if (!await confirmDialog(`Delete the template "${t.name}"? Programs already assigned to clients are not affected.`, { danger: true, confirmLabel: "Delete" })) return;
     save(templates.filter((x) => x.id !== t.id));
   }
   async function saveEditedTemplate(updatedProgram) {
@@ -605,7 +625,7 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
     </div>
   );
 }
-export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, syncStatus }) {
+export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, syncStatus, onOpenTool }) {
   const [busy, setBusy] = useState(false);
   const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   async function logout() { setBusy(true); await supabase.auth.signOut(); }
@@ -625,12 +645,12 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
     </Card>
     <Section t="Notifications" />
     <Card style={{ padding: "4px 16px" }}>
-      <Row k="Automations & reminders" v="In Tools ›" last />
+      <Row k="Automations & reminders" v="Open ›" onClick={() => onOpenTool?.("automations")} last />
     </Card>
     <Section t="Payments" />
     <Card style={{ padding: "4px 16px" }}>
       <Row k="Provider" v="PayPal" />
-      <Row k="Client payments" v="Per client ›" last />
+      <Row k="Client payments" v="Open ›" onClick={() => onOpenTool?.("payments")} last />
     </Card>
     <Section t="Account" />
     <Card style={{ padding: "4px 16px" }}>
@@ -647,6 +667,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   const [showSettings, setShowSettings] = useState(false);
   const [tab, setTab] = useState("home");
   const [clientTypeFilter, setClientTypeFilter] = useState("1:1"); // In-Person by default
+  const [sortBy, setSortBy] = useState("recent");
   const [screen, setScreen] = useState(null); // templates | calendar | analytics | trials
   const [toolOrigin, setToolOrigin] = useState("tools");
   const [query, setQuery] = useState("");
@@ -655,6 +676,10 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) && (c.clientType || "1:1") === clientTypeFilter);
+  function adherenceSortValue(c) { const a = overallAdherence(c.program, c.trainingLogs); return a.total > 0 ? a.pct : 101; }
+  const sorted = sortBy === "name" ? [...filtered].sort((a, b) => a.name.localeCompare(b.name))
+    : sortBy === "adherence" ? [...filtered].sort((a, b) => adherenceSortValue(a) - adherenceSortValue(b))
+    : filtered;
   const notifications = computeNotifications(clients);
   useEffect(() => {
     let active = true;
@@ -664,12 +689,12 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     return () => { active = false; };
   }, [user.id, screen]);
   async function createClient(form) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) { alert("You're offline. Creating a new client needs an internet connection - please try again once you're back online."); return; }
+    if (typeof navigator !== "undefined" && !navigator.onLine) { showToast("You're offline. Creating a new client needs an internet connection - please try again once you're back online.", "warn"); return; }
     const color = form.color || getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
     const payload = { trainer_id: user.id, name: form.name, email: form.email, phone: form.phone, age: ageFromBirthday(form.profile.birthday) || 0, weight_kg: Number(form.weight || 0), goal: form.profile.goals?.[0] || "General Fitness", color, invite_code, invite_status: "not_sent" };
     const { data, error } = await supabase.from("clients").insert(payload).select("*").single();
-    if (error) { alert(error.message); return; }
+    if (error) { showToast(error.message, "error"); return; }
     let profile = form.profile;
     if (form.photoFile) {
       const blob = await compressImage(form.photoFile);
@@ -681,12 +706,12 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     await refresh();
   }
   async function convertTrialToClient(trial) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) { alert("You're offline. Converting a trial needs an internet connection - please try again once you're back online."); return null; }
+    if (typeof navigator !== "undefined" && !navigator.onLine) { showToast("You're offline. Converting a trial needs an internet connection - please try again once you're back online.", "warn"); return null; }
     const color = getClientColor(uid(), clients.length);
     const invite_code = makeInviteCode();
     const payload = { trainer_id: user.id, name: trial.name, email: trial.email, phone: trial.phone, age: 0, weight_kg: 0, goal: trial.goal ? trial.goal.slice(0, 60) : "General Fitness", color, invite_code, invite_status: "not_sent" };
     const { data, error } = await supabase.from("clients").insert(payload).select("*").single();
-    if (error) { alert(error.message); return null; }
+    if (error) { showToast(error.message, "error"); return null; }
     const profile = {
       ...emptyProfile(),
       injuries: trial.injuries || "",
@@ -710,11 +735,14 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "content") body = <CoachContentScreen user={user} onBack={goHome} />;
   else if (screen === "payments") body = <CoachPaymentsScreen clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "forms") body = <CoachIntakeFormsScreen user={user} onBack={goHome} />;
+  else if (screen === "broadcast") body = <CoachBroadcastScreen clients={clients} refresh={refresh} onBack={goHome} />;
+  else if (screen === "automations") body = <CoachAutomationsScreen user={user} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}
       templatesCount={templatesCount} trialsCount={trialsCount}
       onTile={(k) => { setToolOrigin("home"); setScreen(k); }} onOpenClients={() => setTab("clients")}
+      selectClient={selectClient}
     />
   );
   else if (tab === "clients") body = (
@@ -727,8 +755,13 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
         <button onClick={() => setClientTypeFilter("1:1")} style={{ flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "1:1" ? BRAND.gold : "transparent", color: clientTypeFilter === "1:1" ? "#000" : BRAND.muted, fontWeight: 900, fontSize: 13, cursor: "pointer" }}>In-Person</button>
         <button onClick={() => setClientTypeFilter("Online")} style={{ flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "Online" ? BRAND.gold : "transparent", color: clientTypeFilter === "Online" ? "#000" : BRAND.muted, fontWeight: 900, fontSize: 13, cursor: "pointer" }}>Online</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto auto", gap: 10 }}>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={inputStyle({ width: "auto" })}>
+          <option value="recent">Sort: Recent</option>
+          <option value="name">Sort: Name</option>
+          <option value="adherence">Sort: Adherence</option>
+        </select>
         <Button onClick={() => setShowAdd(true)}>+ Add New Client</Button>
       </div>
       <div style={{
@@ -737,7 +770,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
         gap: isMobile ? 12 : isTablet ? 14 : 18,
         alignItems: "start",
       }}>
-        {filtered.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
+        {sorted.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
       </div>
       {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No {clientTypeFilter === "1:1" ? "in-person" : "online"} clients{query ? " match that search" : " yet"}.</div></Card>}
     </div>
@@ -752,7 +785,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
       <NotificationsTab notifications={notifications} selectClient={selectClient} />
     </div>
   );
-  else body = <CoachSettingsTab user={user} trainer={trainer} onEditProfile={() => setShowSettings(true)} clientsCount={clients.length} syncStatus={syncStatus} />;
+  else body = <CoachSettingsTab user={user} trainer={trainer} onEditProfile={() => setShowSettings(true)} clientsCount={clients.length} syncStatus={syncStatus} onOpenTool={(k) => { setToolOrigin("settings"); setScreen(k); }} />;
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, paddingBottom: 96 }}>
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>

@@ -7,7 +7,7 @@ import { Field, inputStyle, textareaStyle } from "../../components/ui/Field.jsx"
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
-import { isoDate } from "../../lib/dateUtils.js";
+import { isoDate, currentStreakWeeks } from "../../lib/dateUtils.js";
 import { daysSince, upsertSection, upsertTrainerData } from "../../lib/clientData.js";
 import { DEFAULT_CHECKIN_QUESTIONS } from "../../lib/constants.js";
 
@@ -82,6 +82,7 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
   const lastSubmission = submissions[submissions.length - 1];
   const daysSinceLast = lastSubmission ? daysSince(lastSubmission.date) : null;
   const dueForCheckIn = daysSinceLast === null || daysSinceLast >= 7;
+  const streak = currentStreakWeeks(submissions.map((s) => s.date));
   useEffect(() => { loadCheckInTemplate(client.trainer_id).then((qs) => { setTemplate(qs); setLoadingTemplate(false); }); }, [client.trainer_id]);
   function setAnswer(id, v) { setAnswers((a) => ({ ...a, [id]: v })); }
   const perStep = 2;
@@ -126,7 +127,10 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
     <div style={{ display: "grid", gap: 12 }}>
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ fontSize: 20, fontWeight: 1000 }}>Weekly Check-in</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 20, fontWeight: 1000 }}>Weekly Check-in</div>
+            {streak >= 2 && <span style={{ background: `${BRAND.gold}18`, color: BRAND.gold, borderRadius: 999, padding: "3px 10px", fontSize: 11, fontWeight: 900 }}>🔥 {streak}-week streak</span>}
+          </div>
           {isCoach && <Button variant="dark" onClick={() => setShowEditor(true)}>Edit Questions</Button>}
         </div>
         <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 4 }}>{lastSubmission ? `Last check-in: ${lastSubmission.date} (${daysSinceLast} day${daysSinceLast === 1 ? "" : "s"} ago)` : "No check-ins submitted yet."}</div>

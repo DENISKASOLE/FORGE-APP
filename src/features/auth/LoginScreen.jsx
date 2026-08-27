@@ -6,12 +6,18 @@ import { Card } from "../../components/ui/Card.jsx";
 import { Field } from "../../components/ui/Field.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 
+function inviteCodeFromUrl() {
+  if (typeof window === "undefined") return "";
+  return new URL(window.location.href).searchParams.get("invite") || "";
+}
+
 export function LoginScreen({ onReady }) {
   const isMobile = useIsMobile(520);
-  const [mode, setMode] = useState("login");
+  const urlInvite = inviteCodeFromUrl();
+  const [mode, setMode] = useState(urlInvite ? "invite" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(urlInvite);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   async function login() {
@@ -47,7 +53,7 @@ export function LoginScreen({ onReady }) {
       <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
         <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
         <div style={{ fontSize: 25, fontWeight: 900, marginTop: 10, textTransform: "uppercase" }}>Welcome back</div>
-        <div style={{ color: BRAND.muted, marginBottom: 22 }}>Log in, or use an invite code your coach sent you.</div>
+        <div style={{ color: BRAND.muted, marginBottom: 22 }}>{urlInvite ? "You've been invited. Enter your email and choose a password to finish setting up your account." : "Log in, or use an invite code your coach sent you."}</div>
         <Field label="Email" value={email} onChange={setEmail} placeholder="you@email.com" />
         <div style={{ height: 10 }} />
         <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="Password" />

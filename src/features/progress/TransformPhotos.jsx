@@ -12,6 +12,8 @@ import { PHOTO_TYPES } from "../../lib/constants.js";
 import { upsertSection } from "../../lib/clientData.js";
 import { compressImage } from "../../lib/compressImage.js";
 import { uploadClientPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
+import { showToast } from "../../components/ui/Toast.jsx";
+import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 
 function PhotoImg({ photo, alt, style }) {
   const url = usePhotoUrl(photo?.image || photo?.url);
@@ -30,7 +32,7 @@ function PhotoUploadModal({ onClose, onSave }) {
     setPreviewUrl(URL.createObjectURL(f));
   }
   async function save() {
-    if (!file) { alert("Choose a photo from your device first."); return; }
+    if (!file) { showToast("Choose a photo from your device first.", "warn"); return; }
     setSaving(true);
     await onSave({ file, ...form });
     setSaving(false);
@@ -70,7 +72,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
   return (
     <div style={{ ...modalBackdrop(), padding: 0 }}>
       <div style={{ position: "absolute", top: 14, right: 14, zIndex: 2, display: "flex", gap: 8 }}>
-        <Button variant="red" onClick={() => onDelete(photo.id)}>Delete</Button>
+        <Button variant="red" onClick={async () => { if (await confirmDialog("Delete this photo? This cannot be undone.", { danger: true, confirmLabel: "Delete" })) onDelete(photo.id); }}>Delete</Button>
         <Button variant="ghost" onClick={onClose}>X</Button>
       </div>
       {index > 0 && <button onClick={() => onNavigate(index - 1)} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&lsaquo;</button>}

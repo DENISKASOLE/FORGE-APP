@@ -10,6 +10,8 @@ import { VideoPlayerModal } from "../../components/ui/VideoPlayerModal.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
 import { SupersetLogger } from "./SupersetLogger.jsx";
+import { showToast } from "../../components/ui/Toast.jsx";
+import { confirmDialog, promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
@@ -109,7 +111,7 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const thumb = getVideoThumb(videoUrl);
   async function save() {
-    if (!name.trim()) { alert("Give this exercise a name."); return; }
+    if (!name.trim()) { showToast("Give this exercise a name.", "warn"); return; }
     setSaving(true);
     await onSave({ name: name.trim(), videoUrl: videoUrl.trim() });
     setSaving(false);
@@ -144,7 +146,7 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
     await upsertTrainerData(trainerId, "custom_exercise_library", { items: next });
   }
   async function addOrUpdate() {
-    if (!name.trim()) { alert("Enter an exercise name."); return; }
+    if (!name.trim()) { showToast("Enter an exercise name.", "warn"); return; }
     setSaving(true);
     if (editingId) {
       await persist(items.map((it) => (it.id === editingId ? { ...it, name: name.trim(), videoUrl: videoUrl.trim() } : it)));
@@ -317,15 +319,15 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
     loadTrainerTemplates(trainerId).then((list) => { if (active) setTemplates(list); });
     return () => { active = false; };
   }, [trainerId]);
-  function loadTemplate(t) {
-    if (!confirm(`Load "${t.name}"? This replaces the program you're editing. Logs are never touched.`)) return;
+  async function loadTemplate(t) {
+    if (!await confirmDialog(`Load "${t.name}"? This replaces the program you're editing. Logs are never touched.`, { confirmLabel: "Load" })) return;
     const copy = cloneWithNewIds(t.program);
     setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || isoDate() });
     setWk(0); setWo(0);
   }
   async function saveAsTemplate() {
-    if (!trainerId) { alert("No trainer linked to this client, so the template can't be saved."); return; }
-    const name = prompt("Template name", p.name || "New Template");
+    if (!trainerId) { showToast("No trainer linked to this client, so the template can't be saved.", "warn"); return; }
+    const name = await promptDialog("Template name", p.name || "New Template", { title: "Save as Template" });
     if (!name) return;
     setSavingTpl(true);
     const entry = { id: uid(), name, goal: p.goal, weeks: p.weeks.length, savedAt: new Date().toISOString(), program: cloneWithNewIds(p) };
@@ -333,7 +335,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
     setTemplates(next);
     await upsertTrainerData(trainerId, "templates", { templates: next });
     setSavingTpl(false);
-    alert(`Saved "${name}" to Templates.`);
+    showToast(`Saved "${name}" to Templates.`, "success");
   }
   const week = p.weeks[Math.min(wk, p.weeks.length - 1)];
   const workout = week?.workouts[Math.min(wo, Math.max(0, (week?.workouts.length || 1) - 1))];
@@ -935,8 +937,8 @@ export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) 
     setAddSearch("");
   }
   async function save() {
-    if (!startDate || !endDate || startDate > endDate) { alert("Check the dates - start must be before end."); return; }
-    if (exercises.length === 0) { alert("Add at least one exercise."); return; }
+    if (!startDate || !endDate || startDate > endDate) { showToast("Check the dates - start must be before end.", "warn"); return; }
+    if (exercises.length === 0) { showToast("Add at least one exercise.", "warn"); return; }
     setSaving(true);
     await onSave({ startDate, endDate, workout: { name: workoutName, exercises } });
     setSaving(false);
@@ -1051,7 +1053,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
     let failed = null;
     if (nextProgram) { const r = await upsertSection(client.id, "program", nextProgram); if (r?.error) failed = r.error; }
     if (nextLogs) { const r = await upsertSection(client.id, "training_logs", nextLogs); if (r?.error) failed = r.error; }
-    if (failed) alert(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`);
+    if (failed) showToast(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`, "error");
   }
   function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setWeekNum(currentProgramWeek(p)); }
   async function saveVacation(data) {
