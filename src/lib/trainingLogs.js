@@ -73,6 +73,32 @@ export function sessionForWorkout(logs, weekId, workoutId) {
   const completed = sessions.filter((s) => s.weekId === weekId && s.workoutId === workoutId && s.status === "completed");
   return completed.length ? completed[completed.length - 1] : null;
 }
+// Turns the flat entries array into logging "steps": a normal exercise is
+// its own step, but entries that share a blockId whose block is a superset
+// are grouped into one step so they can be logged side by side. Relies on
+// startSession() flatMap-ing block.exercises in order, which keeps entries
+// from the same block contiguous.
+export function groupSessionSteps(session, workout) {
+  const blockById = {};
+  (workout?.blocks || []).forEach((b) => { blockById[b.id] = b; });
+  const steps = [];
+  const entries = session?.entries || [];
+  let i = 0;
+  while (i < entries.length) {
+    const entry = entries[i];
+    const block = blockById[entry.blockId];
+    if (block?.type === "superset") {
+      const group = [];
+      while (i < entries.length && entries[i].blockId === entry.blockId) { group.push(entries[i]); i += 1; }
+      if (group.length >= 2) { steps.push({ type: "superset", blockId: entry.blockId, entries: group }); continue; }
+      group.forEach((e) => steps.push({ type: "single", entry: e }));
+    } else {
+      steps.push({ type: "single", entry });
+      i += 1;
+    }
+  }
+  return steps;
+}
 export function upsertSessionInLogs(logs, session) {
   const base = logs && Array.isArray(logs.sessions) ? logs : emptyTrainingLogs();
   const idx = base.sessions.findIndex((s) => s.id === session.id);

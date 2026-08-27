@@ -8,6 +8,8 @@ import { Mini } from "../../components/ui/Mini.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { VideoPlayerModal } from "../../components/ui/VideoPlayerModal.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
+import { SetLogRows } from "./SetLogRows.jsx";
+import { SupersetLogger } from "./SupersetLogger.jsx";
 import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
@@ -19,7 +21,7 @@ import { GOAL_OPTIONS } from "../../lib/constants.js";
 import {
   fmtLoad, fmtSetTarget, fmtExerciseSummary, blockTitle, exerciseTag, parseSeconds, fmtClock,
   emptyTrainingLogs, startSession, sessionForWorkout, upsertSessionInLogs, setScoreV2, fmtLoggedSet,
-  suggestProgression, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs,
+  suggestProgression, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
 } from "../../lib/trainingLogs.js";
 import {
   newSet, newExercise, newBlock, newWorkout, newProgWeek, newProgram, cloneWithNewIds,
@@ -526,13 +528,15 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       </Card>
     );
   }
-  const allEntries = session.entries || [];
-  const total = allEntries.length;
+  const steps = groupSessionSteps(session, workout);
+  const total = steps.length;
   const cur = Math.min(current, Math.max(0, total - 1));
-  const entry = allEntries[cur];
-  if (!entry) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
+  const step = steps[cur];
+  if (!step) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
+  const isSuperset = step.type === "superset";
+  const entry = isSuperset ? step.entries[0] : step.entry;
   const meta = exById[entry.exerciseId];
-  const ex = meta?.ex || {};
+  const ex = isSuperset ? {} : (meta?.ex || {});
   const block = (workout?.blocks || []).find((b) => b.id === entry.blockId);
   const effectiveName = entry.substitutedName || entry.name;
   const timed = isTimedExercise(effectiveName);
@@ -553,6 +557,21 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer", padding: 0 }}>‹ Exit</button>
         <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 9, padding: "5px 11px", fontWeight: 1000, color: BRAND.gold, fontSize: 13 }}>{elapsed > 0 ? fmtClock(elapsed) : "0:00"}</div>
       </div>
+      {isSuperset ? (
+        <SupersetLogger
+          group={step.entries}
+          exById={exById}
+          logsBefore={logsBefore}
+          rpePickerFor={rpePickerFor}
+          setRpePickerFor={setRpePickerFor}
+          patchSet={patchSet}
+          addSet={addSet}
+          toggleDone={toggleDone}
+          onPlayVideo={(videoId, title) => setPlayingVideo({ videoId, title })}
+          onExit={handleExit}
+        />
+      ) : (
+      <>
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.8 }}>Exercise {cur + 1} of {total}</div>
@@ -567,34 +586,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
       {ex.note && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.gold}44`, borderRadius: 12, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Coach: </span>{ex.note}</div>}
-      <div>
-        <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, padding: "0 6px 6px" }}>{["Set", "Kg", "Reps", "RPE", ""].map((h, hi) => <div key={hi} style={{ color: BRAND.muted, fontSize: 9, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6, textAlign: hi >= 1 && hi <= 3 ? "center" : "left" }}>{h}</div>)}</div>
-        {entry.sets.map((s, si) => {
-          const prev = lastSets[si] || {};
-          return (
-            <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, alignItems: "center", padding: "13px 6px", marginBottom: 8, borderRadius: 13, background: s.done ? `${BRAND.gold}12` : BRAND.card2, border: `1px solid ${s.done ? BRAND.gold : BRAND.line}` }}>
-              <div style={{ fontWeight: 1000, fontSize: 15, textAlign: "center" }}>{si + 1}</div>
-              <input inputMode="decimal" placeholder={prev.load || (timed ? "load" : "kg")} value={s.load || ""} onChange={(e) => patchSet(entry.id, si, { load: e.target.value })} style={{ width: "100%", minWidth: 0, background: "transparent", border: "none", color: BRAND.text, fontWeight: 1000, fontSize: 17, textAlign: "center", outline: "none" }} />
-              <input inputMode="numeric" placeholder={timed ? (prev.duration || "s") : (prev.reps || "reps")} value={timed ? (s.duration || "") : (s.reps || "")} onChange={(e) => patchSet(entry.id, si, timed ? { duration: e.target.value } : { reps: e.target.value })} style={{ width: "100%", minWidth: 0, background: "transparent", border: "none", color: BRAND.text, fontWeight: 1000, fontSize: 17, textAlign: "center", outline: "none" }} />
-              <div style={{ position: "relative" }}>
-                <button onClick={() => setRpePickerFor(rpePickerFor === `${entry.id}:${si}` ? null : `${entry.id}:${si}`)} style={{ width: "100%", background: "transparent", border: "none", color: s.rpe ? BRAND.text : BRAND.dim, fontWeight: 1000, fontSize: 16, textAlign: "center", cursor: "pointer" }}>{s.rpe || "—"}</button>
-                {rpePickerFor === `${entry.id}:${si}` && (
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 12, padding: 6, display: "flex", gap: 4, boxShadow: "0 8px 24px rgba(0,0,0,.5)" }}>
-                    {[6, 7, 8, 9, 10].map((n) => (
-                      <button key={n} onClick={() => { patchSet(entry.id, si, { rpe: String(n) }); setRpePickerFor(null); }} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${String(s.rpe) === String(n) ? BRAND.gold : BRAND.line}`, background: String(s.rpe) === String(n) ? BRAND.gold : BRAND.panel, color: String(s.rpe) === String(n) ? "#000" : BRAND.text, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: "grid", placeItems: "center" }}>
-                <button onClick={() => toggleDone(entry, si)} style={{ width: 32, height: 32, borderRadius: 9, border: `1.5px solid ${s.done ? BRAND.gold : BRAND.dim}`, background: s.done ? BRAND.gold : "transparent", color: "#000", fontWeight: 1000, fontSize: 15, cursor: "pointer" }}>{s.done ? "✓" : ""}</button>
-              </div>
-            </div>
-          );
-        })}
-        <button onClick={() => addSet(entry.id)} style={{ width: "100%", marginTop: 2, padding: "12px", borderRadius: 12, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, cursor: "pointer" }}>+ Add set</button>
-        {prog && <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 12, textAlign: "center" }}>▲ Progressive overload — +{prog.bump}kg vs last week</div>}
-      </div>
+      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={prog} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
       <div>
         <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
         {subbing && <div style={{ marginTop: 8 }}>
@@ -605,6 +597,8 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
           </div>
         </div>}
       </div>
+      </>
+      )}
       <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}><svg width="60" height="60" style={{ transform: "rotate(-90deg)" }}><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.gold} strokeWidth="5" strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringC * (1 - restPct)} /></svg><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 1000 }}>{rest && restLeft > 0 ? fmtClock(restLeft) : fmtClock(restTotal)}</div></div>
         <div style={{ flex: 1 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>Rest timer</div>
