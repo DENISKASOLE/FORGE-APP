@@ -7,9 +7,13 @@ drop policy if exists "agreement_signatures_insert_own" on public.agreement_sign
 drop policy if exists "agreement_signatures_select_own_or_trainer" on public.agreement_signatures;
 drop table if exists public.agreement_signatures;
 
+-- Direct deletion from storage.buckets is blocked by Supabase's own
+-- protect_delete() trigger (must go through the Storage API instead). The
+-- bucket is empty - nothing was ever uploaded to it - so it's left behind
+-- as an orphaned, unused private bucket rather than scripting an API call
+-- for an empty bucket with no security exposure.
 drop policy if exists "agreement_documents_insert_own" on storage.objects;
 drop policy if exists "agreement_documents_select_own_or_trainer" on storage.objects;
-delete from storage.buckets where id = 'agreement-documents';
 
 -- One row per completed screening - never updated, never overwritten. A
 -- client re-screening a newer version inserts a new row; history stays
@@ -43,21 +47,18 @@ with check (
   )
 );
 
--- A client can read their own screenings; any trainer (coach/admin) can
--- read all screenings, not just their own clients' - matches "coach/admin
--- can read all" from the brief. No update or delete policy exists, so
--- the audit trail is append-only for everyone.
-create policy "health_screenings_select_own_or_any_trainer"
+-- A client can read their own screenings; their own trainer can also read
+-- them - scoped to their own clients, matching the pattern used everywhere
+-- else in this app (client_data, client-photos), not a blanket "any
+-- trainer reads everything." No update or delete policy exists, so the
+-- audit trail is append-only for everyone.
+create policy "health_screenings_select_own_or_trainer"
 on public.health_screenings for select
 using (
   exists (
     select 1 from public.clients c
     where c.id = health_screenings.client_id
-      and c.client_user_id = auth.uid()
-  )
-  or exists (
-    select 1 from public.trainers t
-    where t.id = auth.uid()
+      and (c.client_user_id = auth.uid() or c.trainer_id = auth.uid())
   )
 );
 
@@ -79,16 +80,13 @@ with check (
   )
 );
 
-create policy "screening_documents_select_own_or_any_trainer"
+create policy "screening_documents_select_own_or_trainer"
 on storage.objects for select
 using (
   bucket_id = 'screening-documents'
-  and (
-    exists (
-      select 1 from public.clients c
-      where c.id::text = (storage.foldername(name))[1]
-        and c.client_user_id = auth.uid()
-    )
-    or exists (select 1 from public.trainers t where t.id = auth.uid())
+  and exists (
+    select 1 from public.clients c
+    where c.id::text = (storage.foldername(name))[1]
+      and (c.client_user_id = auth.uid() or c.trainer_id = auth.uid())
   )
 );
