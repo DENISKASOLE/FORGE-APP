@@ -16,6 +16,10 @@ export function Chip({ children, selected = false, onClick, color = T.gold, styl
         textTransform: "uppercase",
         letterSpacing: 0.4,
         whiteSpace: "nowrap",
+        minWidth: 0,
+        maxWidth: "100%",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
         cursor: onClick ? "pointer" : "default",
         ...style,
       }}

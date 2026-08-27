@@ -509,13 +509,13 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     return (
       <Card style={{ padding: isMobile ? 14 : 18 }}>
         <div style={{ textAlign: "center", marginBottom: 14 }}><div style={{ fontSize: 30, fontWeight: 1000, color: BRAND.gold }}>Session Complete</div><div style={{ color: BRAND.muted }}>{finished.workoutName} · Week {finished.weekNum}</div></div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>DURATION</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.durationSec ? fmtClock(fStats.durationSec) : "-"}</div></div>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>VOLUME</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.volume.toLocaleString()}kg</div></div>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>SETS</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.setsDone}/{fStats.setsTotal}</div></div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginBottom: 14 }}>
+          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>DURATION</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.durationSec ? fmtClock(fStats.durationSec) : "-"}</div></div>
+          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>VOLUME</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.volume.toLocaleString()}kg</div></div>
+          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>SETS</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.setsDone}/{fStats.setsTotal}</div></div>
         </div>
         {pbs.length > 0 && <div style={{ background: `${BRAND.gold}18`, border: `1px solid ${BRAND.gold}`, borderRadius: 14, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 6 }}>Personal Bests</div>{pbs.map((pb) => <div key={pb.name} style={{ fontWeight: 800 }}>{pb.name}: <span style={{ color: BRAND.gold }}>{pb.detail}</span></div>)}</div>}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10, marginBottom: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 10 }}>
           <Field label="Session RPE (1-10)" value={finished.sessionRpe} onChange={(v) => { const next = { ...finished, sessionRpe: v }; setFinished(next); onUpdate(next); }} />
           <Field label="Kcals" value={finished.metrics?.kcal || ""} onChange={(v) => { const next = { ...finished, metrics: { ...finished.metrics, kcal: v } }; setFinished(next); onUpdate(next); }} type="number" />
           <Field label="Max HR" value={finished.metrics?.maxHR || ""} onChange={(v) => { const next = { ...finished, metrics: { ...finished.metrics, maxHR: v } }; setFinished(next); onUpdate(next); }} type="number" />
@@ -792,7 +792,7 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
         <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>
           Completed{stats.durationSec > 0 ? ` · ${fmtClock(stats.durationSec)}` : ""}{session.sessionRpe ? ` · Session RPE ${session.sessionRpe}` : ""}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 14 }}>
           <Mini label="Volume" value={`${stats.volume.toLocaleString()} kg`} />
           <Mini label="Sets" value={`${stats.setsDone} / ${stats.setsTotal}`} />
           <Mini label="PBs" value={String(pbs.length)} />

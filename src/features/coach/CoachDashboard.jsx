@@ -610,7 +610,7 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   async function logout() { setBusy(true); await supabase.auth.signOut(); }
   const Section = ({ t }) => <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 10, marginBottom: 2 }}>{t}</div>;
-  const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: last ? "none" : `1px solid ${BRAND.line}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 800, fontSize: 14 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 900, fontSize: 12, whiteSpace: "nowrap" }}>{v}</span></div>;
+  const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "13px 0", borderBottom: last ? "none" : `1px solid ${BRAND.line}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, textAlign: "right" }}>{v}</span></div>;
   const syncLabel = syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced";
   return <div style={{ display: "grid", gap: 12 }}>
     <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 1.5, textTransform: "uppercase" }}>Coach</div><div style={{ fontSize: 26, fontWeight: 900 }}>Settings</div></div>

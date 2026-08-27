@@ -103,9 +103,9 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
       <div key={q.id}>
         <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{q.text}</div>
         {q.type === "scale" && (
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-              <button key={n} onClick={() => setAnswer(q.id, String(n))} style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.line}`, background: String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.card2, color: String(answers[q.id]) === String(n) ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
+              <button key={n} onClick={() => setAnswer(q.id, String(n))} style={{ flex: 1, minWidth: 0, height: 40, borderRadius: 10, border: `1px solid ${String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.line}`, background: String(answers[q.id]) === String(n) ? BRAND.gold : BRAND.card2, color: String(answers[q.id]) === String(n) ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{n}</button>
             ))}
           </div>
         )}

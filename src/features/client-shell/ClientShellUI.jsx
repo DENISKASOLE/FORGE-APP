@@ -123,6 +123,8 @@ export function ClientCard({ client, onClick }) {
         padding: "5px 9px",
         maxWidth: "92%",
         whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
       }}>{client.weight || 0}kg &middot; {client.age || 0} yrs</div>
     </button>
   );

@@ -179,10 +179,10 @@ export function ProgressTab({ client }) {
       <div style={{ color: BRAND.text, fontWeight: 700, fontSize: 14, lineHeight: 1.35 }}>{insight.text}</div>
     </div>
 
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center" }}><div style={{ color: adherence.total ? BRAND.green : BRAND.dim, fontSize: 22, fontWeight: 900 }}>{adherence.total ? `${adherence.pct}%` : "-"}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Adherence</div></div>
-      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: 22, fontWeight: 900 }}>{streak}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Wk Streak</div></div>
-      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center" }}><div style={{ color: BRAND.cyan, fontSize: 22, fontWeight: 900 }}>{pbsThisMonth}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>PBs / mo</div></div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ color: adherence.total ? BRAND.green : BRAND.dim, fontSize: 22, fontWeight: 900 }}>{adherence.total ? `${adherence.pct}%` : "-"}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Adherence</div></div>
+      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.gold, fontSize: 22, fontWeight: 900 }}>{streak}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Wk Streak</div></div>
+      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.cyan, fontSize: 22, fontWeight: 900 }}>{pbsThisMonth}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>PBs / mo</div></div>
     </div>
 
     <div>
