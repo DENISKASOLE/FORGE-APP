@@ -1,10 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { T } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field } from "../../components/ui/Field.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
+import { uid } from "../../lib/uid.js";
 import { CONTRACT_VERSION, AGREEMENT_TITLE, AGREEMENT_TEXT, CONSENT_ITEMS } from "./agreementText.js";
+import { insertSignature } from "./data.js";
+import { uploadAgreementFile } from "./storage.js";
+import { buildAgreementPdf } from "./pdf.js";
 
 const SCROLL_END_THRESHOLD_PX = 8;
 
@@ -17,19 +21,73 @@ function ConsentCheckbox({ checked, onChange, children }) {
   );
 }
 
-// `client` and `onSigned` are consumed by handleSign's TODO block below,
-// which isn't wired up yet - the signature-capture/PDF/upload/insert step
-// intentionally left for after this skeleton is reviewed.
-// eslint-disable-next-line no-unused-vars
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Could not read the signature."))), "image/png");
+  });
+}
+
 export function SignatureForm({ client, onSigned }) {
   const [scrolledToEnd, setScrolledToEnd] = useState(false);
   const [consents, setConsents] = useState(() => Object.fromEntries(CONSENT_ITEMS.map((c) => [c.key, false])));
   const [fullName, setFullName] = useState("");
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState("");
-  const canvasRef = useRef(null);
-  // TODO(next step): populate from real pointer-drawing on the canvas below.
   const [hasSignature, setHasSignature] = useState(false);
+
+  const canvasRef = useRef(null);
+  const ctxRef = useRef(null);
+  const isDrawingRef = useRef(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = T.accent;
+    ctxRef.current = ctx;
+  }, []);
+
+  function posFromEvent(e) {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  function startDraw(e) {
+    e.preventDefault();
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    canvasRef.current.setPointerCapture?.(e.pointerId);
+    isDrawingRef.current = true;
+    const { x, y } = posFromEvent(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }
+  function moveDraw(e) {
+    if (!isDrawingRef.current) return;
+    e.preventDefault();
+    const ctx = ctxRef.current;
+    const { x, y } = posFromEvent(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    if (!hasSignature) setHasSignature(true);
+  }
+  function endDraw() {
+    isDrawingRef.current = false;
+  }
+  function clearSignature() {
+    const canvas = canvasRef.current;
+    const ctx = ctxRef.current;
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+  }
 
   function handleScroll(e) {
     const el = e.target;
@@ -37,10 +95,6 @@ export function SignatureForm({ client, onSigned }) {
   }
   function setConsent(key, value) {
     setConsents((c) => ({ ...c, [key]: value }));
-  }
-  function clearSignature() {
-    // TODO(next step): clear the canvas bitmap too, once drawing is wired up.
-    setHasSignature(false);
   }
 
   const allConsented = CONSENT_ITEMS.every((c) => consents[c.key]);
@@ -50,16 +104,27 @@ export function SignatureForm({ client, onSigned }) {
     setSigning(true);
     setError("");
     try {
-      // TODO(next step):
-      //  1. Export the canvas to a PNG blob.
-      //  2. Render AGREEMENT_TEXT + fullName + signature PNG + CONTRACT_VERSION
-      //     + timestamp into a PDF (pdf-lib, already a dependency).
-      //  3. Upload both to the agreement-documents storage bucket under
-      //     `${client.id}/${signatureId}/signature.png` and `.../agreement.pdf`.
-      //  4. insertSignature({ client_id, contract_version, signed_name,
-      //     signature_path, pdf_path, consents, signed_at }).
-      //  5. onSigned() to close the gate.
-      throw new Error("Signature capture and PDF generation aren't wired up yet.");
+      const signedName = fullName.trim();
+      const signedAt = new Date().toISOString();
+      const signatureId = uid();
+
+      const signatureBlob = await canvasToBlob(canvasRef.current);
+      const signaturePngBytes = new Uint8Array(await signatureBlob.arrayBuffer());
+      const pdfBlob = await buildAgreementPdf({ signedName, signaturePngBytes, contractVersion: CONTRACT_VERSION, signedAt });
+
+      const signaturePath = await uploadAgreementFile(client.id, signatureId, "signature.png", signatureBlob);
+      const pdfPath = await uploadAgreementFile(client.id, signatureId, "agreement.pdf", pdfBlob);
+
+      await insertSignature({
+        client_id: client.id,
+        contract_version: CONTRACT_VERSION,
+        signed_name: signedName,
+        signature_path: signaturePath,
+        pdf_path: pdfPath,
+        consents,
+      });
+
+      onSigned();
     } catch (e) {
       setError(e.message || "Could not save your signature. Please try again.");
     } finally {
@@ -110,13 +175,14 @@ export function SignatureForm({ client, onSigned }) {
           <SectionLabel color={T.muted}>Signature</SectionLabel>
           <canvas
             ref={canvasRef}
-            width={560}
-            height={180}
-            style={{ width: "100%", height: 180, background: T.card2, border: `1px solid ${T.line}`, borderRadius: 12, touchAction: "none" }}
+            style={{ width: "100%", height: 180, background: T.card2, border: `1px solid ${T.line}`, borderRadius: 12, touchAction: "none", cursor: "crosshair" }}
+            onPointerDown={startDraw}
+            onPointerMove={moveDraw}
+            onPointerUp={endDraw}
+            onPointerLeave={endDraw}
+            onPointerCancel={endDraw}
           />
-          <div style={{ color: T.dim, fontSize: 11, fontWeight: 600 }}>
-            Drawing isn't wired up yet — this is the layout placeholder for the next step.
-          </div>
+          <div style={{ color: T.dim, fontSize: 11, fontWeight: 600 }}>Sign with your mouse, stylus, or finger.</div>
           <Button variant="dark" onClick={clearSignature}>Clear</Button>
         </Card>
 
