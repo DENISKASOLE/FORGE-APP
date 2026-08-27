@@ -1,32 +1,25 @@
-// PLACEHOLDER PAR-Q+ WORDING — DO NOT SHIP AS-IS.
-// Replace with official PAR-Q+ wording from eparmedx.com — use verbatim,
-// do not paraphrase or alter. The PAR-Q+ is a copyrighted, validated
-// screening instrument; the 7 slots below exist so the flow can be built
-// and tested, not as a substitute for the real questions. Bump
-// SCREENING_VERSION whenever the real wording (or the acknowledgment
-// text) replaces this placeholder — that's what forces every existing
-// client to re-screen.
+// Official PAR-Q+ questions (Physical Activity Readiness Questionnaire).
+// Bump SCREENING_VERSION whenever this wording (or the acknowledgment
+// text) changes; that's what forces every existing client to screen again.
 
-export const SCREENING_VERSION = "2026-08-27-placeholder-v1";
+export const SCREENING_VERSION = "2026-08-27-parq-v1";
 
 export const SCREENING_TITLE = "Health Readiness Screening";
 
-export const SCREENING_INTRO = "Before you start, a quick health check. Answer honestly — it keeps your training safe.";
+export const SCREENING_INTRO = "Before you start, a quick health check. Answer honestly, it keeps your training safe.";
 
-// [PLACEHOLDER] — replace each `text` with the official PAR-Q+ question,
-// verbatim, from eparmedx.com. Do not invent or paraphrase medical wording.
 export const SCREENING_QUESTIONS = [
-  { key: "q1", text: "[PLACEHOLDER PAR-Q+ QUESTION 1 — replace verbatim from eparmedx.com]" },
-  { key: "q2", text: "[PLACEHOLDER PAR-Q+ QUESTION 2 — replace verbatim from eparmedx.com]" },
-  { key: "q3", text: "[PLACEHOLDER PAR-Q+ QUESTION 3 — replace verbatim from eparmedx.com]" },
-  { key: "q4", text: "[PLACEHOLDER PAR-Q+ QUESTION 4 — replace verbatim from eparmedx.com]" },
-  { key: "q5", text: "[PLACEHOLDER PAR-Q+ QUESTION 5 — replace verbatim from eparmedx.com]" },
-  { key: "q6", text: "[PLACEHOLDER PAR-Q+ QUESTION 6 — replace verbatim from eparmedx.com]" },
-  { key: "q7", text: "[PLACEHOLDER PAR-Q+ QUESTION 7 — replace verbatim from eparmedx.com]" },
+  { key: "q1", text: "Has your doctor ever said that you have a heart condition and that you should only do physical activity recommended by a doctor?" },
+  { key: "q2", text: "Do you feel pain in your chest when you do physical activity?" },
+  { key: "q3", text: "In the past month, have you had chest pain when you were not doing physical activity?" },
+  { key: "q4", text: "Do you lose your balance because of dizziness or do you ever lose consciousness?" },
+  { key: "q5", text: "Do you have a bone or joint problem (for example, back, knee, or hip) that could be made worse by a change in your physical activity?" },
+  { key: "q6", text: "Is your doctor currently prescribing drugs (for example, water pills) for your blood pressure or heart condition?" },
+  { key: "q7", text: "Do you know of any other reason why you should not do physical activity?" },
 ];
 
 export const CLEARANCE_ADVISORY =
-  "Based on your answers, we recommend you get medical clearance from a doctor before starting this program. This isn't a hard stop — your coach will follow up with you about it.";
+  "Based on your answers, we recommend you get medical clearance from a doctor before starting this program. This isn't a hard stop; your coach will follow up with you about it.";
 
 export const CONSENT_ITEMS = [
   {
