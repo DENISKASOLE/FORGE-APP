@@ -39,7 +39,7 @@ import { Calendar } from "./features/coach/Calendar.jsx";
 import { Trials } from "./features/coach/Trials.jsx";
 import { countTodaysCalendarSessions } from "./features/coach/coachHelpers.js";
 import { NutritionFlow } from "./features/nutrition/NutritionFlow.jsx";
-import { AgreementGate } from "./features/agreement/AgreementGate.jsx";
+import { ScreeningGate } from "./features/screening/ScreeningGate.jsx";
 import { ScheduledView, ClientCard, CLIENT_BOTTOM_NAV, ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./features/client-shell/ClientShellUI.jsx";
 import { CoachDashboard } from "./features/coach/CoachDashboard.jsx";
 /*
@@ -100,7 +100,7 @@ function ClientView({ client, updateClient, back, refresh, isCoach = true }) {
     {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "program" && (isCoach
       ? <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />
-      : <AgreementGate client={client}><ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} /></AgreementGate>)}
+      : <ScreeningGate client={client}><ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} /></ScreeningGate>)}
     {tab === "nutrition" && <NutritionFlow client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "progress" && <ProgressTab client={client} />}
     {tab === "progress_hub" && <ProgressHub client={client} updateClient={updateClient} isCoach={isCoach} />}

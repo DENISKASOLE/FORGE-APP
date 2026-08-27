@@ -3,14 +3,28 @@ import { T } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field } from "../../components/ui/Field.jsx";
+import { Chip } from "../../components/ui/Chip.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { uid } from "../../lib/uid.js";
-import { CONTRACT_VERSION, AGREEMENT_TITLE, AGREEMENT_TEXT, CONSENT_ITEMS } from "./agreementText.js";
-import { insertSignature } from "./data.js";
-import { uploadAgreementFile } from "./storage.js";
-import { buildAgreementPdf } from "./pdf.js";
+import {
+  SCREENING_VERSION, SCREENING_TITLE, SCREENING_INTRO,
+  SCREENING_QUESTIONS, CLEARANCE_ADVISORY, CONSENT_ITEMS,
+} from "./screeningText.js";
+import { insertScreening } from "./data.js";
+import { uploadScreeningFile } from "./storage.js";
+import { buildScreeningPdf } from "./pdf.js";
 
-const SCROLL_END_THRESHOLD_PX = 8;
+function QuestionRow({ index, question, value, onChange }) {
+  return (
+    <div style={{ borderTop: index > 0 ? `1px solid ${T.line}` : "none", paddingTop: index > 0 ? 12 : 0, marginTop: index > 0 ? 12 : 0, display: "grid", gap: 8 }}>
+      <div style={{ color: T.accent, fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{index + 1}. {question.text}</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Chip selected={value === "yes"} onClick={() => onChange("yes")} color={T.bad}>Yes</Chip>
+        <Chip selected={value === "no"} onClick={() => onChange("no")} color={T.good}>No</Chip>
+      </div>
+    </div>
+  );
+}
 
 function ConsentCheckbox({ checked, onChange, children }) {
   return (
@@ -27,8 +41,8 @@ function canvasToBlob(canvas) {
   });
 }
 
-export function SignatureForm({ client, onSigned }) {
-  const [scrolledToEnd, setScrolledToEnd] = useState(false);
+export function ScreeningForm({ client, onScreened }) {
+  const [answers, setAnswers] = useState(() => Object.fromEntries(SCREENING_QUESTIONS.map((q) => [q.key, null])));
   const [consents, setConsents] = useState(() => Object.fromEntries(CONSENT_ITEMS.map((c) => [c.key, false])));
   const [fullName, setFullName] = useState("");
   const [signing, setSigning] = useState(false);
@@ -89,16 +103,17 @@ export function SignatureForm({ client, onSigned }) {
     setHasSignature(false);
   }
 
-  function handleScroll(e) {
-    const el = e.target;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_END_THRESHOLD_PX) setScrolledToEnd(true);
+  function setAnswer(key, value) {
+    setAnswers((a) => ({ ...a, [key]: value }));
   }
   function setConsent(key, value) {
     setConsents((c) => ({ ...c, [key]: value }));
   }
 
+  const allAnswered = SCREENING_QUESTIONS.every((q) => answers[q.key] === "yes" || answers[q.key] === "no");
+  const needsClearance = SCREENING_QUESTIONS.some((q) => answers[q.key] === "yes");
   const allConsented = CONSENT_ITEMS.every((c) => consents[c.key]);
-  const canSign = scrolledToEnd && allConsented && fullName.trim().length > 1 && hasSignature;
+  const canSign = allAnswered && allConsented && fullName.trim().length > 1 && hasSignature;
 
   async function handleSign() {
     setSigning(true);
@@ -106,27 +121,32 @@ export function SignatureForm({ client, onSigned }) {
     try {
       const signedName = fullName.trim();
       const signedAt = new Date().toISOString();
-      const signatureId = uid();
+      const screeningId = uid();
 
       const signatureBlob = await canvasToBlob(canvasRef.current);
       const signaturePngBytes = new Uint8Array(await signatureBlob.arrayBuffer());
-      const pdfBlob = await buildAgreementPdf({ signedName, signaturePngBytes, contractVersion: CONTRACT_VERSION, signedAt });
+      const pdfBlob = await buildScreeningPdf({
+        signedName, signaturePngBytes, screeningVersion: SCREENING_VERSION, signedAt,
+        answers, needsClearance, consents,
+      });
 
-      const signaturePath = await uploadAgreementFile(client.id, signatureId, "signature.png", signatureBlob);
-      const pdfPath = await uploadAgreementFile(client.id, signatureId, "agreement.pdf", pdfBlob);
+      const signaturePath = await uploadScreeningFile(client.id, screeningId, "signature.png", signatureBlob);
+      const pdfPath = await uploadScreeningFile(client.id, screeningId, "screening.pdf", pdfBlob);
 
-      await insertSignature({
+      await insertScreening({
         client_id: client.id,
-        contract_version: CONTRACT_VERSION,
+        screening_version: SCREENING_VERSION,
+        answers,
+        needs_clearance: needsClearance,
         signed_name: signedName,
         signature_path: signaturePath,
         pdf_path: pdfPath,
         consents,
       });
 
-      onSigned();
+      onScreened();
     } catch (e) {
-      setError(e.message || "Could not save your signature. Please try again.");
+      setError(e.message || "Could not save your screening. Please try again.");
     } finally {
       setSigning(false);
     }
@@ -136,29 +156,27 @@ export function SignatureForm({ client, onSigned }) {
     <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 500, overflowY: "auto" }}>
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 20px 48px", display: "grid", gap: 16 }}>
         <div>
-          <SectionLabel>Step required · Version {CONTRACT_VERSION}</SectionLabel>
-          <div style={{ fontSize: 26, fontWeight: 800, color: T.accent, marginTop: 4 }}>{AGREEMENT_TITLE}</div>
-          <div style={{ color: T.muted, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
-            Read the full agreement below, then confirm your consent and sign to unlock your program.
-          </div>
+          <SectionLabel>Step required · Version {SCREENING_VERSION}</SectionLabel>
+          <div style={{ fontSize: 26, fontWeight: 800, color: T.accent, marginTop: 4 }}>{SCREENING_TITLE}</div>
+          <div style={{ color: T.muted, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>{SCREENING_INTRO}</div>
         </div>
 
-        <Card style={{ padding: 0, overflow: "hidden" }}>
-          <div
-            onScroll={handleScroll}
-            style={{ maxHeight: 320, overflowY: "auto", padding: 16, color: T.accent, fontSize: 13, fontWeight: 600, lineHeight: 1.6, whiteSpace: "pre-wrap" }}
-          >
-            {AGREEMENT_TEXT}
-          </div>
+        <Card style={{ padding: 16 }}>
+          <SectionLabel color={T.muted} style={{ marginBottom: 4 }}>Health questions</SectionLabel>
+          {SCREENING_QUESTIONS.map((q, i) => (
+            <QuestionRow key={q.key} index={i} question={q} value={answers[q.key]} onChange={(v) => setAnswer(q.key, v)} />
+          ))}
         </Card>
-        {!scrolledToEnd && (
-          <div style={{ color: T.warn, fontSize: 12, fontWeight: 700, textAlign: "center", marginTop: -8 }}>
-            Scroll to the bottom of the agreement to continue.
-          </div>
+
+        {needsClearance && (
+          <Card style={{ padding: 16, background: `${T.warn}14`, border: `1px solid ${T.warn}44` }}>
+            <div style={{ color: T.warn, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>Recommendation</div>
+            <div style={{ color: T.accent, fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{CLEARANCE_ADVISORY}</div>
+          </Card>
         )}
 
         <Card style={{ display: "grid", gap: 12 }}>
-          <SectionLabel color={T.muted}>Consent</SectionLabel>
+          <SectionLabel color={T.muted}>Acknowledgments</SectionLabel>
           {CONSENT_ITEMS.map((c) => (
             <ConsentCheckbox key={c.key} checked={consents[c.key]} onChange={(v) => setConsent(c.key, v)}>
               {c.label}
