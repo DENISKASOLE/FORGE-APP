@@ -1,20 +1,21 @@
 import { T } from "../../theme/tokens.js";
 
-export function Chip({ children, selected = false, onClick, color = T.gold, style = {} }) {
+export function Chip({ children, selected = false, onClick, style = {} }) {
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
-        border: `1px solid ${selected ? color : T.line}`,
-        background: selected ? color : T.card2,
-        color: selected ? "#000" : T.muted,
+        fontFamily: "var(--sans)",
+        border: `var(--hairline) solid ${selected ? "transparent" : T.line}`,
+        background: selected ? "var(--btn-bg)" : T.card2,
+        color: selected ? "var(--btn-ink)" : T.muted,
         borderRadius: 999,
         padding: "8px 14px",
         fontSize: 11,
-        fontWeight: 800,
+        fontWeight: 500,
         textTransform: "uppercase",
-        letterSpacing: 0.4,
+        letterSpacing: "0.14em",
         whiteSpace: "nowrap",
         minWidth: 0,
         maxWidth: "100%",

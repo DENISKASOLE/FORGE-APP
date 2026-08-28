@@ -1,8 +1,8 @@
 import { T } from "../../theme/tokens.js";
 
-export function SectionLabel({ children, color = T.gold, style = {} }) {
+export function SectionLabel({ children, color = T.dim, style = {} }) {
   return (
-    <div style={{ color, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", ...style }}>
+    <div style={{ fontFamily: "var(--sans)", color, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", ...style }}>
       {children}
     </div>
   );

@@ -7,15 +7,15 @@ function clampPct(value, target) {
   return Math.max(0, Math.min(100, Math.round((v / t) * 100)));
 }
 
-export function MacroBar({ label, value, target, unit = "g", color = T.gold }) {
+export function MacroBar({ label, value, target, unit = "g", color = T.good }) {
   const pct = clampPct(value, target);
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, marginBottom: 5 }}>
-        <span style={{ color, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+      <div style={{ fontFamily: "var(--sans)", display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 500, marginBottom: 5 }}>
+        <span style={{ color: T.dim, textTransform: "uppercase", letterSpacing: "0.14em" }}>{label}</span>
         <span style={{ color: T.muted }}>{Math.round(value) || 0}/{target || "-"}{unit}</span>
       </div>
-      <div style={{ height: 7, borderRadius: 999, background: T.card2, overflow: "hidden" }}>
+      <div style={{ height: 4, borderRadius: 999, background: T.lineSoft, overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 999 }} />
       </div>
     </div>

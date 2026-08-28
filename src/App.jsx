@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
-import { BRAND, GLOBAL_TEXT_CSS } from "./theme/tokens.js";
+import { BRAND } from "./theme/tokens.js";
 import { ToastHost } from "./components/ui/Toast.jsx";
 import { ConfirmHost } from "./components/ui/ConfirmDialog.jsx";
 import { FORGE_SYNC_QUEUE_KEY, readJson, saveForgeCache, readForgeCache, flushSyncQueue } from "./lib/cache.js";
@@ -191,12 +191,11 @@ export default function App() {
     });
   }
   return <>
-    <style>{GLOBAL_TEXT_CSS}</style>
     <ToastHost />
     <ConfirmHost />
     {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
-    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div></div></div>
+    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
     : clientPortal ? (
       <Routes>
