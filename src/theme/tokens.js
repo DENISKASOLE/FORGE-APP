@@ -1,34 +1,39 @@
+// Values point at the CSS custom properties defined in src/styles/tokens.css
+// (ported from forge-app-v2) rather than literal hex codes. Every consumer in
+// this codebase reads colors through BRAND.x / T.x in inline `style={{}}`
+// objects, so retargeting these two objects re-themes the whole app without
+// having to touch each call site - a plain string like "var(--ember)" is a
+// perfectly valid CSS value for a React inline style.
 export const BRAND = {
-  bg: "#000000",
-  panel: "#070707",
-  card: "#0d0d0d",
-  card2: "#171717",
-  line: "#262626",
-  text: "#ffffff",
-  muted: "#a1a1a1",
-  dim: "#6e6e6e",
-  gold: "#FFFFFF",
-  red: "#FF5C5C",
-  green: "#3DD68C",
-  cyan: "#3FC7C0",
-  blue: "#5B9EF9",
-  purple: "#A78BFA",
-  orange: "#FFA94D",
+  bg: "var(--ink)",
+  panel: "var(--ink2)",
+  card: "var(--surface)",
+  card2: "var(--surface2)",
+  line: "var(--line)",
+  text: "var(--bone)",
+  muted: "var(--boneDim)",
+  dim: "var(--muted)",
+  gold: "var(--ember)",
+  red: "var(--red)",
+  green: "var(--sage)",
+  cyan: "var(--court)",
+  blue: "var(--court)",
+  purple: "var(--violet)",
+  orange: "var(--amber)",
 };
 
 export const T = {
-  bg: "#000000", panel: "#070707", card: "#0d0d0d", card2: "#171717",
-  line: "#262626", muted: "#a1a1a1", dim: "#6e6e6e", accent: "#EDEDED",
-  gold: "#E8C547",
-  meal: { breakfast: "#FFA94D", lunch: "#38BDF8", dinner: "#A78BFA", snacks: "#3DD68C" },
-  good: "#3DD68C", warn: "#FFA94D", bad: "#FF5C5C",
+  bg: "var(--ink)", panel: "var(--ink2)", card: "var(--surface)", card2: "var(--surface2)",
+  line: "var(--line)", muted: "var(--boneDim)", dim: "var(--muted)", accent: "var(--ember)",
+  gold: "var(--amber)",
+  meal: { breakfast: "var(--amber)", lunch: "var(--court)", dinner: "var(--violet)", snacks: "var(--sage)" },
+  good: "var(--sage)", warn: "var(--amber)", bad: "var(--red)",
 };
 
 export const GLOBAL_TEXT_CSS = `
   html, body, #root { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; box-shadow: none !important; background: ${BRAND.bg} !important; min-height: 100%; }
   body { min-height: 100vh; }
-  * { font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; }
-  input, textarea, select, button { font-weight: 700 !important; }
+  * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; }
   button { color: inherit; background: none; }
   button:disabled { opacity: 0.5; }
   button:not(:disabled) { transition: filter .12s ease, transform .1s ease; }
