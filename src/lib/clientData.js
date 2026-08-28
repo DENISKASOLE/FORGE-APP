@@ -154,10 +154,10 @@ export function mapClient(row, dataRows = [], index = 0) {
   };
 }
 export async function upsertSection(clientId, section, data) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    enqueueSync({ type: "client_data", clientId, section, data });
-    return { queued: true };
-  }
+  // Always attempt the real write first - navigator.onLine is an unreliable
+  // signal (frequent false negatives on mobile/PWA) and gating on it here
+  // used to mean a save could get silently queued and never retried even
+  // though the network was fine. Only queue on an actual failure below.
   try {
     const { error } = await supabase.from("client_data").upsert(
       { client_id: clientId, section, data },
@@ -172,10 +172,6 @@ export async function upsertSection(clientId, section, data) {
   }
 }
 export async function upsertTrainerData(trainerId, section, data) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    enqueueSync({ type: "trainer_data", trainerId, section, data });
-    return { queued: true };
-  }
   try {
     const { error } = await supabase.from("trainer_data").upsert(
       { trainer_id: trainerId, section, data },

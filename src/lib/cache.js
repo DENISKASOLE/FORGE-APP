@@ -42,7 +42,6 @@ export function enqueueSync(item) {
   writeJson(FORGE_SYNC_QUEUE_KEY, queue);
 }
 export async function flushSyncQueue() {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
   const queue = readJson(FORGE_SYNC_QUEUE_KEY, []);
   if (!queue.length) return;
   const remaining = [];
@@ -73,10 +72,6 @@ export async function flushSyncQueue() {
   writeJson(FORGE_SYNC_QUEUE_KEY, remaining);
 }
 export async function updateClientRow(clientId, patch) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    enqueueSync({ type: "clients_update", clientId, patch });
-    return { queued: true };
-  }
   try {
     const { error } = await supabase.from("clients").update(patch).eq("id", clientId);
     if (error) throw error;

@@ -61,10 +61,8 @@ export default function App() {
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
     const retryTimer = setInterval(async () => {
-      if (typeof navigator !== "undefined" && navigator.onLine) {
-        const queued = readJson(FORGE_SYNC_QUEUE_KEY, []);
-        if (queued.length) await flushSyncQueue();
-      }
+      const queued = readJson(FORGE_SYNC_QUEUE_KEY, []);
+      if (queued.length) await flushSyncQueue();
     }, 20000);
     // Supabase's password-reset email can arrive as a PKCE "?code=" link (needs an explicit
     // exchange) or the older "#access_token=...&type=recovery" hash link. The "?code=" link
