@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient.js";
 import { BRAND, GLOBAL_TEXT_CSS } from "./theme/tokens.js";
 import { ToastHost } from "./components/ui/Toast.jsx";
@@ -48,7 +49,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [trainer, setTrainer] = useState(null);
   const [clients, setClients] = useState([]);
-  const [selected, setSelected] = useState(null);
   const [clientPortal, setClientPortal] = useState(null);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [accountNotActive, setAccountNotActive] = useState(false);
@@ -138,7 +138,7 @@ export default function App() {
         saveForgeCache(user.id, { trainer: null, clients: [], clientPortal: next });
         return next;
       });
-      setSelected(null); setClients([]);
+      setClients([]);
       return;
     }
     const { data: trainerMatch } = await supabase.from("trainers").select("id").eq("id", user.id).maybeSingle();
@@ -186,7 +186,6 @@ export default function App() {
       if (userId) saveForgeCache(userId, { trainer, clients: next, clientPortal: null });
       return next;
     });
-    setSelected(updated);
     setClientPortal((p) => {
       const nextPortal = p?.id === updated.id ? updated : p;
       if (userId && nextPortal) saveForgeCache(userId, { trainer: null, clients: [], clientPortal: nextPortal });
@@ -201,8 +200,46 @@ export default function App() {
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
     : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 900, letterSpacing: 1, lineHeight: 1 }}>FORGE</div></div></div>
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
-    : clientPortal ? <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={() => boot(session.user)} />
-    : selected ? <ClientView client={selected} updateClient={updateClient} back={() => setSelected(null)} refresh={() => loadCoach(session.user)} isCoach />
-    : <CoachDashboard user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} selectClient={setSelected} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />}
+    : clientPortal ? (
+      <Routes>
+        <Route path="/" element={<ClientPortalRoute clientPortal={clientPortal} updateClient={updateClient} refresh={() => boot(session.user)} />} />
+        <Route path="/:tab" element={<ClientPortalRoute clientPortal={clientPortal} updateClient={updateClient} refresh={() => boot(session.user)} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    ) : (
+      <Routes>
+        <Route path="/coach" element={<CoachDashboardRoute user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />} />
+        <Route path="/coach/:tab" element={<CoachDashboardRoute user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />} />
+        <Route path="/coach/clients/:clientId" element={<CoachClientRoute clients={clients} updateClient={updateClient} refresh={() => loadCoach(session.user)} />} />
+        <Route path="/coach/clients/:clientId/:tab" element={<CoachClientRoute clients={clients} updateClient={updateClient} refresh={() => loadCoach(session.user)} />} />
+        <Route path="*" element={<Navigate to="/coach" replace />} />
+      </Routes>
+    )}
   </>;
+}
+
+// Thin route adapters: they translate URL params <-> the tab/screen props
+// that ClientView and CoachDashboard already accepted before routing
+// existed (see the "optionally controlled" comments on those components),
+// so neither of those components' own internals needed to change.
+function ClientPortalRoute({ clientPortal, updateClient, refresh }) {
+  const { tab } = useParams();
+  const navigate = useNavigate();
+  return <ClientView client={clientPortal} updateClient={updateClient} isCoach={false} refresh={refresh}
+    tab={tab || "home"} setTab={(t) => navigate(t === "home" ? "/" : `/${t}`)} />;
+}
+function CoachDashboardRoute(props) {
+  const { tab } = useParams();
+  const navigate = useNavigate();
+  return <CoachDashboard {...props} tab={tab || "home"} setTab={(t) => navigate(t === "home" ? "/coach" : `/coach/${t}`)}
+    selectClient={(c) => navigate(`/coach/clients/${c.id}`)} />;
+}
+function CoachClientRoute({ clients, updateClient, refresh }) {
+  const { clientId, tab } = useParams();
+  const navigate = useNavigate();
+  const client = clients.find((c) => c.id === clientId);
+  if (!client) return <Navigate to="/coach/clients" replace />;
+  return <ClientView client={client} updateClient={updateClient} isCoach refresh={refresh}
+    back={() => navigate("/coach/clients")}
+    tab={tab || "profile"} setTab={(t) => navigate(`/coach/clients/${clientId}/${t}`)} />;
 }

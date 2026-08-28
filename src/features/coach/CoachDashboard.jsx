@@ -661,14 +661,22 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   </div>;
 }
 
-export function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online" }) {
+// `tab`/`setTab` and `screen`/`setScreen` are optionally controlled: pass
+// them (e.g. from a router route) to drive navigation externally, or omit
+// them to fall back to this component's own internal state - unchanged
+// from how it always worked before routes existed.
+export function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online", tab: tabProp, setTab: setTabProp, screen: screenProp, setScreen: setScreenProp }) {
   const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [tab, setTab] = useState("home");
+  const [tabState, setTabState] = useState("home");
+  const tab = tabProp !== undefined ? tabProp : tabState;
+  const setTab = setTabProp || setTabState;
   const [clientTypeFilter, setClientTypeFilter] = useState("1:1"); // In-Person by default
   const [sortBy, setSortBy] = useState("recent");
-  const [screen, setScreen] = useState(null); // templates | calendar | analytics | trials
+  const [screenState, setScreenState] = useState(null); // templates | calendar | analytics | trials
+  const screen = screenProp !== undefined ? screenProp : screenState;
+  const setScreen = setScreenProp || setScreenState;
   const [toolOrigin, setToolOrigin] = useState("tools");
   const [query, setQuery] = useState("");
   const [templatesCount, setTemplatesCount] = useState(0);
