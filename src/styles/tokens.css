@@ -1,0 +1,116 @@
+/* Design tokens extracted from FORGE App.dc.html / FORGE Coach App.dc.html */
+
+/*
+ * Accent tokens are written as var(--emberXOverride, <default>) rather
+ * than a plain hex/rgba value. This is what makes the coach's Settings >
+ * Accent Color picker actually work: a *Override property set on
+ * <html> (see applyAccent() in src/hooks/useAccentColor.js) is NOT
+ * declared anywhere inside [data-app='...'], so it inherits straight
+ * through to every element in the app. If --ember itself were set on
+ * <html> instead, it would do nothing -- these [data-app] blocks declare
+ * --ember directly on an ancestor of every screen, and a descendant's own
+ * declaration always wins over an inherited value from further up,
+ * regardless of the ancestor's specificity.
+ */
+
+[data-app='client'] {
+  --ink: #16120e;
+  --ink2: #1d1710;
+  --surface: #272014;
+  --surface2: #342a18;
+  --line: rgba(243, 236, 225, 0.12);
+  --lineS: rgba(243, 236, 225, 0.22);
+  --bone: #ffffff;
+  --boneDim: #ede4d2;
+  --muted: #c8b69e;
+  --ember: var(--emberOverride, #f2853d);
+  --emberDeep: var(--emberDeepOverride, #c85e22);
+  --emberDim: var(--emberDimOverride, rgba(242, 133, 61, 0.14));
+  --emberGlow: var(--emberGlowOverride, rgba(242, 133, 61, 0.45));
+  --emberGlowSoft: var(--emberGlowSoftOverride, rgba(242, 133, 61, 0.16));
+  --emberGradient: linear-gradient(135deg, var(--emberDeep), var(--ember));
+  --sage: #66c79b;
+  --sageDim: rgba(102, 199, 155, 0.13);
+  --violet: #b79ce8;
+  --violetDim: rgba(183, 156, 232, 0.14);
+  --court: #7fa6d9;
+  --courtDim: rgba(127, 166, 217, 0.14);
+  --amber: #f0be3c;
+  --amberDim: rgba(240, 190, 60, 0.14);
+  --red: #dc5046;
+  --redDim: rgba(220, 80, 70, 0.12);
+}
+
+/*
+ * Light theme. Only the surface/border/text hierarchy tokens (ink,
+ * surface, line, bone, muted -- and their variants) change between light
+ * and dark -- accent colors (ember/sage/violet/court/amber/red and their
+ * Dim/Glow variants) stay the same in both, same as most apps: brand or
+ * status color doesn't flip with theme, only the chrome around it does.
+ *
+ * [data-theme='light'] [data-app='client'] has higher specificity than
+ * the plain [data-app='client'] rule above (two attribute selectors vs
+ * one), so on an element matching both it wins outright -- no override-
+ * indirection needed here, unlike accent color: applyTheme() in
+ * src/hooks/useTheme.js sets data-theme once, directly on <html>, which
+ * is a genuine ancestor of the app-shell div these selectors target.
+ */
+
+[data-theme='light'] [data-app='client'] {
+  --ink: #faf5ec;
+  --ink2: #f3ebdc;
+  --surface: #ffffff;
+  --surface2: #f6efe3;
+  --line: rgba(36, 28, 18, 0.1);
+  --lineS: rgba(36, 28, 18, 0.18);
+  --bone: #241c12;
+  --boneDim: #4a3d2c;
+  --muted: #8a7860;
+}
+
+[data-theme='light'] [data-app='coach'] {
+  --ink: #f8f2e6;
+  --ink2: #f1e8d6;
+  --surface: #fefbf6;
+  --surface2: #f4ecdc;
+  --line: rgba(36, 28, 18, 0.08);
+  --lineS: rgba(36, 28, 18, 0.15);
+  --bone: #241c12;
+  --boneDim: #52432f;
+  --muted: #8f7d64;
+}
+
+/* Outside .app-shell's centered 480px column (wide viewports) -- can't
+   use the tokens above since body isn't inside a [data-app] element. */
+[data-theme='light'] body {
+  background: #faf5ec;
+  color: #241c12;
+}
+
+[data-app='coach'] {
+  --ink: #17130f;
+  --ink2: #1e1811;
+  --surface: #241d15;
+  --surface2: #2c2418;
+  --line: rgba(243, 236, 225, 0.09);
+  --lineS: rgba(243, 236, 225, 0.16);
+  --bone: #f4ede1;
+  --boneDim: #cbbeaa;
+  --muted: #9c8e7a;
+  --ember: var(--emberOverride, #f2853d);
+  --emberDeep: var(--emberDeepOverride, #c85e22);
+  --emberDim: var(--emberDimOverride, rgba(242, 133, 61, 0.14));
+  --emberGlow: var(--emberGlowOverride, rgba(242, 133, 61, 0.45));
+  --emberGlowSoft: var(--emberGlowSoftOverride, rgba(242, 133, 61, 0.16));
+  --emberGradient: linear-gradient(135deg, var(--emberDeep), var(--ember));
+  --sage: #66c79b;
+  --sageDim: rgba(102, 199, 155, 0.13);
+  --violet: #b79ce8;
+  --violetDim: rgba(183, 156, 232, 0.14);
+  --court: #7fa6d9;
+  --courtDim: rgba(127, 166, 217, 0.14);
+  --amber: #f0be3c;
+  --amberDim: rgba(240, 190, 60, 0.14);
+  --red: #dc5046;
+  --redDim: rgba(220, 80, 70, 0.12);
+}
