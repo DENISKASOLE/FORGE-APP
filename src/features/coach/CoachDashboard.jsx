@@ -115,11 +115,15 @@ export function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
   const photoUrl = usePhotoUrl(form.photo);
   async function pickPhoto(file) {
     if (!file) return;
-    const blob = await compressImage(file);
-    const previousPhoto = form.photo;
-    const path = await uploadTrainerPhoto(user.id, "profile", blob);
-    set("photo", path);
-    if (isStoragePath(previousPhoto)) await deleteClientPhoto(previousPhoto);
+    try {
+      const blob = await compressImage(file);
+      const previousPhoto = form.photo;
+      const path = await uploadTrainerPhoto(user.id, "profile", blob);
+      set("photo", path);
+      if (isStoragePath(previousPhoto)) await deleteClientPhoto(previousPhoto);
+    } catch (error) {
+      showToast(error.message || "Couldn't upload that photo. Check your connection and try again.", "error");
+    }
   }
   async function save() {
     setSaving(true);
@@ -711,12 +715,16 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     const { data, error } = await supabase.from("clients").insert(payload).select("*").single();
     if (error) { showToast(error.message, "error"); return; }
     let profile = form.profile;
-    if (form.photoFile) {
-      const blob = await compressImage(form.photoFile);
-      const path = await uploadClientPhoto(data.id, "profile", blob);
-      profile = { ...profile, photo: path };
+    try {
+      if (form.photoFile) {
+        const blob = await compressImage(form.photoFile);
+        const path = await uploadClientPhoto(data.id, "profile", blob);
+        profile = { ...profile, photo: path };
+      }
+      await upsertSection(data.id, "profile", profile);
+    } catch (error) {
+      showToast(`${form.name} was created, but saving their photo/profile details failed: ${error.message || "please add them from the client's Profile tab."}`, "error");
     }
-    await upsertSection(data.id, "profile", profile);
     setShowAdd(false);
     await refresh();
   }

@@ -12,6 +12,7 @@ import { ageFromBirthday, initials, emptyProfile, upsertSection } from "../../li
 import { updateClientRow } from "../../lib/cache.js";
 import { compressImage } from "../../lib/compressImage.js";
 import { uploadClientPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
+import { showToast } from "../../components/ui/Toast.jsx";
 import { SignedScreeningView } from "../screening/SignedScreeningView.jsx";
 
 const labelStyle = { fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" };
@@ -72,11 +73,15 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
   const photoUrl = usePhotoUrl(profile.photo || client.photo);
   async function pickPhoto(file) {
     if (!file) return;
-    const blob = await compressImage(file);
-    const previousPhoto = profile.photo;
-    const path = await uploadClientPhoto(client.id, "profile", blob);
-    set("photo", path);
-    if (isStoragePath(previousPhoto)) await deleteClientPhoto(previousPhoto);
+    try {
+      const blob = await compressImage(file);
+      const previousPhoto = profile.photo;
+      const path = await uploadClientPhoto(client.id, "profile", blob);
+      set("photo", path);
+      if (isStoragePath(previousPhoto)) await deleteClientPhoto(previousPhoto);
+    } catch (error) {
+      showToast(error.message || "Couldn't upload that photo. Check your connection and try again.", "error");
+    }
   }
   async function save() {
     setSaving(true);

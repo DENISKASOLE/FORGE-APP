@@ -145,10 +145,14 @@ export function TransformPhotos({ client, updateClient, isCoach }) {
 
   async function persist(next) { setPhotos(next); await upsertSection(client.id, "transformPhotos", next); updateClient({ ...client, transformPhotos: next }); }
   async function addPhoto({ file, ...form }) {
-    const blob = await compressImage(file);
-    const path = await uploadClientPhoto(client.id, "transform", blob);
-    await persist([{ id: uid(), image: path, ...form }, ...photos]);
-    setShowUpload(false);
+    try {
+      const blob = await compressImage(file);
+      const path = await uploadClientPhoto(client.id, "transform", blob);
+      await persist([{ id: uid(), image: path, ...form }, ...photos]);
+      setShowUpload(false);
+    } catch (error) {
+      showToast(error.message || "Couldn't upload that photo. Check your connection and try again.", "error");
+    }
   }
   async function delPhoto(id) {
     const removed = photos.find((p) => p.id === id);

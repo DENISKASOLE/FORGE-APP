@@ -8,6 +8,7 @@ import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { usePhotoUrl, uploadClientPhoto, deleteClientPhoto, isStoragePath } from "../../lib/storage.js";
 import { compressImage } from "../../lib/compressImage.js";
 import { emptyMealEntry } from "../../lib/nutrition.js";
+import { showToast } from "../../components/ui/Toast.jsx";
 
 const COOKING_METHODS = [
   { key: "none", label: "None / raw" },
@@ -68,15 +69,20 @@ export function MealSheet({ clientId, slot, initial, accentColor, onSave, onDele
 
   async function save() {
     setSaving(true);
-    let photoPath = existingPhoto;
-    if (photoFile) {
-      const blob = await compressImage(photoFile);
-      photoPath = await uploadClientPhoto(clientId, "nutrition", blob);
-      if (isStoragePath(initial?.photo)) await deleteClientPhoto(initial.photo);
+    try {
+      let photoPath = existingPhoto;
+      if (photoFile) {
+        const blob = await compressImage(photoFile);
+        photoPath = await uploadClientPhoto(clientId, "nutrition", blob);
+        if (isStoragePath(initial?.photo)) await deleteClientPhoto(initial.photo);
+      }
+      const cleanIngredients = ingredients.filter((i) => i.item.trim()).map((i) => ({ item: i.item.trim(), amount: Number(i.amount) || 0, unit: i.unit.trim() || "g" }));
+      await onSave({ ...emptyMealEntry(), time, photo: photoPath, description: description.trim(), method, packaged, ingredients: cleanIngredients });
+    } catch (error) {
+      showToast(error.message || "Couldn't save this meal. Check your connection and try again.", "error");
+    } finally {
+      setSaving(false);
     }
-    const cleanIngredients = ingredients.filter((i) => i.item.trim()).map((i) => ({ item: i.item.trim(), amount: Number(i.amount) || 0, unit: i.unit.trim() || "g" }));
-    await onSave({ ...emptyMealEntry(), time, photo: photoPath, description: description.trim(), method, packaged, ingredients: cleanIngredients });
-    setSaving(false);
   }
 
   const slotLabel = slot.charAt(0).toUpperCase() + slot.slice(1);
