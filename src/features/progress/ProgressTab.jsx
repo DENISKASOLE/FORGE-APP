@@ -22,7 +22,7 @@ function metricDisplay(entry, timed) {
   if (timed) return `${entry.value}s`;
   return `${entry.value}kg${entry.reps ? ` x ${entry.reps}` : ""}`;
 }
-export function ProgressRing({ label, value, total, unit = "", color = BRAND.gold, size = 132 }) {
+export function ProgressRing({ label, value, total, unit = "", color = BRAND.green, size = 132 }) {
   const pct = clampPercent(value, total);
   const stroke = 10;
   const r = (size - stroke) / 2;
@@ -37,13 +37,13 @@ export function ProgressRing({ label, value, total, unit = "", color = BRAND.gol
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: BRAND.text, letterSpacing: -0.5 }}>{value || 0}{unit}</div>
-            <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 600 }}>/{total || 0}{unit}</div>
+            <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, color: BRAND.text, letterSpacing: "-0.01em" }}>{value || 0}{unit}</div>
+            <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 500 }}>/{total || 0}{unit}</div>
           </div>
         </div>
       </div>
-      <div style={{ marginTop: 10, color: BRAND.muted, fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</div>
-      <div style={{ color, fontWeight: 700, fontSize: 13, marginTop: 2 }}>{pct}%</div>
+      <div style={{ marginTop: 10, color: BRAND.muted, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em" }}>{label}</div>
+      <div style={{ color, fontWeight: 500, fontSize: 13, marginTop: 2 }}>{pct}%</div>
     </div>
   );
 }
@@ -173,33 +173,33 @@ export function ProgressTab({ client }) {
   const pbsThisMonth = pbs.filter((pb) => pb.date && pb.date.slice(0, 7) === new Date().toISOString().slice(0, 7)).length;
 
   return <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
-    <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 800, letterSpacing: -0.4 }}>Progress</div>
+    <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 26 : 28, fontWeight: 500, letterSpacing: "-0.01em" }}>Progress</div>
 
-    <div style={{ background: `${BRAND.gold}14`, border: `1px solid ${BRAND.gold}44`, borderRadius: 20, padding: 16 }}>
-      <div style={{ color: BRAND.text, fontWeight: 700, fontSize: 14, lineHeight: 1.35 }}>{insight.text}</div>
+    <div style={{ background: "var(--green-bg)", border: `${BRAND.hairline} solid ${BRAND.green}`, borderRadius: BRAND.radiusCard, padding: 16 }}>
+      <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 14, lineHeight: 1.35 }}>{insight.text}</div>
     </div>
 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ color: adherence.total ? BRAND.green : BRAND.dim, fontSize: 22, fontWeight: 900 }}>{adherence.total ? `${adherence.pct}%` : "-"}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Adherence</div></div>
-      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.gold, fontSize: 22, fontWeight: 900 }}>{streak}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>Wk Streak</div></div>
-      <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.cyan, fontSize: 22, fontWeight: 900 }}>{pbsThisMonth}</div><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, textTransform: "uppercase", marginTop: 4 }}>PBs / mo</div></div>
+      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ fontFamily: BRAND.display, color: adherence.total ? BRAND.green : BRAND.dim, fontSize: 22, fontWeight: 500 }}>{adherence.total ? `${adherence.pct}%` : "-"}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Adherence</div></div>
+      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: 22, fontWeight: 500 }}>{streak}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Wk Streak</div></div>
+      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ fontFamily: BRAND.display, color: BRAND.blue, fontSize: 22, fontWeight: 500 }}>{pbsThisMonth}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>PBs / mo</div></div>
     </div>
 
     <div>
-      <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Recent Personal Bests</div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>Recent personal bests</div>
       <Card style={{ padding: 16 }}>
         {pbs.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No PBs yet - complete a few sessions and they'll show up here.</div>}
         {pbs.slice(0, 3).map((pb, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
-            <div><div style={{ color: BRAND.text, fontWeight: 700, fontSize: 14 }}>{pb.name}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 600, marginTop: 2 }}>{pb.detail} &middot; {pb.date}</div></div>
-            <span style={{ background: `${BRAND.green}18`, color: BRAND.green, fontWeight: 800, fontSize: 10, padding: "4px 9px", borderRadius: 999 }}>NEW PB</span>
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+            <div><div style={{ color: BRAND.text, fontWeight: 500, fontSize: 14 }}>{pb.name}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, marginTop: 2 }}>{pb.detail} &middot; {pb.date}</div></div>
+            <span style={{ background: "var(--green-bg)", color: BRAND.green, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", padding: "4px 9px", borderRadius: 999 }}>New PB</span>
           </div>
         ))}
       </Card>
     </div>
 
     <div>
-      <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Weekly Volume</div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>Weekly volume</div>
       <Card style={{ padding: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
           {volumeTrend.volumes.map((v, i) => {
@@ -207,7 +207,7 @@ export function ProgressTab({ client }) {
             return (
               <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
                 <div style={{ width: "100%", height: Math.max(4, (v / maxVolume) * 56), background: isLast ? BRAND.gold : BRAND.card2, borderRadius: "3px 3px 0 0" }} />
-                <div style={{ color: isLast ? BRAND.gold : BRAND.dim, fontSize: 9, fontWeight: 700 }}>W{i + 1}</div>
+                <div style={{ color: isLast ? BRAND.gold : BRAND.dim, fontSize: 9, fontWeight: 500 }}>W{i + 1}</div>
               </div>
             );
           })}
@@ -216,8 +216,8 @@ export function ProgressTab({ client }) {
     </div>
 
     <Card style={{ background: BRAND.card2, padding: 14 }}>
-      <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 13 }}>Looking for past sessions?</div>
-      <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 4, lineHeight: 1.5 }}>
+      <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 13 }}>Looking for past sessions?</div>
+      <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 4, lineHeight: 1.6 }}>
         They live on the Program calendar now. Every completed day carries a tick — tap it to see exactly what was lifted, set by set.
       </div>
     </Card>
@@ -228,7 +228,7 @@ export function ProgressHub({ client, updateClient, isCoach }) {
   const [sub, setSub] = useState("trends");
   const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
   return <div style={{ display: "grid", gap: 14 }}>
-    <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? "#000" : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `1px solid ${sub === k ? BRAND.gold : BRAND.line}` }}>{l}</button>)}</div>
+    <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? BRAND.btnInk : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `${BRAND.hairline} solid ${sub === k ? "transparent" : BRAND.line}` }}>{l}</button>)}</div>
     {sub === "trends" && <ProgressTab client={client} />}
     {sub === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}

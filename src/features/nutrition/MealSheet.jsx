@@ -21,18 +21,18 @@ function IngredientRow({ ingredient, onChange, onRemove }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 6, alignItems: "end" }}>
       <label>
-        <div style={{ color: T.muted, fontSize: 10, fontWeight: 800, marginBottom: 4, textTransform: "uppercase" }}>Item</div>
+        <div style={{ color: T.muted, fontSize: 11, fontWeight: 500, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.14em" }}>Item</div>
         <input value={ingredient.item} onChange={(e) => onChange({ ...ingredient, item: e.target.value })} placeholder="rolled oats" style={inputStyle({ fontSize: 14 })} />
       </label>
       <label>
-        <div style={{ color: T.muted, fontSize: 10, fontWeight: 800, marginBottom: 4, textTransform: "uppercase" }}>Amount</div>
+        <div style={{ color: T.muted, fontSize: 11, fontWeight: 500, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.14em" }}>Amount</div>
         <input value={ingredient.amount} onChange={(e) => onChange({ ...ingredient, amount: e.target.value })} placeholder="80" inputMode="decimal" style={inputStyle({ fontSize: 14 })} />
       </label>
       <label>
-        <div style={{ color: T.muted, fontSize: 10, fontWeight: 800, marginBottom: 4, textTransform: "uppercase" }}>Unit</div>
+        <div style={{ color: T.muted, fontSize: 11, fontWeight: 500, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.14em" }}>Unit</div>
         <input value={ingredient.unit} onChange={(e) => onChange({ ...ingredient, unit: e.target.value })} placeholder="g" style={inputStyle({ fontSize: 14 })} />
       </label>
-      <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: T.bad, fontWeight: 900, fontSize: 20, cursor: "pointer", height: 44 }}>×</button>
+      <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: T.bad, fontWeight: 500, fontSize: 20, cursor: "pointer", height: 44 }}>×</button>
     </div>
   );
 }
@@ -86,14 +86,14 @@ export function MealSheet({ clientId, slot, initial, accentColor, onSave, onDele
       <div style={{ display: "grid", gap: 14 }}>
         {photoPreview || existingPhotoUrl ? (
           <div style={{ position: "relative" }}>
-            <img src={photoPreview || existingPhotoUrl} alt="meal" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 16 }} />
-            <label style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(0,0,0,.7)", color: "#fff", fontSize: 11, fontWeight: 800, padding: "8px 12px", borderRadius: 999, cursor: "pointer" }}>
+            <img src={photoPreview || existingPhotoUrl} alt="meal" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 14 }} />
+            <label style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(0,0,0,.7)", color: "#fff", fontSize: 11, fontWeight: 500, padding: "8px 12px", borderRadius: 999, cursor: "pointer" }}>
               Retake
               <input type="file" accept="image/*" capture="environment" onChange={(e) => pickPhoto(e.target.files?.[0])} style={{ display: "none" }} />
             </label>
           </div>
         ) : (
-          <label style={{ display: "grid", placeItems: "center", height: 160, background: T.card2, border: `2px dashed ${T.line}`, borderRadius: 16, cursor: "pointer", color: T.muted, fontWeight: 700, gap: 6 }}>
+          <label style={{ display: "grid", placeItems: "center", height: 160, background: T.card2, border: `2px dashed ${T.line}`, borderRadius: 14, cursor: "pointer", color: T.muted, fontWeight: 500, gap: 6 }}>
             <span style={{ fontSize: 28 }}>📷</span>
             <span>Take a photo of your meal</span>
             <input type="file" accept="image/*" capture="environment" onChange={(e) => pickPhoto(e.target.files?.[0])} style={{ display: "none" }} />
@@ -102,7 +102,7 @@ export function MealSheet({ clientId, slot, initial, accentColor, onSave, onDele
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="Time" type="time" value={time} onChange={setTime} />
-          <label style={{ display: "flex", alignItems: "flex-end", paddingBottom: 12, gap: 8, color: T.muted, fontSize: 13, fontWeight: 700 }}>
+          <label style={{ display: "flex", alignItems: "flex-end", paddingBottom: 12, gap: 8, color: T.muted, fontSize: 13, fontWeight: 400 }}>
             <input type="checkbox" checked={packaged} onChange={(e) => setPackaged(e.target.checked)} />
             Packaged / has a label
           </label>
@@ -114,7 +114,7 @@ export function MealSheet({ clientId, slot, initial, accentColor, onSave, onDele
           <SectionLabel color={T.muted} style={{ marginBottom: 8 }}>Cooking method</SectionLabel>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {COOKING_METHODS.map((m) => (
-              <Chip key={m.key} selected={method === m.key} onClick={() => setMethod(m.key)} color={accentColor}>{m.label}</Chip>
+              <Chip key={m.key} selected={method === m.key} onClick={() => setMethod(m.key)}>{m.label}</Chip>
             ))}
           </div>
         </div>
@@ -129,7 +129,7 @@ export function MealSheet({ clientId, slot, initial, accentColor, onSave, onDele
 
         <div style={{ display: "flex", gap: 10 }}>
           {isEditing && onDelete && <Button variant="red" onClick={onDelete} style={{ flex: 1 }}>Delete</Button>}
-          <Button onClick={save} disabled={saving} style={{ flex: 2, background: accentColor || T.gold }}>
+          <Button onClick={save} disabled={saving} style={{ flex: 2 }}>
             {saving ? "Saving..." : "Save meal"}
           </Button>
         </div>

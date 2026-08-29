@@ -16,8 +16,8 @@ import { buildScreeningPdf } from "./pdf.js";
 
 function QuestionRow({ index, question, value, onChange }) {
   return (
-    <div style={{ borderTop: index > 0 ? `1px solid ${T.line}` : "none", paddingTop: index > 0 ? 12 : 0, marginTop: index > 0 ? 12 : 0, display: "grid", gap: 8 }}>
-      <div style={{ color: T.accent, fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{index + 1}. {question.text}</div>
+    <div style={{ borderTop: index > 0 ? `${T.hairline} solid ${T.lineSoft}` : "none", paddingTop: index > 0 ? 12 : 0, marginTop: index > 0 ? 12 : 0, display: "grid", gap: 8 }}>
+      <div style={{ fontFamily: T.sans, color: T.accent, fontSize: 13, fontWeight: 500, lineHeight: 1.6 }}>{index + 1}. {question.text}</div>
       <div style={{ display: "flex", gap: 8 }}>
         <Chip selected={value === "yes"} onClick={() => onChange("yes")} color={T.bad}>Yes</Chip>
         <Chip selected={value === "no"} onClick={() => onChange("no")} color={T.good}>No</Chip>
@@ -30,7 +30,7 @@ function ConsentCheckbox({ checked, onChange, children }) {
   return (
     <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 3, flexShrink: 0, width: 18, height: 18 }} />
-      <span style={{ color: T.accent, fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{children}</span>
+      <span style={{ fontFamily: T.sans, color: T.accent, fontSize: 13, fontWeight: 500, lineHeight: 1.6 }}>{children}</span>
     </label>
   );
 }
@@ -157,8 +157,8 @@ export function ScreeningForm({ client, onScreened }) {
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 20px 48px", display: "grid", gap: 16 }}>
         <div>
           <SectionLabel>Step required · Version {SCREENING_VERSION}</SectionLabel>
-          <div style={{ fontSize: 26, fontWeight: 800, color: T.accent, marginTop: 4 }}>{SCREENING_TITLE}</div>
-          <div style={{ color: T.muted, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>{SCREENING_INTRO}</div>
+          <div style={{ fontFamily: T.display, fontSize: 27, fontWeight: 500, letterSpacing: "-0.01em", color: T.accent, marginTop: 4 }}>{SCREENING_TITLE}</div>
+          <div style={{ fontFamily: T.sans, color: T.muted, fontSize: 14, fontWeight: 400, marginTop: 6, lineHeight: 1.6 }}>{SCREENING_INTRO}</div>
         </div>
 
         <Card style={{ padding: 16 }}>
@@ -169,9 +169,9 @@ export function ScreeningForm({ client, onScreened }) {
         </Card>
 
         {needsClearance && (
-          <Card style={{ padding: 16, background: `${T.warn}14`, border: `1px solid ${T.warn}44` }}>
-            <div style={{ color: T.warn, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>Recommendation</div>
-            <div style={{ color: T.accent, fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{CLEARANCE_ADVISORY}</div>
+          <Card style={{ padding: 16, background: T.warnBg, border: `${T.hairline} solid color-mix(in srgb, ${T.warn} 45%, transparent)` }}>
+            <div style={{ fontFamily: T.sans, color: T.warn, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Recommendation</div>
+            <div style={{ fontFamily: T.sans, color: T.accent, fontSize: 13, fontWeight: 500, lineHeight: 1.6 }}>{CLEARANCE_ADVISORY}</div>
           </Card>
         )}
 
@@ -193,20 +193,20 @@ export function ScreeningForm({ client, onScreened }) {
           <SectionLabel color={T.muted}>Signature</SectionLabel>
           <canvas
             ref={canvasRef}
-            style={{ width: "100%", height: 180, background: T.card2, border: `1px solid ${T.line}`, borderRadius: 12, touchAction: "none", cursor: "crosshair" }}
+            style={{ width: "100%", height: 180, background: T.card2, border: `${T.hairline} solid ${T.line}`, borderRadius: T.radiusControl, touchAction: "none", cursor: "crosshair" }}
             onPointerDown={startDraw}
             onPointerMove={moveDraw}
             onPointerUp={endDraw}
             onPointerLeave={endDraw}
             onPointerCancel={endDraw}
           />
-          <div style={{ color: T.dim, fontSize: 11, fontWeight: 600 }}>Sign with your mouse, stylus, or finger.</div>
+          <div style={{ fontFamily: T.sans, color: T.dim, fontSize: 11, fontWeight: 500 }}>Sign with your mouse, stylus, or finger.</div>
           <Button variant="dark" onClick={clearSignature}>Clear</Button>
         </Card>
 
-        {error && <div style={{ color: T.bad, fontSize: 13, fontWeight: 700 }}>{error}</div>}
+        {error && <div style={{ fontFamily: T.sans, color: T.bad, fontSize: 13, fontWeight: 500 }}>{error}</div>}
 
-        <Button onClick={handleSign} disabled={!canSign || signing} style={{ background: T.gold }}>
+        <Button onClick={handleSign} disabled={!canSign || signing}>
           {signing ? "Saving..." : "Sign & continue"}
         </Button>
       </div>

@@ -10,20 +10,20 @@ import { MealSheet } from "./MealSheet.jsx";
 function MealThumb({ photo, size = 44 }) {
   const url = usePhotoUrl(photo);
   if (!url) return null;
-  return <img src={url} alt="" style={{ width: size, height: size, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />;
+  return <img src={url} alt="" style={{ width: size, height: size, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />;
 }
 
 function MealRow({ label, color, entry, onClick, onEdit }) {
   return (
     <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", padding: "10px 0", cursor: "pointer" }}>
-      {entry ? <MealThumb photo={entry.photo} /> : <div style={{ width: 44, height: 44, borderRadius: 10, background: T.card2, border: `1px dashed ${T.line}`, flexShrink: 0 }} />}
+      {entry ? <MealThumb photo={entry.photo} /> : <div style={{ width: 44, height: 44, borderRadius: 12, background: T.card2, border: `var(--hairline) dashed ${T.line}`, flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-        <div style={{ color: entry ? T.accent : T.dim, fontSize: 13, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ color, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{label}</div>
+        <div style={{ color: entry ? T.accent : T.dim, fontSize: 13, fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {entry ? (entry.description || "Logged, no description") : "Tap to log"}
         </div>
       </div>
-      {entry && <span style={{ color: T.muted, fontSize: 11, fontWeight: 700 }}>{onEdit ? "Edit" : ""}</span>}
+      {entry && <span style={{ color: T.muted, fontSize: 11, fontWeight: 500 }}>{onEdit ? "Edit" : ""}</span>}
     </button>
   );
 }
@@ -72,7 +72,7 @@ export function FoodDiary({ client, updateClient, nutrition, phase }) {
     <div style={{ display: "grid", gap: 14 }}>
       <div>
         <SectionLabel>{phase === "adjustment" ? "Adjustment week" : "Baseline week"}</SectionLabel>
-        <div style={{ fontSize: 24, fontWeight: 800, color: T.accent, marginTop: 4 }}>{heading}</div>
+        <div style={{ fontFamily: "var(--display)", fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: T.accent, marginTop: 4 }}>{heading}</div>
       </div>
 
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
@@ -82,10 +82,10 @@ export function FoodDiary({ client, updateClient, nutrition, phase }) {
           const logged = dLog && (MEAL_SLOTS.some((s) => dLog[s]) || dLog.snacks?.length);
           const selected = d === date;
           return (
-            <button key={d} onClick={() => setDate(d)} style={{ flex: "0 0 auto", width: 42, padding: "8px 0", borderRadius: 12, cursor: "pointer", background: selected ? T.gold : T.card2, border: `1px solid ${selected ? T.gold : T.line}`, color: selected ? "#000" : T.accent, display: "grid", justifyItems: "center", gap: 3 }}>
-              <span style={{ fontSize: 9, fontWeight: 800, opacity: 0.7 }}>{dt.toLocaleDateString(undefined, { weekday: "short" })[0]}</span>
-              <span style={{ fontSize: 15, fontWeight: 800 }}>{dt.getDate()}</span>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: logged ? (selected ? "#000" : T.good) : "transparent" }} />
+            <button key={d} onClick={() => setDate(d)} style={{ flex: "0 0 auto", width: 42, padding: "8px 0", borderRadius: 12, cursor: "pointer", background: selected ? T.gold : T.card2, border: `var(--hairline) solid ${selected ? T.gold : T.line}`, color: selected ? "var(--btn-ink)" : T.accent, display: "grid", justifyItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.7 }}>{dt.toLocaleDateString(undefined, { weekday: "short" })[0]}</span>
+              <span style={{ fontSize: 15, fontWeight: 500 }}>{dt.getDate()}</span>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: logged ? (selected ? "var(--btn-ink)" : T.good) : "transparent" }} />
             </button>
           );
         })}
@@ -93,29 +93,29 @@ export function FoodDiary({ client, updateClient, nutrition, phase }) {
 
       <Card style={{ padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontWeight: 800, fontSize: 14, color: T.accent }}>{date === today ? "Today" : date}</div>
-          <div style={{ color: loggedCount === 4 ? T.good : T.muted, fontSize: 12, fontWeight: 800 }}>{loggedCount} of 4 logged</div>
+          <div style={{ fontWeight: 500, fontSize: 14, color: T.accent }}>{date === today ? "Today" : date}</div>
+          <div style={{ color: loggedCount === 4 ? T.good : T.muted, fontSize: 12, fontWeight: 500 }}>{loggedCount} of 4 logged</div>
         </div>
       </Card>
 
       <Card style={{ padding: "4px 16px" }}>
         <MealRow label="Breakfast" color={T.meal.breakfast} entry={day.breakfast} onEdit onClick={() => setEditing({ slot: "breakfast" })} />
-        <div style={{ borderTop: `1px solid ${T.line}` }} />
+        <div style={{ borderTop: `var(--hairline) solid ${T.lineSoft}` }} />
         <MealRow label="Lunch" color={T.meal.lunch} entry={day.lunch} onEdit onClick={() => setEditing({ slot: "lunch" })} />
-        <div style={{ borderTop: `1px solid ${T.line}` }} />
+        <div style={{ borderTop: `var(--hairline) solid ${T.lineSoft}` }} />
         <MealRow label="Dinner" color={T.meal.dinner} entry={day.dinner} onEdit onClick={() => setEditing({ slot: "dinner" })} />
       </Card>
 
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <SectionLabel color={T.meal.snacks}>Snacks</SectionLabel>
-          <button onClick={() => setEditing({ slot: "snacks" })} style={{ background: "none", border: "none", color: T.meal.snacks, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>+ Add</button>
+          <button onClick={() => setEditing({ slot: "snacks" })} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 500, fontSize: 12, cursor: "pointer" }}>+ Add</button>
         </div>
         <Card style={{ padding: day.snacks.length ? "4px 16px" : 16 }}>
-          {day.snacks.length === 0 && <div style={{ color: T.dim, fontSize: 13, fontWeight: 600 }}>No snacks logged.</div>}
+          {day.snacks.length === 0 && <div style={{ color: T.dim, fontSize: 13, fontWeight: 400 }}>No snacks logged.</div>}
           {day.snacks.map((s, i) => (
             <div key={i}>
-              {i > 0 && <div style={{ borderTop: `1px solid ${T.line}` }} />}
+              {i > 0 && <div style={{ borderTop: `var(--hairline) solid ${T.lineSoft}` }} />}
               <MealRow label={`Snack ${i + 1}`} color={T.meal.snacks} entry={s} onEdit onClick={() => setEditing({ slot: "snacks", index: i })} />
             </div>
           ))}

@@ -22,14 +22,14 @@ export function ResetPasswordScreen({ onDone }) {
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
       <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
-        <div style={{ color: BRAND.gold, fontSize: 30, fontWeight: 900, textAlign: "center" }}>FORGE</div>
-        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 12, textAlign: "center" }}>Set a New Password</div>
-        <div style={{ color: BRAND.muted, marginTop: 6, marginBottom: 20, textAlign: "center" }}>Choose a new password for your account.</div>
+        <div style={{ fontFamily: BRAND.display, color: BRAND.text, fontSize: 26, fontWeight: 500, letterSpacing: "0.06em", textAlign: "center" }}>FORGE</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginTop: 12, textAlign: "center" }}>Set a new password</div>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, fontWeight: 400, lineHeight: 1.6, marginTop: 6, marginBottom: 20, textAlign: "center" }}>Choose a new password for your account.</div>
         <Field label="New password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" />
         <div style={{ height: 10 }} />
         <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm} />
-        {msg && <div style={{ color: msg.includes("updated") ? BRAND.green : BRAND.red, fontWeight: 800, marginTop: 10, fontSize: 13 }}>{msg}</div>}
-        <Button disabled={saving} onClick={save} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Update Password"}</Button>
+        {msg && <div style={{ fontFamily: BRAND.sans, color: msg.includes("updated") ? BRAND.green : BRAND.yellow, fontWeight: 500, marginTop: 10, fontSize: 13, lineHeight: 1.5 }}>{msg}</div>}
+        <Button disabled={saving} onClick={save} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Update password"}</Button>
       </Card>
     </div>
   );

@@ -51,14 +51,14 @@ export function LoginScreen({ onReady }) {
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
       <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
-        <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 900, letterSpacing: 1 }}>FORGE</div>
-        <div style={{ fontSize: 25, fontWeight: 900, marginTop: 10, textTransform: "uppercase" }}>Welcome back</div>
-        <div style={{ color: BRAND.muted, marginBottom: 22 }}>{urlInvite ? "You've been invited. Enter your email and choose a password to finish setting up your account." : "Log in, or use an invite code your coach sent you."}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 30, fontWeight: 500, letterSpacing: "0.06em", color: BRAND.text }}>FORGE</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 26 : 28, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginTop: 10 }}>Welcome back</div>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, fontWeight: 400, lineHeight: 1.6, marginTop: 6, marginBottom: 22 }}>{urlInvite ? "You've been invited. Enter your email and choose a password to finish setting up your account." : "Log in, or use an invite code your coach sent you."}</div>
         <Field label="Email" value={email} onChange={setEmail} placeholder="you@email.com" />
         <div style={{ height: 10 }} />
         <Field label="Password" value={password} onChange={setPassword} type="password" placeholder="Password" />
-        {mode === "invite" && <><div style={{ height: 10 }} /><Field label="Invite Code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" /></>}
-        {msg && <div style={{ marginTop: 12, color: msg.includes("sent") || msg.includes("created") || msg.includes("connected") ? BRAND.green : BRAND.red, fontSize: 13 }}>{msg}</div>}
+        {mode === "invite" && <><div style={{ height: 10 }} /><Field label="Invite code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" /></>}
+        {msg && <div style={{ fontFamily: BRAND.sans, marginTop: 12, color: msg.includes("sent") || msg.includes("created") || msg.includes("connected") ? BRAND.green : BRAND.yellow, fontSize: 13, fontWeight: 500, lineHeight: 1.5 }}>{msg}</div>}
         <div style={{ display: "grid", gap: 10, marginTop: 18 }}>
           {mode === "login" && <Button disabled={loading} onClick={login}>Log in</Button>}
           {mode === "invite" && <Button disabled={loading} onClick={acceptInvite}>Accept invite</Button>}
@@ -67,7 +67,7 @@ export function LoginScreen({ onReady }) {
           <Button variant="ghost" onClick={() => setMode("login")} style={{ flex: 1 }}>Login</Button>
           <Button variant="ghost" onClick={() => setMode("invite")} style={{ flex: 1 }}>Have an invite code?</Button>
         </div>
-        <button onClick={forgotPassword} style={{ marginTop: 14, background: "transparent", border: "none", color: BRAND.gold, cursor: "pointer", padding: 0 }}>Forgot password?</button>
+        <button onClick={forgotPassword} style={{ fontFamily: BRAND.sans, marginTop: 14, background: "transparent", border: "none", color: BRAND.blue, fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}>Forgot password?</button>
       </Card>
     </div>
   );

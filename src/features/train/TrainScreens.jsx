@@ -76,7 +76,7 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
         <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px" }}>‹ Back</Button>
       </div>
       <div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>Exercise Library</div>
+        <div style={{ fontSize: 26, fontWeight: 500 }}>Exercise Library</div>
         <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Add your own exercises with a video link, so they're ready to pick - with the video attached - whenever you're building a program.</div>
       </div>
       <Button onClick={() => { setEditingItem(null); setShowAdd(true); }} style={{ width: "100%" }}>+ Add Exercise</Button>
@@ -89,14 +89,14 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
         items.map((it) => {
           const t = getVideoThumb(it.videoUrl);
           return (
-            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12 }}>
-              {t ? <img src={t.thumb} alt="Exercise video" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: 10, background: BRAND.card2, flexShrink: 0 }} />}
+            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12 }}>
+              {t ? <img src={t.thumb} alt="Exercise video" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: BRAND.radiusControl, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: BRAND.radiusControl, background: BRAND.card2, flexShrink: 0 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>{it.name}</div>
-                <div style={{ color: it.videoUrl ? BRAND.cyan : BRAND.dim, fontSize: 11, fontWeight: 700 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>{it.name}</div>
+                <div style={{ color: it.videoUrl ? BRAND.blue : BRAND.dim, fontSize: 11, fontWeight: 400 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
               </div>
-              <button onClick={() => { setEditingItem(it); setShowAdd(true); }} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>Edit</button>
-              <button onClick={() => remove(it.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 900, fontSize: 15, cursor: "pointer" }}>x</button>
+              <button onClick={() => { setEditingItem(it); setShowAdd(true); }} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Edit</button>
+              <button onClick={() => remove(it.id)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, fontSize: 15, cursor: "pointer" }}>x</button>
             </div>
           );
         })
@@ -120,12 +120,12 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 420 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>{initial ? "Edit Exercise" : "New Exercise"}</div>
+          <div style={{ fontSize: 18, fontWeight: 500 }}>{initial ? "Edit Exercise" : "New Exercise"}</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <Field label="Exercise name" value={name} onChange={setName} placeholder="e.g. Cable Crossover" />
         <div style={{ marginTop: 10 }}><Field label="Video link" value={videoUrl} onChange={setVideoUrl} placeholder="https://..." /></div>
-        {thumb && <img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}`, marginTop: 8 }} />}
+        {thumb && <img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 8 }} />}
         <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 14 }}>{saving ? "Saving..." : initial ? "Save Changes" : "+ Add Exercise"}</Button>
       </Card>
     </div>
@@ -165,7 +165,7 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ fontSize: 19, fontWeight: 1000 }}>Exercise Library</div>
+          <div style={{ fontSize: 19, fontWeight: 500 }}>Exercise Library</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 14 }}>Add an exercise with a video link here, and it'll show up ready to pick - with the video already attached - whenever you're building a program.</div>
@@ -174,25 +174,25 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
         <div style={{ marginTop: 10 }}>
           <Field label="Video link" value={videoUrl} onChange={setVideoUrl} placeholder="https://..." />
         </div>
-        {draftThumb && <img src={draftThumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}`, marginTop: 8 }} />}
+        {draftThumb && <img src={draftThumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 8 }} />}
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <Button onClick={addOrUpdate} disabled={saving} style={{ flex: 1 }}>{saving ? "Saving..." : editingId ? "Update Exercise" : "+ Add Exercise"}</Button>
           {editingId && <Button variant="ghost" onClick={cancelEdit}>Cancel</Button>}
         </div>
 
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, margin: "18px 0 8px", textTransform: "uppercase" }}>Your Exercises ({items.length})</div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, margin: "18px 0 8px", textTransform: "uppercase" }}>Your Exercises ({items.length})</div>
         {loading ? <div style={{ color: BRAND.dim }}>Loading...</div> : items.length === 0 ? <div style={{ color: BRAND.dim, fontSize: 13 }}>No custom exercises yet.</div> : (
           items.map((it) => {
             const t = getVideoThumb(it.videoUrl);
             return (
-              <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, background: BRAND.card2, borderRadius: 12, padding: 10, marginBottom: 8 }}>
-                {t ? <img src={t.thumb} alt="Exercise video" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: 8, background: BRAND.panel, flexShrink: 0 }} />}
+              <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, background: BRAND.card2, borderRadius: BRAND.radiusControl, padding: 10, marginBottom: 8 }}>
+                {t ? <img src={t.thumb} alt="Exercise video" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: BRAND.radiusControl, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: BRAND.radiusControl, background: BRAND.panel, flexShrink: 0 }} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 13 }}>{it.name}</div>
+                  <div style={{ fontWeight: 500, fontSize: 13 }}>{it.name}</div>
                   <div style={{ color: BRAND.dim, fontSize: 11 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
                 </div>
-                <button onClick={() => startEdit(it)} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>Edit</button>
-                <button onClick={() => remove(it.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 900, fontSize: 15, cursor: "pointer" }}>x</button>
+                <button onClick={() => startEdit(it)} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Edit</button>
+                <button onClick={() => remove(it.id)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, fontSize: 15, cursor: "pointer" }}>x</button>
               </div>
             );
           })
@@ -223,78 +223,78 @@ export function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMove
   function removeSet(ei, si) { const sets = block.exercises[ei].sets; if (sets.length <= 1) return; patchEx(ei, { sets: sets.filter((_, i) => i !== si) }); }
   return (
     <>
-    <div style={{ background: BRAND.card2, border: `1px solid ${block.type === "straight" ? BRAND.line : BRAND.gold + "77"}`, borderRadius: 16, padding: 12, marginBottom: 10 }}>
+    <div style={{ background: BRAND.card2, border: `1px solid ${block.type === "straight" ? BRAND.line : BRAND.gold}`, borderRadius: BRAND.radiusCard, padding: 12, marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <div style={{ color: BRAND.gold, fontWeight: 1000 }}>{blockTitle(block, index)}</div>
+          <div style={{ color: BRAND.gold, fontWeight: 500 }}>{blockTitle(block, index)}</div>
           <select value={block.type} onChange={(e) => patch({ type: e.target.value })} style={inputStyle({ padding: "6px 8px", width: "auto" })}>
             <option value="straight">Straight sets</option><option value="superset">Superset</option><option value="circuit">Circuit</option>
           </select>
           {block.type === "circuit" && <input value={block.rounds || ""} onChange={(e) => patch({ rounds: Number(e.target.value || 1) })} placeholder="Rounds" style={inputStyle({ width: 70 })} />}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setShowLibrary(true)} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "5px 10px", color: BRAND.gold, fontWeight: 800, fontSize: 11, cursor: "pointer" }}>Exercise Library</button>
-          <button onClick={onMoveUp} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>▲</button>
-          <button onClick={onMoveDown} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>▼</button>
-          <button onClick={onDelete} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>x</button>
+          <button onClick={() => setShowLibrary(true)} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "5px 10px", color: BRAND.gold, fontWeight: 500, fontSize: 11, cursor: "pointer" }}>Exercise Library</button>
+          <button onClick={onMoveUp} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>▲</button>
+          <button onClick={onMoveDown} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>▼</button>
+          <button onClick={onDelete} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>x</button>
         </div>
       </div>
       {showLibrary && <ExerciseLibraryEditor trainerId={trainerId} onClose={() => setShowLibrary(false)} />}
       {block.exercises.map((ex, ei) => {
         const open = openEx === ei;
         return (
-          <div key={ex.id} style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: 10, paddingTop: 10 }}>
+          <div key={ex.id} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 10, paddingTop: 10 }}>
             <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 8, alignItems: "center" }}>
-              <div style={{ background: BRAND.gold, color: "#000", borderRadius: 8, padding: "4px 8px", fontWeight: 1000, fontSize: 12 }}>{exerciseTag(block, index, ei)}</div>
-              <input value={ex.name} onChange={(e) => patchEx(ei, { name: e.target.value })} style={inputStyle({ fontWeight: 800 })} />
+              <div style={{ background: BRAND.gold, color: BRAND.btnInk, borderRadius: BRAND.radiusControl, padding: "4px 8px", fontWeight: 500, fontSize: 12 }}>{exerciseTag(block, index, ei)}</div>
+              <input value={ex.name} onChange={(e) => patchEx(ei, { name: e.target.value })} style={inputStyle({ fontWeight: 500 })} />
               <div style={{ display: "flex" }}>
-                <button onClick={() => moveEx(ei, -1)} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>▲</button>
-                <button onClick={() => moveEx(ei, 1)} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>▼</button>
-                <button onClick={() => setOpenEx(open ? null : ei)} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>{open ? "-" : "..."}</button>
-                <button onClick={() => deleteEx(ei)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer", padding: "2px 5px" }}>x</button>
+                <button onClick={() => moveEx(ei, -1)} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>▲</button>
+                <button onClick={() => moveEx(ei, 1)} style={{ background: "transparent", border: "none", color: BRAND.muted, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>▼</button>
+                <button onClick={() => setOpenEx(open ? null : ei)} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>{open ? "-" : "..."}</button>
+                <button onClick={() => deleteEx(ei)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, cursor: "pointer", padding: "2px 5px" }}>x</button>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, minmax(90px, 160px))", gap: 8, marginTop: 8 }}>
-              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Load type</div><select value={ex.loadType || "kg"} onChange={(e) => patchEx(ei, { loadType: e.target.value })} style={inputStyle()}>{["kg", "%1RM", "RPE", "BW"].map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
-              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Tempo</div><input value={ex.tempo || ""} onChange={(e) => patchEx(ei, { tempo: e.target.value })} placeholder="3010" style={inputStyle()} /></label>
-              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Rest</div><input value={ex.rest || ""} onChange={(e) => patchEx(ei, { rest: e.target.value })} placeholder="90s" style={inputStyle()} /></label>
+              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Load type</div><select value={ex.loadType || "kg"} onChange={(e) => patchEx(ei, { loadType: e.target.value })} style={inputStyle()}>{["kg", "%1RM", "RPE", "BW"].map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Tempo</div><input value={ex.tempo || ""} onChange={(e) => patchEx(ei, { tempo: e.target.value })} placeholder="3010" style={inputStyle()} /></label>
+              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Rest</div><input value={ex.rest || ""} onChange={(e) => patchEx(ei, { rest: e.target.value })} placeholder="90s" style={inputStyle()} /></label>
             </div>
             <div style={{ marginTop: 8 }}>
               {ex.sets.map((s, si) => (
                 <div key={s.id} style={{ display: "grid", gridTemplateColumns: isMobile ? "34px 1fr 1fr 64px 26px" : "44px 1fr 1fr 90px 30px", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                  <div style={{ color: BRAND.muted, fontWeight: 900 }}>S{si + 1}</div>
+                  <div style={{ color: BRAND.muted, fontWeight: 500 }}>S{si + 1}</div>
                   <input value={s.targetReps || ""} onChange={(e) => patchSet(ei, si, { targetReps: e.target.value })} placeholder="Reps / time" style={inputStyle()} />
                   <input value={s.targetLoad || ""} onChange={(e) => patchSet(ei, si, { targetLoad: e.target.value })} placeholder={ex.loadType === "BW" ? "+kg" : ex.loadType || "kg"} style={inputStyle()} />
                   <input value={s.targetRpe || ""} onChange={(e) => patchSet(ei, si, { targetRpe: e.target.value })} placeholder="RPE" style={inputStyle()} />
-                  <button onClick={() => removeSet(ei, si)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 1000, cursor: "pointer" }}>x</button>
+                  <button onClick={() => removeSet(ei, si)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, cursor: "pointer" }}>x</button>
                 </div>
               ))}
               <Button variant="dark" onClick={() => addSet(ei)} style={{ padding: "6px 12px", fontSize: 12 }}>+ Set</Button>
             </div>
             {open && <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginTop: 8 }}>
-              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Coach note (client sees this)</div><input value={ex.note || ""} onChange={(e) => patchEx(ei, { note: e.target.value })} placeholder="Cue, setup, intent..." style={inputStyle()} /></label>
-              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 800, marginBottom: 3 }}>Video link</div><input value={ex.videoUrl || ""} onChange={(e) => patchEx(ei, { videoUrl: e.target.value })} placeholder="https://..." style={inputStyle()} />
-                {getVideoThumb(ex.videoUrl) && (() => { const t = getVideoThumb(ex.videoUrl); return <button onClick={() => setPlayingVideo({ videoId: t.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "inline-block", position: "relative", marginTop: 8 }}><img src={t.thumb} alt="Exercise video" style={{ width: 140, height: 79, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 12 }}>▶</div></div></button>; })()}
+              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Coach note (client sees this)</div><input value={ex.note || ""} onChange={(e) => patchEx(ei, { note: e.target.value })} placeholder="Cue, setup, intent..." style={inputStyle()} /></label>
+              <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Video link</div><input value={ex.videoUrl || ""} onChange={(e) => patchEx(ei, { videoUrl: e.target.value })} placeholder="https://..." style={inputStyle()} />
+                {getVideoThumb(ex.videoUrl) && (() => { const t = getVideoThumb(ex.videoUrl); return <button onClick={() => setPlayingVideo({ videoId: t.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "inline-block", position: "relative", marginTop: 8 }}><img src={t.thumb} alt="Exercise video" style={{ width: 140, height: 79, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 12 }}>▶</div></div></button>; })()}
               </label>
             </div>}
           </div>
         );
       })}
       <div style={{ marginTop: 10 }}>
-        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginBottom: 8 }}>
-          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
-          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
+        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginBottom: 8 }}>
+          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
+          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
         </div>
         <input placeholder={pickSource === "mine" ? "Search your exercises..." : (block.exercises.length ? "Add exercise to this block..." : "Search first exercise...")} value={addSearch} onChange={(e) => setAddSearch(e.target.value)} style={inputStyle()} />
         {pickSource === "mine" && customLibrary.length === 0 && (
           <div style={{ marginTop: 8, textAlign: "center", padding: 12 }}>
             <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 8 }}>No custom exercises yet.</div>
-            <button onClick={() => setShowLibrary(true)} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "8px 14px", color: BRAND.gold, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>+ Add your first exercise</button>
+            <button onClick={() => setShowLibrary(true)} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "8px 14px", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>+ Add your first exercise</button>
           </div>
         )}
         {addSearch && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-          {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>+ {n}</button>)}
-          {pickSource === "library" && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: "#000", border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 900, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
+          {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ {n}</button>)}
+          {pickSource === "library" && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
         </div>}
       </div>
       {showLibrary && <ExerciseLibraryEditor trainerId={trainerId} onClose={() => setShowLibrary(false)} />}
@@ -371,13 +371,13 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 1100, maxHeight: "94vh", overflow: "auto", padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", marginBottom: 12 }}>
-          <div><div style={{ fontSize: 24, fontWeight: 1000, color: BRAND.gold }}>Program Builder</div><div style={{ color: BRAND.muted }}>Weeks → Workouts → Blocks. Logs live separately, so edit freely.</div></div>
+          <div><div style={{ fontSize: 24, fontWeight: 500, color: BRAND.gold }}>Program Builder</div><div style={{ color: BRAND.muted }}>Weeks → Workouts → Blocks. Logs live separately, so edit freely.</div></div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <InjuryBanner client={client} />
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr 1fr", gap: 10 }}>
           <Field label="Program name (client sees this)" value={p.name} onChange={(v) => patchProgram({ name: v })} />
-          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Goal</div><select value={p.goal} onChange={(e) => patchProgram({ goal: e.target.value })} style={inputStyle()}>{GOAL_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}</select></label>
+          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" }}>Goal</div><select value={p.goal} onChange={(e) => patchProgram({ goal: e.target.value })} style={inputStyle()}>{GOAL_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}</select></label>
           <Field label="Start date (drives the calendar)" type="date" value={p.startDate || ""} onChange={(v) => patchProgram({ startDate: v })} />
         </div>
         {templates.length > 0 && (
@@ -395,30 +395,30 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
           <Button variant="dark" onClick={() => duplicateWeek(safeWk)} style={{ fontSize: 12 }}>Duplicate W{week.weekNum}</Button>
           <Button variant="dark" onClick={copyWeekForward} style={{ fontSize: 12 }}>Copy W{week.weekNum} to following weeks</Button>
-          <Button variant="dark" onClick={() => deleteWeek(safeWk)} style={{ fontSize: 12, color: BRAND.red }}>Delete W{week.weekNum}</Button>
+          <Button variant="dark" onClick={() => deleteWeek(safeWk)} style={{ fontSize: 12, color: BRAND.yellow }}>Delete W{week.weekNum}</Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 2fr 100px", gap: 8, marginTop: 10 }}>
           <Field label="Phase label" value={week.label} onChange={(v) => patchWeek({ label: v })} />
           <Field label="Week focus" value={week.focus} onChange={(v) => patchWeek({ focus: v })} />
           <Field label="Target RPE" value={week.targetRpe} onChange={(v) => patchWeek({ targetRpe: v })} />
         </div>
-        <div style={{ marginTop: 14, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 12 }}>
-          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Week {week.weekNum} schedule</div>
+        <div style={{ marginTop: 14, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12 }}>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Week {week.weekNum} schedule</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 6 }}>
             {[1, 2, 3, 4, 5, 6, 7].map((dow) => {
               const assigned = workoutForDay(week, dow);
               const d = dayDate(p, week.weekNum, dow);
               return (
-                <div key={dow} style={{ background: assigned ? BRAND.card : "transparent", border: `1px ${assigned ? "solid" : "dashed"} ${BRAND.line}`, borderRadius: 12, padding: 7, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                <div key={dow} style={{ background: assigned ? BRAND.card : "transparent", border: `${BRAND.hairline} ${assigned ? "solid" : "dashed"} ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 7, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900, letterSpacing: 0.5 }}>{DOW_LABEL[dow - 1].toUpperCase()}</div>
-                    <div style={{ fontWeight: 900, fontSize: 13, color: BRAND.text }}>{d.getDate()}</div>
+                    <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500, letterSpacing: "0.14em" }}>{DOW_LABEL[dow - 1].toUpperCase()}</div>
+                    <div style={{ fontWeight: 500, fontSize: 13, color: BRAND.text }}>{d.getDate()}</div>
                   </div>
-                  <select value={assigned?.id || ""} onChange={(e) => assignDay(dow, e.target.value)} style={inputStyle({ padding: "6px 3px", fontSize: 11, borderRadius: 8, background: BRAND.panel })}>
+                  <select value={assigned?.id || ""} onChange={(e) => assignDay(dow, e.target.value)} style={inputStyle({ padding: "6px 3px", fontSize: 11, borderRadius: BRAND.radiusControl, background: BRAND.panel })}>
                     <option value="">Rest</option>
                     {week.workouts.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  {!assigned && <input value={restNoteFor(week, dow)} onChange={(e) => setRestNote(dow, e.target.value)} placeholder="Recovery" style={inputStyle({ padding: "6px 4px", fontSize: 10, borderRadius: 8, background: BRAND.panel })} />}
+                  {!assigned && <input value={restNoteFor(week, dow)} onChange={(e) => setRestNote(dow, e.target.value)} placeholder="Recovery" style={inputStyle({ padding: "6px 4px", fontSize: 10, borderRadius: BRAND.radiusControl, background: BRAND.panel })} />}
                 </div>
               );
             })}
@@ -436,7 +436,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
             <Button variant="dark" onClick={() => duplicateWorkout(safeWo)} style={{ fontSize: 12 }}>Duplicate</Button>
             <Button variant="dark" onClick={copyWorkoutToAllWeeks} style={{ fontSize: 12 }}>Copy to all other weeks</Button>
-            <Button variant="dark" onClick={() => deleteWorkout(safeWo)} style={{ fontSize: 12, color: BRAND.red }}>Delete workout</Button>
+            <Button variant="dark" onClick={() => deleteWorkout(safeWo)} style={{ fontSize: 12, color: BRAND.yellow }}>Delete workout</Button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 2fr", gap: 8, marginTop: 10 }}>
             <Field label="Workout name" value={workout.name} onChange={(v) => patchWorkout({ name: v })} />
@@ -512,13 +512,13 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     const pbs = detectSessionPBs(finished, logsBefore);
     return (
       <Card style={{ padding: isMobile ? 14 : 18 }}>
-        <div style={{ textAlign: "center", marginBottom: 14 }}><div style={{ fontSize: 30, fontWeight: 1000, color: BRAND.gold }}>Session Complete</div><div style={{ color: BRAND.muted }}>{finished.workoutName} · Week {finished.weekNum}</div></div>
+        <div style={{ textAlign: "center", marginBottom: 14 }}><div style={{ fontSize: 30, fontWeight: 500, color: BRAND.gold }}>Session Complete</div><div style={{ color: BRAND.muted }}>{finished.workoutName} · Week {finished.weekNum}</div></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginBottom: 14 }}>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>DURATION</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.durationSec ? fmtClock(fStats.durationSec) : "-"}</div></div>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>VOLUME</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.volume.toLocaleString()}kg</div></div>
-          <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 14, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800 }}>SETS</div><div style={{ fontWeight: 1000, fontSize: 20 }}>{fStats.setsDone}/{fStats.setsTotal}</div></div>
+          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>DURATION</div><div style={{ fontWeight: 500, fontSize: 20 }}>{fStats.durationSec ? fmtClock(fStats.durationSec) : "-"}</div></div>
+          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>VOLUME</div><div style={{ fontWeight: 500, fontSize: 20 }}>{fStats.volume.toLocaleString()}kg</div></div>
+          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>SETS</div><div style={{ fontWeight: 500, fontSize: 20 }}>{fStats.setsDone}/{fStats.setsTotal}</div></div>
         </div>
-        {pbs.length > 0 && <div style={{ background: `${BRAND.gold}18`, border: `1px solid ${BRAND.gold}`, borderRadius: 14, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.gold, fontWeight: 1000, marginBottom: 6 }}>Personal Bests</div>{pbs.map((pb) => <div key={pb.name} style={{ fontWeight: 800 }}>{pb.name}: <span style={{ color: BRAND.gold }}>{pb.detail}</span></div>)}</div>}
+        {pbs.length > 0 && <div style={{ background: BRAND.greenBg, border: `${BRAND.hairline} solid ${BRAND.green}`, borderRadius: BRAND.radiusCard, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.green, fontWeight: 500, marginBottom: 6 }}>Personal bests</div>{pbs.map((pb) => <div key={pb.name} style={{ fontWeight: 500 }}>{pb.name}: <span style={{ color: BRAND.green }}>{pb.detail}</span></div>)}</div>}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 10 }}>
           <Field label="Session RPE (1-10)" value={finished.sessionRpe} onChange={(v) => { const next = { ...finished, sessionRpe: v }; setFinished(next); onUpdate(next); }} />
           <Field label="Kcals" value={finished.metrics?.kcal || ""} onChange={(v) => { const next = { ...finished, metrics: { ...finished.metrics, kcal: v } }; setFinished(next); onUpdate(next); }} type="number" />
@@ -550,14 +550,14 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
   const ringC = 2 * Math.PI * 26;
   const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
-  const chip = { fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.5, borderRadius: 8, padding: "6px 10px" };
+  const chip = { fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", borderRadius: BRAND.radiusControl, padding: "6px 10px" };
   return (
     <>
     <InjuryBanner client={client} />
     <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer", padding: 0 }}>‹ Exit</button>
-        <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 9, padding: "5px 11px", fontWeight: 1000, color: BRAND.gold, fontSize: 13 }}>{elapsed > 0 ? fmtClock(elapsed) : "0:00"}</div>
+        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer", padding: 0 }}>‹ Exit</button>
+        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "5px 11px", fontWeight: 500, color: BRAND.gold, fontSize: 13 }}>{elapsed > 0 ? fmtClock(elapsed) : "0:00"}</div>
       </div>
       {isSuperset ? (
         <SupersetLogger
@@ -576,40 +576,40 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       <>
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.8 }}>Exercise {cur + 1} of {total}</div>
-          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "right" }}>{workout?.name || session.workoutName}</div>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Exercise {cur + 1} of {total}</div>
+          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "right" }}>{workout?.name || session.workoutName}</div>
         </div>
-        <div style={{ fontSize: 26, fontWeight: 1000, textTransform: "uppercase", lineHeight: 1.05, marginTop: 6 }}>{effectiveName}</div>
-        {entry.substitutedName && <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700, marginTop: 3 }}>Substituted for {entry.name}</div>}
-        {block && block.type !== "straight" && <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", marginTop: 4 }}>{entry.tag} · {block.type}</div>}
+        <div style={{ fontSize: 26, fontWeight: 500, textTransform: "uppercase", lineHeight: 1.05, marginTop: 6 }}>{effectiveName}</div>
+        {entry.substitutedName && <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>Substituted for {entry.name}</div>}
+        {block && block.type !== "straight" && <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 500, textTransform: "uppercase", marginTop: 4 }}>{entry.tag} · {block.type}</div>}
       </div>
-      {thumb ? <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ width: "100%", padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 18, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: BRAND.card2 }}>
+      {thumb ? <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ width: "100%", padding: 0, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: BRAND.card2 }}>
         <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.5 }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.5)", border: `2px solid ${BRAND.gold}`, display: "grid", placeItems: "center", color: BRAND.gold, fontSize: 20 }}>▶</div></div></div>
-        {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
-      </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: "#000", background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `1px solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
-      {ex.note && <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.gold}44`, borderRadius: 12, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 1000 }}>Coach: </span>{ex.note}</div>}
+        {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
+      </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
+      {ex.note && <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 500 }}>Coach: </span>{ex.note}</div>}
       <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={prog} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
       <div>
-        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 900, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
+        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
         {subbing && <div style={{ marginTop: 8 }}>
           <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {entry.substitutedName && <button onClick={() => { patchEntry(entry.id, { substitutedName: "" }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>Use original: {entry.name}</button>}
-            {suggestions.map((n) => <button key={n} onClick={() => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>{n}</button>)}
+            {entry.substitutedName && <button onClick={() => { patchEntry(entry.id, { substitutedName: "" }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>Use original: {entry.name}</button>}
+            {suggestions.map((n) => <button key={n} onClick={() => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>{n}</button>)}
           </div>
         </div>}
       </div>
       </>
       )}
       <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}><svg width="60" height="60" style={{ transform: "rotate(-90deg)" }}><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.gold} strokeWidth="5" strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringC * (1 - restPct)} /></svg><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 1000 }}>{rest && restLeft > 0 ? fmtClock(restLeft) : fmtClock(restTotal)}</div></div>
-        <div style={{ flex: 1 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>Rest timer</div>
+        <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}><svg width="60" height="60" style={{ transform: "rotate(-90deg)" }}><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.card2} strokeWidth="5" /><circle cx="30" cy="30" r="26" fill="none" stroke={BRAND.gold} strokeWidth="5" strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringC * (1 - restPct)} /></svg><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 500 }}>{rest && restLeft > 0 ? fmtClock(restLeft) : fmtClock(restTotal)}</div></div>
+        <div style={{ flex: 1 }}><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Rest timer</div>
           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-            <button onClick={() => adjustRest(-30)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: BRAND.text, background: BRAND.card2, border: `1px solid ${BRAND.line}`, fontWeight: 1000, fontSize: 12 }}>-30s</button>
+            <button onClick={() => adjustRest(-30)} style={{ flex: 1, padding: "10px 0", borderRadius: BRAND.radiusControl, cursor: "pointer", color: BRAND.text, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, fontWeight: 500, fontSize: 12 }}>-30s</button>
             {rest && restLeft > 0
-              ? <button onClick={() => setRest(null)} style={{ flex: 1.5, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: "#000", background: BRAND.gold, border: "none", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>Skip</button>
-              : <button onClick={() => setRest({ until: Date.now() + restTotal * 1000, total: restTotal })} style={{ flex: 1.5, padding: "10px 0", borderRadius: 10, border: "none", background: BRAND.gold, color: "#000", fontWeight: 1000, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>Start {fmtClock(restTotal)}</button>}
-            <button onClick={() => adjustRest(30)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, cursor: "pointer", color: BRAND.text, background: BRAND.card2, border: `1px solid ${BRAND.line}`, fontWeight: 1000, fontSize: 12 }}>+30s</button>
+              ? <button onClick={() => setRest(null)} style={{ flex: 1.5, padding: "10px 0", borderRadius: BRAND.radiusControl, cursor: "pointer", color: BRAND.btnInk, background: BRAND.gold, border: "none", fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em" }}>Skip</button>
+              : <button onClick={() => setRest({ until: Date.now() + restTotal * 1000, total: restTotal })} style={{ flex: 1.5, padding: "10px 0", borderRadius: BRAND.radiusControl, border: "none", background: BRAND.gold, color: BRAND.btnInk, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer" }}>Start {fmtClock(restTotal)}</button>}
+            <button onClick={() => adjustRest(30)} style={{ flex: 1, padding: "10px 0", borderRadius: BRAND.radiusControl, cursor: "pointer", color: BRAND.text, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, fontWeight: 500, fontSize: 12 }}>+30s</button>
           </div>
         </div>
       </Card>
@@ -617,7 +617,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         {cur > 0 && <Button variant="dark" onClick={() => { setCurrent(cur - 1); setRest(null); }} style={{ flex: 1 }}>Back</Button>}
         {cur < total - 1 ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise ›</Button> : <Button onClick={finish} style={{ flex: 2 }}>Finish workout</Button>}
       </div>
-      <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>{total - cur - 1 > 0 ? `${total - cur - 1} exercise${total - cur - 1 === 1 ? "" : "s"} left` : "Last exercise"}</div>
+      <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "center" }}>{total - cur - 1 > 0 ? `${total - cur - 1} exercise${total - cur - 1 === 1 ? "" : "s"} left` : "Last exercise"}</div>
     </div>
     {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
     </>
@@ -628,17 +628,17 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
 
 // ---------- Program calendar: shared bits ----------
 export function DayPill({ day, compact = false }) {
-  const base = { fontSize: compact ? 8 : 9, fontWeight: 900, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
-  if (day.isRest) return <div style={{ ...base, background: "transparent", color: BRAND.dim, border: `1px solid ${BRAND.line}` }}>Rest</div>;
-  if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid ${BRAND.green}66` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
-  if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.red, border: `1px solid ${BRAND.red}66` }}>{day.workout.name}</div>;
-  if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `1px solid ${BRAND.gold}` }}>{day.workout.name}</div>;
-  return <div style={{ ...base, background: BRAND.gold, color: "#000" }}>{day.workout.name}</div>;
+  const base = { fontSize: compact ? 8 : 9, fontWeight: 500, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
+  if (day.isRest) return <div style={{ ...base, background: "transparent", color: BRAND.dim, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest</div>;
+  if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid color-mix(in srgb, ${BRAND.green} 40%, transparent)` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
+  if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.yellow, border: `1px solid color-mix(in srgb, ${BRAND.yellow} 40%, transparent)` }}>{day.workout.name}</div>;
+  if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>{day.workout.name}</div>;
+  return <div style={{ ...base, background: BRAND.gold, color: BRAND.btnInk }}>{day.workout.name}</div>;
 }
 export function dayBorder(day) {
   if (day.state === "today" || day.state === "in_progress") return BRAND.gold;
-  if (day.state === "completed") return `${BRAND.green}55`;
-  if (day.state === "missed") return `${BRAND.red}55`;
+  if (day.state === "completed") return `color-mix(in srgb, ${BRAND.green} 33%, transparent)`;
+  if (day.state === "missed") return `color-mix(in srgb, ${BRAND.yellow} 33%, transparent)`;
   return BRAND.line;
 }
 export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) {
@@ -662,12 +662,12 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
       </div>
       {(week.label || week.focus || week.targetRpe) && (
         <Card style={{ background: BRAND.card2, padding: 12 }}>
-          <div style={{ color: BRAND.gold, fontWeight: 1000 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
+          <div style={{ color: BRAND.gold, fontWeight: 500 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
           {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
         </Card>
       )}
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.dim, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.dim, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>
           <span>This week</span><span>{done} of {training.length}</span>
         </div>
         <div style={{ height: 4, background: BRAND.card2, borderRadius: 3, overflow: "hidden" }}>
@@ -676,9 +676,9 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: isMobile ? 4 : 6 }}>
         {weekDaysList.map((d) => (
-          <button key={d.key} onClick={() => onOpen(d)} style={{ background: d.isRest ? "transparent" : BRAND.card, border: `1px ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: 12, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
-            <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900 }}>{DOW_LETTER[d.dow - 1]}</div>
-            <div style={{ fontSize: 14, fontWeight: 900, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
+          <button key={d.key} onClick={() => onOpen(d)} style={{ background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusControl, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
+            <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LETTER[d.dow - 1]}</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
             <DayPill day={d} compact />
           </button>
         ))}
@@ -692,17 +692,17 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
 export function DaySection({ title, days, onOpen }) {
   return (
     <div>
-      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>{title}</div>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>{title}</div>
       {days.map((d) => {
         const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
         return (
-          <button key={d.key} onClick={() => onOpen(d)} style={{ width: "100%", textAlign: "left", background: d.isRest ? "transparent" : BRAND.card, border: `1px ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: 16, padding: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+          <button key={d.key} onClick={() => onOpen(d)} style={{ width: "100%", textAlign: "left", background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusCard, padding: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
             <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
-              <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 900 }}>{DOW_LABEL[d.dow - 1].toUpperCase()}</div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
+              <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LABEL[d.dow - 1].toUpperCase()}</div>
+              <div style={{ fontSize: 16, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 900, fontSize: 15, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
+              <div style={{ fontWeight: 500, fontSize: 15, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
               <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>
                 {d.isRest
                   ? (d.note || "Recovery")
@@ -711,10 +711,10 @@ export function DaySection({ title, days, onOpen }) {
                     : `${exerciseCountOf(d.workout)} exercises`}
               </div>
             </div>
-            {d.state === "today" && <span style={{ background: BRAND.gold, color: "#000", fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "4px 10px" }}>START</span>}
-            {d.state === "in_progress" && <span style={{ border: `1px solid ${BRAND.gold}`, color: BRAND.gold, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "4px 10px" }}>RESUME</span>}
-            {d.state === "completed" && <span style={{ color: BRAND.green, fontSize: 16, fontWeight: 900 }}>✓</span>}
-            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.red}`, color: BRAND.red, fontSize: 10, fontWeight: 900, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
+            {d.state === "today" && <span style={{ background: BRAND.gold, color: BRAND.btnInk, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Start</span>}
+            {d.state === "in_progress" && <span style={{ border: `${BRAND.hairline} solid ${BRAND.gold}`, color: BRAND.gold, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Resume</span>}
+            {d.state === "completed" && <span style={{ color: BRAND.green, fontSize: 16, fontWeight: 500 }}>✓</span>}
+            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.yellow}`, color: BRAND.yellow, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
           </button>
         );
       })}
@@ -736,26 +736,26 @@ export function ProgramMonthView({ days, cursor, setCursor, currentWeek, onOpen 
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Button variant="dark" onClick={() => shift(-1)} style={{ padding: "8px 14px" }}>‹</Button>
-        <div style={{ fontWeight: 1000, fontSize: 16 }}>{cursor.toLocaleString("en-GB", { month: "long", year: "numeric" })}</div>
+        <div style={{ fontWeight: 500, fontSize: 16 }}>{cursor.toLocaleString("en-GB", { month: "long", year: "numeric" })}</div>
         <Button variant="dark" onClick={() => shift(1)} style={{ padding: "8px 14px" }}>›</Button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 4 }}>
-        {DOW_LETTER.map((l, i) => <div key={i} style={{ textAlign: "center", color: BRAND.dim, fontSize: 9, fontWeight: 900, paddingBottom: 4 }}>{l}</div>)}
+        {DOW_LETTER.map((l, i) => <div key={i} style={{ textAlign: "center", color: BRAND.dim, fontSize: 9, fontWeight: 500, paddingBottom: 4 }}>{l}</div>)}
         {cells.map(({ date, inMonth, day }, i) => (
           <button key={i} disabled={!day} onClick={() => day && onOpen(day)} style={{
             aspectRatio: "1 / 1.2", minWidth: 0, boxSizing: "border-box",
             background: day && !day.isRest ? BRAND.card : "transparent",
-            border: `1px ${day?.isRest ? "dashed" : "solid"} ${day ? dayBorder(day) : BRAND.line}`,
-            borderRadius: 10, padding: 4, display: "flex", flexDirection: "column", justifyContent: "space-between",
+            border: `${BRAND.hairline} ${day?.isRest ? "dashed" : "solid"} ${day ? dayBorder(day) : BRAND.line}`,
+            borderRadius: BRAND.radiusControl, padding: 4, display: "flex", flexDirection: "column", justifyContent: "space-between",
             opacity: inMonth ? 1 : 0.28, cursor: day ? "pointer" : "default",
             boxShadow: day && day.weekNum === currentWeek ? `inset 0 0 0 1px ${BRAND.card2}` : "none",
           }}>
-            <div style={{ fontSize: 10, fontWeight: 900, color: day?.state === "today" ? BRAND.gold : BRAND.muted, textAlign: "left" }}>{date.getDate()}</div>
+            <div style={{ fontSize: 10, fontWeight: 500, color: day?.state === "today" ? BRAND.gold : BRAND.muted, textAlign: "left" }}>{date.getDate()}</div>
             {day && <DayPill day={day} compact />}
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: BRAND.dim, fontSize: 10, fontWeight: 700 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: BRAND.dim, fontSize: 10, fontWeight: 400 }}>
         <span><span style={{ color: BRAND.green }}>✓</span> Completed</span>
         <span style={{ color: BRAND.gold }}>■ Scheduled</span>
         <span>▢ Rest</span>
@@ -778,11 +778,11 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
     <div style={{ display: "grid", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
       <Card>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
           {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 4 }}>
-          <div style={{ fontSize: 24, fontWeight: 1000 }}>{day.workout.name}</div>
+          <div style={{ fontSize: 24, fontWeight: 500 }}>{day.workout.name}</div>
           {onStart && <Button variant="dark" onClick={() => onStart(day)}>Log again</Button>}
         </div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>
@@ -795,7 +795,7 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
         </div>
       </Card>
       <div>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>What was done</div>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>What was done</div>
         {(session.entries || []).map((e) => {
           const name = e.substitutedName || e.name;
           const timed = isTimedExercise(name);
@@ -807,27 +807,27 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
           return (
             <Card key={e.id} style={{ padding: 13, marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <div style={{ fontWeight: 900, fontSize: 15 }}>{e.tag ? <span style={{ color: BRAND.gold, marginRight: 6 }}>{e.tag}</span> : null}{name}</div>
+                <div style={{ fontWeight: 500, fontSize: 15 }}>{e.tag ? <span style={{ color: BRAND.gold, marginRight: 6 }}>{e.tag}</span> : null}{name}</div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {isPb && <span style={{ background: BRAND.green, color: "#000", fontSize: 9, fontWeight: 1000, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
-                  {short && <span style={{ color: BRAND.red, fontSize: 10, fontWeight: 800 }}>{loggedSets.length} of {prescribed.sets.length} sets</span>}
+                  {isPb && <span style={{ background: BRAND.green, color: "#000", fontSize: 9, fontWeight: 500, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
+                  {short && <span style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500 }}>{loggedSets.length} of {prescribed.sets.length} sets</span>}
                 </div>
               </div>
-              {prescribed && <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 700, marginTop: 4 }}>Prescribed {fmtExerciseSummary(prescribed)}</div>}
+              {prescribed && <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 400, marginTop: 4 }}>Prescribed {fmtExerciseSummary(prescribed)}</div>}
               <div style={{ marginTop: 8 }}>
                 {loggedSets.map((s, i) => {
                   const prev = loggedSets[i - 1];
                   const up = !timed && prev && (parseFloat(s.load) || 0) > (parseFloat(prev.load) || 0) ? (parseFloat(s.load) || 0) - (parseFloat(prev.load) || 0) : 0;
                   const target = prescribed?.sets?.[i];
                   return (
-                    <div key={i} style={{ display: "grid", gridTemplateColumns: "20px 1fr auto", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}`, fontSize: 13 }}>
-                      <span style={{ color: BRAND.dim, fontSize: 10, fontWeight: 900 }}>{i + 1}</span>
-                      <span style={{ fontWeight: 900 }}>
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "20px 1fr auto", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, fontSize: 13 }}>
+                      <span style={{ color: BRAND.dim, fontSize: 10, fontWeight: 500 }}>{i + 1}</span>
+                      <span style={{ fontWeight: 500 }}>
                         {fmtLoggedSet(s, timed)}
                         {up > 0 && <span style={{ color: BRAND.green, fontSize: 11, marginLeft: 6 }}>↑ +{up}</span>}
                         {target && <span style={{ color: BRAND.dim, fontWeight: 600, fontSize: 11, marginLeft: 8 }}>target {fmtSetTarget(target, prescribed)}</span>}
                       </span>
-                      <span style={{ color: BRAND.gold, fontSize: 11, fontWeight: 800 }}>{s.rpe ? `RPE ${s.rpe}` : ""}</span>
+                      <span style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500 }}>{s.rpe ? `RPE ${s.rpe}` : ""}</span>
                     </div>
                   );
                 })}
@@ -838,13 +838,13 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
       </div>
       {session.notes && (
         <Card style={{ borderLeft: `3px solid ${BRAND.gold}` }}>
-          <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>{client.name}</div>
+          <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>{client.name}</div>
           <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.5 }}>{session.notes}</div>
         </Card>
       )}
       {!isCoach && session.coachNote && (
-        <Card style={{ borderLeft: `3px solid ${BRAND.cyan}` }}>
-          <div style={{ color: BRAND.cyan, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>Coach</div>
+        <Card style={{ borderLeft: `3px solid ${BRAND.blue}` }}>
+          <div style={{ color: BRAND.blue, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Coach</div>
           <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.5 }}>{session.coachNote}</div>
         </Card>
       )}
@@ -865,10 +865,10 @@ export function DayDetail({ day, onBack, onStart, canStart }) {
       <div style={{ display: "grid", gap: 14 }}>
         <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
         <Card>
-          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
             {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
           </div>
-          <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 4 }}>Rest day</div>
+          <div style={{ fontSize: 24, fontWeight: 500, marginTop: 4 }}>Rest day</div>
           <div style={{ color: BRAND.muted, fontSize: 14, marginTop: 10, lineHeight: 1.5 }}>{day.note || "No session scheduled. Recover well."}</div>
         </Card>
       </div>
@@ -878,18 +878,18 @@ export function DayDetail({ day, onBack, onStart, canStart }) {
     <div style={{ display: "grid", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
       <Card>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.8 }}>
+        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
           {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
         </div>
-        <div style={{ fontSize: 24, fontWeight: 1000, marginTop: 4 }}>{day.workout.name}</div>
+        <div style={{ fontSize: 24, fontWeight: 500, marginTop: 4 }}>{day.workout.name}</div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{exerciseCountOf(day.workout)} exercises</div>
         {day.workout.note && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 8 }}>{day.workout.note}</div>}
       </Card>
       <Card>
         {(day.workout.blocks || []).map((b, bi) => (b.exercises || []).map((ex, ei) => (
-          <div key={ex.id} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "8px 0", borderTop: bi === 0 && ei === 0 ? "none" : `1px solid ${BRAND.card2}` }}>
-            <span style={{ color: BRAND.gold, fontWeight: 1000, minWidth: 26, fontSize: 12 }}>{exerciseTag(b, bi, ei)}</span>
-            <span style={{ fontWeight: 900, flex: 1 }}>{ex.name}</span>
+          <div key={ex.id} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "8px 0", borderTop: bi === 0 && ei === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+            <span style={{ color: BRAND.gold, fontWeight: 500, minWidth: 26, fontSize: 12 }}>{exerciseTag(b, bi, ei)}</span>
+            <span style={{ fontWeight: 500, flex: 1 }}>{ex.name}</span>
             <span style={{ color: BRAND.muted, fontSize: 12 }}>{fmtExerciseSummary(ex)}</span>
           </div>
         )))}
@@ -947,25 +947,25 @@ export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) 
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ fontSize: 19, fontWeight: 1000 }}>Set Vacation Mode</div>
+          <div style={{ fontSize: 19, fontWeight: 500 }}>Set Vacation Mode</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 14 }}>{client.name?.split(" ")[0]}'s regular program stays exactly where it is - this just sits on top temporarily, then hands back automatically.</div>
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase" }}>Dates</div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase" }}>Dates</div>
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle()} />
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={inputStyle()} />
         </div>
         <Field label="Workout name" value={workoutName} onChange={setWorkoutName} placeholder="e.g. Bodyweight Full Body" />
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, margin: "14px 0 8px", textTransform: "uppercase" }}>Home Workout Plan</div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, margin: "14px 0 8px", textTransform: "uppercase" }}>Home Workout Plan</div>
         {exercises.map((ex) => {
           const thumb = getVideoThumb(ex.videoUrl);
           return (
-            <div key={ex.id} style={{ background: BRAND.card2, borderRadius: 12, padding: 10, marginBottom: 8 }}>
+            <div key={ex.id} style={{ background: BRAND.card2, borderRadius: BRAND.radiusControl, padding: 10, marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {thumb ? <img src={thumb.thumb} alt="Exercise video" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} /> : <div style={{ width: 40, height: 40, borderRadius: 8, background: BRAND.panel, flexShrink: 0 }} />}
-                <div style={{ flex: 1, fontWeight: 800, fontSize: 13, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.name}</div>
-                <button onClick={() => removeEx(ex.id)} style={{ background: "transparent", border: "none", color: BRAND.red, fontWeight: 900, fontSize: 15, cursor: "pointer", flexShrink: 0 }}>x</button>
+                {thumb ? <img src={thumb.thumb} alt="Exercise video" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: BRAND.radiusControl, flexShrink: 0 }} /> : <div style={{ width: 40, height: 40, borderRadius: BRAND.radiusControl, background: BRAND.panel, flexShrink: 0 }} />}
+                <div style={{ flex: 1, fontWeight: 500, fontSize: 13, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.name}</div>
+                <button onClick={() => removeEx(ex.id)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, fontSize: 15, cursor: "pointer", flexShrink: 0 }}>x</button>
               </div>
               <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                 <input value={ex.sets} onChange={(e) => updateEx(ex.id, { sets: e.target.value })} placeholder="sets" style={inputStyle()} />
@@ -974,15 +974,15 @@ export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) 
             </div>
           );
         })}
-        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginTop: 10, marginBottom: 8 }}>
-          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
-          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? "#000" : BRAND.muted, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
+        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginTop: 10, marginBottom: 8 }}>
+          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
+          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
         </div>
         <input placeholder={pickSource === "mine" ? "Search your exercises..." : "Search exercises to add..."} value={addSearch} onChange={(e) => setAddSearch(e.target.value)} style={inputStyle()} />
         {addSearch && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>+ {n}</button>)}
-            {pickSource === "library" && suggestions.length === 0 && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: "#000", border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 900, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
+            {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ {n}</button>)}
+            {pickSource === "library" && suggestions.length === 0 && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
           </div>
         )}
         <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Activate Vacation Mode"}</Button>
@@ -997,37 +997,37 @@ export function VacationBanner({ vacation, isCoach, onEdit, onToggleDone, doneTo
   if (!active) return null;
   const fmt = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   return (
-    <Card style={{ padding: 14, background: `${BRAND.orange}14`, border: `1px solid ${BRAND.orange}55`, marginBottom: 4 }}>
+    <Card style={{ padding: 14, background: BRAND.yellowBg, border: `1px solid ${BRAND.yellow}`, marginBottom: 4 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ fontSize: 20 }}>🏖️</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: BRAND.orange, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>Vacation Mode Active</div>
-          <div style={{ color: BRAND.text, fontWeight: 700, fontSize: 12, marginTop: 2 }}>{fmt(vacation.startDate)} - {fmt(vacation.endDate)} · Regular program paused, resumes automatically</div>
+          <div style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Vacation Mode Active</div>
+          <div style={{ color: BRAND.text, fontWeight: 400, fontSize: 12, marginTop: 2 }}>{fmt(vacation.startDate)} - {fmt(vacation.endDate)} · Regular program paused, resumes automatically</div>
         </div>
-        {isCoach && <button onClick={onEdit} style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "6px 12px", color: BRAND.text, fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Edit</button>}
+        {isCoach && <button onClick={onEdit} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 12px", color: BRAND.text, fontWeight: 500, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Edit</button>}
       </div>
-      <div style={{ background: BRAND.card2, borderRadius: 12, padding: 12, marginTop: 12 }}>
-        <div style={{ color: BRAND.orange, fontSize: 10, fontWeight: 900, textTransform: "uppercase", marginBottom: 6 }}>Today's Home Workout</div>
-        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>{vacation.workout?.name}</div>
+      <div style={{ background: BRAND.card2, borderRadius: BRAND.radiusControl, padding: 12, marginTop: 12 }}>
+        <div style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500, textTransform: "uppercase", marginBottom: 6 }}>Today's Home Workout</div>
+        <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 8 }}>{vacation.workout?.name}</div>
         {(vacation.workout?.exercises || []).map((ex) => {
           const thumb = getVideoThumb(ex.videoUrl);
           return (
-            <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${BRAND.line}` }}>
+            <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `${BRAND.hairline} solid ${BRAND.line}` }}>
               {thumb ? (
                 <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", position: "relative", flexShrink: 0 }}>
-                  <img src={thumb.thumb} alt="Exercise video" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 10, border: `1px solid ${BRAND.line}` }} />
+                  <img src={thumb.thumb} alt="Exercise video" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}` }} />
                   <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 9 }}>▶</div></div>
                 </button>
-              ) : <div style={{ width: 44, height: 44, borderRadius: 10, background: BRAND.panel, flexShrink: 0 }} />}
+              ) : <div style={{ width: 44, height: 44, borderRadius: BRAND.radiusControl, background: BRAND.panel, flexShrink: 0 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{ex.name}</div>
-                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>{ex.sets} x {ex.reps}</div>
+                <div style={{ fontWeight: 400, fontSize: 13 }}>{ex.name}</div>
+                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400 }}>{ex.sets} x {ex.reps}</div>
               </div>
             </div>
           );
         })}
         {!isCoach && (
-          <button onClick={onToggleDone} style={{ width: "100%", marginTop: 12, padding: 12, borderRadius: 999, border: "none", background: doneToday ? BRAND.green : BRAND.orange, color: "#000", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>{doneToday ? "✓ Marked Done Today" : "Mark Today's Workout Done"}</button>
+          <button onClick={onToggleDone} style={{ width: "100%", marginTop: 12, padding: 12, borderRadius: 999, border: "none", background: doneToday ? BRAND.green : BRAND.yellow, color: "#000", fontWeight: 500, fontSize: 13, cursor: "pointer" }}>{doneToday ? "✓ Marked Done Today" : "Mark Today's Workout Done"}</button>
         )}
       </div>
       {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
@@ -1101,7 +1101,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 1000 }}>{program?.name || "No program yet"}</div>
+            <div style={{ fontSize: 22, fontWeight: 500 }}>{program?.name || "No program yet"}</div>
             {program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1122,7 +1122,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       {program && !openDay && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>
+            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
               Week {weekNum} of {program.weeks.length}
             </div>
             <div style={{ display: "flex", gap: 6 }}>

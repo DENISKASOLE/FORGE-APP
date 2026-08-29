@@ -51,8 +51,8 @@ function CoachPhaseControls({ client, nutrition, onPersist }) {
       {showReportEditor && (
         <div style={{ display: "grid", gap: 8 }}>
           <div style={{ color: T.muted, fontSize: 12 }}>Paste the ReportData JSON you got back for this client.</div>
-          <textarea value={reportDraft} onChange={(e) => setReportDraft(e.target.value)} rows={8} style={{ width: "100%", background: T.card2, border: `1px solid ${T.line}`, borderRadius: 12, color: T.accent, padding: 12, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box" }} />
-          {reportError && <div style={{ color: T.bad, fontSize: 12, fontWeight: 700 }}>{reportError}</div>}
+          <textarea value={reportDraft} onChange={(e) => setReportDraft(e.target.value)} rows={8} style={{ width: "100%", background: T.card2, border: `var(--hairline) solid ${T.line}`, borderRadius: 12, color: T.accent, padding: 12, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box" }} />
+          {reportError && <div style={{ color: T.bad, fontSize: 12, fontWeight: 500 }}>{reportError}</div>}
           <Button onClick={saveReport}>Save report</Button>
         </div>
       )}

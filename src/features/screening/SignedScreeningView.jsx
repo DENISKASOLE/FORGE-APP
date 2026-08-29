@@ -33,12 +33,12 @@ export function SignedScreeningView({ client }) {
   return (
     <Card style={{ padding: 16, display: "grid", gap: 8 }}>
       <SectionLabel color={T.muted}>Health screening</SectionLabel>
-      <div style={{ color: T.accent, fontSize: 14, fontWeight: 700 }}>
+      <div style={{ fontFamily: T.sans, color: T.accent, fontSize: 14, fontWeight: 500 }}>
         Completed {new Date(screening.signed_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
       </div>
-      <div style={{ color: T.muted, fontSize: 12 }}>Version {screening.screening_version} · {screening.signed_name}</div>
+      <div style={{ fontFamily: T.sans, color: T.muted, fontSize: 12, fontWeight: 400 }}>Version {screening.screening_version} · {screening.signed_name}</div>
       {screening.needs_clearance && (
-        <div style={{ color: T.warn, fontSize: 12, fontWeight: 700 }}>Medical clearance was recommended at the time of screening.</div>
+        <div style={{ fontFamily: T.sans, color: T.warn, fontSize: 12, fontWeight: 500 }}>Medical clearance was recommended at the time of screening.</div>
       )}
       <Button variant="dark" onClick={openPdf} disabled={opening} style={{ justifySelf: "start" }}>
         {opening ? "Opening..." : "View signed copy (PDF)"}

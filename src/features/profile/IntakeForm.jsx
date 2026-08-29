@@ -84,39 +84,63 @@ export function IntakeForm({ client, updateClient, goTo }) {
   }
   function renderField(f) {
     const missing = showErr && f.req && !String(resp[f.id] || "").trim();
-    return <div key={f.id} style={{ marginBottom: 18 }}>
-      <div style={{ fontWeight: 900, fontSize: 15 }}>{f.q}{f.req && <span style={{ color: BRAND.gold, fontSize: 11, marginLeft: 6, fontWeight: 800 }}>required</span>}</div>
-      {f.hint && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>{f.hint}</div>}
-      <div style={{ marginTop: 8 }}>
-        {f.type === "rating"
-          ? <div style={{ display: "flex", gap: 6 }}>{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" onClick={() => set(f.id, String(n))} style={{ flex: 1, padding: "12px 0", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 1000, color: String(resp[f.id]) === String(n) ? "#000" : BRAND.text, background: String(resp[f.id]) === String(n) ? BRAND.gold : BRAND.card2, border: `1px solid ${String(resp[f.id]) === String(n) ? BRAND.gold : BRAND.line}` }}>{n}</button>)}</div>
-          : f.type === "choice"
-          ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{f.options.map((o) => <button key={o} type="button" onClick={() => set(f.id, o)} style={{ padding: "11px 15px", borderRadius: 11, cursor: "pointer", fontSize: 14, fontWeight: 700, textAlign: "left", color: resp[f.id] === o ? "#000" : BRAND.text, background: resp[f.id] === o ? BRAND.gold : BRAND.card2, border: `1px solid ${resp[f.id] === o ? BRAND.gold : BRAND.line}` }}>{o}</button>)}</div>
-          : f.type === "textarea"
-            ? <textarea value={resp[f.id] || ""} onChange={(e) => set(f.id, e.target.value)} placeholder={f.ph || ""} style={inputStyle({ minHeight: 84, resize: "vertical", borderColor: missing ? BRAND.red : BRAND.line })} />
-            : <input type={f.type} value={resp[f.id] || ""} onChange={(e) => set(f.id, e.target.value)} placeholder={f.ph || ""} style={inputStyle({ borderColor: missing ? BRAND.red : BRAND.line })} />}
+    const selectedStyle = (isActive) => ({
+      fontFamily: BRAND.sans,
+      cursor: "pointer",
+      color: isActive ? BRAND.btnInk : BRAND.text,
+      background: isActive ? BRAND.btnBg : BRAND.card2,
+      border: `${BRAND.hairline} solid ${isActive ? "transparent" : BRAND.line}`,
+    });
+    return (
+      <div key={f.id} style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 15, color: BRAND.text }}>
+          {f.q}
+          {f.req && <span style={{ color: BRAND.dim, fontSize: 11, marginLeft: 6, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em" }}>required</span>}
+        </div>
+        {f.hint && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3, lineHeight: 1.5 }}>{f.hint}</div>}
+        <div style={{ marginTop: 8 }}>
+          {f.type === "rating"
+            ? <div style={{ display: "flex", gap: 6 }}>{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" onClick={() => set(f.id, String(n))} style={{ ...selectedStyle(String(resp[f.id]) === String(n)), flex: 1, padding: "12px 0", borderRadius: BRAND.radiusControl, fontSize: 15, fontWeight: 500 }}>{n}</button>)}</div>
+            : f.type === "choice"
+            ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{f.options.map((o) => <button key={o} type="button" onClick={() => set(f.id, o)} style={{ ...selectedStyle(resp[f.id] === o), padding: "11px 15px", borderRadius: BRAND.radiusControl, fontSize: 14, fontWeight: 400, textAlign: "left" }}>{o}</button>)}</div>
+            : f.type === "textarea"
+              ? <textarea value={resp[f.id] || ""} onChange={(e) => set(f.id, e.target.value)} placeholder={f.ph || ""} style={inputStyle({ minHeight: 84, resize: "vertical", borderColor: missing ? BRAND.yellow : BRAND.line })} />
+              : <input type={f.type} value={resp[f.id] || ""} onChange={(e) => set(f.id, e.target.value)} placeholder={f.ph || ""} style={inputStyle({ borderColor: missing ? BRAND.yellow : BRAND.line })} />}
+        </div>
+        {missing && <div style={{ fontFamily: BRAND.sans, color: BRAND.yellow, fontSize: 12, fontWeight: 500, marginTop: 6 }}>Please answer this.</div>}
       </div>
-      {missing && <div style={{ color: BRAND.red, fontSize: 12, fontWeight: 700, marginTop: 6 }}>Please answer this.</div>}
-    </div>;
+    );
   }
-  return <div style={{ display: "grid", gap: 8 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 1.2, textTransform: "uppercase" }}>Application</div>
-      <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>{Math.min(step + 1, total)} / {total}</div>
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase" }}>Application</div>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>{Math.min(step + 1, total)} / {total}</div>
+      </div>
+      <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden" }}><div style={{ height: 4, width: `${((step + 1) / total) * 100}%`, background: BRAND.green, borderRadius: 999, transition: "width .3s" }} /></div>
+      {!isReview && (
+        <>
+          <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, margin: "14px 0 6px" }}>{steps[step].name}</div>
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, fontWeight: 400, lineHeight: 1.6, marginBottom: 6 }}>{steps[step].lede}</div>
+        </>
+      )}
+      <Card style={{ marginTop: 8 }}>
+        {isReview
+          ? <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text }}>Review and submit</div>
+              {allFields.map((f) => (
+                <div key={f.id} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 8 }}>
+                  <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em" }}>{f.q}</div>
+                  <div style={{ fontFamily: BRAND.sans, fontSize: 13, fontWeight: 400, color: resp[f.id] ? BRAND.text : BRAND.dim, marginTop: 2 }}>{resp[f.id] || "—"}</div>
+                </div>
+              ))}
+            </div>
+          : steps[step].fields.map(renderField)}
+      </Card>
+      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        {step > 0 && <Button variant="dark" onClick={() => { setShowErr(false); setStep(step - 1); }} style={{ flex: 1 }}>Back</Button>}
+        {!isReview ? <Button onClick={next} style={{ flex: 2 }}>Next</Button> : <Button onClick={submit} disabled={saving} style={{ flex: 2 }}>{saving ? "Submitting..." : "Submit application"}</Button>}
+      </div>
     </div>
-    <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden" }}><div style={{ height: 4, width: `${((step + 1) / total) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} /></div>
-    {!isReview && <><div style={{ fontSize: 26, fontWeight: 1000, margin: "14px 0 6px", textTransform: "uppercase" }}>{steps[step].name}</div><div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 600, marginBottom: 6 }}>{steps[step].lede}</div></>}
-    <Card style={{ marginTop: 8 }}>
-      {isReview
-        ? <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ fontSize: 22, fontWeight: 1000 }}>Review and submit</div>
-            {allFields.map((f) => <div key={f.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900 }}>{f.q}</div><div style={{ fontSize: 13, fontWeight: 600, color: resp[f.id] ? BRAND.text : BRAND.dim }}>{resp[f.id] || "—"}</div></div>)}
-          </div>
-        : steps[step].fields.map(renderField)}
-    </Card>
-    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-      {step > 0 && <Button variant="dark" onClick={() => { setShowErr(false); setStep(step - 1); }} style={{ flex: 1 }}>Back</Button>}
-      {!isReview ? <Button onClick={next} style={{ flex: 2 }}>Next</Button> : <Button onClick={submit} disabled={saving} style={{ flex: 2 }}>{saving ? "Submitting..." : "Submit application"}</Button>}
-    </div>
-  </div>;
+  );
 }

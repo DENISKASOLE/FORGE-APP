@@ -5,8 +5,6 @@ import { getVideoThumb } from "../../lib/exerciseVideos.js";
 import { fmtExerciseSummary, lastSessionSetsFor, suggestProgression } from "../../lib/trainingLogs.js";
 import { SetLogRows } from "./SetLogRows.jsx";
 
-const CYAN = "#38BDF8";
-const GREEN = "#3DD68C";
 const GROUP_LETTERS = "ABCDEFGH";
 
 // A superset step: 2+ exercises sharing a block, logged by alternating
@@ -40,13 +38,13 @@ export function SupersetLogger({ group, exById, logsBefore, rpePickerFor, setRpe
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={onExit} style={{ background: "none", border: "none", color: BRAND.text, fontSize: 20, fontWeight: 1000, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.8 }}>Superset</div>
-        <div style={{ background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: "5px 11px", fontWeight: 1000, fontSize: 12, color: BRAND.text }}>{letters.join(" + ")}</div>
+        <button onClick={onExit} style={{ background: "none", border: "none", color: BRAND.text, fontSize: 20, fontWeight: 500, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.16em" }}>Superset</div>
+        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "5px 11px", fontWeight: 500, fontSize: 12, color: BRAND.text }}>{letters.join(" + ")}</div>
       </div>
 
       {thumb ? (
-        <button onClick={() => onPlayVideo(thumb.videoId, effectiveName)} style={{ width: "100%", padding: 0, border: "none", borderRadius: 18, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: "#ffffff" }}>
+        <button onClick={() => onPlayVideo(thumb.videoId, effectiveName)} style={{ width: "100%", padding: 0, border: "none", borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: "#ffffff" }}>
           <div style={{ position: "relative", height: 168 }}>
             <img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }} />
             <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
@@ -55,14 +53,14 @@ export function SupersetLogger({ group, exById, logsBefore, rpePickerFor, setRpe
           </div>
         </button>
       ) : (
-        <div style={{ width: "100%", height: 168, borderRadius: 18, background: "#ffffff", display: "grid", placeItems: "center" }}>
-          <div style={{ color: "#000", fontWeight: 1000, fontSize: 13, textTransform: "uppercase", letterSpacing: 0.6, opacity: 0.4 }}>No media</div>
+        <div style={{ width: "100%", height: 168, borderRadius: BRAND.radiusCard, background: "#ffffff", display: "grid", placeItems: "center" }}>
+          <div style={{ fontFamily: BRAND.sans, color: "#000", fontWeight: 500, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.4 }}>No media</div>
         </div>
       )}
 
       <div>
-        <div style={{ fontSize: 24, fontWeight: 1000, textTransform: "uppercase", lineHeight: 1.05 }}>{effectiveName}</div>
-        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700, marginTop: 4 }}>{fmtExerciseSummary(ex) || "—"}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.1 }}>{effectiveName}</div>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 4 }}>{fmtExerciseSummary(ex) || "—"}</div>
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
@@ -70,23 +68,23 @@ export function SupersetLogger({ group, exById, logsBefore, rpePickerFor, setRpe
           const enActive = i === active;
           const done = en.sets.filter((s) => s.done).length;
           return (
-            <button key={en.id} onClick={() => selectTab(i)} style={{ flex: 1, minWidth: 0, display: "grid", gap: 6, justifyItems: "center", padding: "10px 8px", borderRadius: 14, cursor: "pointer", background: enActive ? `${CYAN}18` : BRAND.card2, border: `1.5px solid ${enActive ? CYAN : BRAND.line}` }}>
-              <div style={{ color: enActive ? CYAN : BRAND.muted, fontWeight: 1000, fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{letters[i]} · {en.substitutedName || en.name}</div>
+            <button key={en.id} onClick={() => selectTab(i)} style={{ flex: 1, minWidth: 0, display: "grid", gap: 6, justifyItems: "center", padding: "10px 8px", borderRadius: BRAND.radiusControl, cursor: "pointer", background: enActive ? `color-mix(in srgb, ${BRAND.blue} 18%, transparent)` : BRAND.card2, border: `1.5px solid ${enActive ? BRAND.blue : BRAND.line}` }}>
+              <div style={{ fontFamily: BRAND.sans, color: enActive ? BRAND.blue : BRAND.muted, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{letters[i]} · {en.substitutedName || en.name}</div>
               <div style={{ display: "flex", gap: 4 }}>
                 {en.sets.map((s, si) => (
-                  <div key={si} style={{ width: 6, height: 6, borderRadius: "50%", background: s.done ? GREEN : BRAND.line }} />
+                  <div key={si} style={{ width: 6, height: 6, borderRadius: "50%", background: s.done ? BRAND.green : BRAND.line }} />
                 ))}
               </div>
-              <div style={{ color: BRAND.dim, fontSize: 10, fontWeight: 800 }}>{done}/{en.sets.length}</div>
+              <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 10, fontWeight: 500 }}>{done}/{en.sets.length}</div>
             </button>
           );
         })}
       </div>
 
-      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={prog} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={GREEN} />
+      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={prog} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={BRAND.green} />
 
       {justCompleted && (
-        <div style={{ textAlign: "center", color: CYAN, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>→ Tap {nextLabel} for the next set</div>
+        <div style={{ fontFamily: BRAND.sans, textAlign: "center", color: BRAND.blue, fontSize: 12, fontWeight: 500 }}>Tap {nextLabel} for the next set</div>
       )}
     </div>
   );

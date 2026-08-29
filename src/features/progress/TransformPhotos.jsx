@@ -41,22 +41,22 @@ function PhotoUploadModal({ onClose, onSave }) {
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 440, maxHeight: "90vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={{ fontSize: 20, fontWeight: 1000 }}>Add Photo</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500 }}>Add photo</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         {previewUrl ? (
           <div style={{ position: "relative", marginBottom: 14 }}>
-            <img src={previewUrl} alt="preview" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 16 }} />
-            <button onClick={() => { setFile(null); setPreviewUrl(""); }} style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 30, height: 30, fontWeight: 900, cursor: "pointer" }}>x</button>
+            <img src={previewUrl} alt="preview" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", borderRadius: 14 }} />
+            <button onClick={() => { setFile(null); setPreviewUrl(""); }} style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 30, height: 30, fontWeight: 500, cursor: "pointer" }}>x</button>
           </div>
         ) : (
-          <label style={{ display: "grid", placeItems: "center", height: 180, background: BRAND.card2, border: `2px dashed ${BRAND.line}`, borderRadius: 16, marginBottom: 14, cursor: "pointer", color: BRAND.muted, fontWeight: 800 }}>
+          <label style={{ display: "grid", placeItems: "center", height: 180, background: BRAND.card2, border: `2px dashed ${BRAND.line}`, borderRadius: 14, marginBottom: 14, cursor: "pointer", color: BRAND.muted, fontWeight: 500 }}>
             + Choose a photo
             <input type="file" accept="image/*" onChange={(e) => pickImage(e.target.files?.[0])} style={{ display: "none" }} />
           </label>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-          <label><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase" }}>Type</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+          <label><div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" }}>Type</div><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={inputStyle()}>{PHOTO_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
           <Field label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         </div>
         <Field label="Weight (optional)" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} type="number" />
@@ -75,13 +75,13 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
         <Button variant="red" onClick={async () => { if (await confirmDialog("Delete this photo? This cannot be undone.", { danger: true, confirmLabel: "Delete" })) onDelete(photo.id); }}>Delete</Button>
         <Button variant="ghost" onClick={onClose}>X</Button>
       </div>
-      {index > 0 && <button onClick={() => onNavigate(index - 1)} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&lsaquo;</button>}
-      {index < photos.length - 1 && <button onClick={() => onNavigate(index + 1)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 900, cursor: "pointer" }}>&rsaquo;</button>}
+      {index > 0 && <button onClick={() => onNavigate(index - 1)} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 500, cursor: "pointer" }}>&lsaquo;</button>}
+      {index < photos.length - 1 && <button onClick={() => onNavigate(index + 1)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 500, cursor: "pointer" }}>&rsaquo;</button>}
       <div style={{ maxWidth: 480, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <PhotoImg photo={photo} alt={photo.type} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 12 }} />
-        <div style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 16, padding: 14, marginTop: 12, width: "100%" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.text, fontWeight: 800 }}><span>{photo.type}</span><span style={{ color: BRAND.muted, fontWeight: 600 }}>{photo.date}</span></div>
-          {photo.weight && <div style={{ color: BRAND.gold, fontWeight: 700, fontSize: 13, marginTop: 4 }}>{photo.weight}kg</div>}
+        <PhotoImg photo={photo} alt={photo.type} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 14 }} />
+        <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14, marginTop: 12, width: "100%" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.text, fontWeight: 500 }}><span>{photo.type}</span><span style={{ color: BRAND.muted, fontWeight: 400 }}>{photo.date}</span></div>
+          {photo.weight && <div style={{ color: BRAND.gold, fontWeight: 500, fontSize: 13, marginTop: 4 }}>{photo.weight}kg</div>}
           {photo.notes && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 6 }}>{photo.notes}</div>}
         </div>
       </div>
@@ -90,11 +90,11 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
 }
 function PhotoCompareSlot({ label, photo, onPick }) {
   return (
-    <button onClick={onPick} style={{ background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden", cursor: "pointer", padding: 0, textAlign: "left", width: "100%" }}>
-      <div style={{ padding: "10px 12px", color: BRAND.gold, fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-      {photo?.image || photo?.url ? <PhotoImg photo={photo} alt={label} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover" }} /> : <div style={{ aspectRatio: "3/4", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 13, fontWeight: 700 }}>No photo</div>}
-      {photo && <div style={{ padding: "8px 12px 12px" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700 }}>{photo.date}{photo.weight ? ` · ${photo.weight}kg` : ""}</div></div>}
-      <div style={{ padding: "0 12px 12px", color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>Tap to change</div>
+    <button onClick={onPick} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", padding: 0, textAlign: "left", width: "100%" }}>
+      <div style={{ padding: "10px 12px", color: BRAND.dim, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em" }}>{label}</div>
+      {photo?.image || photo?.url ? <PhotoImg photo={photo} alt={label} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover" }} /> : <div style={{ aspectRatio: "3/4", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 13, fontWeight: 400 }}>No photo</div>}
+      {photo && <div style={{ padding: "8px 12px 12px" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400 }}>{photo.date}{photo.weight ? ` · ${photo.weight}kg` : ""}</div></div>}
+      <div style={{ padding: "0 12px 12px", color: BRAND.dim, fontSize: 11, fontWeight: 400 }}>Tap to change</div>
     </button>
   );
 }
@@ -103,12 +103,12 @@ function PhotoPickerModal({ photos, onPick, onClose }) {
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>Choose a Photo</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 500 }}>Choose a photo</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
           {photos.map((p) => (
-            <button key={p.id} onClick={() => onPick(p.id)} style={{ padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 12, overflow: "hidden", cursor: "pointer", background: "none" }}>
+            <button key={p.id} onClick={() => onPick(p.id)} style={{ padding: 0, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, overflow: "hidden", cursor: "pointer", background: "none" }}>
               <PhotoImg photo={p} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
             </button>
           ))}
@@ -161,13 +161,13 @@ export function TransformPhotos({ client, updateClient, isCoach }) {
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800 }}>Transformation Photos</div>
-        <Button onClick={() => setShowUpload(true)}>+ Add Photo</Button>
+        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 26 : 28, fontWeight: 500, letterSpacing: "-0.01em" }}>Transformation photos</div>
+        <Button onClick={() => setShowUpload(true)}>+ Add photo</Button>
       </div>
 
       {photos.length >= 2 && (
         <div>
-          <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>Compare</div>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>Compare</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <PhotoCompareSlot label="Before" photo={leftPhoto} onPick={() => setPicking("left")} />
             <PhotoCompareSlot label="After" photo={rightPhoto} onPick={() => setPicking("right")} />
@@ -176,7 +176,7 @@ export function TransformPhotos({ client, updateClient, isCoach }) {
       )}
 
       <div>
-        <div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>All Photos</div>
+        <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>All photos</div>
         {loadingPhotos ? (
           <Card><div style={{ color: BRAND.muted }}>Loading photos...</div></Card>
         ) : photos.length === 0 ? (
@@ -186,10 +186,10 @@ export function TransformPhotos({ client, updateClient, isCoach }) {
             {gridPhotos.map((p) => {
               const realIndex = gridPhotos.indexOf(p);
               return (
-                <button key={p.id} onClick={() => setLightboxIndex(realIndex)} style={{ padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 14, overflow: "hidden", cursor: "pointer", background: BRAND.card2, position: "relative" }}>
+                <button key={p.id} onClick={() => setLightboxIndex(realIndex)} style={{ padding: 0, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", background: BRAND.card2, position: "relative" }}>
                   {p.image || p.url ? <PhotoImg photo={p} alt={p.type} style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} /> : <div style={{ aspectRatio: "1/1", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 11 }}>No image</div>}
                   <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: "linear-gradient(0deg, rgba(0,0,0,.85), transparent)", padding: "12px 8px 6px", textAlign: "left" }}>
-                    <div style={{ color: "#fff", fontSize: 10, fontWeight: 800 }}>{p.date}</div>
+                    <div style={{ color: "#fff", fontSize: 10, fontWeight: 500 }}>{p.date}</div>
                   </div>
                 </button>
               );

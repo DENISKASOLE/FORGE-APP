@@ -78,11 +78,11 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
   if (isCoach) {
     return (
-      <div data-app="coach" style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text }}>
-        <header style={{ borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "rgba(7,7,7,.96)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100vw", overflow: "hidden" }}>
+      <div data-app="coach" style={{ minHeight: "100vh", width: "100%", maxWidth: "100%", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans }}>
+        <header style={{ borderBottom: `${BRAND.hairline} solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "color-mix(in srgb, var(--page) 96%, transparent)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100%", overflow: "hidden" }}>
           <Button variant="ghost" onClick={back} style={{ padding: isMobile ? "8px 10px" : undefined }}>Back</Button>
           <ClientAvatar client={client} size={isMobile ? 44 : 56} />
-          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 20 : 25, fontWeight: 1000, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 1000, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
+          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 19 : 23, fontWeight: 500, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name}</div><div style={{ color: client.color, fontWeight: 500, fontSize: 12 }}>{client.goals?.join(" + ") || client.goal}</div></div>
           <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>
         </header>
         <InjuryBanner client={client} />
@@ -100,15 +100,13 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
               minWidth: isMobile ? 64 : 96,
               height: isMobile ? 34 : 48,
               borderRadius: 999,
-              border: `1px solid ${tab === k ? client.color : BRAND.line}`,
+              border: `${BRAND.hairline} solid ${tab === k ? client.color : BRAND.line}`,
               background: tab === k ? client.color : BRAND.card2,
               color: tab === k ? "#000" : BRAND.text,
               fontSize: isMobile ? 11 : 14,
-              fontWeight: 1000,
+              fontWeight: 500,
               whiteSpace: "nowrap",
-              cursor: "pointer",
               flex: "0 0 auto",
-              boxShadow: "none",
             }}>{l}</button>)}
           </div>
           {content}
@@ -123,21 +121,21 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
     { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program?.name ? `${client.program.name} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
-    { key: "progress", icon: "progress", color: BRAND.cyan, title: "Progress", sub: "See your trends and personal bests" },
-    { key: "photos", icon: "photo", color: BRAND.purple, title: "Photos", sub: client.transformPhotos?.length ? `${client.transformPhotos.length} photo${client.transformPhotos.length === 1 ? "" : "s"} saved` : "No photos yet" },
+    { key: "progress", icon: "progress", color: BRAND.blue, title: "Progress", sub: "See your trends and personal bests" },
+    { key: "photos", icon: "photo", color: BRAND.dim, title: "Photos", sub: client.transformPhotos?.length ? `${client.transformPhotos.length} photo${client.transformPhotos.length === 1 ? "" : "s"} saved` : "No photos yet" },
   ];
   const meCards = [
     ...(isCoach ? [] : [{ key: "whatsapp", icon: "me", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
-    { key: "profile", icon: "gear", color: BRAND.purple, title: "Profile", sub: "Your details & settings" },
+    { key: "profile", icon: "gear", color: BRAND.dim, title: "Profile", sub: "Your details & settings" },
     { key: "payments", icon: "card", color: BRAND.green, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
   ];
   function handleMeOpen(key) { if (key === "settings") setShowSettings(true); else if (key === "whatsapp") window.open("https://wa.me/971567088638", "_blank"); else setTab(key); }
   return (
-    <div data-app="client" style={{ minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, paddingBottom: 90 }}>
+    <div data-app="client" style={{ minHeight: "100vh", width: "100%", maxWidth: "100%", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans, paddingBottom: 90 }}>
       <main style={{ width: "100%", maxWidth: isMobile ? 430 : 760, margin: "0 auto", padding: isMobile ? "14px 10px 0" : "18px 16px 0", boxSizing: "border-box", overflowX: "hidden" }}>
         {parentHub && (
-          <button onClick={() => setTab(parentHub)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontWeight: 800, fontSize: 13, padding: "10px 4px", margin: "-10px 0 4px -4px", minHeight: 44 }}>
+          <button onClick={() => setTab(parentHub)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontWeight: 500, fontSize: 13, padding: "10px 4px", margin: "-10px 0 4px -4px", minHeight: 44 }}>
             <NavIcon name="back" size={15} /> Back to {parentHubLabel}
           </button>
         )}
@@ -180,18 +178,18 @@ function InstallPrompt({ color = BRAND.gold }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ fontSize: 22 }}>&#128241;</div>
           <div style={{ flex: 1 }}>
-            <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 14 }}>Add Forge to your Home Screen</div>
-            <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>One tap, and you'll never need the link again.</div>
+            <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 14 }}>Add Forge to your home screen</div>
+            <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2 }}>One tap, and you'll never need the link again.</div>
           </div>
-          <button onClick={dismiss} style={{ background: "transparent", border: "none", color: BRAND.dim, fontWeight: 900, fontSize: 16, cursor: "pointer", padding: 4 }}>&times;</button>
+          <button onClick={dismiss} style={{ background: "transparent", border: "none", color: BRAND.dim, fontWeight: 500, fontSize: 16, cursor: "pointer", padding: 4 }}>&times;</button>
         </div>
       ) : (
         <div>
-          <div style={{ color: BRAND.text, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Add to Home Screen</div>
-          <div style={{ color: BRAND.muted, fontSize: 12.5, fontWeight: 600, lineHeight: 1.5 }}>Tap the Share button <span style={{ color, fontWeight: 900 }}>&#9633;&#8593;</span> at the bottom of Safari, then choose "Add to Home Screen".</div>
+          <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 14, marginBottom: 6 }}>Add to home screen</div>
+          <div style={{ color: BRAND.muted, fontSize: 12.5, fontWeight: 400, lineHeight: 1.6 }}>Tap the Share button <span style={{ color, fontWeight: 500 }}>&#9633;&#8593;</span> at the bottom of Safari, then choose "Add to Home Screen".</div>
         </div>
       )}
-      {!showIOSHelp && <Button onClick={install} style={{ width: "100%", marginTop: 12 }}>Add to Home Screen</Button>}
+      {!showIOSHelp && <Button onClick={install} style={{ width: "100%", marginTop: 12 }}>Add to home screen</Button>}
     </Card>
   );
 }
@@ -212,31 +210,31 @@ function ClientHome({ client, goTo }) {
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "center" }}>
         <ClientAvatar client={client} size={isMobile ? 50 : 68} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 1000, letterSpacing: 1.4, textTransform: "uppercase" }}>The Forge Method</div>
-          <div style={{ fontSize: isMobile ? 20 : 28, fontWeight: 1000, lineHeight: 1.05, textTransform: "uppercase", marginTop: 5 }}>Welcome back,<br />{client.name}</div>
-          <div style={{ color: BRAND.muted, fontWeight: 800, marginTop: 7, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.goals?.join(" + ") || client.goal || ""}</div>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase" }}>The Forge method</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 22 : 28, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.1, marginTop: 5 }}>Welcome back,<br />{client.name}</div>
+          <div style={{ color: BRAND.muted, fontWeight: 400, marginTop: 7, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.goals?.join(" + ") || client.goal || ""}</div>
         </div>
       </div>
     </Card>
-    {goTo && !client.intake?.completedAt && <Card onClick={() => goTo("intake")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: BRAND.cyan }}><div><div style={{ color: BRAND.cyan, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>COMPLETE YOUR INTAKE</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>A few questions so your coach can tailor your plan</div></div><div style={{ color: BRAND.cyan, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
-    {goTo && <Card onClick={() => goTo("nutrition")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `${BRAND.green}55` }}><div><div style={{ color: BRAND.green, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>NUTRITION · {nutritionPhaseLabel.toUpperCase()}</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{nutrition.phase === "baseline" || nutrition.phase === "adjustment" ? `${loggedCount} of 4 logged today` : "View your report"}</div></div><div style={{ color: BRAND.green, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Open &rarr;</div></Card>}
-    {goTo && <Card onClick={() => goTo("checkins")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `${BRAND.gold}55` }}><div><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 12, letterSpacing: 0.5 }}>WEEKLY CHECK-IN</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Log your week for your coach</div></div><div style={{ color: BRAND.gold, fontWeight: 1000, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
+    {goTo && !client.intake?.completedAt && <Card onClick={() => goTo("intake")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: BRAND.blue }}><div><div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Complete your intake</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>A few questions so your coach can tailor your plan</div></div><div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
+    {goTo && <Card onClick={() => goTo("nutrition")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `color-mix(in srgb, ${BRAND.green} 55%, transparent)` }}><div><div style={{ color: BRAND.green, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Nutrition · {nutritionPhaseLabel}</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{nutrition.phase === "baseline" || nutrition.phase === "adjustment" ? `${loggedCount} of 4 logged today` : "View your report"}</div></div><div style={{ color: BRAND.green, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Open &rarr;</div></Card>}
+    {goTo && <Card onClick={() => goTo("checkins")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `color-mix(in srgb, ${BRAND.yellow} 55%, transparent)` }}><div><div style={{ color: BRAND.yellow, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Weekly check-in</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Log your week for your coach</div></div><div style={{ color: BRAND.yellow, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
     <div>
-      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Today's session</div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Today's session</div>
       <Card style={{ padding: 16 }}>
         {w ? (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-              <div style={{ fontSize: 22, fontWeight: 1000, textTransform: "uppercase", lineHeight: 1.1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todaysWorkout}</div>
-              {estMin && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", letterSpacing: 1, flexShrink: 0 }}>~{estMin} MIN</div>}
+              <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.15, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todaysWorkout}</div>
+              {estMin && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", flexShrink: 0 }}>~{estMin} min</div>}
             </div>
-            {chips.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>{chips.map((c, i) => <div key={i} style={{ padding: "8px 13px", borderRadius: 999, border: `1px solid ${BRAND.line}`, background: BRAND.card2, fontSize: 12, fontWeight: 800, color: BRAND.muted, whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>{c}</div>)}</div>}
-            {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", marginTop: 16, padding: "16px 0", borderRadius: 14, border: "none", background: "#fff", color: "#000", fontWeight: 1000, fontSize: 14, letterSpacing: 1, textTransform: "uppercase", cursor: "pointer" }}>Start session →</button>}
+            {chips.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>{chips.map((c, i) => <div key={i} style={{ padding: "8px 13px", borderRadius: 999, border: `${BRAND.hairline} solid ${BRAND.line}`, background: BRAND.card2, fontSize: 12, fontWeight: 500, color: BRAND.muted, whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>{c}</div>)}</div>}
+            {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", marginTop: 16, padding: "14px 0", borderRadius: BRAND.radiusControl, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontWeight: 500, fontSize: 14 }}>Start session →</button>}
           </>
         ) : (
           <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "18px 10px" }}>
             <NavIcon name="train" size={28} color={BRAND.dim} />
-            <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 700, lineHeight: 1.4, textAlign: "center" }}>No workout assigned yet &mdash; your coach will add one</div>
+            <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, lineHeight: 1.6, textAlign: "center", overflowWrap: "anywhere", maxWidth: "100%" }}>No workout assigned yet &mdash; your coach will add one</div>
           </div>
         )}
       </Card>

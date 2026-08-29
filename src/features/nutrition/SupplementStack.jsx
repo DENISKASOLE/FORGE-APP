@@ -43,8 +43,8 @@ export function SupplementStack({ nutrition, onSave, onContinue }) {
     <div style={{ display: "grid", gap: 16 }}>
       <div>
         <SectionLabel>Setup · Step 1 of 2</SectionLabel>
-        <div style={{ fontSize: 26, fontWeight: 800, color: T.accent, marginTop: 4 }}>Your supplement stack</div>
-        <div style={{ color: T.muted, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: "var(--display)", fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: T.accent, marginTop: 4 }}>Your supplement stack</div>
+        <div style={{ color: T.muted, fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>
           Log what you're already taking so your coach can factor it into your plan. Protein powder goes in your meals, not here.
         </div>
       </div>
@@ -67,7 +67,7 @@ export function SupplementStack({ nutrition, onSave, onContinue }) {
           <Field label="Dose" value={dose} onChange={setDose} placeholder="e.g. 600mg" />
         </div>
         <div>
-          <div style={{ color: T.muted, fontSize: 11, fontWeight: 800, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 }}>Timing</div>
+          <div style={{ color: T.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" }}>Timing</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {SUPPLEMENT_TIMINGS.map((t) => (
               <Chip key={t.key} selected={timing === t.key} onClick={() => setTiming(t.key)}>{t.label}</Chip>
@@ -83,19 +83,19 @@ export function SupplementStack({ nutrition, onSave, onContinue }) {
           {stack.map((item) => {
             const timingLabel = SUPPLEMENT_TIMINGS.find((t) => t.key === item.timing)?.label || item.timing;
             return (
-              <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${T.line}`, paddingTop: 8 }}>
+              <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `var(--hairline) solid ${T.lineSoft}`, paddingTop: 8 }}>
                 <div>
-                  <div style={{ color: T.accent, fontWeight: 700, fontSize: 14 }}>{item.name}</div>
+                  <div style={{ color: T.accent, fontWeight: 500, fontSize: 14 }}>{item.name}</div>
                   <div style={{ color: T.muted, fontSize: 12, marginTop: 2 }}>{item.dose}{item.dose ? " · " : ""}{timingLabel}</div>
                 </div>
-                <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: T.bad, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>×</button>
+                <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: T.bad, fontWeight: 500, fontSize: 18, cursor: "pointer" }}>×</button>
               </div>
             );
           })}
         </Card>
       )}
 
-      <Button onClick={save} disabled={saving} style={{ background: T.gold }}>
+      <Button onClick={save} disabled={saving}>
         {saving ? "Saving..." : stack.length ? "Continue" : "I don't take anything — continue"}
       </Button>
     </div>

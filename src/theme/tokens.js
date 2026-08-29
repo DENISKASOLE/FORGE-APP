@@ -38,5 +38,10 @@ export const T = {
   line: "var(--line)", lineSoft: "var(--line-soft)", muted: "var(--ink-2)", dim: "var(--ink-3)", accent: "var(--ink)",
   gold: "var(--ink)",
   meal: { breakfast: "var(--ink-2)", lunch: "var(--ink-2)", dinner: "var(--ink-2)", snacks: "var(--ink-2)" },
-  good: "var(--green)", warn: "var(--yellow)", bad: "var(--yellow)",
+  good: "var(--green)", goodBg: "var(--green-bg)",
+  warn: "var(--yellow)", warnBg: "var(--yellow-bg)",
+  bad: "var(--yellow)", badBg: "var(--yellow-bg)",
+  blue: "var(--blue)", blueBg: "var(--blue-bg)",
+  display: "var(--display)", sans: "var(--sans)",
+  radiusCard: "var(--radius-card)", radiusControl: "var(--radius-control)", hairline: "var(--hairline)",
 };

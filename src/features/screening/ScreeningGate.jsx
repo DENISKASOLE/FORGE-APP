@@ -7,7 +7,7 @@ import { ScreeningForm } from "./ScreeningForm.jsx";
 function FullScreenMessage({ children }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 500, display: "grid", placeItems: "center", padding: 24 }}>
-      <div style={{ color: T.muted, fontWeight: 700, textAlign: "center" }}>{children}</div>
+      <div style={{ fontFamily: T.sans, color: T.muted, fontWeight: 500, fontSize: 14, lineHeight: 1.6, textAlign: "center" }}>{children}</div>
     </div>
   );
 }
@@ -43,7 +43,7 @@ export function ScreeningGate({ client, children }) {
     return (
       <FullScreenMessage>
         <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
-          <div>Couldn't check your screening status. Check your connection and try again.</div>
+          <div style={{ fontFamily: T.sans, fontSize: 14, lineHeight: 1.6 }}>Couldn't check your screening status. Check your connection and try again.</div>
           <Button onClick={retry}>Retry</Button>
         </div>
       </FullScreenMessage>
