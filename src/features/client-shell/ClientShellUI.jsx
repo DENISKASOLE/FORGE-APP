@@ -3,7 +3,6 @@ import { supabase } from "../../supabaseClient.js";
 import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
-import { Field, inputStyle } from "../../components/ui/Field.jsx";
 import { ThemeToggle } from "../../components/ui/ThemeToggle.jsx";
 import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
@@ -178,6 +177,25 @@ export function ClientAvatar({ client, size = 54 }) {
   const photoUrl = usePhotoUrl(client.photo);
   return <div style={{ fontFamily: BRAND.display, width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : client.color, color: "#000", fontWeight: 500, fontSize: size * 0.4, overflow: "hidden", flexShrink: 0, border: `2px solid ${client.color}` }}>{photoUrl ? <img src={photoUrl} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client.avatar || (client.name ? client.name[0] : "?"))}</div>;
 }
+function SettingsSection({ label, children }) {
+  return (
+    <div style={{ background: "color-mix(in srgb, var(--card) 85%, transparent)", backdropFilter: "blur(14px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>
+      {label && <div style={{ padding: "10px 14px", fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.1em", textTransform: "uppercase", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>{label}</div>}
+      {children}
+    </div>
+  );
+}
+function SettingsRow({ title, sub, right, onClick, last = false }) {
+  return (
+    <div onClick={onClick} style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, borderBottom: last ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, cursor: onClick ? "pointer" : "default" }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 12, fontWeight: 500, color: BRAND.text }}>{title}</div>
+        {sub && <div style={{ fontFamily: BRAND.sans, fontSize: 9, color: BRAND.muted, marginTop: 2 }}>{sub}</div>}
+      </div>
+      {right}
+    </div>
+  );
+}
 export function ClientSettingsModal({ client, onClose }) {
   const [changing, setChanging] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -196,23 +214,30 @@ export function ClientSettingsModal({ client, onClose }) {
   }
   return (
     <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 460 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div>
-            <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em" }}>Settings</div>
-            <div style={{ color: BRAND.muted, fontSize: 14 }}>{client.name}</div>
-          </div>
-          <Button variant="ghost" onClick={onClose}>X</Button>
+      <Card style={{ width: "100%", maxWidth: 460, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 800, letterSpacing: "-0.4px", color: BRAND.text }}>Settings</div>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, color: BRAND.muted, cursor: "pointer", fontSize: 14, display: "grid", placeItems: "center" }}>&times;</button>
         </div>
-        <Field label="New password" value={newPassword} onChange={setNewPassword} type="password" placeholder="At least 6 characters" />
-        {message && <div style={{ color: message.includes("updated") ? BRAND.green : BRAND.yellow, fontWeight: 500, marginTop: 10, fontSize: 13 }}>{message}</div>}
-        <Button disabled={changing} onClick={updatePassword} style={{ marginTop: 12, width: "100%" }}>{changing ? "Updating..." : "Update password"}</Button>
-        <div style={{ borderTop: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 18, paddingTop: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400 }}>Appearance</div>
-            <ThemeToggle />
-          </div>
-          <Button variant="red" onClick={logout} style={{ width: "100%" }}>Log out</Button>
+        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+          <SettingsSection label="Appearance">
+            <div style={{ padding: "12px 14px" }}>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 12, fontWeight: 500, color: BRAND.text, marginBottom: 10 }}>Theme</div>
+              <ThemeToggle />
+            </div>
+          </SettingsSection>
+          <SettingsSection label="Account">
+            <div style={{ padding: "12px 14px", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 12, fontWeight: 500, color: BRAND.text, marginBottom: 8 }}>Change password</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" style={{ flex: 1, minWidth: 0, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "10px 12px", color: BRAND.text, fontFamily: BRAND.sans, fontSize: 13, outline: "none" }} />
+                <Button disabled={changing} onClick={updatePassword} style={{ flexShrink: 0 }}>{changing ? "..." : "Update"}</Button>
+              </div>
+              {message && <div style={{ fontFamily: BRAND.sans, color: message.includes("updated") ? BRAND.green : BRAND.red, fontWeight: 500, marginTop: 8, fontSize: 12 }}>{message}</div>}
+            </div>
+            <SettingsRow title="About FORGE" sub={client.name} right={<span style={{ fontFamily: BRAND.sans, fontSize: 9, color: BRAND.muted }}>v1.0.0</span>} last />
+          </SettingsSection>
+          <button onClick={logout} style={{ width: "100%", background: BRAND.redBg, border: `${BRAND.hairline} solid rgba(220,80,70,0.18)`, borderRadius: 14, padding: 14, color: BRAND.red, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Log Out</button>
         </div>
       </Card>
     </div>

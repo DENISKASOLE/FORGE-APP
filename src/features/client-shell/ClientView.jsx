@@ -7,9 +7,9 @@ import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
-import { isoDate } from "../../lib/dateUtils.js";
+import { isoDate, currentStreakWeeks } from "../../lib/dateUtils.js";
 import { useIsMobile } from "../../lib/browser.js";
-import { paymentStatus } from "../../lib/clientData.js";
+import { paymentStatus, daysSince } from "../../lib/clientData.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
@@ -204,41 +204,101 @@ function ClientHome({ client, goTo }) {
   const todaysLog = nutrition.food_log[isoDate()];
   const loggedCount = todaysLog ? ["breakfast", "lunch", "dinner"].filter((s) => todaysLog[s]).length + (todaysLog.snacks?.length ? 1 : 0) : 0;
   const nutritionPhaseLabel = { baseline: "Baseline week", report: "Report ready", adjustment: "Adjustment week", maintenance: "Maintenance" }[nutrition.phase] || "";
-  return <div style={{ display: "grid", gap: 11, maxWidth: "100%", overflowX: "hidden" }}>
+  const mealGoal = 4;
+  const mealPct = Math.min(100, Math.round((loggedCount / mealGoal) * 100));
+  const lastCheckIn = client.checkIns?.[client.checkIns.length - 1];
+  const checkinDue = !lastCheckIn || daysSince(lastCheckIn.date) >= 7;
+  const streakWeeks = currentStreakWeeks((client.checkIns || []).map((c) => c.date));
+  const firstName = (client.name || "").split(" ")[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning," : hour < 18 ? "Good afternoon," : "Good evening,";
+  return <div style={{ display: "grid", gap: 10, maxWidth: "100%", overflowX: "hidden", position: "relative" }}>
+    <div style={{ position: "absolute", top: -60, left: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(242,133,61,0.06) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} />
     <InstallPrompt color={client.color} />
-    <Card style={{ padding: isMobile ? 16 : 22 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12, alignItems: "center" }}>
-        <ClientAvatar client={client} size={isMobile ? 50 : 68} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase" }}>The Forge method</div>
-          <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 22 : 28, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.1, marginTop: 5 }}>Welcome back,<br />{client.name}</div>
-          <div style={{ color: BRAND.muted, fontWeight: 400, marginTop: 7, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.goals?.join(" + ") || client.goal || ""}</div>
-        </div>
-      </div>
-    </Card>
-    {goTo && !client.intake?.completedAt && <Card onClick={() => goTo("intake")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: BRAND.blue }}><div><div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Complete your intake</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>A few questions so your coach can tailor your plan</div></div><div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
-    {goTo && <Card onClick={() => goTo("nutrition")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `color-mix(in srgb, ${BRAND.green} 55%, transparent)` }}><div><div style={{ color: BRAND.green, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Nutrition · {nutritionPhaseLabel}</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{nutrition.phase === "baseline" || nutrition.phase === "adjustment" ? `${loggedCount} of 4 logged today` : "View your report"}</div></div><div style={{ color: BRAND.green, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Open &rarr;</div></Card>}
-    {goTo && <Card onClick={() => goTo("checkins")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: `color-mix(in srgb, ${BRAND.yellow} 55%, transparent)` }}><div><div style={{ color: BRAND.yellow, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Weekly check-in</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Log your week for your coach</div></div><div style={{ color: BRAND.yellow, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div></Card>}
-    <div>
-      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Today's session</div>
-      <Card style={{ padding: 16 }}>
-        {w ? (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-              <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.15, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todaysWorkout}</div>
-              {estMin && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", flexShrink: 0 }}>~{estMin} min</div>}
-            </div>
-            {chips.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>{chips.map((c, i) => <div key={i} style={{ padding: "8px 13px", borderRadius: 999, border: `${BRAND.hairline} solid ${BRAND.line}`, background: BRAND.card2, fontSize: 12, fontWeight: 500, color: BRAND.muted, whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>{c}</div>)}</div>}
-            {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", marginTop: 16, padding: "14px 0", borderRadius: BRAND.radiusControl, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontWeight: 500, fontSize: 14 }}>Start session →</button>}
-          </>
-        ) : (
-          <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "18px 10px" }}>
-            <NavIcon name="train" size={28} color={BRAND.dim} />
-            <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, lineHeight: 1.6, textAlign: "center", overflowWrap: "anywhere", maxWidth: "100%" }}>No workout assigned yet &mdash; your coach will add one</div>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 2px 2px", position: "relative", zIndex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 12, fontWeight: 400, color: BRAND.muted }}>{greeting}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.4px", color: BRAND.text, marginTop: 2 }}>{firstName}.</div>
+        {streakWeeks >= 2 && (
+          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(242,133,61,0.12)", border: "1px solid rgba(242,133,61,0.22)", borderRadius: 100, padding: "4px 11px" }}>
+            <span style={{ fontSize: 11 }}>🔥</span>
+            <span style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 600, color: BRAND.gold }}>{streakWeeks}-week streak</span>
           </div>
         )}
-      </Card>
+      </div>
+      <ClientAvatar client={client} size={isMobile ? 46 : 54} />
     </div>
+
+    {goTo && checkinDue ? (
+      <div onClick={() => goTo("checkins")} style={{ cursor: "pointer", background: "linear-gradient(135deg,#1f1208 0%,#2e1a08 100%)", border: "1.5px solid rgba(242,133,61,0.45)", borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: "0 0 32px rgba(242,133,61,0.1)", zIndex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(242,133,61,0.15)", border: "1px solid rgba(242,133,61,0.3)", display: "grid", placeItems: "center", flexShrink: 0 }}><NavIcon name="check" size={16} color={BRAND.gold} /></div>
+            <div>
+              <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: BRAND.text }}>Weekly Check-in Due</div>
+              <div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted, marginTop: 2 }}>Your coach is waiting for your update</div>
+            </div>
+          </div>
+          <div style={{ background: BRAND.gold, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>Required</div>
+        </div>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, lineHeight: 1.5, marginBottom: 12 }}>Your coach needs your update before the next session is loaded. Takes about 2 minutes.</div>
+        <button style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: "0 4px 18px rgba(242,133,61,0.3)" }}>Start Check-in →</button>
+      </div>
+    ) : goTo && (
+      <div style={{ background: BRAND.greenBg, border: "1px solid rgba(102,199,155,0.15)", borderRadius: 14, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
+        <NavIcon name="check" size={16} color={BRAND.green} />
+        <span style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 11, color: BRAND.green }}>Check-in submitted — you're all caught up ✓</span>
+      </div>
+    )}
+
+    {goTo && !client.intake?.completedAt && (
+      <Card onClick={() => goTo("intake")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", borderColor: BRAND.blue, zIndex: 1 }}>
+        <div><div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 12, letterSpacing: "0.02em" }}>Complete your intake</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>A few questions so your coach can tailor your plan</div></div>
+        <div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap" }}>Start &rarr;</div>
+      </Card>
+    )}
+
+    <div style={{ background: "linear-gradient(135deg,#2a1508,#3d1e08 60%,#241505)", border: "1px solid rgba(242,133,61,0.22)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
+      <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 600, color: BRAND.gold, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 7 }}>Today's Workout</div>
+      {w ? (
+        <>
+          <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 800, letterSpacing: "-0.3px", color: BRAND.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{todaysWorkout}</div>
+          <div style={{ display: "flex", gap: 16, marginTop: 10, marginBottom: 13 }}>
+            <div><div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, color: BRAND.text }}>{exs.length || "–"}</div><div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 9, color: BRAND.muted, marginTop: 2 }}>exercises</div></div>
+            <div style={{ width: 1, background: BRAND.line }} />
+            <div><div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, color: BRAND.text }}>{chips.length ? "4×8" : "–"}</div><div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 9, color: BRAND.muted, marginTop: 2 }}>avg sets</div></div>
+            <div style={{ width: 1, background: BRAND.line }} />
+            <div><div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, color: BRAND.text }}>{estMin ? `~${estMin}m` : "–"}</div><div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 9, color: BRAND.muted, marginTop: 2 }}>est.</div></div>
+          </div>
+          {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: "0 4px 18px rgba(242,133,61,0.3)" }}>Start Workout →</button>}
+        </>
+      ) : (
+        <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "12px 10px 4px" }}>
+          <NavIcon name="train" size={26} color={BRAND.dim} />
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, fontWeight: 400, lineHeight: 1.6, textAlign: "center" }}>No workout assigned yet — your coach will add one</div>
+        </div>
+      )}
+    </div>
+
+    {goTo && (
+      <div onClick={() => goTo("nutrition")} style={{ cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: 13, zIndex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontFamily: BRAND.sans, fontWeight: 600, fontSize: 12, color: BRAND.text }}>Nutrition today · {nutritionPhaseLabel}</div>
+          <span style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 10, color: BRAND.gold }}>Log →</span>
+        </div>
+        {nutrition.phase === "baseline" || nutrition.phase === "adjustment" ? (
+          <>
+            <div style={{ height: 5, background: BRAND.lineSoft, borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: `${mealPct}%`, background: `linear-gradient(90deg, ${BRAND.accentDeep}, ${BRAND.gold})`, borderRadius: 3 }} /></div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <span style={{ fontFamily: BRAND.sans, fontSize: 9, color: BRAND.muted }}>{loggedCount} of {mealGoal} meals logged</span>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>View your report</div>
+        )}
+      </div>
+    )}
+
     <HomeLearnStrip client={client} goTo={goTo} />
   </div>;
 }

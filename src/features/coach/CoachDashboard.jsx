@@ -215,18 +215,51 @@ export function computeNotifications(clients) {
   return items.sort((a, b) => a.severity - b.severity);
 }
 export const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", payment: "\u{1F4B0}", food: "\u{1F37D}️", exercise: "\u{1F4AA}" };
+// severity 0 = overdue/urgent (red), 1-2 = warm (ember/amber), 3 = celebratory (violet), 4 = informational (amber)
+function notifTone(n) {
+  if (n.type === "payment" && n.severity === 0) return { fg: BRAND.red, bg: BRAND.redBg, border: "rgba(220,80,70,0.2)" };
+  if (n.type === "birthday") return { fg: BRAND.violet, bg: BRAND.violetBg, border: "rgba(183,156,232,0.18)" };
+  if (n.type === "payment") return { fg: BRAND.green, bg: BRAND.greenBg, border: "rgba(102,199,155,0.15)" };
+  if (n.type === "food") return { fg: BRAND.yellow, bg: BRAND.yellowBg, border: "rgba(240,190,60,0.18)" };
+  return { fg: BRAND.gold, bg: "rgba(242,133,61,0.1)", border: "rgba(242,133,61,0.15)" };
+}
 export function NotificationsTab({ notifications, selectClient }) {
-  if (notifications.length === 0) return <Card><div style={{ color: BRAND.muted }}>You're all caught up. No notifications right now.</div></Card>;
+  const [handled, setHandled] = useState(() => new Set());
+  const [filter, setFilter] = useState("all");
+  const unhandled = notifications.filter((n) => !handled.has(n.id));
+  const shown = filter === "unhandled" ? unhandled : filter === "handled" ? notifications.filter((n) => handled.has(n.id)) : notifications;
+  function markHandled(id) { setHandled((s) => new Set(s).add(id)); }
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      {notifications.map((n) => (
-        <Card key={n.id} onClick={() => selectClient(n.client)} style={{ cursor: "pointer", padding: 14, border: `${BRAND.hairline} solid ${n.severity <= 1 ? BRAND.yellow : BRAND.line}` }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <div style={{ fontSize: 20 }}>{NOTIF_ICONS[n.type]}</div>
-            <div style={{ fontWeight: 500, fontSize: 14 }}>{n.text}</div>
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Alerts</div>
+        {unhandled.length > 0 && <div style={{ background: BRAND.redBg, border: "1px solid rgba(220,80,70,0.25)", borderRadius: 20, padding: "4px 10px", fontFamily: BRAND.sans, fontWeight: 700, fontSize: 11, color: BRAND.red }}>{unhandled.length} unhandled</div>}
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {[["all", "All"], ["unhandled", "Unhandled"], ["handled", "Handled"]].map(([k, label]) => (
+          <button key={k} onClick={() => setFilter(k)} style={{ background: filter === k ? BRAND.gold : BRAND.card, color: filter === k ? "#fff" : BRAND.muted, border: filter === k ? "none" : `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, padding: "6px 14px", fontFamily: BRAND.sans, fontWeight: filter === k ? 600 : 500, fontSize: 11, cursor: "pointer" }}>{label}</button>
+        ))}
+      </div>
+      {shown.length === 0 && <Card><div style={{ color: BRAND.muted }}>{filter === "unhandled" ? "You're all caught up. No unhandled alerts." : "Nothing here."}</div></Card>}
+      {shown.map((n) => {
+        const tone = notifTone(n);
+        const isHandled = handled.has(n.id);
+        return (
+          <div key={n.id} style={{ background: tone.bg, border: `1px solid ${tone.border}`, borderRadius: 16, padding: "13px 14px", opacity: isHandled ? 0.55 : 1 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 11, background: tone.bg, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 18 }}>{NOTIF_ICONS[n.type]}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: BRAND.sans, fontWeight: 600, fontSize: 13, color: BRAND.text }}>{n.client.name}</div>
+                <div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 11, color: BRAND.muted, marginTop: 4, lineHeight: 1.4 }}>{n.text}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 7 }}>
+              <button onClick={() => selectClient(n.client)} style={{ flex: 1, background: tone.fg, border: "none", borderRadius: 10, padding: 9, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 11, color: "#fff", cursor: "pointer" }}>Open Client</button>
+              {!isHandled && <button onClick={() => markHandled(n.id)} style={{ flex: 1, background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 10, padding: 9, fontFamily: BRAND.sans, fontWeight: 500, fontSize: 11, color: BRAND.muted, cursor: "pointer" }}>Mark Handled</button>}
+            </div>
           </div>
-        </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -631,44 +664,64 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
     </div>
   );
 }
+function SettingsGlassSection({ label, children, extra }) {
+  return (
+    <div>
+      {label && <div style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 400, color: BRAND.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+        <span>{label}</span>{extra}
+      </div>}
+      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 18, overflow: "hidden" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+function CoachSettingsRow({ k, v, onClick, last, danger }) {
+  return (
+    <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "13px 16px", borderBottom: last ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, cursor: onClick ? "pointer" : "default" }}>
+      <span style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 13, flexShrink: 0, color: danger ? BRAND.red : BRAND.text }}>{k}</span>
+      <span style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontWeight: 500, fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, textAlign: "right" }}>{v}</span>
+    </div>
+  );
+}
 export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, syncStatus, onOpenTool }) {
   const [busy, setBusy] = useState(false);
   const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   async function logout() { setBusy(true); await supabase.auth.signOut(); }
-  const Section = ({ t }) => <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 10, marginBottom: 2 }}>{t}</div>;
-  const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "13px 0", borderBottom: last ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 500, fontSize: 14, flexShrink: 0 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 500, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, textAlign: "right" }}>{v}</span></div>;
   const syncLabel = syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced";
-  return <div style={{ display: "grid", gap: 12 }}>
-    <div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase" }}>Coach</div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Settings</div></div>
-    <Card onClick={onEditProfile} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ fontFamily: BRAND.display, width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 500, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
-      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 500, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 500, marginTop: 4 }}>Edit profile ›</div></div>
-    </Card>
-    <Section t="Brand" />
-    <Card style={{ padding: "4px 16px" }}>
-      <Row k="Business name" v={`${trainer?.name || "Set"} ›`} onClick={onEditProfile} />
-      <Row k="Coach photo / logo" v={trainer?.photo ? "Set ›" : "Add ›"} onClick={onEditProfile} last />
-    </Card>
-    <Section t="Notifications" />
-    <Card style={{ padding: "4px 16px" }}>
-      <Row k="Automations & reminders" v="Open ›" onClick={() => onOpenTool?.("automations")} last />
-    </Card>
-    <Section t="Payments" />
-    <Card style={{ padding: "4px 16px" }}>
-      <Row k="Provider" v="PayPal" />
-      <Row k="Client payments" v="Open ›" onClick={() => onOpenTool?.("payments")} last />
-    </Card>
-    <Section t="Appearance" />
-    <Card style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400 }}>Theme</div>
-      <ThemeToggle />
-    </Card>
-    <Section t="Account" />
-    <Card style={{ padding: "4px 16px" }}>
-      <Row k="Active clients" v={String(clientsCount)} />
-      <Row k="Sync" v={syncLabel} last />
-    </Card>
-    <Button variant="red" disabled={busy} onClick={logout} style={{ width: "100%", marginTop: 6 }}>{busy ? "Logging out..." : "Log out"}</Button>
+  return <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Settings</div>
+    <div onClick={onEditProfile} style={{ cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ fontFamily: BRAND.display, width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.accentDeep}, ${BRAND.gold})`, overflow: "hidden", display: "grid", placeItems: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 16, color: BRAND.text }}>{trainer?.name || user.email?.split("@")[0]}</div>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Online Fitness Coach</div>
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.gold, fontSize: 10, fontWeight: 400, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div>
+      </div>
+      <div style={{ border: `${BRAND.hairline} solid ${BRAND.lineStrong}`, borderRadius: 10, padding: "7px 12px", fontFamily: BRAND.sans, fontWeight: 500, fontSize: 11, color: BRAND.muted, flexShrink: 0 }}>Edit</div>
+    </div>
+    <SettingsGlassSection label="Appearance">
+      <div style={{ padding: 16 }}>
+        <div style={{ fontFamily: BRAND.sans, fontWeight: 600, fontSize: 13, color: BRAND.text, marginBottom: 12 }}>Theme</div>
+        <ThemeToggle />
+      </div>
+    </SettingsGlassSection>
+    <SettingsGlassSection label="Brand">
+      <CoachSettingsRow k="Business name" v={`${trainer?.name || "Set"} ›`} onClick={onEditProfile} />
+      <CoachSettingsRow k="Coach photo / logo" v={trainer?.photo ? "Set ›" : "Add ›"} onClick={onEditProfile} last />
+    </SettingsGlassSection>
+    <SettingsGlassSection label="Payments">
+      <CoachSettingsRow k="Provider" v="PayPal" />
+      <CoachSettingsRow k="Client payments" v="Open ›" onClick={() => onOpenTool?.("payments")} last />
+    </SettingsGlassSection>
+    <SettingsGlassSection label="Notifications">
+      <CoachSettingsRow k="Automations & reminders" v="Open ›" onClick={() => onOpenTool?.("automations")} last />
+    </SettingsGlassSection>
+    <SettingsGlassSection label="Account">
+      <CoachSettingsRow k="Active clients" v={String(clientsCount)} />
+      <CoachSettingsRow k="Sync" v={syncLabel} last />
+    </SettingsGlassSection>
+    <button onClick={logout} disabled={busy} style={{ width: "100%", background: BRAND.redBg, border: `${BRAND.hairline} solid rgba(220,80,70,0.18)`, borderRadius: 14, padding: 14, color: BRAND.red, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 13, cursor: busy ? "not-allowed" : "pointer" }}>{busy ? "Logging out..." : "Log Out"}</button>
   </div>;
 }
 

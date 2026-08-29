@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
-import { Card } from "../../components/ui/Card.jsx";
 import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { sessionForWorkout, sessionStatsV2, detectSessionPBs } from "../../lib/trainingLogs.js";
+import { MEASUREMENT_FIELDS } from "../../lib/constants.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
 
@@ -116,6 +116,36 @@ function currentStreakWeeks(logs) {
   }
   return streak;
 }
+function weightHistoryFromCheckins(checkIns) {
+  const points = [];
+  (checkIns || []).forEach((c) => {
+    const ans = (c.answers || []).find((a) => /weight/i.test(a.question));
+    const val = ans ? parseFloat(String(ans.answer).replace(/[^0-9.]/g, "")) : NaN;
+    if (!isNaN(val) && val > 0) points.push({ date: c.date, value: val });
+  });
+  return points.sort((a, b) => a.date.localeCompare(b.date));
+}
+function WeightSparkline({ points, color = BRAND.green }) {
+  const w = 300, h = 60, pad = 6;
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values), max = Math.max(...values);
+  const span = max - min || 1;
+  const coords = points.map((p, i) => {
+    const x = pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((p.value - min) / span) * (h - pad * 2);
+    return [x, y];
+  });
+  const path = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const areaPath = `${path} L${coords[coords.length - 1][0].toFixed(1)},${h} L${coords[0][0].toFixed(1)},${h} Z`;
+  const last = coords[coords.length - 1];
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <path d={areaPath} fill={color} opacity={0.12} />
+      <path d={path} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <circle cx={last[0]} cy={last[1]} r={3.5} fill={color} />
+    </svg>
+  );
+}
 export function overallAdherence(program, logs) {
   if (!program?.weeks?.length) return { done: 0, total: 0, pct: 0 };
   let done = 0, total = 0;
@@ -170,37 +200,91 @@ export function ProgressTab({ client }) {
   const adherence = overallAdherence(client.program, logs);
   const insight = buildProgressInsight(streak, volumeTrend, pbs);
   const maxVolume = Math.max(1, ...volumeTrend.volumes);
-  const pbsThisMonth = pbs.filter((pb) => pb.date && pb.date.slice(0, 7) === new Date().toISOString().slice(0, 7)).length;
+  const weightHistory = weightHistoryFromCheckins(client.checkIns);
+  const latestWeight = weightHistory[weightHistory.length - 1]?.value ?? client.weight ?? null;
+  const prevWeight = weightHistory.length >= 2 ? weightHistory[weightHistory.length - 2].value : null;
+  const weightDelta = latestWeight != null && prevWeight != null ? +(latestWeight - prevWeight).toFixed(1) : null;
+  const measurementEntries = MEASUREMENT_FIELDS.filter(([k]) => client.measurements?.[k]).slice(0, 3);
 
-  return <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
-    <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 26 : 28, fontWeight: 500, letterSpacing: "-0.01em" }}>Progress</div>
-
-    <div style={{ background: "var(--green-bg)", border: `${BRAND.hairline} solid ${BRAND.green}`, borderRadius: BRAND.radiusCard, padding: 16 }}>
-      <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 14, lineHeight: 1.35 }}>{insight.text}</div>
+  return <div style={{ display: "grid", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 400, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>PROGRESS</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Progress</div>
+      </div>
     </div>
 
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ fontFamily: BRAND.display, color: adherence.total ? BRAND.green : BRAND.dim, fontSize: 22, fontWeight: 500 }}>{adherence.total ? `${adherence.pct}%` : "-"}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Adherence</div></div>
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: 22, fontWeight: 500 }}>{streak}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Wk Streak</div></div>
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: "14px 8px", textAlign: "center", overflow: "hidden" }}><div style={{ fontFamily: BRAND.display, color: BRAND.blue, fontSize: 22, fontWeight: 500 }}>{pbsThisMonth}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>PBs / mo</div></div>
+    <div style={{ background: "color-mix(in srgb, var(--card) 70%, transparent)", backdropFilter: "blur(20px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden" }}>
+      <div style={{ padding: "15px 17px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 6 }}>Body Weight</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <span style={{ fontFamily: BRAND.display, fontSize: 34, fontWeight: 800, color: BRAND.text, letterSpacing: "-1px" }}>{latestWeight != null ? latestWeight : "–"}</span>
+              <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>kg</span>
+            </div>
+            {weightDelta != null && (
+              <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: weightDelta <= 0 ? BRAND.greenBg : "rgba(220,80,70,0.12)", border: `1px solid ${weightDelta <= 0 ? "rgba(102,199,155,0.2)" : "rgba(220,80,70,0.2)"}`, borderRadius: 100, padding: "3px 8px" }}>
+                  <span style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: weightDelta <= 0 ? BRAND.green : BRAND.red }}>{weightDelta > 0 ? "+" : ""}{weightDelta} kg</span>
+                </span>
+                <span style={{ fontFamily: BRAND.sans, fontSize: 9, color: BRAND.muted }}>since last check-in</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div style={{ padding: "8px 10px 12px" }}>
+        {weightHistory.length >= 2 ? <WeightSparkline points={weightHistory} /> : (
+          <div style={{ padding: "14px 4px 4px", fontFamily: BRAND.sans, fontSize: 11, color: BRAND.dim }}>Log your weight in weekly check-ins to see a trend here.</div>
+        )}
+      </div>
+    </div>
+
+    <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ flex: 1, background: "rgba(242,133,61,0.08)", border: "1px solid rgba(242,133,61,0.15)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>STREAK</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.gold }}>{streak} <span style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted }}>wks</span></div></div>
+      </div>
+      <div style={{ flex: 1, background: BRAND.greenBg, border: "1px solid rgba(102,199,155,0.13)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>ADHERENCE</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.green }}>{adherence.total ? `${adherence.pct}%` : "–"}</div></div>
+      </div>
     </div>
 
     <div>
-      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>Recent personal bests</div>
-      <Card style={{ padding: 16 }}>
-        {pbs.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No PBs yet - complete a few sessions and they'll show up here.</div>}
+      <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 7 }}>Personal Records</div>
+      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: 14 }}>
+        {pbs.length === 0 && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13 }}>No PBs yet - complete a few sessions and they'll show up here.</div>}
         {pbs.slice(0, 3).map((pb, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
-            <div><div style={{ color: BRAND.text, fontWeight: 500, fontSize: 14 }}>{pb.name}</div><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, marginTop: 2 }}>{pb.detail} &middot; {pb.date}</div></div>
-            <span style={{ background: "var(--green-bg)", color: BRAND.green, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", padding: "4px 9px", borderRadius: 999 }}>New PB</span>
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+            <span style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 11, color: BRAND.text }}>{pb.name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 12, color: BRAND.gold }}>{pb.detail}</span>
+              <span style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 9, color: BRAND.green }}>↑ new</span>
+            </div>
           </div>
         ))}
-      </Card>
+      </div>
     </div>
 
+    {measurementEntries.length > 0 && (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+          <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>Measurements</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${measurementEntries.length}, minmax(0,1fr))`, gap: 8 }}>
+          {measurementEntries.map(([key, label]) => (
+            <div key={key} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 10, padding: 9, textAlign: "center" }}>
+              <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, color: BRAND.text }}>{client.measurements[key]}</div>
+              <div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 8, color: BRAND.muted, marginTop: 3 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
     <div>
-      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>Weekly volume</div>
-      <Card style={{ padding: 16 }}>
+      <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 7 }}>Weekly Training Volume</div>
+      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
           {volumeTrend.volumes.map((v, i) => {
             const isLast = i === volumeTrend.volumes.length - 1;
@@ -212,15 +296,15 @@ export function ProgressTab({ client }) {
             );
           })}
         </div>
-      </Card>
+      </div>
     </div>
 
-    <Card style={{ background: BRAND.card2, padding: 14 }}>
-      <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 13 }}>Looking for past sessions?</div>
-      <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 4, lineHeight: 1.6 }}>
-        They live on the Program calendar now. Every completed day carries a tick — tap it to see exactly what was lifted, set by set.
+    <div style={{ background: "rgba(242,133,61,0.06)", border: "1px solid rgba(242,133,61,0.14)", borderRadius: 16, padding: 14 }}>
+      <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13 }}>{insight.text}</div>
+      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 6, lineHeight: 1.6 }}>
+        Past sessions live on the Program calendar — every completed day carries a tick, tap it to see exactly what was lifted, set by set.
       </div>
-    </Card>
+    </div>
   </div>;
 }
 

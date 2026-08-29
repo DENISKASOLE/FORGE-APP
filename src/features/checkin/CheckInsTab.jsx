@@ -3,7 +3,7 @@ import { supabase } from "../../supabaseClient.js";
 import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
-import { Field, inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
+import { inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
@@ -137,23 +137,32 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text }}>Weekly Check-in</div>
-            {streak >= 2 && <span style={{ fontFamily: BRAND.sans, background: `color-mix(in srgb, ${BRAND.green} 16%, transparent)`, color: BRAND.green, borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 500 }}>🔥 {streak}-week streak</span>}
+            <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.4px", color: BRAND.text }}>Weekly Check-in</div>
+            {streak >= 2 && <span style={{ fontFamily: BRAND.sans, background: "rgba(242,133,61,0.12)", color: BRAND.gold, borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 600 }}>🔥 {streak}-week streak</span>}
           </div>
           {isCoach && <Button variant="dark" onClick={() => setShowEditor(true)}>Edit Questions</Button>}
         </div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.6, marginTop: 4 }}>{lastSubmission ? `Last check-in: ${lastSubmission.date} (${daysSinceLast} day${daysSinceLast === 1 ? "" : "s"} ago)` : "No check-ins submitted yet."}</div>
       </Card>
       {!isCoach && !loadingTemplate && (
-        <Card style={{ padding: isMobile ? 12 : 16, border: dueForCheckIn ? `1px solid ${BRAND.yellow}` : undefined }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 15, color: dueForCheckIn ? BRAND.yellow : BRAND.text }}>{isReview ? "Review & submit" : dueForCheckIn ? "Your check-in is due" : "Check in early if you'd like"}</div>
+        <div style={{
+          background: "color-mix(in srgb, var(--card) 65%, transparent)", backdropFilter: "blur(20px)",
+          border: `1px solid ${dueForCheckIn ? "rgba(242,133,61,0.35)" : BRAND.line}`,
+          borderRadius: 20, padding: isMobile ? 14 : 18,
+          boxShadow: dueForCheckIn ? "0 0 32px rgba(242,133,61,0.08)" : "none",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, letterSpacing: "-0.4px", color: dueForCheckIn ? BRAND.gold : BRAND.text }}>{isReview ? "Review & submit" : dueForCheckIn ? "Your check-in is due" : "Check in early if you'd like"}</div>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>{Math.min(step + 1, totalSteps)} / {totalSteps}</div>
           </div>
-          <div style={{ height: 4, background: BRAND.lineSoft, borderRadius: 999, overflow: "hidden", marginBottom: 16 }}>
-            <div style={{ height: 4, width: `${((step + 1) / totalSteps) * 100}%`, background: BRAND.text, borderRadius: 999, transition: "width .3s" }} />
+          <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden", marginBottom: 18 }}>
+            <div style={{ height: 4, width: `${((step + 1) / totalSteps) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} />
           </div>
-          {!isReview && <div style={{ display: "grid", gap: 16 }}>{pages[step].map(renderQuestion)}</div>}
+          {!isReview && <div style={{ display: "grid", gap: 12 }}>{pages[step].map((q) => (
+            <div key={q.id} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: "14px 16px" }}>
+              {renderQuestion(q)}
+            </div>
+          ))}</div>}
           {isReview && (
             <div style={{ display: "grid", gap: 10 }}>
               {template.map((q) => (
@@ -165,12 +174,12 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
               <div style={{ fontFamily: BRAND.sans, marginTop: 4, color: liveFlags.length ? BRAND.yellow : BRAND.green, fontSize: 12, fontWeight: 500 }}>{liveFlags.length ? `⚑ ${liveFlags.length} thing${liveFlags.length === 1 ? "" : "s"} flagged for your coach` : "✓ Nothing flagged"}</div>
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
             {step > 0 && <Button variant="dark" onClick={() => setStep(step - 1)} style={{ flex: 1 }}>Back</Button>}
-            {!isReview && <Button onClick={() => setStep(step + 1)} style={{ flex: 2 }}>Next</Button>}
-            {isReview && <Button onClick={submit} disabled={saving} style={{ flex: 2 }}>{saving ? "Submitting..." : "Submit Check-in"}</Button>}
+            {!isReview && <Button onClick={() => setStep(step + 1)} style={{ flex: 2, boxShadow: "0 6px 20px rgba(242,133,61,0.3)" }}>Continue →</Button>}
+            {isReview && <Button onClick={submit} disabled={saving} style={{ flex: 2, boxShadow: "0 8px 24px rgba(242,133,61,0.35)" }}>{saving ? "Submitting..." : "Submit Check-in →"}</Button>}
           </div>
-        </Card>
+        </div>
       )}
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 10 }}>History</div>
