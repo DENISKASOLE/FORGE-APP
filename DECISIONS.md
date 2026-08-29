@@ -34,4 +34,79 @@ The app uses inline `style={{}}` objects everywhere (no CSS classes/modules), bu
 - **Retired `GLOBAL_TEXT_CSS`** (the old injected `<style>` block in `App.jsx`). It force-applied `font-weight: 700 !important` to everything, which would have silently overridden the new 400/500 typography rule everywhere; theme.css's global button/select/checkbox rules already superseded the rest of it. Folded its two still-useful rules (`img,video{max-width:100%}`, viewport overflow guard) into `theme.css`.
 - **Loading splash "FORGE" → "Forge"**, set in Sora. Spec says sentence case everywhere with no exception carved out for the wordmark, so applying it literally rather than treating the logo as exempt.
 
-(Further entries appended as the restyle proceeds through client and coach screens.)
+## Milestone 2/3 — screen-by-screen restyle
+
+Executed via several parallel subagents (one per independent feature-folder
+group), each given the exact token/typography/component rules above plus
+the alpha-suffix-bug pattern to hunt for, and the largest cross-cutting
+files (`TrainScreens.jsx`, `CoachDashboard.jsx`, `ClientView.jsx`,
+`ClientShellUI.jsx`) handled directly rather than split across agents, to
+keep one consistent hand on the files every screen composes from. All
+agents' changes were spot-checked and verified with a full build + lint
+pass before committing. Notable judgment calls surfaced during review:
+
+- **Alpha-suffix bug was widespread**: `` `${BRAND.x}NN` `` (and one
+  `BRAND.gold + "77"` string-concatenation variant) appeared in ~15 spots
+  across `InjuryBanner.jsx`, `TrainScreens.jsx`, `CoachDashboard.jsx`,
+  `ProfileTab.jsx`, `ScreeningForm.jsx`, `Report.jsx`, and more — all fixed
+  with a dedicated `-bg` token or `color-mix()`. Ran a final full-repo grep
+  for both the template-literal and string-concatenation forms of this bug
+  after all agents finished, to make sure nothing was missed.
+- **`BRAND.gold` + literal `"#000"` text is a real light-theme bug**:
+  `BRAND.gold` now resolves to the `ink` token, which flips from white
+  (dark theme) to near-black (light theme). Anywhere a `BRAND.gold`
+  background was paired with hardcoded black text (`TrainScreens.jsx`'s
+  rest-timer buttons, day-pills, exercise-tag badges, library-picker
+  toggle, `InjuryBanner.jsx`'s icon circle) would have rendered invisible
+  black-on-black in light mode. Replaced every instance with `BRAND.btnInk`
+  (the token that's guaranteed to contrast against an ink-colored fill in
+  both themes). Left `color:"#000"` alone where paired with `BRAND.green`/
+  `BRAND.yellow` (mid-brightness in both themes, not an inversion risk) or
+  with an arbitrary per-client identity color (already an accepted
+  exception elsewhere).
+- **MealSheet's cooking-method chips**: removed the `color={accentColor}`
+  prop from `<Chip>` calls (the prop no longer exists on the component) —
+  falls back to the primitive's own neutral/selected treatment.
+- **Nutrition macro bars**: `T.meal.breakfast/lunch/dinner/snacks` (already
+  flattened to `dim` in the tokens file per the categorical-color removal
+  above) referenced directly as `T.dim` for clarity in `Report.jsx`.
+- **CoachDashboard tool tiles**: previously each tile (Templates, Trials,
+  Analytics, Exercise Library, Calendar...) had a distinct accent color
+  purely for visual variety. Flattened to one neutral dot per tile —
+  differentiated by icon + label only, consistent with the categorical-
+  color-removal rule applied to Learn/meal-types.
+- **Coach alerts/Today-agenda**: check-ins-due, payments-due, and the
+  Alerts count all consistently use yellow (needs-attention) now, having
+  previously been an inconsistent mix of red/orange.
+
+## Layout bug found mid-restyle (user-reported, with a live screenshot)
+
+`html, body, #root` used `max-width: 100vw` instead of `100%`. `100vw` is
+fixed to the initial containing block and isn't guaranteed to equal the
+true visual viewport in every mobile/PWA context; once any descendant
+nudged the real document width even slightly wider, the whole page could
+scroll sideways — which reads as every card being clipped at the same
+point, and explains why the reported screenshot showed body text sliced
+off mid-word ("No workout as...") rather than CSS-ellipsis-truncated: the
+text wasn't actually truncated, it was off-screen. Fixed by switching to
+`width:100%; max-width:100%` (keeping the existing `overflow-x:hidden`) on
+`html/body/#root`, and removing the same `100vw` pattern from the two
+remaining occurrences in `ClientView.jsx`'s shell wrappers (a full-repo
+grep confirmed no other files had it). Could not fully re-verify live in
+the browser afterward (Playwright hit the same environment congestion that
+affected the rest of tonight's session), so this is a code-level fix
+backed by the specific CSS mechanism identified, not a live-confirmed one
+— worth a manual check on a real device.
+
+## Agent session limit
+
+All 5 parallel restyle subagents hit the account's session rate limit
+partway through (resets 5:20am local time) — `nutrition/progress` and
+`profile/screening/auth` finished cleanly before the cutoff; the
+`messages/checkin/scheduling/payments/learn/coach-tools` batch also
+finished; `TrainScreens.jsx` and `CoachDashboard.jsx` were both left
+partially done (each had completed a first normalization pass but not the
+follow-up pass fixing remaining alpha-suffix bugs and ink-contrast issues)
+and were finished directly rather than re-delegated, since further agent
+spawns would hit the same limit.
+

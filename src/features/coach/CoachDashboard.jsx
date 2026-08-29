@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/Card.jsx";
 import { Field, inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
 import { Mini } from "../../components/ui/Mini.jsx";
 import { NavIcon } from "../../components/ui/NavIcon.jsx";
+import { ThemeToggle } from "../../components/ui/ThemeToggle.jsx";
 import { CoachIcon } from "../../components/ui/CoachIcon.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
@@ -652,6 +653,11 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
     <Card style={{ padding: "4px 16px" }}>
       <Row k="Provider" v="PayPal" />
       <Row k="Client payments" v="Open ›" onClick={() => onOpenTool?.("payments")} last />
+    </Card>
+    <Section t="Appearance" />
+    <Card style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400 }}>Theme</div>
+      <ThemeToggle />
     </Card>
     <Section t="Account" />
     <Card style={{ padding: "4px 16px" }}>

@@ -4,6 +4,7 @@ import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field, inputStyle } from "../../components/ui/Field.jsx";
+import { ThemeToggle } from "../../components/ui/ThemeToggle.jsx";
 import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
@@ -207,6 +208,10 @@ export function ClientSettingsModal({ client, onClose }) {
         {message && <div style={{ color: message.includes("updated") ? BRAND.green : BRAND.yellow, fontWeight: 500, marginTop: 10, fontSize: 13 }}>{message}</div>}
         <Button disabled={changing} onClick={updatePassword} style={{ marginTop: 12, width: "100%" }}>{changing ? "Updating..." : "Update password"}</Button>
         <div style={{ borderTop: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 18, paddingTop: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400 }}>Appearance</div>
+            <ThemeToggle />
+          </div>
           <Button variant="red" onClick={logout} style={{ width: "100%" }}>Log out</Button>
         </div>
       </Card>
