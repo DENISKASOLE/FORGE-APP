@@ -54,18 +54,18 @@ export function AddClientModal({ onClose, onCreate }) {
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 780, maxHeight: "92vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div><div style={{ fontSize: 24, fontWeight: 900 }}>Add New Client</div><div style={{ color: BRAND.muted }}>Create the profile first. Invite the client later.</div></div>
+          <div><div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text }}>Add new client</div><div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 400, marginTop: 4 }}>Create the profile first. Invite the client later.</div></div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ marginBottom: 14 }}>
-          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 8 }}>CLIENT TYPE</div>
-          <div style={{ display: "flex", gap: 8 }}>{CLIENT_TYPES.map((t) => <button key={t} onClick={() => setProfile("clientType", t)} style={{ border: `1px solid ${form.profile.clientType === t ? BRAND.gold : BRAND.line}`, background: form.profile.clientType === t ? BRAND.gold : BRAND.card2, color: form.profile.clientType === t ? "#000" : BRAND.text, borderRadius: 999, padding: "8px 16px", fontWeight: 900, cursor: "pointer" }}>{t}</button>)}</div>
-          <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 6 }}>{form.profile.clientType === "Online" ? "Online clients get Check-ins and Payments instead of Schedule and Packages." : "1:1 clients keep the in-person Schedule and Packages tabs."}</div>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Client type</div>
+          <div style={{ display: "flex", gap: 8 }}>{CLIENT_TYPES.map((t) => <button key={t} onClick={() => setProfile("clientType", t)} style={{ fontFamily: BRAND.sans, border: `${BRAND.hairline} solid ${form.profile.clientType === t ? "transparent" : BRAND.line}`, background: form.profile.clientType === t ? BRAND.btnBg : BRAND.card2, color: form.profile.clientType === t ? BRAND.btnInk : BRAND.text, borderRadius: 999, padding: "8px 16px", fontWeight: 500, fontSize: 13, cursor: "pointer" }}>{t}</button>)}</div>
+          <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 6 }}>{form.profile.clientType === "Online" ? "Online clients get Check-ins and Payments instead of Schedule and Packages." : "1:1 clients keep the in-person Schedule and Packages tabs."}</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-          <div style={{ width: 72, height: 72, borderRadius: 22, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 1000 }}>{photoPreview ? <img src={photoPreview} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
+          <div style={{ fontFamily: BRAND.display, width: 72, height: 72, borderRadius: BRAND.radiusCard, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 500 }}>{photoPreview ? <img src={photoPreview} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
           <div style={{ flex: 1 }}>
-            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>CLIENT PHOTO</div>
+            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 6 }}>Client photo</div>
             <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
           </div>
         </div>
@@ -79,11 +79,11 @@ export function AddClientModal({ onClose, onCreate }) {
         </div>
         <div style={{ marginTop: 14 }}>
           <Button variant="dark" onClick={() => setShowColorPicker((v) => !v)}>{showColorPicker ? "Hide client color" : "Change client color"}</Button>
-          {showColorPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: 12, border: form.color === c ? `3px solid ${BRAND.text}` : `1px solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>}
+          {showColorPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>{CLIENT_COLORS.map((c) => <button key={c} onClick={() => setForm({ ...form, color: c, profile: { ...form.profile, color: c } })} style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, border: form.color === c ? `2px solid ${BRAND.text}` : `${BRAND.hairline} solid ${BRAND.line}`, background: c, cursor: "pointer" }} />)}</div>}
         </div>
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: BRAND.muted, fontWeight: 900, marginBottom: 8 }}>GOALS</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ border: `1px solid ${form.profile.goals.includes(g) ? BRAND.gold : BRAND.line}`, background: form.profile.goals.includes(g) ? BRAND.gold : BRAND.card2, color: form.profile.goals.includes(g) ? "#000" : BRAND.text, borderRadius: 20, padding: "7px 11px", fontWeight: 800 }}>{String(g).toUpperCase()}</button>)}</div>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Goals</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{GOAL_OPTIONS.map((g) => <button key={g} onClick={() => toggleGoal(g)} style={{ fontFamily: BRAND.sans, border: `${BRAND.hairline} solid ${form.profile.goals.includes(g) ? "transparent" : BRAND.line}`, background: form.profile.goals.includes(g) ? BRAND.btnBg : BRAND.card2, color: form.profile.goals.includes(g) ? BRAND.btnInk : BRAND.text, borderRadius: 999, padding: "7px 12px", fontWeight: 500, fontSize: 12 }}>{g}</button>)}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginTop: 14 }}>
           <Field label="Injuries" value={form.profile.injuries} onChange={(v) => setProfile("injuries", v)} textarea />
@@ -151,17 +151,17 @@ export function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
       <Card style={{ width: "100%", maxWidth: 560 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 1000 }}>Coach Settings</div>
-            <div style={{ color: BRAND.muted }}>Edit your profile shown inside Forge.</div>
+            <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Coach settings</div>
+            <div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 400, marginTop: 4 }}>Edit your profile shown inside Forge.</div>
           </div>
           <Button variant="ghost" onClick={onClose}>X</Button>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-          <div style={{ width: 84, height: 84, borderRadius: 24, background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+          <div style={{ fontFamily: BRAND.display, width: 84, height: 84, borderRadius: BRAND.radiusCard, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 500 }}>
             {photoUrl ? <img src={photoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}
           </div>
           <label style={{ flex: 1 }}>
-            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>PROFILE PHOTO</div>
+            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 6 }}>Profile photo</div>
             <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
           </label>
         </div>
@@ -170,9 +170,9 @@ export function CoachSettingsModal({ user, trainer, onClose, onSaved }) {
           <Field label="Email" value={form.email} onChange={(v) => set("email", v)} />
           <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} />
         </div>
-        {message && <div style={{ color: BRAND.green, fontWeight: 900, marginTop: 12 }}>{message}</div>}
+        {message && <div style={{ color: BRAND.green, fontWeight: 500, fontSize: 13, marginTop: 12 }}>{message}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <Button disabled={saving} onClick={save} style={{ flex: 1 }}>{saving ? "Saving..." : "Save Settings"}</Button>
+          <Button disabled={saving} onClick={save} style={{ flex: 1 }}>{saving ? "Saving..." : "Save settings"}</Button>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
       </Card>
@@ -215,10 +215,10 @@ export function NotificationsTab({ notifications, selectClient }) {
   return (
     <div style={{ display: "grid", gap: 8 }}>
       {notifications.map((n) => (
-        <Card key={n.id} onClick={() => selectClient(n.client)} style={{ cursor: "pointer", padding: 14, border: `1px solid ${n.severity === 0 ? BRAND.red : n.severity === 1 ? BRAND.red : n.severity === 2 ? BRAND.gold : BRAND.line}` }}>
+        <Card key={n.id} onClick={() => selectClient(n.client)} style={{ cursor: "pointer", padding: 14, border: `${BRAND.hairline} solid ${n.severity <= 1 ? BRAND.yellow : BRAND.line}` }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <div style={{ fontSize: 20 }}>{NOTIF_ICONS[n.type]}</div>
-            <div style={{ fontWeight: 800 }}>{n.text}</div>
+            <div style={{ fontWeight: 500, fontSize: 14 }}>{n.text}</div>
           </div>
         </Card>
       ))}
@@ -235,18 +235,18 @@ export function CoachPaymentsScreen({ clients, selectClient, onBack }) {
   const paid = withDue.filter((c) => c.paymentPaid).length;
   return <div style={{ display: "grid", gap: 14 }}>
     <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
-    <div style={{ fontSize: 26, fontWeight: 900 }}>Payments</div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-      <Mini label="Overdue" value={String(overdue)} color={overdue ? BRAND.red : BRAND.text} />
-      <Mini label="Due soon" value={String(dueSoon)} color={dueSoon ? BRAND.gold : BRAND.text} />
+    <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Payments</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
+      <Mini label="Overdue" value={String(overdue)} color={overdue ? BRAND.yellow : BRAND.text} />
+      <Mini label="Due soon" value={String(dueSoon)} color={dueSoon ? BRAND.yellow : BRAND.text} />
       <Mini label="Paid" value={String(paid)} color={BRAND.green} />
     </div>
     <Card>
-      <div style={{ fontSize: 16, fontWeight: 1000, marginBottom: 4 }}>By client</div>
+      <div style={{ fontWeight: 500, fontSize: 16, marginBottom: 4 }}>By client</div>
       {sorted.length === 0 && <div style={{ color: BRAND.muted }}>No payment dates set yet. Add a due date on a client to track it here.</div>}
-      {sorted.map((c) => { const st = paymentStatus(c); return <div key={c.id} onClick={() => selectClient(c)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${BRAND.line}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
-        <div><div style={{ fontWeight: 900 }}>{c.name}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 700 }}>{c.paymentDueDate}</div></div>
-        <div style={{ color: st.color, fontWeight: 900, fontSize: 13, textAlign: "right" }}>{st.label}</div>
+      {sorted.map((c) => { const st = paymentStatus(c); return <div key={c.id} onClick={() => selectClient(c)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
+        <div><div style={{ fontWeight: 500 }}>{c.name}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>{c.paymentDueDate}</div></div>
+        <div style={{ color: st.color, fontWeight: 500, fontSize: 13, textAlign: "right" }}>{st.label}</div>
       </div>; })}
     </Card>
   </div>;
@@ -270,8 +270,8 @@ export function CoachBroadcastScreen({ clients, refresh, onBack }) {
   }
   return <div style={{ display: "grid", gap: 14 }}>
     <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
-    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Broadcast</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Send one message to every client. Each one receives it in their Messages.</div></div>
-    {sentCount != null && <Card style={{ borderColor: BRAND.green }}><div style={{ color: BRAND.green, fontWeight: 900 }}>Sent to {sentCount} client{sentCount === 1 ? "" : "s"}.</div></Card>}
+    <div><div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Broadcast</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Send one message to every client. Each one receives it in their Messages.</div></div>
+    {sentCount != null && <Card style={{ borderColor: BRAND.green }}><div style={{ color: BRAND.green, fontWeight: 500 }}>Sent to {sentCount} client{sentCount === 1 ? "" : "s"}.</div></Card>}
     <Card style={{ display: "grid", gap: 10 }}>
       <textarea value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Write your message to all clients..." style={inputStyle({ minHeight: 130, resize: "vertical" })} />
       <Button onClick={sendAll} disabled={sending || !clients.length} style={{ width: "100%" }}>{sending ? "Sending..." : `Send to all ${clients.length} client${clients.length === 1 ? "" : "s"}`}</Button>
@@ -281,10 +281,10 @@ export function CoachBroadcastScreen({ clients, refresh, onBack }) {
 export function CoachIntakeFormsScreen({ user, onBack }) {
   return <div style={{ display: "grid", gap: 14 }}>
     <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
-    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Intake Form</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>The application every new client completes in-app. Their answers land on their Profile.</div></div>
+    <div><div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Intake form</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>The application every new client completes in-app. Their answers land on their Profile.</div></div>
     {INTAKE_FORM.map((s) => <Card key={s.name}>
-      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.6 }}>{s.name}</div>
-      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>{s.fields.map((f) => <div key={f.id} style={{ borderTop: `1px solid ${BRAND.line}`, paddingTop: 8 }}><div style={{ fontWeight: 800, fontSize: 14 }}>{f.q}{f.req ? "" : "  (optional)"}</div>{f.options && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>{f.options.join("  ·  ")}</div>}{f.type === "rating" && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>Rating 1 to 5</div>}</div>)}</div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{s.name}</div>
+      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>{s.fields.map((f) => <div key={f.id} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 8 }}><div style={{ fontWeight: 500, fontSize: 14 }}>{f.q}{f.req ? "" : "  (optional)"}</div>{f.options && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>{f.options.join("  ·  ")}</div>}{f.type === "rating" && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>Rating 1 to 5</div>}</div>)}</div>
     </Card>)}
   </div>;
 }
@@ -296,44 +296,44 @@ export function CoachAutomationsScreen({ user, onBack }) {
   }, [user.id]);
   async function persist(next) { setRules(next); await upsertTrainerData(user.id, "automations", { rules: next }); }
   if (rules === null) return <div style={{ display: "grid", gap: 14 }}><Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button><Card><div style={{ color: BRAND.muted }}>Loading...</div></Card></div>;
-  const Row = ({ k, title, desc }) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: `1px solid ${BRAND.line}`, paddingTop: 12, marginTop: 12 }}>
-    <div><div style={{ fontWeight: 900, fontSize: 14 }}>{title}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>{desc}</div></div>
+  const Row = ({ k, title, desc }) => <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 12, marginTop: 12 }}>
+    <div><div style={{ fontWeight: 500, fontSize: 14 }}>{title}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2 }}>{desc}</div></div>
     <button onClick={() => persist({ ...rules, [k]: !rules[k] })} style={{ width: 46, height: 26, borderRadius: 999, border: "none", cursor: "pointer", background: rules[k] ? BRAND.green : BRAND.card2, position: "relative", flexShrink: 0 }}><span style={{ position: "absolute", top: 3, left: rules[k] ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></button>
   </div>;
   return <div style={{ display: "grid", gap: 14 }}>
     <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
-    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Automations</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Rules that keep clients on track in the background.</div></div>
+    <div><div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Automations</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Rules that keep clients on track in the background.</div></div>
     <Card style={{ paddingTop: 4 }}>
       <Row k="staleWorkout" title="Inactivity nudge" desc={`Remind clients who have not logged a workout in ${rules.staleWorkoutDays} days`} />
       <Row k="checkinReminder" title="Weekly check-in reminder" desc="Nudge clients whose weekly check-in is due" />
       <Row k="paymentReminder" title="Payment reminder" desc="Remind clients before a payment is due" />
       <Row k="welcomeMessage" title="Welcome message" desc="Auto-message new clients when they join" />
     </Card>
-    <Card style={{ borderColor: `${BRAND.gold}44` }}><div style={{ color: BRAND.gold, fontWeight: 900, fontSize: 13 }}>Heads up</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 4, lineHeight: 1.5 }}>These rules are saved, but sending on a schedule needs a small Supabase scheduled function (cron), since the app cannot run timers while it is closed. Ask me to add it when you want automations to actually fire.</div></Card>
+    <Card style={{ borderColor: `color-mix(in srgb, ${BRAND.blue} 40%, transparent)` }}><div style={{ color: BRAND.blue, fontWeight: 500, fontSize: 13 }}>Heads up</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 4, lineHeight: 1.5 }}>These rules are saved, but sending on a schedule needs a small Supabase scheduled function (cron), since the app cannot run timers while it is closed. Ask me to add it when you want automations to actually fire.</div></Card>
   </div>;
 }
 
 export function CoachToolsTab({ onOpen }) {
   const isMobile = useIsMobile(520);
   const TOOLS = [
-    { key: "templates", name: "Programs", meta: "Templates & builder", color: BRAND.purple },
-    { key: "exercise_library", name: "Exercise Library", meta: "Custom moves & video", color: BRAND.orange },
-    { key: "calendar", name: "Calendar", meta: "Sessions & bookings", color: BRAND.cyan },
-    { key: "analytics", name: "Analytics", meta: "Adherence & trends", color: BRAND.green },
-    { key: "trials", name: "Trials", meta: "Consults & assessments", color: BRAND.red },
-    { key: "content", name: "Content", meta: "Forge Academy articles", color: BRAND.blue },
-    { key: "payments", name: "Payments", meta: "Plans & invoices", color: BRAND.green },
-    { key: "forms", name: "Intake Forms", meta: "Onboarding & health", color: BRAND.cyan },
-    { key: "broadcast", name: "Broadcast", meta: "Message every client", color: BRAND.purple },
-    { key: "automations", name: "Automations", meta: "Reminders & nudges", color: BRAND.orange },
+    { key: "templates", name: "Programs", meta: "Templates & builder" },
+    { key: "exercise_library", name: "Exercise Library", meta: "Custom moves & video" },
+    { key: "calendar", name: "Calendar", meta: "Sessions & bookings" },
+    { key: "analytics", name: "Analytics", meta: "Adherence & trends" },
+    { key: "trials", name: "Trials", meta: "Consults & assessments" },
+    { key: "content", name: "Content", meta: "Forge Academy articles" },
+    { key: "payments", name: "Payments", meta: "Plans & invoices" },
+    { key: "forms", name: "Intake Forms", meta: "Onboarding & health" },
+    { key: "broadcast", name: "Broadcast", meta: "Message every client" },
+    { key: "automations", name: "Automations", meta: "Reminders & nudges" },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
-    <div><div style={{ fontSize: 26, fontWeight: 900 }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Everything you run your coaching with</div></div>
+    <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
-      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ textAlign: "left", cursor: "pointer", background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: 18, padding: 14 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: `${t.color}22`, display: "grid", placeItems: "center", marginBottom: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: t.color, display: "block" }} /></div>
-        <div style={{ fontSize: 13, fontWeight: 1000 }}>{t.name}</div>
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700, marginTop: 3 }}>{t.meta}</div>
+      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14 }}>
+        <div style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, background: BRAND.card2, display: "grid", placeItems: "center", marginBottom: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: BRAND.gold, display: "block" }} /></div>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{t.name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>{t.meta}</div>
       </button>)}
     </div>
   </div>;
@@ -347,17 +347,17 @@ export const COACH_NAV = [
 ];
 export function CoachBottomNav({ tab, setTab, unread }) {
   return (
-    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `1px solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `${BRAND.hairline} solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {COACH_NAV.map((item) => {
         const active = tab === item.key;
         const color = active ? BRAND.gold : BRAND.dim;
         return (
-          <button key={item.key} onClick={() => setTab(item.key)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
-            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `${BRAND.gold}22` : "transparent", display: "grid", placeItems: "center" }}>
+          <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
+            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `color-mix(in srgb, ${BRAND.gold} 14%, transparent)` : "transparent", display: "grid", placeItems: "center" }}>
               {item.icon === "gear" || item.icon === "home" ? <NavIcon name={item.icon} color={color} /> : <CoachIcon name={item.icon} size={21} color={color} />}
-              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.red, color: "#fff", fontSize: 9, fontWeight: 900, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unread > 9 ? "9+" : unread}</div>}
+              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unread > 9 ? "9+" : unread}</div>}
             </div>
-            <div style={{ fontSize: 10, fontWeight: 800, color }}>{item.label}</div>
+            <div style={{ fontSize: 10, fontWeight: active ? 500 : 400, color }}>{item.label}</div>
           </button>
         );
       })}
@@ -367,21 +367,22 @@ export function CoachBottomNav({ tab, setTab, unread }) {
 export function CoachTile({ icon, name, meta, count, quiet, wide, isTablet, color = BRAND.gold, onClick }) {
   return (
     <button onClick={onClick} style={{
+      fontFamily: BRAND.sans,
       gridColumn: wide ? "1 / -1" : "auto",
-      background: BRAND.card, border: `1px solid ${BRAND.line}`, borderRadius: isTablet ? 26 : 22,
+      background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard,
       padding: isTablet ? 24 : 18, minHeight: wide ? (isTablet ? 110 : 96) : (isTablet ? 172 : 136), cursor: "pointer", position: "relative",
       display: "flex", flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start",
       justifyContent: wide ? "flex-start" : "space-between", gap: wide ? 16 : 0, textAlign: "left", minWidth: 0,
     }}>
       {count != null && !wide && (
-        <div style={{ position: "absolute", top: isTablet ? 20 : 16, right: isTablet ? 20 : 16, minWidth: isTablet ? 26 : 22, height: isTablet ? 26 : 22, padding: "0 7px", borderRadius: 999, background: quiet ? "transparent" : color, border: quiet ? `1px solid ${BRAND.line}` : "none", color: quiet ? BRAND.dim : "#000", fontSize: isTablet ? 13 : 11, fontWeight: 1000, display: "grid", placeItems: "center" }}>{count}</div>
+        <div style={{ position: "absolute", top: isTablet ? 20 : 16, right: isTablet ? 20 : 16, minWidth: isTablet ? 26 : 22, height: isTablet ? 26 : 22, padding: "0 7px", borderRadius: 999, background: quiet ? "transparent" : color, border: quiet ? `${BRAND.hairline} solid ${BRAND.line}` : "none", color: quiet ? BRAND.dim : "#000", fontSize: isTablet ? 13 : 11, fontWeight: 500, display: "grid", placeItems: "center" }}>{count}</div>
       )}
-      <div style={{ width: isTablet ? 66 : 52, height: isTablet ? 66 : 52, borderRadius: isTablet ? 20 : 16, background: `${color}22`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+      <div style={{ width: isTablet ? 66 : 52, height: isTablet ? 66 : 52, borderRadius: isTablet ? BRAND.radiusCard : BRAND.radiusControl, background: BRAND.card2, display: "grid", placeItems: "center", flexShrink: 0 }}>
         <CoachIcon name={icon} size={isTablet ? 32 : 26} color={color} />
       </div>
       <div style={{ flex: wide ? 1 : "none", width: wide ? "auto" : "100%", minWidth: 0, marginTop: wide ? 0 : "auto" }}>
-        <div style={{ fontWeight: 900, fontSize: 15, color: BRAND.text, textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-        <div style={{ color, fontSize: 12, fontWeight: 700, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
+        <div style={{ fontWeight: 500, fontSize: 15, color: BRAND.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>
       </div>
       {wide && <NavIcon name="back" size={18} color={BRAND.dim} rotate={180} />}
     </button>
@@ -419,54 +420,54 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <div>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.9 }}>
+        <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
           {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
         </div>
-        <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 900, letterSpacing: -0.4, marginTop: 4 }}>{greeting}, {name}</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>
+        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 26 : 30, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 4 }}>{greeting}, {name}</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>
           {todaysSessions ?? "..."} session{todaysSessions === 1 ? "" : "s"} scheduled today{flagged > 0 ? ` · ${flagged} need attention` : ""}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-        <Mini label="Active" value={String(clients.length)} color={BRAND.gold} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
+        <Mini label="Active" value={String(clients.length)} />
         <Mini label="Adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
-        <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.red : BRAND.text} />
+        <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.yellow : BRAND.text} />
       </div>
       {agenda && (agenda.sessions.length > 0 || agenda.checkInsDue.length > 0 || agenda.paymentsDue.length > 0) && (
         <Card style={{ padding: 16 }}>
-          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 }}>Today</div>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 10 }}>Today</div>
           {agenda.sessions.map((s) => {
             const client = clients.find((c) => c.id === s.clientId);
             return (
-              <div key={s.id} onClick={() => client && selectClient?.(client)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `1px solid ${BRAND.line}`, cursor: client ? "pointer" : "default" }}>
-                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 900, width: 58, flexShrink: 0 }}>{timeLabel(s.time)}</div>
-                <div style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
-                {s.hasInjury && <span title={s.injuryNote} style={{ color: BRAND.red, fontSize: 12, fontWeight: 900, flexShrink: 0 }}>⚠</span>}
+              <div key={s.id} onClick={() => client && selectClient?.(client)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}`, cursor: client ? "pointer" : "default" }}>
+                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 500, width: 58, flexShrink: 0 }}>{timeLabel(s.time)}</div>
+                <div style={{ flex: 1, minWidth: 0, fontWeight: 500, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</div>
+                {s.hasInjury && <span title={s.injuryNote} style={{ color: BRAND.yellow, fontSize: 12, fontWeight: 500, flexShrink: 0 }}>⚠</span>}
               </div>
             );
           })}
           {agenda.checkInsDue.length > 0 && (
-            <div onClick={onOpenClients} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: agenda.paymentsDue.length > 0 ? `1px solid ${BRAND.line}` : "none", cursor: "pointer" }}>
-              <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>Check-ins due</span>
-              <span style={{ color: BRAND.orange, fontWeight: 900, fontSize: 12 }}>{agenda.checkInsDue.length}</span>
+            <div onClick={onOpenClients} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: agenda.paymentsDue.length > 0 ? `${BRAND.hairline} solid ${BRAND.lineSoft}` : "none", cursor: "pointer" }}>
+              <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400 }}>Check-ins due</span>
+              <span style={{ color: BRAND.yellow, fontWeight: 500, fontSize: 12 }}>{agenda.checkInsDue.length}</span>
             </div>
           )}
           {agenda.paymentsDue.length > 0 && (
             <div onClick={onOpenClients} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", cursor: "pointer" }}>
-              <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 700 }}>Payments due</span>
-              <span style={{ color: BRAND.red, fontWeight: 900, fontSize: 12 }}>{agenda.paymentsDue.length}</span>
+              <span style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400 }}>Payments due</span>
+              <span style={{ color: BRAND.yellow, fontWeight: 500, fontSize: 12 }}>{agenda.paymentsDue.length}</span>
             </div>
           )}
         </Card>
       )}
-      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 4 }}>Go to</div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Go to</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: isTablet ? 18 : 12 }}>
-        <CoachTile isTablet={isTablet} icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} color={BRAND.gold} onClick={onOpenClients} />
-        <CoachTile isTablet={isTablet} icon="templates" name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet color={BRAND.purple} onClick={() => onTile("templates")} />
-        <CoachTile isTablet={isTablet} icon="calendar" name="Calendar" meta={`${todaysSessions ?? "..."} session${todaysSessions === 1 ? "" : "s"} today`} count={todaysSessions || null} color={BRAND.cyan} onClick={() => onTile("calendar")} />
-        <CoachTile isTablet={isTablet} icon="analytics" name="Analytics" meta="Client activity trends" color={BRAND.green} onClick={() => onTile("analytics")} />
-        <CoachTile isTablet={isTablet} icon="exlib" name="Exercise Library" meta={customExerciseCount ? `${customExerciseCount} custom exercise${customExerciseCount === 1 ? "" : "s"}` : "Add your own with video"} color={BRAND.orange} onClick={() => onTile("exercise_library")} />
-        <CoachTile isTablet={isTablet} icon="trials" name="Trials" meta={trialsCount ? `${trialsCount} saved · consultations & assessments` : "Consultations & fitness assessments"} count={trialsCount || null} color={BRAND.red} onClick={() => onTile("trials")} />
+        <CoachTile isTablet={isTablet} icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} onClick={onOpenClients} />
+        <CoachTile isTablet={isTablet} icon="templates" name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet onClick={() => onTile("templates")} />
+        <CoachTile isTablet={isTablet} icon="calendar" name="Calendar" meta={`${todaysSessions ?? "..."} session${todaysSessions === 1 ? "" : "s"} today`} count={todaysSessions || null} onClick={() => onTile("calendar")} />
+        <CoachTile isTablet={isTablet} icon="analytics" name="Analytics" meta="Client activity trends" onClick={() => onTile("analytics")} />
+        <CoachTile isTablet={isTablet} icon="exlib" name="Exercise Library" meta={customExerciseCount ? `${customExerciseCount} custom exercise${customExerciseCount === 1 ? "" : "s"}` : "Add your own with video"} onClick={() => onTile("exercise_library")} />
+        <CoachTile isTablet={isTablet} icon="trials" name="Trials" meta={trialsCount ? `${trialsCount} saved · consultations & assessments` : "Consultations & fitness assessments"} count={trialsCount || null} onClick={() => onTile("trials")} />
       </div>
     </div>
   );
@@ -502,15 +503,15 @@ export function CoachTemplates({ user, clients, onBack }) {
     <div style={{ display: "grid", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
       <div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>Templates</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{templates.length} saved program{templates.length === 1 ? "" : "s"}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Templates</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{templates.length} saved program{templates.length === 1 ? "" : "s"}</div>
       </div>
       {loading && <Card><div style={{ color: BRAND.muted }}>Loading...</div></Card>}
       {!loading && templates.length === 0 && (
         <Card>
-          <div style={{ color: BRAND.text, fontWeight: 800, marginBottom: 6 }}>No templates yet</div>
+          <div style={{ color: BRAND.text, fontWeight: 500, marginBottom: 6 }}>No templates yet</div>
           <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.55 }}>
-            Open a client, build a program, then hit <b style={{ color: BRAND.gold }}>Save as Template</b> in the builder. It'll show up here and you can load it into any client.
+            Open a client, build a program, then hit <b style={{ color: BRAND.gold, fontWeight: 500 }}>Save as Template</b> in the builder. It'll show up here and you can load it into any client.
           </div>
         </Card>
       )}
@@ -520,8 +521,8 @@ export function CoachTemplates({ user, clients, onBack }) {
           <Card key={t.id} style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, fontSize: 16 }}>{t.name}</div>
-                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 3 }}>
+                <div style={{ fontWeight: 500, fontSize: 16 }}>{t.name}</div>
+                <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>
                   {[t.goal, `${t.weeks} week${t.weeks === 1 ? "" : "s"}`, t.savedAt ? `saved ${String(t.savedAt).slice(0, 10)}` : null].filter(Boolean).join(" · ")}
                   {usedBy > 0 ? ` · used by ${usedBy}` : ""}
                 </div>
@@ -535,8 +536,8 @@ export function CoachTemplates({ user, clients, onBack }) {
         );
       })}
       <Card style={{ background: BRAND.card2 }}>
-        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, lineHeight: 1.55 }}>
-          To use a template: open a client → Program → Edit Program → <b style={{ color: BRAND.gold }}>Load from template</b>.
+        <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, lineHeight: 1.55 }}>
+          To use a template: open a client → Program → Edit Program → <b style={{ color: BRAND.gold, fontWeight: 500 }}>Load from template</b>.
         </div>
       </Card>
     </div>
@@ -571,27 +572,27 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
     <div style={{ display: "grid", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
       <div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>Analytics</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Client activity, last 8 weeks</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Analytics</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Client activity, last 8 weeks</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
         <Mini label="Sessions" value={String(total)} />
         <Mini label="Avg adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
-        <Mini label="Going cold" value={String(cold.length)} color={cold.length > 0 ? BRAND.red : BRAND.text} />
-        <Mini label="PBs this month" value={String(pbsThisMonth)} color={BRAND.cyan} />
-        <Mini label="Payments overdue" value={String(overduePayments)} color={overduePayments > 0 ? BRAND.red : BRAND.text} />
+        <Mini label="Going cold" value={String(cold.length)} color={cold.length > 0 ? BRAND.yellow : BRAND.text} />
+        <Mini label="PBs this month" value={String(pbsThisMonth)} color={BRAND.blue} />
+        <Mini label="Payments overdue" value={String(overduePayments)} color={overduePayments > 0 ? BRAND.yellow : BRAND.text} />
       </div>
       <div>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Sessions completed per week</div>
+        <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Sessions completed per week</div>
         <Card style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 110 }}>
             {weeks.map((w, i) => {
               const isLast = i === weeks.length - 1;
               return (
                 <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", gap: 4 }}>
-                  <div style={{ color: isLast ? BRAND.gold : BRAND.dim, fontSize: 10, fontWeight: 900 }}>{w.count}</div>
-                  <div style={{ width: "100%", height: `${Math.max(3, (w.count / maxWeek) * 70)}%`, background: isLast ? BRAND.gold : BRAND.card2, borderRadius: "4px 4px 0 0" }} />
-                  <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 800 }}>{isLast ? "Now" : `-${weeks.length - 1 - i}`}</div>
+                  <div style={{ color: isLast ? BRAND.text : BRAND.dim, fontSize: 10, fontWeight: 500 }}>{w.count}</div>
+                  <div style={{ width: "100%", height: `${Math.max(3, (w.count / maxWeek) * 70)}%`, background: isLast ? BRAND.green : BRAND.lineSoft, borderRadius: "4px 4px 0 0" }} />
+                  <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 400 }}>{isLast ? "Now" : `-${weeks.length - 1 - i}`}</div>
                 </div>
               );
             })}
@@ -599,7 +600,7 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
         </Card>
       </div>
       <div>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 }}>Adherence by client · lowest first</div>
+        <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Adherence by client · lowest first</div>
         <Card style={{ padding: 16 }}>
           {rows.length === 0 && <div style={{ color: BRAND.muted, fontSize: 13 }}>No clients yet.</div>}
           {rows.map(({ client, adherence: a, last }, i) => {
@@ -607,15 +608,15 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
             const days = last ? daysSince(last) : null;
             const warn = pct < 70 || (days !== null && days >= 7);
             return (
-              <div key={client.id} onClick={() => selectClient(client)} style={{ padding: "10px 0", borderTop: i === 0 ? "none" : `1px solid ${BRAND.card2}`, cursor: "pointer" }}>
+              <div key={client.id} onClick={() => selectClient(client)} style={{ padding: "10px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 800, fontSize: 13 }}>{client.name}</span>
-                  <span style={{ color: warn ? BRAND.red : BRAND.muted, fontSize: 12, fontWeight: 800 }}>
+                  <span style={{ fontWeight: 500, fontSize: 13 }}>{client.name}</span>
+                  <span style={{ color: warn ? BRAND.yellow : BRAND.muted, fontSize: 12, fontWeight: 500 }}>
                     {a.total ? `${pct}%` : "No program"}{days !== null ? ` · ${days}d ago` : ""}
                   </span>
                 </div>
-                <div style={{ height: 4, background: BRAND.card2, borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: warn ? BRAND.red : BRAND.gold }} />
+                <div style={{ height: 4, background: BRAND.lineSoft, borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: warn ? BRAND.yellow : BRAND.green }} />
                 </div>
               </div>
             );
@@ -629,14 +630,14 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   const [busy, setBusy] = useState(false);
   const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
   async function logout() { setBusy(true); await supabase.auth.signOut(); }
-  const Section = ({ t }) => <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, textTransform: "uppercase", letterSpacing: 0.7, marginTop: 10, marginBottom: 2 }}>{t}</div>;
-  const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "13px 0", borderBottom: last ? "none" : `1px solid ${BRAND.line}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, textAlign: "right" }}>{v}</span></div>;
+  const Section = ({ t }) => <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 10, marginBottom: 2 }}>{t}</div>;
+  const Row = ({ k, v, onClick, last }) => <div onClick={onClick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "13px 0", borderBottom: last ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, cursor: onClick ? "pointer" : "default" }}><span style={{ fontWeight: 500, fontSize: 14, flexShrink: 0 }}>{k}</span><span style={{ color: BRAND.muted, fontWeight: 500, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, textAlign: "right" }}>{v}</span></div>;
   const syncLabel = syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced";
   return <div style={{ display: "grid", gap: 12 }}>
-    <div><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 1000, letterSpacing: 1.5, textTransform: "uppercase" }}>Coach</div><div style={{ fontSize: 26, fontWeight: 900 }}>Settings</div></div>
+    <div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase" }}>Coach</div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Settings</div></div>
     <Card onClick={onEditProfile} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
-      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 900, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 800, marginTop: 4 }}>Edit profile ›</div></div>
+      <div style={{ fontFamily: BRAND.display, width: 54, height: 54, borderRadius: "50%", background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 500, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
+      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 500, fontSize: 17 }}>{trainer?.name || user.email?.split("@")[0]}</div><div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</div><div style={{ color: BRAND.gold, fontSize: 12, fontWeight: 500, marginTop: 4 }}>Edit profile ›</div></div>
     </Card>
     <Section t="Brand" />
     <Card style={{ padding: "4px 16px" }}>
@@ -657,7 +658,7 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
       <Row k="Active clients" v={String(clientsCount)} />
       <Row k="Sync" v={syncLabel} last />
     </Card>
-    <Button variant="red" disabled={busy} onClick={logout} style={{ width: "100%", marginTop: 6 }}>{busy ? "Logging out..." : "Log Out"}</Button>
+    <Button variant="red" disabled={busy} onClick={logout} style={{ width: "100%", marginTop: 6 }}>{busy ? "Logging out..." : "Log out"}</Button>
   </div>;
 }
 
@@ -756,12 +757,12 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (tab === "clients") body = (
     <div style={{ display: "grid", gap: 14 }}>
       <div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>Clients</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{filtered.length} {clientTypeFilter === "1:1" ? "in-person" : "online"}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Clients</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{filtered.length} {clientTypeFilter === "1:1" ? "in-person" : "online"}</div>
       </div>
-      <div style={{ display: "flex", gap: 8, background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: 4 }}>
-        <button onClick={() => setClientTypeFilter("1:1")} style={{ flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "1:1" ? BRAND.gold : "transparent", color: clientTypeFilter === "1:1" ? "#000" : BRAND.muted, fontWeight: 900, fontSize: 13, cursor: "pointer" }}>In-Person</button>
-        <button onClick={() => setClientTypeFilter("Online")} style={{ flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "Online" ? BRAND.gold : "transparent", color: clientTypeFilter === "Online" ? "#000" : BRAND.muted, fontWeight: 900, fontSize: 13, cursor: "pointer" }}>Online</button>
+      <div style={{ display: "flex", gap: 8, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 4 }}>
+        <button onClick={() => setClientTypeFilter("1:1")} style={{ fontFamily: BRAND.sans, flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "1:1" ? BRAND.btnBg : "transparent", color: clientTypeFilter === "1:1" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>In-Person</button>
+        <button onClick={() => setClientTypeFilter("Online")} style={{ fontFamily: BRAND.sans, flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "Online" ? BRAND.btnBg : "transparent", color: clientTypeFilter === "Online" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>Online</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto auto", gap: 10 }}>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
@@ -770,7 +771,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
           <option value="name">Sort: Name</option>
           <option value="adherence">Sort: Adherence</option>
         </select>
-        <Button onClick={() => setShowAdd(true)}>+ Add New Client</Button>
+        <Button onClick={() => setShowAdd(true)}>+ Add new client</Button>
       </div>
       <div style={{
         display: "grid",
@@ -787,26 +788,26 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (tab === "alerts") body = (
     <div style={{ display: "grid", gap: 14 }}>
       <div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>Alerts</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{notifications.length ? `${notifications.length} need${notifications.length === 1 ? "s" : ""} a look` : "All caught up"}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Alerts</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{notifications.length ? `${notifications.length} need${notifications.length === 1 ? "s" : ""} a look` : "All caught up"}</div>
       </div>
       <NotificationsTab notifications={notifications} selectClient={selectClient} />
     </div>
   );
   else body = <CoachSettingsTab user={user} trainer={trainer} onEditProfile={() => setShowSettings(true)} clientsCount={clients.length} syncStatus={syncStatus} onOpenTool={(k) => { setToolOrigin("settings"); setScreen(k); }} />;
   return (
-    <div data-app="coach" style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, paddingBottom: 96 }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(7,7,7,.93)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+    <div data-app="coach" style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans, paddingBottom: 96 }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 50, background: "color-mix(in srgb, var(--page) 93%, transparent)", backdropFilter: "blur(16px)", borderBottom: `${BRAND.hairline} solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: isMobile ? 38 : 44, height: isMobile ? 38 : 44, borderRadius: "50%", background: BRAND.card2, border: `1px solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 1000 }}>
+          <div style={{ fontFamily: BRAND.display, width: isMobile ? 38 : 44, height: isMobile ? 38 : 44, borderRadius: "50%", background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 500 }}>
             {trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}
           </div>
           <div>
-            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 1000, color: BRAND.gold, lineHeight: 1 }}>FORGE</div>
-            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 900 }}>COACH {trainer?.name || user.email?.split("@")[0]}</div>
+            <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 22 : 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, lineHeight: 1 }}>Forge</div>
+            <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>Coach {trainer?.name || user.email?.split("@")[0]}</div>
           </div>
         </div>
-        <span style={{ color: syncStatus === "offline" ? BRAND.red : syncStatus === "syncing" ? BRAND.gold : BRAND.green, fontSize: 12, fontWeight: 1000 }}>
+        <span style={{ color: syncStatus === "offline" ? BRAND.yellow : syncStatus === "syncing" ? BRAND.blue : BRAND.green, fontSize: 12, fontWeight: 500 }}>
           {syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced"}
         </span>
       </header>
@@ -820,11 +821,11 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   );
 }
 export function Kpi({ title, value, icon, color, onClick, compact = false }) {
-  return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderColor: onClick ? `${color}55` : BRAND.line, minHeight: compact ? 92 : 128, padding: compact ? 12 : 16 }}>
+  return <Card onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderColor: onClick ? `color-mix(in srgb, ${color} 45%, transparent)` : BRAND.line, minHeight: compact ? 92 : 128, padding: compact ? 12 : 16 }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-      <div><div style={{ color: BRAND.muted, fontSize: compact ? 11 : 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6 }}>{title}</div><div style={{ fontSize: compact ? 24 : 30, fontWeight: 800, color, lineHeight: 1.05, letterSpacing: -0.5 }}>{value}</div></div>
+      <div><div style={{ color: BRAND.dim, fontSize: compact ? 11 : 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{title}</div><div style={{ fontFamily: BRAND.display, fontSize: compact ? 24 : 30, fontWeight: 500, color, lineHeight: 1.05, letterSpacing: "-0.01em" }}>{value}</div></div>
       <div style={{ fontSize: compact ? 20 : 26, opacity: 0.85 }}>{icon}</div>
     </div>
-    <div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>{onClick ? "Tap to open" : ""}</div>
+    <div style={{ marginTop: 8, color: BRAND.dim, fontSize: 11, fontWeight: 400 }}>{onClick ? "Tap to open" : ""}</div>
   </Card>;
 }
