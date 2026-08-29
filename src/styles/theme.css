@@ -1,27 +1,31 @@
-/* Central design-token system. Default theme is dark. See DECISIONS.md for
-   how the old BRAND/T token objects map onto these variables. */
+/* Central design-token system: warm amber/desert palette (ember accent,
+   coffee/tan surfaces), restored per the user's explicit preference over
+   the black/white/Sora system this replaced. Default theme is dark.
+   See DECISIONS.md for background on both token generations. */
 
 :root, [data-theme="light"]{
-  --shell:#DED9D1; --page:#EFEDE9; --card:#FFFFFF; --card-soft:#FCFCFB; --chip:#F4F2EE;
-  --line:#E6E3DE; --line-soft:#EEEBE6;
-  --ink:#17150F; --ink-2:#77736B; --ink-3:#9A968E;
-  --green:#1E8F57; --green-bg:#E7F3EC;
-  --blue:#2E74C8;  --blue-bg:#E8F0FB;
-  --yellow:#C99400; --yellow-bg:#FBF2CF;
-  --btn-bg:#17150F; --btn-ink:#FCFCFB;
+  --shell:#EFE6D8; --page:#FAF5EC; --card:#FFFFFF; --card-soft:#FBF7EF; --chip:#F3EBDC;
+  --line:rgba(36,28,18,.12); --line-soft:rgba(36,28,18,.07);
+  --ink:#241C12; --ink-2:#6B5A42; --ink-3:#8A7860;
+  --green:#66C79B; --green-bg:rgba(102,199,155,.15);
+  --blue:#7FA6D9;  --blue-bg:rgba(127,166,217,.15);
+  --yellow:#F0BE3C; --yellow-bg:rgba(240,190,60,.15);
+  --accent:#F2853D; --accent-deep:#C85E22;
+  --btn-bg:var(--accent); --btn-ink:#1A130A;
   --radius-card:14px; --radius-control:12px; --hairline:0.5px;
-  --display:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
+  --display:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#000000; --page:#000000; --card:#161311; --card-soft:#0B0A09; --chip:#211D19;
-  --line:#242019; --line-soft:#1A1613;
-  --ink:#F7F5F1; --ink-2:#A29C93; --ink-3:#726C64;
-  --green:#5CC98C; --green-bg:#102A1E;
-  --blue:#5FA8F2;  --blue-bg:#0F2338;
-  --yellow:#EBC24E; --yellow-bg:#2A2410;
-  --btn-bg:#F7F5F1; --btn-ink:#17150F;
+  --shell:#16120E; --page:#16120E; --card:#272014; --card-soft:#1D1710; --chip:#342A18;
+  --line:rgba(243,236,225,.12); --line-soft:rgba(243,236,225,.07);
+  --ink:#FFFFFF; --ink-2:#C8B69E; --ink-3:#8A7860;
+  --green:#66C79B; --green-bg:rgba(102,199,155,.14);
+  --blue:#7FA6D9;  --blue-bg:rgba(127,166,217,.14);
+  --yellow:#F0BE3C; --yellow-bg:rgba(240,190,60,.14);
+  --accent:#F2853D; --accent-deep:#C85E22;
+  --btn-bg:var(--accent); --btn-ink:#1A130A;
 }
 
 /* Surfaces layer page -> card-soft -> card. Every border is a hairline in
@@ -63,21 +67,21 @@ button:not(:disabled):active { transform: scale(0.985); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 :focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2377736B' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A7860' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
   padding-right: 32px !important;
 }
 option { background: var(--card); color: var(--ink); }
-input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); width: 18px; height: 18px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 18px; height: 18px; }
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
   filter: var(--date-icon-filter, none);
