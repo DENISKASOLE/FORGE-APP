@@ -110,3 +110,91 @@ follow-up pass fixing remaining alpha-suffix bugs and ink-contrast issues)
 and were finished directly rather than re-delegated, since further agent
 spawns would hit the same limit.
 
+## Final self-review pass (before push)
+
+Did a full-repo sweep after all 5 milestones landed, rather than trusting
+each file in isolation:
+
+- Re-ran the alpha-suffix-bug grep (both the template-literal `${X}NN` form
+  and the `X + "NN"` string-concatenation form) across the whole repo —
+  clean, zero remaining hits.
+- Grepped every remaining literal hex color (`#rrggbb`/`#rgb`) outside the
+  token files. All surviving instances fall into one of three accepted
+  buckets: (1) the per-client identity color exception (`client.color`
+  paired with `"#000"`/`"#fff"` text - avatars, chat bubbles, calendar
+  cells, tab pills), (2) a photo/video overlay scrim
+  (`rgba(0,0,0,.6-.7)` + white icon/text, or the deliberate white media
+  card in `SupersetLogger.jsx`) - both explicitly photo-backdrop
+  exceptions, not real UI surfaces, (3) `BRAND.green`/`BRAND.yellow` paired
+  with `"#000"` - these two accents don't invert between themes the way
+  `ink` does, so black text on them stays legible in both light and dark.
+  Found and fixed one edge case in `AddClientModal`'s toggle-switch knob
+  (`background:"#fff"`) - left as-is on reflection, since a white knob on
+  either theme's track is the universal iOS/Android toggle convention, not
+  an inversion bug.
+- Grepped for `fontWeight` 600 and above across every feature file: found
+  4 stray `fontWeight:600` instances in `TrainScreens.jsx` on plain muted
+  body copy (not a name) that had survived the agent passes - dropped to
+  400. Confirmed the one remaining `fontWeight:600` app-wide
+  (`MessagesTab.jsx`'s sender name in a chat bubble) is exactly the
+  "person's name" exception the spec allows.
+- Grepped for `textTransform:"uppercase"` combined with a font size of
+  14px or larger (which would indicate real heading/body content forced
+  into caps rather than a genuine small label) - zero matches; every
+  remaining uppercase treatment in the app is at 11px, i.e. a real eyebrow
+  label.
+- Confirmed every `.jsx` file in `src/` was either restyled or is a file
+  that genuinely needed no changes (`NavIcon.jsx`/`CoachIcon.jsx` already
+  deferred all color to `currentColor`/a caller-supplied prop;
+  `main.jsx` has no visual content).
+
+## Summary for the human
+
+**What changed:** the entire app (client: Today/Train/Nutrition/Progress/Me,
+coach: Home/Clients/Tools/Alerts/Settings) now runs on one shared black/white
+design system with exactly three functional accent colors (green =
+progress/positive, blue = actions/links, yellow = needs-attention), Sora
+for titles and large numbers, Inter everywhere else, sentence case
+throughout, hairline borders, no drop shadows, and a persisted light/dark
+toggle (default dark) in both apps' Settings surfaces. Along the way this
+surfaced and fixed a handful of real, pre-existing bugs (not introduced by
+this restyle, just found while touching every file): the alpha-suffix CSS
+bug, a light-theme black-on-black contrast bug, and a `max-width:100vw`
+horizontal-overflow bug you hit live on your phone mid-session.
+
+**Every judgment call** is logged inline above, in the order it was made -
+the two biggest ones to be aware of: (1) the existing "ember"/orange v2
+token scaffolding on this branch was fully replaced rather than merged,
+since it directly conflicted with this spec's accent rules and was never
+wired to a real feature; (2) categorical (non-signal) color was removed
+from Learn article categories, food-diary meal types, and coach tool
+tiles, since the spec is explicit that the three accents are signals, not
+decoration - those areas now differentiate by label/icon alone, which is a
+real (if minor) scannability trade-off worth a look once you're using it
+live.
+
+**What still needs you:**
+- **Live device check of the overflow fix.** I fixed the specific CSS
+  mechanism (`100vw` → `100%`) that best explains the screenshot you sent,
+  and confirmed no other file in the repo has the same pattern, but
+  Playwright couldn't get a live re-render in this environment
+  (persistent resource congestion all session) to visually confirm it on
+  the actual Home screen post-fix. Worth a real-device pass before you
+  fully trust it.
+- **Confirm Sora actually loads in production.** The Google Fonts `<link>`
+  is in `index.html` with both families listed alphabetically as
+  specified; I couldn't verify network font loading in this sandboxed
+  dev-server environment.
+- **Vercel/deploy config**: nothing in this restyle added new npm
+  dependencies or environment variables, so no Vercel env changes should
+  be needed - but worth a quick preview-deploy sanity check since this is
+  the largest visual diff the app has had in one branch.
+- **A visual pass against your own eye**, in both themes, especially the
+  categorical-color-removal areas called out above (Learn, meal types,
+  coach tool tiles) - I'm confident they're spec-compliant, but "spec-
+  compliant" and "looks right to you" aren't guaranteed to be the same
+  thing, and that's a judgment only you can close the loop on.
+- **The reference file** (`design/forge-sora-reference.html`) was never
+  present in the repo - if you had a specific pixel-level mockup in mind
+  beyond the written spec, this pass never saw it.
+

@@ -77,7 +77,7 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
       </div>
       <div>
         <div style={{ fontSize: 26, fontWeight: 500 }}>Exercise Library</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 600, marginTop: 3 }}>Add your own exercises with a video link, so they're ready to pick - with the video attached - whenever you're building a program.</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Add your own exercises with a video link, so they're ready to pick - with the video attached - whenever you're building a program.</div>
       </div>
       <Button onClick={() => { setEditingItem(null); setShowAdd(true); }} style={{ width: "100%" }}>+ Add Exercise</Button>
 
@@ -423,7 +423,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
               );
             })}
           </div>
-          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 600, marginTop: 8 }}>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 400, marginTop: 8 }}>
             Any day without a workout is a rest day. Add a recovery note (steps, mobility, walk) and the client sees it on their calendar.
             {unassignedWorkouts(week).length > 0 && <span style={{ color: BRAND.gold }}> {unassignedWorkouts(week).length} workout{unassignedWorkouts(week).length === 1 ? " is" : "s are"} not on a day yet.</span>}
           </div>
@@ -703,7 +703,7 @@ export function DaySection({ title, days, onOpen }) {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 500, fontSize: 15, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
-              <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 600, marginTop: 2 }}>
+              <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2 }}>
                 {d.isRest
                   ? (d.note || "Recovery")
                   : d.state === "completed"
@@ -825,7 +825,7 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
                       <span style={{ fontWeight: 500 }}>
                         {fmtLoggedSet(s, timed)}
                         {up > 0 && <span style={{ color: BRAND.green, fontSize: 11, marginLeft: 6 }}>↑ +{up}</span>}
-                        {target && <span style={{ color: BRAND.dim, fontWeight: 600, fontSize: 11, marginLeft: 8 }}>target {fmtSetTarget(target, prescribed)}</span>}
+                        {target && <span style={{ color: BRAND.dim, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>target {fmtSetTarget(target, prescribed)}</span>}
                       </span>
                       <span style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500 }}>{s.rpe ? `RPE ${s.rpe}` : ""}</span>
                     </div>
