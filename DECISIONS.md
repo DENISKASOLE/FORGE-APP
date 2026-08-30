@@ -173,6 +173,148 @@ decoration - those areas now differentiate by label/icon alone, which is a
 real (if minor) scannability trade-off worth a look once you're using it
 live.
 
+---
+
+# Buddy pairs — decisions log
+
+Built on `feature/buddy-pairs`, off `main`, autonomously per the brief's
+"don't stop to ask, log the call and keep going" instruction. One entry
+per judgment call, in the order made.
+
+## The brief assumed a different schema than this app actually has
+
+The brief's SQL and Step 4 billing plan were written against a generic
+schema (`profiles(id)` for both coach and client, `workout_logs` /
+`set_logs` tables, Stripe Checkout + webhook). This app's real schema,
+confirmed by inspecting it directly rather than guessing, is different in
+every one of those respects:
+
+- **No `coach_id`/`profiles(id)` model.** Coaches live in `trainers`
+  (PK `id`, equal to the Supabase auth user id); clients live in `clients`
+  (PK `id`, with `trainer_id` and `client_user_id` linking to the owning
+  coach and the client's own auth user respectively). A `profiles` table
+  does technically exist, but it's a one-row, keyed-by-`user_id` leftover
+  that nothing in the app reads or writes - using it would have meant
+  building on a table that isn't actually part of the live data model.
+  `buddy_pairs.coach_id` references `trainers(id)`; `buddy_members.client_id`
+  references `clients(id)` - matching how every other table added to this
+  project (e.g. `health_screenings`) already does it.
+- **No `workout_logs`/`set_logs` tables.** Training data lives as JSON
+  under `client_data` (section `program`, section `training_logs`), read
+  and written entirely through the existing `ProgramTab`/`WorkoutSession`
+  components in `src/features/train/TrainScreens.jsx`. This is actually
+  good news for the "additive only, never touch how programs/logs work"
+  requirement: the buddy slot view doesn't need to know anything about
+  that shape at all - it just mounts the existing `ProgramTab` twice, once
+  per member, and that component already does 100% of the session/logging
+  work per client. Zero new logging code, zero risk of cross-writing one
+  member's log against the other, because there's exactly one code path
+  for "log a set" and this feature never touches it.
+- **No Stripe. Payment is PayPal**, via a Supabase Edge Function
+  (`forge-paypal`) that creates/captures orders, called from an embedded
+  PayPal Buttons widget in each client's own Payments tab
+  (`src/features/payments/PaymentsTab.jsx`). There is no "webhook" in the
+  traditional sense and no shareable payment link concept anywhere in this
+  app today - the client pays inside their own logged-in session, and the
+  success callback (`onPaid`, running entirely in the browser) is what
+  marks them paid. See the Billing section below for how this was reused
+  as-is, with zero changes to the Edge Function or any secret.
+
+None of this is a deviation from the brief's *intent* (reuse what's
+already there, don't invent a parallel system) - it's the same intent,
+pointed at the schema and payment provider that actually exist.
+
+## Two-member guard: trigger, not a CHECK constraint
+
+Postgres CHECK constraints can only see the row being written, never its
+siblings, so there's no native way to say "at most 2 rows where
+pair_id = X" without a trigger. Used a `BEFORE INSERT` row-level trigger
+on `buddy_members` that counts existing members for the target `pair_id`
+and raises an exception at 2. This is the standard, reliable pattern for
+a per-group row cap in Postgres - a statement-level or deferred-constraint
+trigger would only add complexity here, since the app only ever inserts
+one member at a time (one client picker submission per member slot in the
+UI), never a bulk multi-row insert that could race past the check within
+one statement.
+
+"A client in at most one pair at a time" is enforced with a plain
+`unique(client_id)` index on `buddy_members` - lower risk than a trigger,
+and exactly what a unique constraint is for.
+
+## RLS: coach-only
+
+Mirrored the `client_data_trainer_or_client` EXISTS-subquery style
+(inspected directly before writing this). Both tables are gated entirely
+by `coach_id = auth.uid()` / a join back to a pair the coach owns; there
+is no client-facing read policy. The brief left this open ("client read
+access only if the client app needs it") - nothing in Steps 2-3 requires
+a client to ever see pairing metadata (a paired client's own app looks
+identical to any other client's: their own program, their own logs,
+their own Payments tab), so the narrower, more secure option was taken.
+If a client-facing "you're paired with X" view is wanted later, add a
+scoped SELECT policy then rather than opening it preemptively now.
+
+`buddy_members`'s `with check` also verifies the client being added
+belongs to the same coach (`clients.trainer_id = auth.uid()`), so a coach
+can't pair in a client id they don't own even if they guessed one.
+
+## Migration not applied
+
+Per the brief, `supabase/migrations/20260830120000_buddy_pairs.sql` is
+new-file-only - not run against the live database from here. It needs
+review and to be run in the Supabase SQL editor before any of this
+feature's UI will actually work end to end (the coach-side screens will
+load and render, but every query against `buddy_pairs`/`buddy_members`
+will fail until the tables exist).
+
+## Billing: grouped over the existing PayPal flow, no Edge Function changes
+
+Design: `buddy_pairs.price` holds the shared monthly amount. A coach
+action on the pair ("Set shared price") writes that price + a due date to
+*both* members' existing `client_data.profile` fields
+(`price`/`paymentDueDate`/`paymentPaid:false`) - the exact same fields and
+the exact same `upsertSection(..., "profile", ...)` call `PaymentsTab`
+already uses for a single client, just invoked twice. Nothing new is
+invented; both members simply end up with matching billing state.
+
+`PaymentsTab.jsx`'s existing `PayPalCheckout` component and its `onPaid`
+handler are untouched in how they talk to PayPal/the Edge Function.
+`onPaid` was extended with one additional step: after marking the paying
+client's own profile paid (unchanged), it now also looks up whether that
+client is a `buddy_members` row, and if so marks the other member in the
+same pair paid too, via the identical `upsertSection` call. Whichever of
+the two clients pays first (through their own already-existing in-app
+PayPal button - nothing coach-facing was added to the payment step
+itself) settles the shared package for both. This required no change to
+`forge-paypal`, no new secret, and no webhook - the fan-out is pure
+application logic that runs after PayPal has already confirmed the
+capture, in the same browser session that always handled `onPaid` before.
+
+The brief's "one Checkout link, shared via WhatsApp/email" framing
+doesn't have an equivalent in this app - there is no payment-link
+generation anywhere today, only the in-app embedded button, and building
+a new unauthenticated link-based checkout flow would itself be "a new
+payment system," which the brief explicitly says not to build. The
+coach-side "Set shared price" action is the closest faithful equivalent:
+it's the one new coach action Step 4 asked for, it uses only fields and
+calls that already exist, and it doesn't touch payment collection itself
+at all.
+
+## What still needs you
+
+1. **Run the migration.** Review
+   `supabase/migrations/20260830120000_buddy_pairs.sql` and run it in the
+   Supabase SQL editor. Nothing buddy-pair-related will work until then.
+2. **Nothing else was deferred.** No webhook or Edge Function change was
+   needed for the billing grouping (see above), so there's no follow-up
+   payment-infrastructure work waiting on you beyond running the
+   migration.
+3. Once the migration is applied, sanity-check on a real pair: create a
+   pair with two real clients, open its slot view and confirm each side
+   logs against the correct person, then set a shared price and pay it
+   from one member's own Payments tab, confirming the other member flips
+   to paid too.
+
 **What still needs you:**
 - **Live device check of the overflow fix.** I fixed the specific CSS
   mechanism (`100vw` → `100%`) that best explains the screenshot you sent,
