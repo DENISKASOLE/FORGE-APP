@@ -181,6 +181,15 @@ Built on `feature/buddy-pairs`, off `main`, autonomously per the brief's
 "don't stop to ask, log the call and keep going" instruction. One entry
 per judgment call, in the order made.
 
+**Commit structure note:** milestones 2 ("create and manage pairs") and 3
+("slot view") landed in one commit instead of two. The slot view is just
+`ProgramTab` mounted twice inside the same new file the management screen
+lives in, and "Open slot" has nothing to open until it exists - splitting
+them would have meant shipping a dead button in one commit and its wiring
+in the next, which is less reviewable, not more. Billing (milestone 4)
+is its own commit as specified, since it's a real, separable change to a
+different file (`PaymentsTab.jsx`).
+
 ## The brief assumed a different schema than this app actually has
 
 The brief's SQL and Step 4 billing plan were written against a generic
