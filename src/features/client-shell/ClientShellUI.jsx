@@ -51,13 +51,14 @@ export function ScheduledView({ clients, selectClient }) {
 export function ClientCard({ client, onClick }) {
   const isCompact = useIsMobile(520);
   const goals = client.goals?.join(" + ") || client.goal || "General Fitness";
+  const injuries = (client.profile?.injuries || "").trim();
+  const isOnline = client.clientType === "Online";
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
         fontFamily: BRAND.sans,
-        position: "relative",
         width: "100%",
         borderRadius: BRAND.radiusCard,
         border: `${BRAND.hairline} solid ${BRAND.line}`,
@@ -66,63 +67,66 @@ export function ClientCard({ client, onClick }) {
         cursor: "pointer",
         padding: 14,
         display: "flex",
-        flexDirection: "column",
         alignItems: "flex-start",
+        gap: 12,
         textAlign: "left",
         overflow: "hidden",
       }}
     >
-      <div style={{
-        position: "absolute",
-        top: 12,
-        right: 12,
-        background: client.clientType === "Online" ? BRAND.blue : BRAND.gold,
-        color: client.clientType === "Online" ? "#fff" : BRAND.btnInk,
-        fontSize: 9,
-        fontWeight: 500,
-        borderRadius: 999,
-        padding: "2px 7px",
-        letterSpacing: "0.06em",
-        textTransform: "uppercase",
-      }}>{client.clientType === "Online" ? "Online" : "1:1"}</div>
-      <ClientAvatar client={client} size={isCompact ? 40 : 46} />
-      <div style={{
-        marginTop: 10,
-        fontSize: isCompact ? 14 : 16,
-        fontWeight: 600,
-        color: BRAND.text,
-        lineHeight: 1.15,
-        width: "100%",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}>{client.name}</div>
-      <div style={{
-        color: client.color,
-        fontSize: isCompact ? 11 : 12,
-        fontWeight: 500,
-        marginTop: 3,
-        lineHeight: 1.25,
-        width: "100%",
-        display: "-webkit-box",
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: "vertical",
-        overflow: "hidden",
-      }}>{goals}</div>
-      <div style={{
-        color: BRAND.muted,
-        fontSize: 11,
-        fontWeight: 400,
-        marginTop: 9,
-        background: BRAND.card2,
-        border: `${BRAND.hairline} solid ${BRAND.line}`,
-        borderRadius: 999,
-        padding: "5px 9px",
-        maxWidth: "100%",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}>{client.weight || 0}kg &middot; {client.age || 0} yrs</div>
+      <ClientAvatar client={client} size={isCompact ? 56 : 64} />
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{
+          alignSelf: "flex-start",
+          background: isOnline ? BRAND.blue : BRAND.gold,
+          color: isOnline ? "#fff" : BRAND.btnInk,
+          fontSize: 9,
+          fontWeight: 600,
+          borderRadius: 999,
+          padding: "2px 7px",
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          marginBottom: 1,
+        }}>{isOnline ? "Online" : "1:1"}</span>
+        <div style={{
+          fontSize: isCompact ? 14 : 16,
+          fontWeight: 600,
+          color: BRAND.text,
+          lineHeight: 1.15,
+          width: "100%",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}>{client.name}</div>
+        <div style={{
+          color: client.color,
+          fontSize: isCompact ? 11 : 12,
+          fontWeight: 500,
+          lineHeight: 1.25,
+          width: "100%",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}>{goals}</div>
+        <div style={{
+          color: BRAND.muted,
+          fontSize: 11,
+          fontWeight: 400,
+        }}>{client.age || 0} yrs &middot; {client.weight || 0}kg</div>
+        {injuries && (
+          <div style={{
+            color: BRAND.yellow,
+            fontSize: 10,
+            fontWeight: 500,
+            lineHeight: 1.3,
+            marginTop: 2,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}>&#9888; {injuries}</div>
+        )}
+      </div>
     </button>
   );
 }
