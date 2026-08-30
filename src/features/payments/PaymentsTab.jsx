@@ -7,6 +7,7 @@ import { Field } from "../../components/ui/Field.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { paymentStatus, upsertSection } from "../../lib/clientData.js";
+import { markBuddyPairPaid } from "../coach/BuddyPairs.jsx";
 
 const PAYPAL_CLIENT_ID = "BAAd5BGOGHj3CeXA5Ys4xWIQf5Ok_zHxmC0vodSe3IU15-aTtq4UNW_PVyAb5y370D0xcGx04v9Xgplnp8"; // sandbox; swap for Live client id when going live
 
@@ -81,10 +82,17 @@ export function PaymentsTab({ client, updateClient, isCoach }) {
     updateClient({ ...client, ...next, profile: { ...client.profile, ...next } });
   }
   async function saveDueDate() { setSaving(true); await persist({ paymentDueDate: dueDate, paymentPaid: false }); setSaving(false); }
-  async function markPaid() { await persist({ paymentPaid: true }); }
+  async function markPaid() { await persist({ paymentPaid: true }); await markBuddyPairPaid(client.id); }
   async function renew30() { const next = new Date(); next.setDate(next.getDate() + 30); const nextDate = isoDate(next); setDueDate(nextDate); await persist({ paymentDueDate: nextDate, paymentPaid: false }); }
   async function savePrice() { setSaving(true); await persist({ price }); setSaving(false); }
-  async function onPaid() { const next = new Date(); next.setDate(next.getDate() + 30); await persist({ paymentPaid: true, paymentDueDate: isoDate(next), lastPaidAt: new Date().toISOString() }); }
+  async function onPaid() {
+    const next = new Date(); next.setDate(next.getDate() + 30);
+    await persist({ paymentPaid: true, paymentDueDate: isoDate(next), lastPaidAt: new Date().toISOString() });
+    // If this client is half of a buddy pair, the same payment settles the
+    // shared package for both - fan the paid status out to the other
+    // member using their existing per-client fields (see DECISIONS.md).
+    await markBuddyPairPaid(client.id);
+  }
   return (
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 12 }}>Payments</div>
