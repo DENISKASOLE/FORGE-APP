@@ -30,6 +30,7 @@ import { INTAKE_FORM } from "../profile/IntakeForm.jsx";
 import { ClientCard } from "../client-shell/ClientShellUI.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
+import { BuddyPairsScreen } from "./BuddyPairs.jsx";
 import { loadTodaysAgenda } from "./coachHelpers.js";
 import { timeLabel } from "../../lib/clientData.js";
 
@@ -359,6 +360,7 @@ export function CoachToolsTab({ onOpen }) {
     { key: "calendar", name: "Calendar", meta: "Sessions & bookings" },
     { key: "analytics", name: "Analytics", meta: "Adherence & trends" },
     { key: "trials", name: "Trials", meta: "Consults & assessments" },
+    { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot" },
     { key: "content", name: "Content", meta: "Forge Academy articles" },
     { key: "payments", name: "Payments", meta: "Plans & invoices" },
     { key: "forms", name: "Intake Forms", meta: "Onboarding & health" },
@@ -781,6 +783,10 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     : sortBy === "adherence" ? [...filtered].sort((a, b) => adherenceSortValue(a) - adherenceSortValue(b))
     : filtered;
   const notifications = computeNotifications(clients);
+  // Used by the buddy pair slot view, which mounts two ProgramTab instances
+  // (one per member) side by side - each needs its own updateClient so a
+  // set logged for one member never touches the other's local state.
+  function updateClientLocal(updated) { setClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c))); }
   useEffect(() => {
     let active = true;
     loadTrainerTemplates(user.id).then((list) => { if (active) setTemplatesCount(list.length); });
@@ -841,6 +847,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "forms") body = <CoachIntakeFormsScreen user={user} onBack={goHome} />;
   else if (screen === "broadcast") body = <CoachBroadcastScreen clients={clients} refresh={refresh} onBack={goHome} />;
   else if (screen === "automations") body = <CoachAutomationsScreen user={user} onBack={goHome} />;
+  else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}
