@@ -125,6 +125,47 @@ function weightHistoryFromCheckins(checkIns) {
   });
   return points.sort((a, b) => a.date.localeCompare(b.date));
 }
+function VolumeTrendChart({ volumes, color = BRAND.gold }) {
+  const w = 300, h = 84, pad = 8;
+  const max = Math.max(1, ...volumes);
+  const n = volumes.length;
+  const coords = volumes.map((v, i) => {
+    const x = pad + (n > 1 ? (i / (n - 1)) * (w - pad * 2) : (w - pad * 2) / 2);
+    const y = h - pad - (v / max) * (h - pad * 2);
+    return [x, y];
+  });
+  let path = `M${coords[0][0]},${coords[0][1]}`;
+  for (let i = 1; i < coords.length; i++) {
+    const [x0, y0] = coords[i - 1];
+    const [x1, y1] = coords[i];
+    const mx = (x0 + x1) / 2;
+    path += ` C${mx.toFixed(1)},${y0.toFixed(1)} ${mx.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  }
+  const last = coords[coords.length - 1];
+  const areaPath = `${path} L${last[0].toFixed(1)},${h - pad} L${coords[0][0].toFixed(1)},${h - pad} Z`;
+  const gradId = "volFillGrad";
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke="var(--line-soft)" strokeWidth={1} />
+      <line x1={pad} y1={h / 2} x2={w - pad} y2={h / 2} stroke="var(--line-soft)" strokeWidth={1} />
+      <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--line-soft)" strokeWidth={1} />
+      <path d={areaPath} fill={`url(#${gradId})`} />
+      <path d={path} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {coords.map(([x, y], i) => i === coords.length - 1 ? (
+        <g key={i}>
+          <circle cx={x} cy={y} r={7} fill={color} opacity={0.18} />
+          <circle cx={x} cy={y} r={3.5} fill={color} />
+        </g>
+      ) : <circle key={i} cx={x} cy={y} r={2.5} fill={color} opacity={0.4} />)}
+    </svg>
+  );
+}
 function WeightSparkline({ points, color = BRAND.green }) {
   const w = 300, h = 60, pad = 6;
   const values = points.map((p) => p.value);
@@ -199,7 +240,9 @@ export function ProgressTab({ client }) {
   const pbs = recentPBsAcrossHistory(logs, 5);
   const adherence = overallAdherence(client.program, logs);
   const insight = buildProgressInsight(streak, volumeTrend, pbs);
-  const maxVolume = Math.max(1, ...volumeTrend.volumes);
+  const volPrev = volumeTrend.volumes[volumeTrend.volumes.length - 2];
+  const volNow = volumeTrend.volumes[volumeTrend.volumes.length - 1];
+  const volumeDeltaPct = volPrev > 0 ? Math.round(((volNow - volPrev) / volPrev) * 100) : null;
   const weightHistory = weightHistoryFromCheckins(client.checkIns);
   const latestWeight = weightHistory[weightHistory.length - 1]?.value ?? client.weight ?? null;
   const prevWeight = weightHistory.length >= 2 ? weightHistory[weightHistory.length - 2].value : null;
@@ -283,27 +326,24 @@ export function ProgressTab({ client }) {
     )}
 
     <div>
-      <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 7 }}>Weekly Training Volume</div>
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: 16 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 56 }}>
-          {volumeTrend.volumes.map((v, i) => {
-            const isLast = i === volumeTrend.volumes.length - 1;
-            return (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                <div style={{ width: "100%", height: Math.max(4, (v / maxVolume) * 56), background: isLast ? BRAND.gold : BRAND.card2, borderRadius: "3px 3px 0 0" }} />
-                <div style={{ color: isLast ? BRAND.gold : BRAND.dim, fontSize: 9, fontWeight: 500 }}>W{i + 1}</div>
-              </div>
-            );
-          })}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 }}>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>Weekly Training Volume</div>
+        {volumeDeltaPct != null && (
+          <span style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 10, color: volumeDeltaPct >= 0 ? BRAND.green : BRAND.red }}>{volumeDeltaPct >= 0 ? "↑" : "↓"} {Math.abs(volumeDeltaPct)}% vs last week</span>
+        )}
+      </div>
+      <div style={{ background: "color-mix(in srgb, var(--card) 70%, transparent)", backdropFilter: "blur(16px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: "14px 14px 4px" }}>
+        <VolumeTrendChart volumes={volumeTrend.volumes} />
+        <div style={{ display: "flex", marginTop: 6, paddingBottom: 4 }}>
+          {volumeTrend.labels.map((_, i) => (
+            <div key={i} style={{ flex: 1, textAlign: i === 0 ? "left" : i === volumeTrend.labels.length - 1 ? "right" : "center", fontFamily: BRAND.sans, fontSize: 9, fontWeight: i === volumeTrend.labels.length - 1 ? 700 : 500, color: i === volumeTrend.labels.length - 1 ? BRAND.gold : BRAND.dim }}>W{i + 1}</div>
+          ))}
         </div>
       </div>
     </div>
 
     <div style={{ background: "rgba(242,133,61,0.06)", border: "1px solid rgba(242,133,61,0.14)", borderRadius: 16, padding: 14 }}>
       <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13 }}>{insight.text}</div>
-      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 6, lineHeight: 1.6 }}>
-        Past sessions live on the Program calendar — every completed day carries a tick, tap it to see exactly what was lifted, set by set.
-      </div>
     </div>
   </div>;
 }
