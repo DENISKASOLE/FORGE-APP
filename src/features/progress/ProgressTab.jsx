@@ -249,7 +249,7 @@ export function ProgressTab({ client }) {
   const weightDelta = latestWeight != null && prevWeight != null ? +(latestWeight - prevWeight).toFixed(1) : null;
   const measurementEntries = MEASUREMENT_FIELDS.filter(([k]) => client.measurements?.[k]).slice(0, 3);
 
-  return <div style={{ display: "grid", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
+  return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
       <div>
         <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 400, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>PROGRESS</div>
@@ -351,8 +351,8 @@ export function ProgressTab({ client }) {
 export function ProgressHub({ client, updateClient, isCoach }) {
   const [sub, setSub] = useState("trends");
   const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
-  return <div style={{ display: "grid", gap: 14 }}>
-    <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? BRAND.btnInk : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `${BRAND.hairline} solid ${sub === k ? "transparent" : BRAND.line}` }}>{l}</button>)}</div>
+  return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14 }}>
+    <div style={{ display: "flex", gap: 6, overflowX: "auto", minWidth: 0 }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? BRAND.btnInk : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `${BRAND.hairline} solid ${sub === k ? "transparent" : BRAND.line}` }}>{l}</button>)}</div>
     {sub === "trends" && <ProgressTab client={client} />}
     {sub === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}

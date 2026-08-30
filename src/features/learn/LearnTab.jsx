@@ -152,12 +152,12 @@ export function HomeLearnStrip({ client, goTo }) {
     return () => clearInterval(id);
   }, [arts]);
   return (
-    <div>
+    <div style={{ minWidth: 0, width: "100%" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase" }}>Learn</div>
         {goTo && <button onClick={() => goTo("learn")} style={{ fontFamily: BRAND.sans, background: "none", border: "none", color: BRAND.blue, fontWeight: 500, fontSize: 11, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}>See all ›</button>}
       </div>
-      <div ref={ref} style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
+      <div ref={ref} style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, minWidth: 0, width: "100%" }}>
         {list.map((a) => (
           <div key={a.id} onClick={() => goTo && goTo("learn")} style={{ flex: "0 0 210px", cursor: "pointer", borderRadius: BRAND.radiusCard, overflow: "hidden", border: `${BRAND.hairline} solid ${BRAND.line}`, background: BRAND.card }}>
             <div style={{ height: 96, background: `linear-gradient(140deg, ${BRAND.card2}, ${BRAND.panel})`, display: "grid", placeItems: "center", position: "relative" }}>

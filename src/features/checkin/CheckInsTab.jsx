@@ -133,7 +133,7 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
     );
   }
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -158,7 +158,7 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
           <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden", marginBottom: 18 }}>
             <div style={{ height: 4, width: `${((step + 1) / totalSteps) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} />
           </div>
-          {!isReview && <div style={{ display: "grid", gap: 12 }}>{pages[step].map((q) => (
+          {!isReview && <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>{pages[step].map((q) => (
             <div key={q.id} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: "14px 16px" }}>
               {renderQuestion(q)}
             </div>

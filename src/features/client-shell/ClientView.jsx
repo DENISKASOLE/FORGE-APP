@@ -212,7 +212,7 @@ function ClientHome({ client, goTo }) {
   const firstName = (client.name || "").split(" ")[0];
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning," : hour < 18 ? "Good afternoon," : "Good evening,";
-  return <div style={{ display: "grid", gap: 10, maxWidth: "100%", overflowX: "hidden", position: "relative" }}>
+  return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, maxWidth: "100%", overflowX: "hidden", position: "relative" }}>
     <div style={{ position: "absolute", top: -60, left: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(242,133,61,0.06) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} />
     <InstallPrompt color={client.color} />
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 2px 2px", position: "relative", zIndex: 1 }}>
