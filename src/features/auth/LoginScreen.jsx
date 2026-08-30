@@ -53,12 +53,14 @@ export function LoginScreen({ onReady }) {
   async function acceptInvite() {
     setLoading(true); setMsg("");
     const code = inviteCode.trim().toUpperCase();
-    const { data: found, error: findErr } = await supabase.from("clients").select("*").eq("invite_code", code).maybeSingle();
+    const { data: rows, error: findErr } = await supabase.rpc("lookup_invite", { p_code: code });
+    const found = rows?.[0];
     if (findErr || !found) { setMsg("Invite code not found."); setLoading(false); return; }
     const { data, error } = await supabase.auth.signUp({ email: found.email || email, password, options: { data: { name: found.name, role: "client" } } });
     if (error) { setMsg(error.message); setLoading(false); return; }
     if (data.user) {
-      await supabase.from("clients").update({ client_user_id: data.user.id, invite_status: "accepted", email: found.email || email }).eq("id", found.id);
+      const { error: claimErr } = await supabase.rpc("claim_invite", { p_code: code, p_email: found.email || email });
+      if (claimErr) { setMsg(claimErr.message); setLoading(false); return; }
       setMsg("Client account connected. Log in with the password you created.");
       setMode("login");
     }
