@@ -368,9 +368,9 @@ export function CoachToolsTab({ onOpen }) {
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
-      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14 }}>
+      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14, color: BRAND.text }}>
         <div style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, background: BRAND.card2, display: "grid", placeItems: "center", marginBottom: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: BRAND.gold, display: "block" }} /></div>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>{t.name}</div>
+        <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 500 }}>{t.name}</div>
         <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>{t.meta}</div>
       </button>)}
     </div>

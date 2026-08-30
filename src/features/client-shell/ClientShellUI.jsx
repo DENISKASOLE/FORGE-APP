@@ -50,7 +50,6 @@ export function ScheduledView({ clients, selectClient }) {
 }
 export function ClientCard({ client, onClick }) {
   const isCompact = useIsMobile(520);
-  const size = isCompact ? 146 : 162;
   const goals = client.goals?.join(" + ") || client.goal || "General Fitness";
   return (
     <button
@@ -60,27 +59,23 @@ export function ClientCard({ client, onClick }) {
         fontFamily: BRAND.sans,
         position: "relative",
         width: "100%",
-        maxWidth: size,
-        aspectRatio: "1 / 1",
-        justifySelf: "center",
-        borderRadius: "50%",
+        borderRadius: BRAND.radiusCard,
         border: `${BRAND.hairline} solid ${BRAND.line}`,
         background: BRAND.card,
         color: BRAND.text,
         cursor: "pointer",
-        padding: isCompact ? 10 : 12,
+        padding: 14,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
+        alignItems: "flex-start",
+        textAlign: "left",
         overflow: "hidden",
       }}
     >
       <div style={{
         position: "absolute",
-        top: 8,
-        right: 8,
+        top: 12,
+        right: 12,
         background: client.clientType === "Online" ? BRAND.blue : BRAND.gold,
         color: client.clientType === "Online" ? "#fff" : BRAND.btnInk,
         fontSize: 9,
@@ -90,24 +85,25 @@ export function ClientCard({ client, onClick }) {
         letterSpacing: "0.06em",
         textTransform: "uppercase",
       }}>{client.clientType === "Online" ? "Online" : "1:1"}</div>
-      <ClientAvatar client={client} size={isCompact ? 46 : 52} />
+      <ClientAvatar client={client} size={isCompact ? 40 : 46} />
       <div style={{
-        marginTop: 8,
+        marginTop: 10,
         fontSize: isCompact ? 14 : 16,
-        fontWeight: 500,
-        lineHeight: 1.05,
-        maxWidth: "92%",
+        fontWeight: 600,
+        color: BRAND.text,
+        lineHeight: 1.15,
+        width: "100%",
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
       }}>{client.name}</div>
       <div style={{
         color: client.color,
-        fontSize: isCompact ? 10 : 11,
-        fontWeight: 400,
-        marginTop: 5,
-        lineHeight: 1.18,
-        maxWidth: "86%",
+        fontSize: isCompact ? 11 : 12,
+        fontWeight: 500,
+        marginTop: 3,
+        lineHeight: 1.25,
+        width: "100%",
         display: "-webkit-box",
         WebkitLineClamp: 2,
         WebkitBoxOrient: "vertical",
@@ -115,14 +111,14 @@ export function ClientCard({ client, onClick }) {
       }}>{goals}</div>
       <div style={{
         color: BRAND.muted,
-        fontSize: isCompact ? 11 : 12,
+        fontSize: 11,
         fontWeight: 400,
-        marginTop: 8,
+        marginTop: 9,
         background: BRAND.card2,
         border: `${BRAND.hairline} solid ${BRAND.line}`,
         borderRadius: 999,
         padding: "5px 9px",
-        maxWidth: "92%",
+        maxWidth: "100%",
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
