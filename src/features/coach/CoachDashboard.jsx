@@ -317,14 +317,60 @@ export function CoachBroadcastScreen({ clients, refresh, onBack }) {
     </Card>
   </div>;
 }
-export function CoachIntakeFormsScreen({ user, onBack }) {
+function ClientIntakeAnswers({ client, selectClient }) {
+  const [open, setOpen] = useState(false);
+  const answers = client.intake?.answers || [];
+  const submitted = answers.length > 0;
+  return (
+    <Card style={{ padding: 14 }}>
+      <button onClick={() => submitted && setOpen((v) => !v)} style={{ width: "100%", background: "none", border: "none", padding: 0, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: submitted ? "pointer" : "default", fontFamily: BRAND.sans }}>
+        <div style={{ textAlign: "left" }}>
+          <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 15 }}>{client.name}</div>
+          <div style={{ color: submitted ? BRAND.green : BRAND.dim, fontSize: 12, fontWeight: 500, marginTop: 2 }}>{submitted ? `${answers.length} answer${answers.length === 1 ? "" : "s"}` : "Not submitted yet"}</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span onClick={(e) => { e.stopPropagation(); selectClient(client); }} style={{ color: BRAND.gold, fontSize: 12, fontWeight: 500, cursor: "pointer" }}>Open client</span>
+          {submitted && <span style={{ color: BRAND.dim, fontSize: 14 }}>{open ? "▾" : "▸"}</span>}
+        </div>
+      </button>
+      {open && submitted && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, display: "grid", gap: 10 }}>
+          {answers.map((a, i) => (
+            <div key={i}>
+              <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, fontWeight: 500 }}>{a.question}</div>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 13, fontWeight: 500, color: BRAND.text, marginTop: 2 }}>{a.answer || "—"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+export function CoachIntakeFormsScreen({ user, clients, selectClient, onBack }) {
+  const submitted = clients.filter((c) => c.intake?.answers?.length);
+  const pending = clients.filter((c) => !c.intake?.answers?.length);
   return <div style={{ display: "grid", gap: 14 }}>
     <Button variant="ghost" onClick={onBack} style={{ padding: "8px 14px", justifySelf: "start" }}>‹ Back</Button>
-    <div><div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Intake form</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>The application every new client completes in-app. Their answers land on their Profile.</div></div>
-    {INTAKE_FORM.map((s) => <Card key={s.name}>
-      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{s.name}</div>
-      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>{s.fields.map((f) => <div key={f.id} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 8 }}><div style={{ fontWeight: 500, fontSize: 14 }}>{f.q}{f.req ? "" : "  (optional)"}</div>{f.options && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>{f.options.join("  ·  ")}</div>}{f.type === "rating" && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>Rating 1 to 5</div>}</div>)}</div>
-    </Card>)}
+    <div><div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Intake form</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>The application every new client completes in-app. Tap a client below to see their answers.</div></div>
+
+    {clients.length > 0 && (
+      <div>
+        <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Client answers ({submitted.length} of {clients.length} submitted)</div>
+        <div style={{ display: "grid", gap: 8 }}>
+          {[...submitted, ...pending].map((c) => <ClientIntakeAnswers key={c.id} client={c} selectClient={selectClient} />)}
+        </div>
+      </div>
+    )}
+
+    <div>
+      <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Form questions</div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {INTAKE_FORM.map((s) => <Card key={s.name}>
+          <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{s.name}</div>
+          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>{s.fields.map((f) => <div key={f.id} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 8 }}><div style={{ fontWeight: 500, fontSize: 14 }}>{f.q}{f.req ? "" : "  (optional)"}</div>{f.options && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>{f.options.join("  ·  ")}</div>}{f.type === "rating" && <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 3 }}>Rating 1 to 5</div>}</div>)}</div>
+        </Card>)}
+      </div>
+    </div>
   </div>;
 }
 export function CoachAutomationsScreen({ user, onBack }) {
@@ -844,7 +890,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "exercise_library") body = <ExerciseLibraryScreen trainerId={user.id} onBack={goHome} />;
   else if (screen === "content") body = <CoachContentScreen user={user} onBack={goHome} />;
   else if (screen === "payments") body = <CoachPaymentsScreen clients={clients} selectClient={selectClient} onBack={goHome} />;
-  else if (screen === "forms") body = <CoachIntakeFormsScreen user={user} onBack={goHome} />;
+  else if (screen === "forms") body = <CoachIntakeFormsScreen user={user} clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "broadcast") body = <CoachBroadcastScreen clients={clients} refresh={refresh} onBack={goHome} />;
   else if (screen === "automations") body = <CoachAutomationsScreen user={user} onBack={goHome} />;
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;

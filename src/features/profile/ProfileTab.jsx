@@ -110,18 +110,6 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
     <Card style={{ padding: isMobile ? 14 : 18 }}>
       <div style={{ marginBottom: 14 }}><SignedScreeningView client={client} /></div>
 
-      {client.intake?.answers?.length ? (
-        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, marginBottom: 14 }}>
-          <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Intake answers</div>
-          {client.intake.answers.map((a, i) => (
-            <div key={i} style={{ marginBottom: 8 }}>
-              <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, fontWeight: 500 }}>{a.question}</div>
-              <div style={{ fontFamily: BRAND.sans, fontSize: 13, fontWeight: 500, color: BRAND.text, marginTop: 2 }}>{a.answer || "—"}</div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
       {isCoach ? (
         <div style={{ marginBottom: 16, padding: 12, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard }}>
           <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Coaching type</div>
