@@ -322,7 +322,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
   async function loadTemplate(t) {
     if (!await confirmDialog(`Load "${t.name}"? This replaces the program you're editing. Logs are never touched.`, { confirmLabel: "Load" })) return;
     const copy = cloneWithNewIds(t.program);
-    setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || isoDate() });
+    setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || isoDate(), templateId: t.id });
     setWk(0); setWo(0);
   }
   async function saveAsTemplate() {

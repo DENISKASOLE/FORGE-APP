@@ -22,7 +22,7 @@ import { GOAL_OPTIONS, CLIENT_TYPES, CLIENT_COLORS } from "../../lib/constants.j
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { MEAL_SLOTS } from "../../lib/nutrition.js";
-import { buildProgramDays } from "../../lib/programModel.js";
+import { buildProgramDays, cloneWithNewIds } from "../../lib/programModel.js";
 import { overallAdherence, recentPBsAcrossHistory } from "../progress/ProgressTab.jsx";
 import { ExerciseLibraryScreen, ProgramBuilder } from "../train/TrainScreens.jsx";
 import { CoachContentScreen } from "../learn/LearnTab.jsx";
@@ -510,10 +510,13 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
     </div>
   );
 }
-export function CoachTemplates({ user, clients, onBack }) {
+export function CoachTemplates({ user, clients, refresh, onBack }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(null);
+  const [assigningTemplate, setAssigningTemplate] = useState(null);
+  const [assignClientId, setAssignClientId] = useState("");
+  const [assigning, setAssigning] = useState(false);
   useEffect(() => {
     let active = true;
     loadTrainerTemplates(user.id).then((list) => { if (active) { setTemplates(list); setLoading(false); } });
@@ -529,6 +532,20 @@ export function CoachTemplates({ user, clients, onBack }) {
     await save(next);
     setEditingTemplate(null);
   }
+  function startAssign(t) { setAssigningTemplate(t); setAssignClientId(""); }
+  async function confirmAssign() {
+    const client = clients.find((c) => c.id === assignClientId);
+    if (!client) return;
+    if (!await confirmDialog(`Assign "${assigningTemplate.name}" to ${client.name}? ${client.program ? "This replaces their current program." : ""} Logged history is never touched.`, { confirmLabel: "Assign" })) return;
+    setAssigning(true);
+    const nextProgram = { ...cloneWithNewIds(assigningTemplate.program), id: uid(), startDate: isoDate(), templateId: assigningTemplate.id };
+    const { error } = await upsertSection(client.id, "program", nextProgram);
+    setAssigning(false);
+    if (error) { showToast(error.message || "Couldn't assign that template. Check your connection and try again.", "error"); return; }
+    showToast(`Assigned "${assigningTemplate.name}" to ${client.name}.`, "success");
+    setAssigningTemplate(null);
+    await refresh?.();
+  }
   if (editingTemplate) {
     return <ProgramBuilder
       client={{ id: null, trainer_id: user.id, name: editingTemplate.name, goal: editingTemplate.goal }}
@@ -538,7 +555,7 @@ export function CoachTemplates({ user, clients, onBack }) {
     />;
   }
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
       <div>
         <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Templates</div>
@@ -549,12 +566,13 @@ export function CoachTemplates({ user, clients, onBack }) {
         <Card>
           <div style={{ color: BRAND.text, fontWeight: 500, marginBottom: 6 }}>No templates yet</div>
           <div style={{ color: BRAND.muted, fontSize: 13, lineHeight: 1.55 }}>
-            Open a client, build a program, then hit <b style={{ color: BRAND.gold, fontWeight: 500 }}>Save as Template</b> in the builder. It'll show up here and you can load it into any client.
+            Open a client, build a program, then hit <b style={{ color: BRAND.gold, fontWeight: 500 }}>Save as Template</b> in the builder. It'll show up here and you can assign it to any client.
           </div>
         </Card>
       )}
       {templates.map((t) => {
         const usedBy = clients.filter((c) => c.program?.templateId === t.id).length;
+        const isAssigning = assigningTemplate?.id === t.id;
         return (
           <Card key={t.id} style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -566,16 +584,26 @@ export function CoachTemplates({ user, clients, onBack }) {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
+                <Button onClick={() => (isAssigning ? setAssigningTemplate(null) : startAssign(t))} style={{ fontSize: 12, padding: "8px 14px" }}>{isAssigning ? "Cancel" : "Assign"}</Button>
                 <Button variant="dark" onClick={() => setEditingTemplate(t)} style={{ fontSize: 12, padding: "8px 14px" }}>Edit</Button>
                 <Button variant="red" onClick={() => remove(t)} style={{ fontSize: 12, padding: "8px 14px" }}>Delete</Button>
               </div>
             </div>
+            {isAssigning && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, paddingTop: 12, borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+                <select value={assignClientId} onChange={(e) => setAssignClientId(e.target.value)} style={inputStyle({ maxWidth: 280, flex: 1 })}>
+                  <option value="">Choose a client...</option>
+                  {[...clients].sort((a, b) => a.name.localeCompare(b.name)).map((c) => <option key={c.id} value={c.id}>{c.name}{c.program ? " (has a program)" : ""}</option>)}
+                </select>
+                <Button disabled={!assignClientId || assigning} onClick={confirmAssign}>{assigning ? "Assigning..." : "Confirm assign"}</Button>
+              </div>
+            )}
           </Card>
         );
       })}
       <Card style={{ background: BRAND.card2 }}>
         <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, lineHeight: 1.55 }}>
-          To use a template: open a client → Program → Edit Program → <b style={{ color: BRAND.gold, fontWeight: 500 }}>Load from template</b>.
+          Hit <b style={{ color: BRAND.gold, fontWeight: 500 }}>Assign</b> above to send a template straight to a client, or open a client → Program → Edit Program → <b style={{ color: BRAND.gold, fontWeight: 500 }}>Load from template</b> to load it into a program you're already editing.
         </div>
       </Card>
     </div>
@@ -803,7 +831,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   }
   function goHome() { setScreen(null); setTab(toolOrigin); }
   let body;
-  if (screen === "templates") body = <CoachTemplates user={user} clients={clients} onBack={goHome} />;
+  if (screen === "templates") body = <CoachTemplates user={user} clients={clients} refresh={refresh} onBack={goHome} />;
   else if (screen === "calendar") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Calendar clients={clients} refresh={refresh} user={user} /></>;
   else if (screen === "analytics") body = <CoachAnalytics clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "trials") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Trials user={user} onConvert={convertTrialToClient} /></>;
