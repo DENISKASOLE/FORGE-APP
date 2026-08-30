@@ -7,7 +7,7 @@ import { Field, inputStyle } from "../../components/ui/Field.jsx";
 import { Mini } from "../../components/ui/Mini.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
-import { GOAL_OPTIONS, CLIENT_COLORS, MEASUREMENT_FIELDS } from "../../lib/constants.js";
+import { GOAL_OPTIONS, CLIENT_COLORS } from "../../lib/constants.js";
 import { ageFromBirthday, initials, emptyProfile, upsertSection } from "../../lib/clientData.js";
 import { updateClientRow } from "../../lib/cache.js";
 import { compressImage } from "../../lib/compressImage.js";
@@ -59,16 +59,14 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
   const [profile, setProfile] = useState({ ...emptyProfile(), ...(client.profile || {}) });
   const [name, setName] = useState(client.name || "");
   const [weight, setWeight] = useState(client.weight || "");
-  const [saving, setSaving] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showTrialLink, setShowTrialLink] = useState(false);
   const [trialData, setTrialData] = useState(client.trialData || null);
   const fileRef = useRef(null);
-  const measurements = profile.measurements || {};
+  const skipNextAutoSave = useRef(true);
   const currentColor = profile.color || client.color || BRAND.dim;
   const computedAge = ageFromBirthday(profile.birthday);
   const set = (k, v) => setProfile((p) => ({ ...p, [k]: v }));
-  const setMeasurement = (k, v) => setProfile((p) => ({ ...p, measurements: { ...(p.measurements || {}), [k]: v } }));
   const toggleGoal = (g) => set("goals", (profile.goals || []).includes(g) ? (profile.goals || []).filter((x) => x !== g) : [...(profile.goals || []), g]);
   const photoUrl = usePhotoUrl(profile.photo || client.photo);
   async function pickPhoto(file) {
@@ -84,16 +82,29 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
     }
   }
   async function save() {
-    setSaving(true);
     const nextProfile = { ...emptyProfile(), ...profile };
     const cleanName = name.trim() || client.name;
     const cleanWeight = Number(weight || 0);
-    await upsertSection(client.id, "profile", nextProfile);
-    await updateClientRow(client.id, { name: cleanName, weight_kg: cleanWeight });
+    const r1 = await upsertSection(client.id, "profile", nextProfile);
+    const r2 = await updateClientRow(client.id, { name: cleanName, weight_kg: cleanWeight });
+    if (r1?.error || r2?.error) {
+      showToast((r1?.error || r2?.error)?.message || "Couldn't save - check your connection. It'll keep this on the device and retry.", "error");
+    }
     const nextAge = ageFromBirthday(nextProfile.birthday) ?? client.age;
     updateClient({ ...client, profile: nextProfile, name: cleanName, weight: cleanWeight, age: nextAge, photo: nextProfile.photo || client.photo, color: nextProfile.color || client.color, goals: nextProfile.goals, goal: nextProfile.goals?.[0] || client.goal, notes: nextProfile.notes });
-    setSaving(false);
   }
+
+  // Autosaves shortly after the coach stops typing/toggling anything below -
+  // most people never hit an explicit save button, so there isn't one.
+  // Skips the save that would otherwise fire the instant this tab mounts
+  // (profile/name/weight are seeded from the client prop at that point,
+  // there's nothing new to persist yet).
+  useEffect(() => {
+    if (skipNextAutoSave.current) { skipNextAutoSave.current = false; return; }
+    const t = setTimeout(() => { save(); }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, name, weight]);
 
   return (
     <Card style={{ padding: isMobile ? 14 : 18 }}>
@@ -230,21 +241,12 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
 
       {isCoach && <div style={{ marginTop: 12 }}><Field label="Private coach notes" value={profile.notes} onChange={(v) => set("notes", v)} textarea placeholder="Anything else worth remembering about this client" /></div>}
 
-      {isCoach && (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 6 }}>Measurements</div>
-          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>Assessment fields copied from your paper form. Use cm unless another unit makes more sense.</div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>{MEASUREMENT_FIELDS.map(([key, label]) => <Field key={key} label={label} value={measurements[key] || ""} onChange={(v) => setMeasurement(key, v)} />)}</div>
-        </div>
-      )}
-
       {showTrialLink && <TrialLinkModal client={client} onClose={() => setShowTrialLink(false)} onLinked={(t) => { setTrialData(t); setShowTrialLink(false); updateClient({ ...client, trialData: t }); }} />}
 
       <div style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap" }}>
         <label style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={!!profile.lactoseIntolerant} onChange={(e) => set("lactoseIntolerant", e.target.checked)} /> Lactose intolerant</label>
         <label style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={!!profile.glutenIntolerant} onChange={(e) => set("glutenIntolerant", e.target.checked)} /> Gluten intolerant</label>
       </div>
-      <Button disabled={saving} onClick={save} style={{ marginTop: 16 }}>{saving ? "Saving..." : "Save profile"}</Button>
     </Card>
   );
 }
