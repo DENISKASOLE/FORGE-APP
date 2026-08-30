@@ -1,41 +1,97 @@
 import { useState } from "react";
 import { T } from "../../theme/tokens.js";
-import { Card } from "../../components/ui/Card.jsx";
-import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { usePhotoUrl, deleteClientPhoto, isStoragePath } from "../../lib/storage.js";
-import { isoDate, addDays } from "../../lib/dateUtils.js";
+import { isoDate, addDays, startOfWeek, weekDays } from "../../lib/dateUtils.js";
 import { MEAL_SLOTS, dayLogFor, saveNutritionState } from "../../lib/nutrition.js";
 import { MealSheet } from "./MealSheet.jsx";
 
-function MealThumb({ photo, size = 44 }) {
-  const url = usePhotoUrl(photo);
-  if (!url) return null;
-  return <img src={url} alt="" style={{ width: size, height: size, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />;
+function fmtIngredient(i) {
+  const unit = (i.unit || "").trim();
+  const amountUnit = unit.length <= 2 ? `${i.amount}${unit}` : `${i.amount} ${unit}`;
+  return `${amountUnit} ${i.item}`.trim();
 }
 
-function MealRow({ label, color, entry, onClick, onEdit }) {
+function MealThumb({ photo, color, size = 72 }) {
+  const url = usePhotoUrl(photo);
+  if (url) return <img src={url} alt="" style={{ width: size, height: size, borderRadius: 16, objectFit: "cover", flexShrink: 0 }} />;
+  return <div style={{ width: size, height: size, borderRadius: 16, background: `color-mix(in srgb, ${color} 16%, transparent)`, flexShrink: 0 }} />;
+}
+
+function NutritionCalendarCard({ nutrition, date, setDate }) {
+  const [anchor, setAnchor] = useState(() => new Date(`${date}T00:00:00`));
+  const weekStart = startOfWeek(anchor);
+  const days = weekDays(weekStart);
+  const monthLabel = weekStart.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  function shiftWeek(dir) { setAnchor((a) => addDays(a, dir * 7)); }
   return (
-    <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", padding: "10px 0", cursor: "pointer" }}>
-      {entry ? <MealThumb photo={entry.photo} /> : <div style={{ width: 44, height: 44, borderRadius: 12, background: T.card2, border: `var(--hairline) dashed ${T.line}`, flexShrink: 0 }} />}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{label}</div>
-        <div style={{ color: entry ? T.accent : T.dim, fontSize: 13, fontWeight: 400, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {entry ? (entry.description || "Logged, no description") : "Tap to log"}
-        </div>
+    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 20, padding: 18 }}>
+      <div style={{ fontFamily: T.display, fontSize: 24, fontWeight: 800, color: T.gold, letterSpacing: "-0.4px" }}>Nutrition</div>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 14, marginBottom: 14 }}>
+        <button onClick={() => shiftWeek(-1)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: 4 }}>&lsaquo;</button>
+        <div style={{ fontFamily: T.sans, fontWeight: 700, fontSize: 15, color: T.accent }}>{monthLabel}</div>
+        <button onClick={() => shiftWeek(1)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: 4 }}>&rsaquo;</button>
       </div>
-      {entry && <span style={{ color: T.muted, fontSize: 11, fontWeight: 500 }}>{onEdit ? "Edit" : ""}</span>}
-    </button>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
+        {days.map((d) => {
+          const dLog = nutrition.food_log[d.date];
+          const logged = dLog && (MEAL_SLOTS.some((s) => dLog[s]) || dLog.snacks?.length);
+          const selected = d.date === date;
+          return (
+            <div key={d.date} style={{ display: "grid", justifyItems: "center", gap: 7 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.dim, letterSpacing: "0.06em" }}>{d.name.slice(0, 3).toUpperCase()}</div>
+              <button
+                onClick={() => setDate(d.date)}
+                style={{
+                  width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
+                  background: selected ? T.blue : "transparent",
+                  color: selected ? "#06202b" : T.accent,
+                  fontFamily: T.sans, fontWeight: 700, fontSize: 15,
+                  display: "grid", placeItems: "center",
+                }}
+              >{new Date(`${d.date}T00:00:00`).getDate()}</button>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: logged ? T.blue : T.dim, opacity: logged ? 1 : 0.5 }} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-export function FoodDiary({ client, updateClient, nutrition, phase }) {
+function MealCard({ label, color, entry, onOpen, right }) {
+  const ingredientsText = entry?.ingredients?.length ? entry.ingredients.map(fmtIngredient).join(", ") : "";
+  return (
+    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 18, padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: entry ? 14 : 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+          <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</span>
+        </div>
+        <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.dim, letterSpacing: "0.04em" }}>{right}</span>
+      </div>
+      {entry ? (
+        <button onClick={onOpen} style={{ display: "flex", gap: 14, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+          <MealThumb photo={entry.photo} color={color} />
+          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+            <div style={{ fontFamily: T.sans, fontWeight: 700, fontSize: 16, color: T.accent, lineHeight: 1.3 }}>{entry.description || "Meal logged"}</div>
+            {ingredientsText && <div style={{ fontFamily: T.sans, fontWeight: 400, fontSize: 13, color: T.muted, lineHeight: 1.45, marginTop: 5 }}>{ingredientsText}</div>}
+          </div>
+        </button>
+      ) : (
+        <button onClick={onOpen} style={{ width: "100%", padding: "20px 12px", borderRadius: 14, border: `1.5px dashed ${T.line}`, background: "transparent", color: T.dim, fontFamily: T.sans, fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}>
+          Snap your meal
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function FoodDiary({ client, updateClient, nutrition }) {
   const [date, setDate] = useState(isoDate());
   const [editing, setEditing] = useState(null); // { slot: 'breakfast'|'lunch'|'dinner'|'snacks', index? }
 
   const day = dayLogFor(nutrition, date);
   const loggedCount = MEAL_SLOTS.filter((s) => day[s]).length + (day.snacks.length > 0 ? 1 : 0);
-
-  const weekDates = Array.from({ length: 7 }, (_, i) => isoDate(addDays(new Date(`${nutrition.week_of}T00:00:00`), i)));
   const today = isoDate();
 
   async function persist(nextNutrition) {
@@ -66,60 +122,44 @@ export function FoodDiary({ client, updateClient, nutrition, phase }) {
     if (removed && isStoragePath(removed.photo)) await deleteClientPhoto(removed.photo);
   }
 
-  const heading = phase === "adjustment" ? "Log your new plan" : "Log your current eating";
-
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div>
-        <SectionLabel>{phase === "adjustment" ? "Adjustment week" : "Baseline week"}</SectionLabel>
-        <div style={{ fontFamily: "var(--display)", fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: T.accent, marginTop: 4 }}>{heading}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
+      <NutritionCalendarCard nutrition={nutrition} date={date} setDate={setDate} />
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 2px" }}>
+        <span style={{ fontFamily: T.sans, fontWeight: 600, fontSize: 13, color: T.accent }}>{date === today ? "Today" : date}</span>
+        <span style={{ fontFamily: T.sans, fontWeight: 500, fontSize: 12, color: loggedCount === 4 ? T.good : T.muted }}>{loggedCount} of 4 logged</span>
       </div>
 
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-        {weekDates.map((d) => {
-          const dt = new Date(`${d}T00:00:00`);
-          const dLog = nutrition.food_log[d];
-          const logged = dLog && (MEAL_SLOTS.some((s) => dLog[s]) || dLog.snacks?.length);
-          const selected = d === date;
-          return (
-            <button key={d} onClick={() => setDate(d)} style={{ flex: "0 0 auto", width: 42, padding: "8px 0", borderRadius: 12, cursor: "pointer", background: selected ? T.gold : T.card2, border: `var(--hairline) solid ${selected ? T.gold : T.line}`, color: selected ? "var(--btn-ink)" : T.accent, display: "grid", justifyItems: "center", gap: 3 }}>
-              <span style={{ fontSize: 9, fontWeight: 500, opacity: 0.7 }}>{dt.toLocaleDateString(undefined, { weekday: "short" })[0]}</span>
-              <span style={{ fontSize: 15, fontWeight: 500 }}>{dt.getDate()}</span>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: logged ? (selected ? "var(--btn-ink)" : T.good) : "transparent" }} />
-            </button>
-          );
-        })}
-      </div>
+      <MealCard label="Breakfast" color={T.meal.breakfast} entry={day.breakfast} onOpen={() => setEditing({ slot: "breakfast" })} right={day.breakfast?.time || ""} />
+      <MealCard label="Lunch" color={T.meal.lunch} entry={day.lunch} onOpen={() => setEditing({ slot: "lunch" })} right={day.lunch?.time || ""} />
+      <MealCard label="Dinner" color={T.meal.dinner} entry={day.dinner} onOpen={() => setEditing({ slot: "dinner" })} right={day.dinner?.time || ""} />
 
-      <Card style={{ padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontWeight: 500, fontSize: 14, color: T.accent }}>{date === today ? "Today" : date}</div>
-          <div style={{ color: loggedCount === 4 ? T.good : T.muted, fontSize: 12, fontWeight: 500 }}>{loggedCount} of 4 logged</div>
+      <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 18, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.snacks.length ? 14 : 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.meal.snacks, flexShrink: 0 }} />
+            <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>Snacks</span>
+          </div>
+          {day.snacks.length > 0 && <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.dim, letterSpacing: "0.04em" }}>{day.snacks.length} LOGGED</span>}
         </div>
-      </Card>
-
-      <Card style={{ padding: "4px 16px" }}>
-        <MealRow label="Breakfast" color={T.meal.breakfast} entry={day.breakfast} onEdit onClick={() => setEditing({ slot: "breakfast" })} />
-        <div style={{ borderTop: `var(--hairline) solid ${T.lineSoft}` }} />
-        <MealRow label="Lunch" color={T.meal.lunch} entry={day.lunch} onEdit onClick={() => setEditing({ slot: "lunch" })} />
-        <div style={{ borderTop: `var(--hairline) solid ${T.lineSoft}` }} />
-        <MealRow label="Dinner" color={T.meal.dinner} entry={day.dinner} onEdit onClick={() => setEditing({ slot: "dinner" })} />
-      </Card>
-
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <SectionLabel color={T.meal.snacks}>Snacks</SectionLabel>
-          <button onClick={() => setEditing({ slot: "snacks" })} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 500, fontSize: 12, cursor: "pointer" }}>+ Add</button>
+        <div style={{ display: "grid", gap: 14 }}>
+          {day.snacks.map((s, i) => {
+            const ingredientsText = s.ingredients?.length ? s.ingredients.map(fmtIngredient).join(", ") : "";
+            return (
+              <button key={i} onClick={() => setEditing({ slot: "snacks", index: i })} style={{ display: "flex", gap: 14, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <MealThumb photo={s.photo} color={T.meal.snacks} />
+                <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+                  <div style={{ fontFamily: T.sans, fontWeight: 700, fontSize: 16, color: T.accent, lineHeight: 1.3 }}>{s.description || "Snack logged"}</div>
+                  {ingredientsText && <div style={{ fontFamily: T.sans, fontWeight: 400, fontSize: 13, color: T.muted, lineHeight: 1.45, marginTop: 5 }}>{ingredientsText}</div>}
+                </div>
+              </button>
+            );
+          })}
+          <button onClick={() => setEditing({ slot: "snacks" })} style={{ width: "100%", padding: "16px 12px", borderRadius: 14, border: `1.5px dashed ${T.line}`, background: "transparent", color: T.dim, fontFamily: T.sans, fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}>
+            Add another snack
+          </button>
         </div>
-        <Card style={{ padding: day.snacks.length ? "4px 16px" : 16 }}>
-          {day.snacks.length === 0 && <div style={{ color: T.dim, fontSize: 13, fontWeight: 400 }}>No snacks logged.</div>}
-          {day.snacks.map((s, i) => (
-            <div key={i}>
-              {i > 0 && <div style={{ borderTop: `var(--hairline) solid ${T.lineSoft}` }} />}
-              <MealRow label={`Snack ${i + 1}`} color={T.meal.snacks} entry={s} onEdit onClick={() => setEditing({ slot: "snacks", index: i })} />
-            </div>
-          ))}
-        </Card>
       </div>
 
       {editing && (

@@ -43,7 +43,7 @@ export const T = {
   line: "var(--line)", lineSoft: "var(--line-soft)", lineStrong: "var(--line-strong)",
   muted: "var(--ink-2)", dim: "var(--ink-3)", accent: "var(--ink)",
   gold: "var(--accent)", accentDeep: "var(--accent-deep)",
-  meal: { breakfast: "var(--ink-2)", lunch: "var(--ink-2)", dinner: "var(--ink-2)", snacks: "var(--ink-2)" },
+  meal: { breakfast: "var(--accent)", lunch: "var(--blue)", dinner: "var(--violet)", snacks: "var(--green)" },
   good: "var(--green)", goodBg: "var(--green-bg)",
   warn: "var(--yellow)", warnBg: "var(--yellow-bg)",
   bad: "var(--red)", badBg: "var(--red-bg)",
