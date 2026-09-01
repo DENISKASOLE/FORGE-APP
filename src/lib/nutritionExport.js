@@ -6,7 +6,7 @@ import { downloadBlob, safeFilename } from "./pdf.js";
 const PHOTO_BUCKET = "client-photos";
 
 export function buildNutritionExportData(client, nutrition) {
-  const dates = Object.keys(nutrition.food_log || {}).sort();
+  const dates = [...new Set([...Object.keys(nutrition.food_log || {}), ...Object.keys(nutrition.habits || {})])].sort();
   const days = [];
   const photoJobs = [];
 
@@ -32,11 +32,17 @@ export function buildNutritionExportData(client, nutrition) {
   dates.forEach((date) => {
     const dayLog = nutrition.food_log[date];
     const meals = [];
-    pushMeal(meals, date, "breakfast", dayLog.breakfast);
-    pushMeal(meals, date, "lunch", dayLog.lunch);
-    pushMeal(meals, date, "dinner", dayLog.dinner);
-    (dayLog.snacks || []).forEach((s, i) => pushMeal(meals, date, "snack", s, i));
-    if (meals.length) days.push({ date, meals });
+    if (dayLog) {
+      pushMeal(meals, date, "breakfast", dayLog.breakfast);
+      pushMeal(meals, date, "lunch", dayLog.lunch);
+      pushMeal(meals, date, "dinner", dayLog.dinner);
+      (dayLog.snacks || []).forEach((s, i) => pushMeal(meals, date, "snack", s, i));
+    }
+    const habitLog = nutrition.habits?.[date];
+    const habits = habitLog && (habitLog.steps || habitLog.sleep || habitLog.water)
+      ? { steps: habitLog.steps || "", sleep_hours: habitLog.sleep || "", water_liters: habitLog.water || "" }
+      : null;
+    if (meals.length || habits) days.push({ date, meals, habits });
   });
 
   const data = {

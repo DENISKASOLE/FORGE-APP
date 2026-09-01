@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { T } from "../../theme/tokens.js";
+import { inputStyle } from "../../components/ui/Field.jsx";
 import { usePhotoUrl, deleteClientPhoto, isStoragePath } from "../../lib/storage.js";
 import { isoDate, addDays, startOfWeek, weekDays } from "../../lib/dateUtils.js";
-import { MEAL_SLOTS, dayLogFor, saveNutritionState } from "../../lib/nutrition.js";
+import { MEAL_SLOTS, dayLogFor, habitLogFor, saveNutritionState } from "../../lib/nutrition.js";
+import { SLEEP_HOURS, WATER_LITERS } from "../../lib/constants.js";
 import { MealSheet } from "./MealSheet.jsx";
 
 function fmtIngredient(i) {
@@ -86,17 +88,52 @@ function MealCard({ label, color, entry, onOpen, right }) {
   );
 }
 
+function HabitCard({ habits, onChange }) {
+  const label = { fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, textAlign: "center" };
+  return (
+    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 18, padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.gold, flexShrink: 0 }} />
+        <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>Log Habits</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+        <label>
+          <div style={label}>Steps</div>
+          <input type="number" inputMode="numeric" min="0" value={habits.steps} onChange={(e) => onChange({ ...habits, steps: e.target.value })} placeholder="0" style={inputStyle({ textAlign: "center", fontSize: 15, fontWeight: 700, padding: "10px 6px" })} />
+        </label>
+        <label>
+          <div style={label}>Sleep</div>
+          <select value={habits.sleep} onChange={(e) => onChange({ ...habits, sleep: e.target.value })} style={inputStyle({ textAlign: "center", fontSize: 14, fontWeight: 700, padding: "10px 6px" })}>
+            {SLEEP_HOURS.map((h) => <option key={h} value={h}>{h ? `${h}h` : "—"}</option>)}
+          </select>
+        </label>
+        <label>
+          <div style={label}>Water</div>
+          <select value={habits.water} onChange={(e) => onChange({ ...habits, water: e.target.value })} style={inputStyle({ textAlign: "center", fontSize: 14, fontWeight: 700, padding: "10px 6px" })}>
+            {WATER_LITERS.map((w) => <option key={w} value={w}>{w ? `${w}L` : "—"}</option>)}
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function FoodDiary({ client, updateClient, nutrition }) {
   const [date, setDate] = useState(isoDate());
   const [editing, setEditing] = useState(null); // { slot: 'breakfast'|'lunch'|'dinner'|'snacks', index? }
 
   const day = dayLogFor(nutrition, date);
+  const habits = habitLogFor(nutrition, date);
   const loggedCount = MEAL_SLOTS.filter((s) => day[s]).length + (day.snacks.length > 0 ? 1 : 0);
   const today = isoDate();
 
   async function persist(nextNutrition) {
     updateClient({ ...client, nutrition: nextNutrition });
     await saveNutritionState(client.id, nextNutrition);
+  }
+
+  function saveHabits(next) {
+    persist({ ...nutrition, habits: { ...nutrition.habits, [date]: next } });
   }
 
   function saveMeal(entry) {
@@ -161,6 +198,8 @@ export function FoodDiary({ client, updateClient, nutrition }) {
           </button>
         </div>
       </div>
+
+      <HabitCard habits={habits} onChange={saveHabits} />
 
       {editing && (
         <MealSheet

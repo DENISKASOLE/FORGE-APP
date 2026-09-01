@@ -35,6 +35,13 @@ export function emptyDayLog() {
   return { breakfast: null, lunch: null, dinner: null, snacks: [] };
 }
 
+// Daily habit log: steps (number), sleep/water (values from SLEEP_HOURS /
+// WATER_LITERS in constants.js). All three are optional, logged
+// independently of the meal diary but keyed by the same date.
+export function emptyHabitLog() {
+  return { steps: "", sleep: "", water: "" };
+}
+
 export function emptyNutritionState() {
   return {
     phase: "baseline",
@@ -42,6 +49,7 @@ export function emptyNutritionState() {
     setup_complete: false,
     supplement_stack: [],
     food_log: {},
+    habits: {},
     report: null,
   };
 }
@@ -54,23 +62,34 @@ export function normalizeDayLog(raw) {
   return day;
 }
 
+export function normalizeHabitLog(raw) {
+  return { ...emptyHabitLog(), ...(raw && typeof raw === "object" ? raw : {}) };
+}
+
 export function normalizeNutritionState(raw) {
   const base = emptyNutritionState();
   if (!raw || typeof raw !== "object") return base;
   const foodLog = {};
   Object.entries(raw.food_log || {}).forEach(([date, day]) => { foodLog[date] = normalizeDayLog(day); });
+  const habits = {};
+  Object.entries(raw.habits || {}).forEach(([date, day]) => { habits[date] = normalizeHabitLog(day); });
   return {
     phase: NUTRITION_PHASES.includes(raw.phase) ? raw.phase : base.phase,
     week_of: raw.week_of || base.week_of,
     setup_complete: !!raw.setup_complete,
     supplement_stack: Array.isArray(raw.supplement_stack) ? raw.supplement_stack : [],
     food_log: foodLog,
+    habits,
     report: raw.report || null,
   };
 }
 
 export function dayLogFor(state, date) {
   return state.food_log[date] || emptyDayLog();
+}
+
+export function habitLogFor(state, date) {
+  return state.habits?.[date] || emptyHabitLog();
 }
 
 export async function saveNutritionState(clientId, state) {
