@@ -126,7 +126,21 @@ export default function App() {
     }
   }
   async function loadRole(user) {
-    const { data: clientMatch } = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
+    let { data: clientMatch } = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
+    if (!clientMatch) {
+      // Self-heal: an invite claim can silently fail to link client_user_id
+      // if it ran before this session was actually authenticated (email
+      // confirmation required, claim attempted right after signUp() before
+      // the confirmation link was clicked - see the 20260901090000
+      // migration). A real login always has an active session, so retry the
+      // claim here by the account's own verified email every time no client
+      // row is found yet, before concluding the account really is inactive.
+      const { data: healed } = await supabase.rpc("claim_invite_by_email");
+      if (healed?.length) {
+        const retry = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
+        clientMatch = retry.data;
+      }
+    }
     if (clientMatch) {
       const { data: rows } = await supabase.from("client_data").select("*").eq("client_id", clientMatch.id);
       const mappedClient = mapClient(clientMatch, rows || []);
