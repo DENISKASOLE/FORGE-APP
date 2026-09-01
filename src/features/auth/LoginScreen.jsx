@@ -123,14 +123,14 @@ export function LoginScreen({ onReady }) {
           {isInvite ? "Accept invite" : "Sign in"}
         </button>
 
-        <div style={{ marginTop: "auto", paddingTop: 36, textAlign: "center", fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted, lineHeight: 1.6 }}>
+        <div style={{ marginTop: 16, textAlign: "center", fontFamily: BRAND.sans, fontSize: 13, color: BRAND.muted }}>
           {isInvite ? (
-            <>Already have an account?<br />
-              <button onClick={() => setMode("login")} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.gold, fontWeight: 600, fontSize: 12 }}>Sign in instead</button>
+            <>Already have an account?{" "}
+              <button onClick={() => setMode("login")} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.gold, fontWeight: 700, fontSize: 13 }}>Sign in instead</button>
             </>
           ) : (
-            <>Got a code from your coach?<br />
-              <button onClick={() => setMode("invite")} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.gold, fontWeight: 600, fontSize: 12 }}>Create your account</button>
+            <>New here?{" "}
+              <button onClick={() => setMode("invite")} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.gold, fontWeight: 700, fontSize: 13 }}>Create your account</button>
             </>
           )}
         </div>
