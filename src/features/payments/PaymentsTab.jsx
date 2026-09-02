@@ -11,6 +11,86 @@ import { markBuddyPairPaid } from "../coach/BuddyPairs.jsx";
 
 const PAYPAL_CLIENT_ID = "BAAZplCHKuyy27Zt231EShn67OIL9PM4OxNA_3m53HMV06ZrFkwT0YJFYOMA2XcMaqAIAH3_beCDJporPI"; // live
 
+async function createPayPalOrder(amount, description) {
+  const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "create", amount: String(amount), currency: "USD", description } });
+  if (error || !data || !data.id) throw new Error("create failed");
+  return data.id;
+}
+async function capturePayPalOrder(orderId) {
+  const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "capture", orderId } });
+  if (error || !data || data.status !== "COMPLETED") throw new Error("capture failed");
+  return data;
+}
+
+// Apple Pay only ever renders when PayPal's own eligibility check passes -
+// which requires Safari/an Apple device with a card in Wallet AND the
+// site's domain registered + verified for Apple Pay in the PayPal
+// business account (Account Settings > Website payments > Apple Pay). Not
+// visible on Android/Chrome or an unverified domain by design, not a bug.
+function ApplePayButton({ client, amount, onPaid, onError }) {
+  const [eligible, setEligible] = useState(false);
+  const [paying, setPaying] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!window.paypal?.Applepay || !window.ApplePaySession?.canMakePayments?.()) return;
+        const applepay = window.paypal.Applepay();
+        const cfg = await applepay.config();
+        if (!cancelled && cfg?.isEligible) setEligible(cfg);
+      } catch { /* Apple Pay just stays hidden if the eligibility check itself fails */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  async function pay() {
+    const applepay = window.paypal.Applepay();
+    const session = new window.ApplePaySession(4, {
+      countryCode: eligible.countryCode,
+      currencyCode: eligible.currencyCode || "USD",
+      merchantCapabilities: eligible.merchantCapabilities,
+      supportedNetworks: eligible.supportedNetworks,
+      requiredBillingContactFields: ["postalAddress", "name"],
+      total: { label: "Forge Performance coaching", amount: String(amount), type: "final" },
+    });
+    session.onvalidatemerchant = async (event) => {
+      try {
+        const { merchantSession } = await applepay.validateMerchant({ validationUrl: event.validationURL });
+        session.completeMerchantValidation(merchantSession);
+      } catch {
+        session.abort();
+        onError?.();
+      }
+    };
+    session.onpaymentauthorized = async (event) => {
+      setPaying(true);
+      try {
+        const orderId = await createPayPalOrder(amount, `Coaching - ${client.name}`);
+        const confirmed = await applepay.confirmOrder({ orderId, token: event.payment.token, billingContact: event.payment.billingContact });
+        if (!confirmed?.approveApplePayPayment) throw new Error("not approved");
+        const captured = await capturePayPalOrder(orderId);
+        session.completePayment(window.ApplePaySession.STATUS_SUCCESS);
+        onPaid(captured);
+      } catch {
+        session.completePayment(window.ApplePaySession.STATUS_FAILURE);
+        onError?.();
+      } finally {
+        setPaying(false);
+      }
+    };
+    session.begin();
+  }
+  if (!eligible) return null;
+  return (
+    <button
+      onClick={pay}
+      disabled={paying}
+      aria-label="Pay with Apple Pay"
+      className="forge-apple-pay-button"
+      style={{ marginTop: 8, cursor: paying ? "not-allowed" : "pointer", opacity: paying ? 0.6 : 1 }}
+    />
+  );
+}
+
 function PayPalCheckout({ client, amount, onPaid }) {
   const ref = useRef(null);
   const [status, setStatus] = useState("loading");
@@ -23,17 +103,17 @@ function PayPalCheckout({ client, amount, onPaid }) {
       try {
         window.paypal.Buttons({
           style: { layout: "vertical", color: "black", shape: "pill", label: "pay" },
-          createOrder: async () => {
-            const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "create", amount: String(amount), currency: "USD", description: `Coaching - ${client.name}` } });
-            if (error || !data || !data.id) throw new Error("create failed");
-            return data.id;
-          },
+          createOrder: () => createPayPalOrder(amount, `Coaching - ${client.name}`),
           onApprove: async (d) => {
             setStatus("paying");
-            const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "capture", orderId: d.orderID } });
-            if (error || !data || data.status !== "COMPLETED") { setErr("Payment did not complete. Try again."); setStatus("ready"); return; }
-            setStatus("done");
-            if (onPaid) onPaid(data);
+            try {
+              const data = await capturePayPalOrder(d.orderID);
+              setStatus("done");
+              onPaid?.(data);
+            } catch {
+              setErr("Payment did not complete. Try again.");
+              setStatus("ready");
+            }
           },
           onError: () => { setErr("Payment error. Please try again."); setStatus("ready"); },
         }).render(ref.current);
@@ -46,7 +126,7 @@ function PayPalCheckout({ client, amount, onPaid }) {
     if (!script) {
       script = document.createElement("script");
       script.id = id;
-      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&components=buttons&enable-funding=card`;
+      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&components=buttons,applepay&enable-funding=card`;
       script.onload = render;
       script.onerror = () => { if (!cancelled) { setErr("Could not load PayPal."); setStatus("error"); } };
       document.body.appendChild(script);
@@ -66,6 +146,7 @@ function PayPalCheckout({ client, amount, onPaid }) {
       {status === "loading" && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, marginBottom: 8 }}>Loading secure checkout...</div>}
       {status === "paying" && <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 500, fontSize: 13, marginBottom: 8 }}>Confirming payment...</div>}
       <div ref={ref} />
+      {status === "ready" && <ApplePayButton client={client} amount={amount} onPaid={(data) => { setStatus("done"); onPaid?.(data); }} onError={() => setErr("Apple Pay payment did not complete. Try again.")} />}
       {err && <div style={{ fontFamily: BRAND.sans, color: BRAND.yellow, fontSize: 12, marginTop: 8 }}>{err}</div>}
     </div>
   );

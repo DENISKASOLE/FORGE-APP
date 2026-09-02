@@ -98,6 +98,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
 }
 
+/* Apple Pay button: the browser draws the actual "Apple Pay" mark itself
+   based on these vendor properties - the button element must stay empty
+   (no text/icon children), which is why this lives in CSS rather than as a
+   React inline style (unlike -webkit- properties, -apple-pay-button-type/
+   -style aren't part of React's camelCase-to-vendor-prefix mapping and
+   don't apply reliably from a style object). */
+.forge-apple-pay-button {
+  display: block;
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 999px;
+  -webkit-appearance: -apple-pay-button;
+  -apple-pay-button-type: plain;
+  -apple-pay-button-style: black;
+}
+
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
