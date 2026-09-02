@@ -3,6 +3,7 @@ import { isoDate, startOfWeek } from "./dateUtils.js";
 
 export const NUTRITION_PHASES = ["baseline", "report", "adjustment", "maintenance"];
 export const MEAL_SLOTS = ["breakfast", "lunch", "dinner"];
+export const MACRO_SLOTS = ["breakfast", "lunch", "dinner", "snacks"];
 
 export const SUPPLEMENT_TIMINGS = [
   { key: "any", label: "Any time" },
@@ -42,6 +43,23 @@ export function emptyHabitLog() {
   return { steps: "", sleep: "", water: "" };
 }
 
+// Macro tracker: a separate, quantity-based food log (search FatSecret /
+// custom entries / saved meals) alongside the existing photo diary above -
+// clients can use either or both. One entry per logged food item, so a
+// slot like breakfast can hold several lines (oats + banana + whey), each
+// with its own macros already scaled to the amount actually logged.
+export function emptyMacroDay() {
+  return { breakfast: [], lunch: [], dinner: [], snacks: [] };
+}
+export function emptyMacroEntry() {
+  return { id: "", foodId: "", name: "", brand: "", serving: "", amount: 1, kcal: 0, protein: 0, carbs: 0, fats: 0, custom: false, loggedAt: "" };
+}
+// A saved meal is a named bundle of macro entries a client can re-log in
+// one tap (e.g. "My usual breakfast"), or build fresh via "Create meal".
+export function emptySavedMeal() {
+  return { id: "", name: "", items: [], createdAt: "" };
+}
+
 export function emptyNutritionState() {
   return {
     phase: "baseline",
@@ -50,6 +68,8 @@ export function emptyNutritionState() {
     supplement_stack: [],
     food_log: {},
     habits: {},
+    macro_log: {},
+    saved_meals: [],
     report: null,
   };
 }
@@ -66,6 +86,13 @@ export function normalizeHabitLog(raw) {
   return { ...emptyHabitLog(), ...(raw && typeof raw === "object" ? raw : {}) };
 }
 
+export function normalizeMacroDay(raw) {
+  const day = emptyMacroDay();
+  if (!raw || typeof raw !== "object") return day;
+  MACRO_SLOTS.forEach((slot) => { day[slot] = Array.isArray(raw[slot]) ? raw[slot].map((i) => ({ ...emptyMacroEntry(), ...i })) : []; });
+  return day;
+}
+
 export function normalizeNutritionState(raw) {
   const base = emptyNutritionState();
   if (!raw || typeof raw !== "object") return base;
@@ -73,6 +100,9 @@ export function normalizeNutritionState(raw) {
   Object.entries(raw.food_log || {}).forEach(([date, day]) => { foodLog[date] = normalizeDayLog(day); });
   const habits = {};
   Object.entries(raw.habits || {}).forEach(([date, day]) => { habits[date] = normalizeHabitLog(day); });
+  const macroLog = {};
+  Object.entries(raw.macro_log || {}).forEach(([date, day]) => { macroLog[date] = normalizeMacroDay(day); });
+  const savedMeals = Array.isArray(raw.saved_meals) ? raw.saved_meals.map((m) => ({ ...emptySavedMeal(), ...m })) : [];
   return {
     phase: NUTRITION_PHASES.includes(raw.phase) ? raw.phase : base.phase,
     week_of: raw.week_of || base.week_of,
@@ -80,6 +110,8 @@ export function normalizeNutritionState(raw) {
     supplement_stack: Array.isArray(raw.supplement_stack) ? raw.supplement_stack : [],
     food_log: foodLog,
     habits,
+    macro_log: macroLog,
+    saved_meals: savedMeals,
     report: raw.report || null,
   };
 }
@@ -90,6 +122,29 @@ export function dayLogFor(state, date) {
 
 export function habitLogFor(state, date) {
   return state.habits?.[date] || emptyHabitLog();
+}
+
+export function macroDayFor(state, date) {
+  return state.macro_log?.[date] || emptyMacroDay();
+}
+
+export function macroDayTotals(day) {
+  const items = MACRO_SLOTS.flatMap((slot) => day[slot] || []);
+  return items.reduce((t, i) => ({
+    kcal: t.kcal + (Number(i.kcal) || 0),
+    protein: t.protein + (Number(i.protein) || 0),
+    carbs: t.carbs + (Number(i.carbs) || 0),
+    fats: t.fats + (Number(i.fats) || 0),
+  }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
+}
+
+export function slotTotals(items) {
+  return (items || []).reduce((t, i) => ({
+    kcal: t.kcal + (Number(i.kcal) || 0),
+    protein: t.protein + (Number(i.protein) || 0),
+    carbs: t.carbs + (Number(i.carbs) || 0),
+    fats: t.fats + (Number(i.fats) || 0),
+  }), { kcal: 0, protein: 0, carbs: 0, fats: 0 });
 }
 
 export async function saveNutritionState(clientId, state) {

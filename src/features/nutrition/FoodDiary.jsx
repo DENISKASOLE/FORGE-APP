@@ -6,6 +6,7 @@ import { isoDate, addDays, startOfWeek, weekDays } from "../../lib/dateUtils.js"
 import { MEAL_SLOTS, dayLogFor, habitLogFor, saveNutritionState } from "../../lib/nutrition.js";
 import { SLEEP_HOURS, WATER_LITERS } from "../../lib/constants.js";
 import { MealSheet } from "./MealSheet.jsx";
+import { MacroTracker } from "./MacroTracker.jsx";
 
 function fmtIngredient(i) {
   const unit = (i.unit || "").trim();
@@ -19,7 +20,7 @@ function MealThumb({ photo, color, size = 72 }) {
   return <div style={{ width: size, height: size, borderRadius: 16, background: `color-mix(in srgb, ${color} 16%, transparent)`, flexShrink: 0 }} />;
 }
 
-function NutritionCalendarCard({ nutrition, date, setDate }) {
+function NutritionCalendarCard({ nutrition, date, setDate, onOpenMacros }) {
   const [anchor, setAnchor] = useState(() => new Date(`${date}T00:00:00`));
   const weekStart = startOfWeek(anchor);
   const days = weekDays(weekStart);
@@ -27,7 +28,20 @@ function NutritionCalendarCard({ nutrition, date, setDate }) {
   function shiftWeek(dir) { setAnchor((a) => addDays(a, dir * 7)); }
   return (
     <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 20, padding: 18 }}>
-      <div style={{ fontFamily: T.display, fontSize: 24, fontWeight: 800, color: T.gold, letterSpacing: "-0.4px" }}>Nutrition</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ fontFamily: T.display, fontSize: 24, fontWeight: 800, color: T.gold, letterSpacing: "-0.4px" }}>Nutrition</div>
+        <button
+          onClick={onOpenMacros}
+          style={{
+            flexShrink: 0, display: "flex", alignItems: "center", gap: 6, marginTop: 4,
+            background: "color-mix(in srgb, var(--accent) 14%, transparent)", border: `${T.hairline} solid ${T.gold}`,
+            borderRadius: 999, padding: "7px 12px", cursor: "pointer",
+            fontFamily: T.sans, fontWeight: 700, fontSize: 11, color: T.gold, textTransform: "uppercase", letterSpacing: "0.06em",
+          }}
+        >
+          <span>✦</span> Track your macros
+        </button>
+      </div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 14, marginBottom: 14 }}>
         <button onClick={() => shiftWeek(-1)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: 4 }}>&lsaquo;</button>
         <div style={{ fontFamily: T.sans, fontWeight: 700, fontSize: 15, color: T.accent }}>{monthLabel}</div>
@@ -121,6 +135,7 @@ function HabitCard({ habits, onChange }) {
 export function FoodDiary({ client, updateClient, nutrition }) {
   const [date, setDate] = useState(isoDate());
   const [editing, setEditing] = useState(null); // { slot: 'breakfast'|'lunch'|'dinner'|'snacks', index? }
+  const [showMacros, setShowMacros] = useState(false);
 
   const day = dayLogFor(nutrition, date);
   const habits = habitLogFor(nutrition, date);
@@ -161,7 +176,7 @@ export function FoodDiary({ client, updateClient, nutrition }) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
-      <NutritionCalendarCard nutrition={nutrition} date={date} setDate={setDate} />
+      <NutritionCalendarCard nutrition={nutrition} date={date} setDate={setDate} onOpenMacros={() => setShowMacros(true)} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 2px" }}>
         <span style={{ fontFamily: T.sans, fontWeight: 600, fontSize: 13, color: T.accent }}>{date === today ? "Today" : date}</span>
@@ -211,6 +226,10 @@ export function FoodDiary({ client, updateClient, nutrition }) {
           onDelete={(editing.slot === "snacks" ? editing.index != null : day[editing.slot]) ? deleteMeal : null}
           onClose={() => setEditing(null)}
         />
+      )}
+
+      {showMacros && (
+        <MacroTracker client={client} updateClient={updateClient} onClose={() => setShowMacros(false)} />
       )}
     </div>
   );
