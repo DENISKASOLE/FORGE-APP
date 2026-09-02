@@ -211,7 +211,7 @@ export default function App() {
     : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
     : clientPortal && paymentLockout(clientPortal).locked ? (
-      <PaymentLockedScreen overdueDays={paymentLockout(clientPortal).overdueDays} />
+      <PaymentLockedScreen client={clientPortal} updateClient={updateClient} overdueDays={paymentLockout(clientPortal).overdueDays} />
     ) : clientPortal ? (
       <Routes>
         <Route path="/" element={<ClientPortalRoute clientPortal={clientPortal} updateClient={updateClient} refresh={() => boot(session.user)} />} />

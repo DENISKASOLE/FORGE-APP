@@ -91,7 +91,7 @@ function ApplePayButton({ client, amount, onPaid, onError }) {
   );
 }
 
-function PayPalCheckout({ client, amount, onPaid }) {
+export function PayPalCheckout({ client, amount, onPaid }) {
   const ref = useRef(null);
   const [status, setStatus] = useState("loading");
   const [err, setErr] = useState("");
@@ -152,6 +152,18 @@ function PayPalCheckout({ client, amount, onPaid }) {
   );
 }
 
+// Shared by PaymentsTab's own checkout and PaymentLockedScreen's - same
+// "just paid" outcome (mark paid, push the due date forward a month, fan
+// out to a buddy partner if any) regardless of which screen the payment
+// happened on.
+export async function markClientPaidAfterCheckout(client, updateClient) {
+  const next = new Date(); next.setDate(next.getDate() + 30);
+  const patch = { paymentPaid: true, paymentDueDate: isoDate(next), lastPaidAt: new Date().toISOString() };
+  await upsertSection(client.id, "profile", { ...client.profile, ...patch });
+  updateClient({ ...client, ...patch, profile: { ...client.profile, ...patch } });
+  await markBuddyPairPaid(client.id);
+}
+
 export function PaymentsTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [dueDate, setDueDate] = useState(client.paymentDueDate || "");
@@ -166,14 +178,7 @@ export function PaymentsTab({ client, updateClient, isCoach }) {
   async function markPaid() { await persist({ paymentPaid: true }); await markBuddyPairPaid(client.id); }
   async function renew30() { const next = new Date(); next.setDate(next.getDate() + 30); const nextDate = isoDate(next); setDueDate(nextDate); await persist({ paymentDueDate: nextDate, paymentPaid: false }); }
   async function savePrice() { setSaving(true); await persist({ price }); setSaving(false); }
-  async function onPaid() {
-    const next = new Date(); next.setDate(next.getDate() + 30);
-    await persist({ paymentPaid: true, paymentDueDate: isoDate(next), lastPaidAt: new Date().toISOString() });
-    // If this client is half of a buddy pair, the same payment settles the
-    // shared package for both - fan the paid status out to the other
-    // member using their existing per-client fields (see DECISIONS.md).
-    await markBuddyPairPaid(client.id);
-  }
+  async function onPaid() { await markClientPaidAfterCheckout(client, updateClient); }
   return (
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 12 }}>Payments</div>
