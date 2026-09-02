@@ -31,6 +31,7 @@ import { ClientCard } from "../client-shell/ClientShellUI.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
 import { BuddyPairsScreen } from "./BuddyPairs.jsx";
+import { PackageDesigner } from "./PackageDesigner.jsx";
 import { loadTodaysAgenda } from "./coachHelpers.js";
 import { timeLabel } from "../../lib/clientData.js";
 
@@ -421,6 +422,7 @@ export function CoachToolsTab({ onOpen }) {
     { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot" },
     { key: "content", name: "Content", meta: "Forge Academy articles" },
     { key: "payments", name: "Payments", meta: "Plans & invoices" },
+    { key: "packages", name: "Packages", meta: "Design your offers" },
     { key: "forms", name: "Intake Forms", meta: "Onboarding & health" },
     { key: "broadcast", name: "Broadcast", meta: "Message every client" },
     { key: "automations", name: "Automations", meta: "Reminders & nudges" },
@@ -906,6 +908,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "broadcast") body = <CoachBroadcastScreen clients={clients} refresh={refresh} onBack={goHome} />;
   else if (screen === "automations") body = <CoachAutomationsScreen user={user} onBack={goHome} />;
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
+  else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}
