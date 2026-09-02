@@ -9,7 +9,7 @@ import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
 import { isoDate, currentStreakWeeks } from "../../lib/dateUtils.js";
 import { useIsMobile } from "../../lib/browser.js";
-import { paymentStatus, daysSince } from "../../lib/clientData.js";
+import { paymentStatus, daysSince, daysUntil, paymentLockout } from "../../lib/clientData.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
@@ -208,6 +208,10 @@ function ClientHome({ client, goTo }) {
   const mealPct = Math.min(100, Math.round((loggedCount / mealGoal) * 100));
   const lastCheckIn = client.checkIns?.[client.checkIns.length - 1];
   const checkinDue = !lastCheckIn || daysSince(lastCheckIn.date) >= 7;
+  const isOnlinePaying = client.clientType === "Online" && client.paymentDueDate && !client.paymentPaid;
+  const daysToPayment = isOnlinePaying ? daysUntil(client.paymentDueDate) : null;
+  const showPaymentBanner = isOnlinePaying && daysToPayment != null && daysToPayment <= 5;
+  const lockout = isOnlinePaying ? paymentLockout(client) : null;
   const streakWeeks = currentStreakWeeks((client.checkIns || []).map((c) => c.date));
   const firstName = (client.name || "").split(" ")[0];
   const hour = new Date().getHours();
@@ -228,6 +232,28 @@ function ClientHome({ client, goTo }) {
       </div>
       <ClientAvatar client={client} size={isMobile ? 46 : 54} />
     </div>
+
+    {goTo && showPaymentBanner && (
+      <div onClick={() => goTo("payments")} style={{ cursor: "pointer", background: daysToPayment < 0 ? "linear-gradient(135deg,#1f0e0c 0%,#2e1210 100%)" : "linear-gradient(135deg,#1f1208 0%,#2e1a08 100%)", border: `1.5px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.5)" : "rgba(242,133,61,0.45)"}`, borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: daysToPayment < 0 ? "0 0 32px rgba(220,80,70,0.12)" : "0 0 32px rgba(242,133,61,0.1)", zIndex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: daysToPayment < 0 ? "rgba(220,80,70,0.15)" : "rgba(242,133,61,0.15)", border: `1px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.3)" : "rgba(242,133,61,0.3)"}`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <NavIcon name="card" size={16} color={daysToPayment < 0 ? BRAND.red : BRAND.gold} />
+            </div>
+            <div>
+              <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: BRAND.text }}>
+                {daysToPayment < 0 ? `Payment ${lockout.overdueDays} day${lockout.overdueDays === 1 ? "" : "s"} overdue` : daysToPayment === 0 ? "Payment due today" : `Payment due in ${daysToPayment} day${daysToPayment === 1 ? "" : "s"}`}
+              </div>
+              <div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted, marginTop: 2 }}>
+                {daysToPayment < 0 ? `Pay now to avoid losing access${lockout.daysUntilLockout != null ? ` — ${lockout.daysUntilLockout} day${lockout.daysUntilLockout === 1 ? "" : "s"} left` : ""}` : "Pay now to avoid any inconvenience"}
+              </div>
+            </div>
+          </div>
+          {daysToPayment < 0 && <div style={{ background: BRAND.red, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>Overdue</div>}
+        </div>
+        <button style={{ width: "100%", background: daysToPayment < 0 ? BRAND.red : BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: daysToPayment < 0 ? "0 4px 18px rgba(220,80,70,0.3)" : "0 4px 18px rgba(242,133,61,0.3)" }}>Pay Now →</button>
+      </div>
+    )}
 
     {goTo && checkinDue ? (
       <div onClick={() => goTo("checkins")} style={{ cursor: "pointer", background: "linear-gradient(135deg,#1f1208 0%,#2e1a08 100%)", border: "1.5px solid rgba(242,133,61,0.45)", borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: "0 0 32px rgba(242,133,61,0.1)", zIndex: 1 }}>

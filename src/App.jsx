@@ -7,8 +7,9 @@ import { ConfirmHost } from "./components/ui/ConfirmDialog.jsx";
 import { FORGE_SYNC_QUEUE_KEY, readJson, saveForgeCache, readForgeCache, flushSyncQueue } from "./lib/cache.js";
 import { DENIS_EMAIL } from "./lib/constants.js";
 import { ensureMobileViewport, useIsMobile } from "./lib/browser.js";
-import { mapClient } from "./lib/clientData.js";
+import { mapClient, paymentLockout } from "./lib/clientData.js";
 import { AccountNotActiveScreen } from "./features/auth/AccountNotActiveScreen.jsx";
+import { PaymentLockedScreen } from "./features/auth/PaymentLockedScreen.jsx";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { CoachDashboard } from "./features/coach/CoachDashboard.jsx";
@@ -209,7 +210,9 @@ export default function App() {
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
     : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
-    : clientPortal ? (
+    : clientPortal && paymentLockout(clientPortal).locked ? (
+      <PaymentLockedScreen overdueDays={paymentLockout(clientPortal).overdueDays} />
+    ) : clientPortal ? (
       <Routes>
         <Route path="/" element={<ClientPortalRoute clientPortal={clientPortal} updateClient={updateClient} refresh={() => boot(session.user)} />} />
         <Route path="/:tab" element={<ClientPortalRoute clientPortal={clientPortal} updateClient={updateClient} refresh={() => boot(session.user)} />} />

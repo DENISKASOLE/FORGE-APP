@@ -194,11 +194,23 @@ export function computeNotifications(clients) {
     const bday = nextBirthdayDaysAway(c.profile?.birthday);
     if (bday !== null && bday <= 7) items.push({ id: `bday_${c.id}`, type: "birthday", severity: 3, client: c, text: bday === 0 ? `${c.name}'s birthday is today!` : `${c.name}'s birthday is in ${bday} day${bday === 1 ? "" : "s"}` });
 
-    if (c.paymentDueDate && !c.paymentPaid) {
+    // Scoped to Online clients: they're the ones on the self-serve pay-in-app
+    // + 5-day-grace-then-lockout flow this mirrors (see paymentLockout() in
+    // lib/clientData.js). In-person clients are paid in person/cash and never
+    // hit that flow, so they don't get these particular pings.
+    if (c.clientType === "Online" && c.paymentDueDate && !c.paymentPaid) {
       const d = daysUntil(c.paymentDueDate);
-      if (d < 0) items.push({ id: `pay_over_${c.id}`, type: "payment", severity: 0, client: c, text: `${c.name}'s payment is overdue by ${Math.abs(d)} day${Math.abs(d) === 1 ? "" : "s"}` });
-      else if (d <= 2) items.push({ id: `pay_2_${c.id}`, type: "payment", severity: 1, client: c, text: `${c.name}'s payment is due ${d === 0 ? "today" : `in ${d} day${d === 1 ? "" : "s"}`}` });
-      else if (d <= 5) items.push({ id: `pay_5_${c.id}`, type: "payment", severity: 2, client: c, text: `${c.name}'s payment is due in ${d} days` });
+      if (d < 0) {
+        const overdueDays = -d;
+        if (overdueDays >= 5) items.push({ id: `pay_locked_${c.id}`, type: "payment", severity: 0, client: c, text: `${c.name} is locked out of the app for a missed payment (${overdueDays} days overdue)` });
+        else items.push({ id: `pay_over_${c.id}`, type: "payment", severity: 0, client: c, text: `${c.name}'s payment is ${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue — locks out in ${5 - overdueDays} day${5 - overdueDays === 1 ? "" : "s"}` });
+      } else if (d === 0) {
+        items.push({ id: `pay_due_${c.id}`, type: "payment", severity: 1, client: c, text: `${c.name}'s payment is due today` });
+      } else if (d === 3) {
+        items.push({ id: `pay_3_${c.id}`, type: "payment", severity: 2, client: c, text: `${c.name}'s payment is due in 3 days` });
+      } else if (d === 5) {
+        items.push({ id: `pay_5_${c.id}`, type: "payment", severity: 2, client: c, text: `${c.name}'s payment is due in 5 days` });
+      }
     }
 
     const lastFoodDate = Object.entries(c.nutrition?.food_log || {})

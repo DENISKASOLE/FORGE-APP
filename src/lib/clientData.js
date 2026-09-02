@@ -73,6 +73,19 @@ export function paymentStatus(client) {
   if (d <= 5) return { label: `Due in ${d} days`, color: BRAND.gold };
   return { label: `Due ${client.paymentDueDate}`, color: BRAND.text };
 }
+// Grace period + lockout for online clients who miss a payment: the app
+// stays open for 5 days past the due date, then locks. Scoped to Online
+// clients only - in-person clients are paid in person/cash and never go
+// through the self-serve payment flow this lockout is meant to enforce.
+export function paymentLockout(client) {
+  if (client.clientType !== "Online" || !client.paymentDueDate || client.paymentPaid) {
+    return { overdueDays: 0, daysUntilLockout: null, locked: false };
+  }
+  const d = daysUntil(client.paymentDueDate);
+  if (d === null || d >= 0) return { overdueDays: 0, daysUntilLockout: null, locked: false };
+  const overdueDays = -d;
+  return { overdueDays, daysUntilLockout: Math.max(0, 5 - overdueDays), locked: overdueDays >= 5 };
+}
 export function makeInviteCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
