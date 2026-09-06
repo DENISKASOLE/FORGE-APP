@@ -12,7 +12,7 @@ export function Chip({ children, selected = false, onClick, style = {} }) {
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         color: selected ? "var(--btn-ink)" : T.muted,
-        boxShadow: selected ? "0 6px 20px rgba(255,255,255,.14)" : "inset 0 1px 0 var(--glass-hi)",
+        boxShadow: selected ? "0 6px 20px color-mix(in srgb, var(--accent) 22%, transparent)" : "inset 0 1px 0 var(--glass-hi)",
         borderRadius: 999,
         padding: "8px 14px",
         fontSize: 11,

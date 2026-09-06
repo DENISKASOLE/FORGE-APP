@@ -452,7 +452,7 @@ export function CoachBottomNav({ tab, setTab, unread }) {
     <div className="glass-nav" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {COACH_NAV.map((item) => {
         const active = tab === item.key;
-        const color = active ? "#0A090B" : BRAND.dim;
+        const color = active ? BRAND.btnInk : BRAND.dim;
         return (
           <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
             <div className={active ? "glass-pill-active" : undefined} style={{ width: 42, height: 28, borderRadius: 999, display: "grid", placeItems: "center", transition: "box-shadow .2s, background .2s" }}>
@@ -783,7 +783,7 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   return <div style={{ display: "grid", gap: 14 }}>
     <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Settings</div>
     <div onClick={onEditProfile} className="glass" style={{ cursor: "pointer", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ fontFamily: BRAND.display, width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.accentDeep}, ${BRAND.gold})`, overflow: "hidden", display: "grid", placeItems: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
+      <div style={{ fontFamily: BRAND.display, width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.accentDeep}, ${BRAND.gold})`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.btnInk, fontWeight: 800, fontSize: 18, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 16, color: BRAND.text }}>{trainer?.name || user.email?.split("@")[0]}</div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Online Fitness Coach</div>

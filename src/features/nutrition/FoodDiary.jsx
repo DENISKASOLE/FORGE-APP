@@ -59,9 +59,9 @@ function NutritionCalendarCard({ nutrition, date, setDate, onOpenMacros }) {
                 onClick={() => setDate(d.date)}
                 style={{
                   width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
-                  background: selected ? "rgba(255,255,255,.92)" : "transparent",
-                  boxShadow: selected ? "0 6px 20px rgba(255,255,255,.18)" : "none",
-                  color: selected ? "#0A090B" : T.accent,
+                  background: selected ? "var(--accent)" : "transparent",
+                  boxShadow: selected ? "0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent)" : "none",
+                  color: selected ? T.btnInk : T.accent,
                   fontFamily: T.sans, fontWeight: 700, fontSize: 15,
                   display: "grid", placeItems: "center",
                 }}

@@ -145,7 +145,7 @@ export function ClientBottomNav({ tab, setTab, unreadMessages }) {
         return (
           <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
             <div className={active ? "glass-pill-active" : undefined} style={{ width: 42, height: 28, borderRadius: 999, display: "grid", placeItems: "center", transition: "box-shadow .2s, background .2s" }}>
-              <NavIcon name={item.icon} size={22} color={active ? "#0A090B" : BRAND.dim} />
+              <NavIcon name={item.icon} size={22} color={active ? BRAND.btnInk : BRAND.dim} />
               {item.key === "me_hub" && unreadMessages > 0 && <div style={{ position: "absolute", top: -2, right: 6, width: 16, height: 16, borderRadius: "50%", background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid var(--shell)` }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
             </div>
             <div style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", color: active ? BRAND.text : BRAND.dim }}>{item.label}</div>

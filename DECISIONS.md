@@ -543,3 +543,65 @@ made the right call here.
   sign, but a Vercel preview-deploy check is worth doing before trusting
   it fully in production.
 
+## Follow-up: light-mode optimization pass
+
+Requested separately after the branch above shipped ("take a good look at
+the app in light mode for both client and coach and make everything
+optimal for that as well"). Found and fixed a real class of bug the
+first pass introduced: several elements were styled by hardcoding one
+theme's expected look (a color literal like `#0A090B` or `rgba(255,255,
+255,.92)`) instead of the theme-adaptive `var(--accent)`/`var(--btn-ink)`
+tokens - correct-looking in dark mode (the theme built and screenshotted
+first) but broken in the other.
+
+- **Three client Home hero cards used hardcoded dark-gray gradients**
+  (`#141414`→`#1e1e1e` etc.) as backgrounds while their text used the
+  theme-adaptive `BRAND.text` token. In light mode `BRAND.text` flips to
+  near-black, landing dark text on a still-dark hardcoded background -
+  both the payment-due banner (both its "due soon" and "overdue"
+  variants), the check-in-due banner, and the "Today's Workout" card
+  would have been illegible. Fixed by moving the gradients into three
+  new theme-aware tokens (`--hero-gradient`/`-warm`/`-danger`, dark values
+  unchanged, light values a soft white/cream/pink family) so the same
+  "this card matters more" visual weight survives in both themes instead
+  of only working in the one that was actually looked at.
+- **The "active/selected" white-pill styling was hardcoded white, not
+  theme-aware** - `.glass-pill-active`, both bottom navs' active-icon
+  color, and the nutrition/macro calendars' selected-day circle all used
+  literal `rgba(255,255,255,.92)`/`#0A090B` instead of `var(--accent)`/
+  `var(--btn-ink)`. In dark mode this is correct (white pill pops against
+  a near-black bar). In light mode, where `--accent` is near-black, a
+  hardcoded *white* pill would sit almost invisibly against the already-
+  light nav bar and calendar - exactly the "selected state you can't see"
+  bug a theme system exists to prevent. Fixed by switching every one of
+  these to the actual tokens, which already flip correctly per theme (dark
+  mode: white pill on dark bar; light mode: near-black pill on light bar -
+  a "lifted" look instead of a glow, which is the correct inversion).
+  Same fix applied to the small white-glow box-shadows on Button's "gold"
+  variant and Chip's selected state, both of which had the identical
+  hardcoded-white-glow issue (invisible against a light background).
+- **Coach's trainer-avatar fallback gradient** (`accentDeep`→`gold`) paired
+  with hardcoded white initials text - inverted from the cards above:
+  this one was actually broken in *dark* mode, where the gradient itself
+  is near-white and the initials were also hardcoded white. Fixed with
+  `BRAND.btnInk`, which is dark-on-light-bg/light-on-dark-bg exactly as
+  needed since it's designed to sit on top of `--btn-bg`/`--accent`.
+- **Apple Pay button** hardcoded `-apple-pay-button-style: white-outline`,
+  correct sitting on a dark glass card in dark mode but low-contrast on
+  a light one. Added a `[data-theme="light"] .forge-apple-pay-button`
+  override to `-apple-pay-button-style: black` - Apple's own supported
+  values include exactly this pairing for light/dark surfaces, so it
+  wasn't a workaround, just the theme-aware version of what the vendor
+  API already offers.
+- **Verified, not just assumed**: this pass was found by systematically
+  grepping for every hardcoded hex/rgba literal introduced during the
+  glass restyle (`#141414`, `#161616`, `#0A090B`, `rgba(255,255,255,.9x)`,
+  etc.) and checking each one against both theme blocks, rather than
+  guessing which components might be affected. The login screen (the one
+  screen reachable without auth) was screenshotted in both themes before
+  and after this pass to confirm no regression; every other fix here is
+  verified by tracing the token values through both theme blocks by hand,
+  the same way milestone 3's original hardcoded-hex sweep was - there was
+  no way to get a live screenshot of an authenticated screen in this
+  sandbox to see the coach/client screens directly.
+

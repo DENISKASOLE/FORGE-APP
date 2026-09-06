@@ -27,6 +27,9 @@
     radial-gradient(55% 40% at 95% 12%, rgba(10,9,11,.04), transparent 60%),
     radial-gradient(90% 55% at 50% 118%, rgba(10,9,11,.03), transparent 55%),
     linear-gradient(180deg,#FDFCFA,#F3F1ED 55%,#EDEAE4);
+  --hero-gradient: linear-gradient(135deg,#FFFFFF 0%,#F3F1ED 100%);
+  --hero-gradient-warm: linear-gradient(135deg,#FFFFFF,#F6EFE4 60%,#F1E7D6);
+  --hero-gradient-danger: linear-gradient(135deg,#FDEEEC 0%,#FBDDD9 100%);
   --radius-card:22px; --radius-control:14px; --hairline:1px;
   --display:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
   --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -45,6 +48,9 @@
   --accent:rgba(255,255,255,.92); --accent-deep:rgba(255,255,255,.72);
   --btn-bg:var(--accent); --btn-ink:#0A090B;
   --glass-hi:rgba(255,255,255,.16); --glass-hi-2:rgba(255,255,255,.02); --glass-shadow:rgba(0,0,0,.7);
+  --hero-gradient: linear-gradient(135deg,#161616,#202020 60%,#141414);
+  --hero-gradient-warm: linear-gradient(135deg,#141414 0%,#1e1e1e 100%);
+  --hero-gradient-danger: linear-gradient(135deg,#1f0e0c 0%,#2e1210 100%);
   --cinematic-gradient:
     radial-gradient(65% 40% at 18% -5%, rgba(255,255,255,.14), transparent 60%),
     radial-gradient(55% 40% at 95% 12%, rgba(255,255,255,.07), transparent 60%),
@@ -135,6 +141,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   -webkit-appearance: -apple-pay-button;
   -apple-pay-button-type: plain;
   -apple-pay-button-style: white-outline;
+}
+[data-theme="light"] .forge-apple-pay-button {
+  -apple-pay-button-style: black;
 }
 
 /* ---------------------------------------------------------------------
@@ -231,11 +240,15 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-top-color: rgba(10,9,11,.08);
 }
 /* Frosted "active" pill - nav items, selected calendar days, selected
-   chips. White stays the only accent; this is its one glowing form. */
+   chips. White stays the only accent in dark mode; in light mode --accent
+   is near-black instead (see the two theme blocks above), so this reads
+   as a dark "lifted" pill with a soft shadow rather than a glow - a
+   literal white pill would be invisible against light mode's already-
+   light surfaces. */
 .glass-pill-active {
-  background: rgba(255,255,255,.92);
-  color: #0A090B;
-  box-shadow: 0 6px 20px rgba(255,255,255,.18);
+  background: var(--accent);
+  color: var(--btn-ink);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 /* Category dots (meal slots, habit types) glow softly in their own hue -
    the only place non-monochrome color survives in this restyle. */

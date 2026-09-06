@@ -42,7 +42,7 @@ function MacroCalendarCard({ nutrition, date, setDate }) {
                 style={{
                   width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
                   background: selected ? T.gold : "transparent",
-                  boxShadow: selected ? "0 6px 20px rgba(255,255,255,.18)" : "none",
+                  boxShadow: selected ? "0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent)" : "none",
                   color: selected ? T.btnInk : T.accent,
                   fontFamily: T.sans, fontWeight: 700, fontSize: 15,
                   display: "grid", placeItems: "center",

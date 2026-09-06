@@ -235,7 +235,7 @@ function ClientHome({ client, goTo }) {
     </div>
 
     {goTo && showPaymentBanner && (
-      <div onClick={() => goTo("payments")} className="glass" style={{ cursor: "pointer", background: daysToPayment < 0 ? "linear-gradient(135deg,#1f0e0c 0%,#2e1210 100%)" : "linear-gradient(135deg,#141414 0%,#1e1e1e 100%)", border: `1.5px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.5)" : "color-mix(in srgb, var(--accent) 35%, transparent)"}`, borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: daysToPayment < 0 ? "0 0 32px rgba(220,80,70,0.12)" : "0 0 32px color-mix(in srgb, var(--accent) 8%, transparent)", zIndex: 1 }}>
+      <div onClick={() => goTo("payments")} className="glass" style={{ cursor: "pointer", background: daysToPayment < 0 ? "var(--hero-gradient-danger)" : "var(--hero-gradient-warm)", border: `1.5px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.5)" : "color-mix(in srgb, var(--accent) 35%, transparent)"}`, borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: daysToPayment < 0 ? "0 0 32px rgba(220,80,70,0.12)" : "0 0 32px color-mix(in srgb, var(--accent) 8%, transparent)", zIndex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, background: daysToPayment < 0 ? "rgba(220,80,70,0.15)" : "color-mix(in srgb, var(--accent) 15%, transparent)", border: `1px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.3)" : "color-mix(in srgb, var(--accent) 30%, transparent)"}`, display: "grid", placeItems: "center", flexShrink: 0 }}>
@@ -257,7 +257,7 @@ function ClientHome({ client, goTo }) {
     )}
 
     {goTo && checkinDue ? (
-      <div onClick={() => goTo("checkins")} className="glass" style={{ cursor: "pointer", background: "linear-gradient(135deg,#141414 0%,#1e1e1e 100%)", border: "1.5px solid color-mix(in srgb, var(--accent) 35%, transparent)", borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: "0 0 32px color-mix(in srgb, var(--accent) 8%, transparent)", zIndex: 1 }}>
+      <div onClick={() => goTo("checkins")} className="glass" style={{ cursor: "pointer", background: "var(--hero-gradient-warm)", border: "1.5px solid color-mix(in srgb, var(--accent) 35%, transparent)", borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: "0 0 32px color-mix(in srgb, var(--accent) 8%, transparent)", zIndex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 32, height: 32, borderRadius: 10, background: "color-mix(in srgb, var(--accent) 15%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", display: "grid", placeItems: "center", flexShrink: 0 }}><NavIcon name="check" size={16} color={BRAND.gold} /></div>
@@ -285,7 +285,7 @@ function ClientHome({ client, goTo }) {
       </Card>
     )}
 
-    <div className="glass glass-glow" style={{ background: "linear-gradient(135deg,#161616,#202020 60%,#141414)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
+    <div className="glass glass-glow" style={{ background: "var(--hero-gradient)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
       <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 600, color: BRAND.gold, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 7 }}>Today's Workout</div>
       {w ? (
         <>
