@@ -285,7 +285,7 @@ function ClientHome({ client, goTo }) {
       </Card>
     )}
 
-    <div className="glass" style={{ background: "linear-gradient(135deg,#161616,#202020 60%,#141414)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
+    <div className="glass glass-glow" style={{ background: "linear-gradient(135deg,#161616,#202020 60%,#141414)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
       <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 600, color: BRAND.gold, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 7 }}>Today's Workout</div>
       {w ? (
         <>

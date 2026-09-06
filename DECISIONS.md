@@ -349,3 +349,197 @@ at all.
   present in the repo - if you had a specific pixel-level mockup in mind
   beyond the written spec, this pass never saw it.
 
+---
+
+# feature/glass-restyle — decisions log
+
+Autonomous branch, built off `main` per the brief: "bold, glassmorphism,
+cinematic edge-lit borders, ultra-luxury," monochrome base kept (white
+stays the one accent, category colors stay as small functional dots
+only). CSS/visual only - no logic, routing, data, auth, Supabase schema,
+or payments changes. Five commits, one per milestone, all on this branch;
+`main` untouched throughout.
+
+## Milestone 1 — tokens, cinematic backdrop, Sora type scale
+
+- **Base flips from true black to warm near-black**, per the brief's
+  exact `--ink`/`--shell`/`--page` values - flat black behind translucent
+  white glass just reads as grey, the base needs its own depth for the
+  blur to have something to catch.
+- **`--card`/`--card-soft`/`--chip` become translucent** (`rgba(255,255,
+  255,.03-.06)` dark, `rgba(255,255,255,.35-.65)` light) instead of flat
+  fills. This was the single highest-leverage move in the whole branch:
+  since nearly every surface in the app is already built from these
+  tokens via `BRAND.card`/`T.card2`/etc., the entire app picked up a
+  glass *tint* the moment this landed, before touching a single component
+  file. Milestones 2-4 then layered actual `backdrop-filter` blur onto
+  the specific surfaces worth the GPU cost.
+- **Light theme gets translucent *white*, not translucent black.** First
+  instinct was to reuse the dark theme's black-tinted rgba values for
+  light mode too, but translucent black over a light gradient just reads
+  as a grey smear, not glass - real light-mode "frosted glass" needs
+  white translucency over the light gradient. Caught this by actually
+  reasoning through what each rgba layer would look like before shipping
+  it, not by trial and error.
+- **`--accent` becomes `rgba(255,255,255,.92)`** (dark) / `rgba(10,9,11,
+  .92)` (light) instead of flat opaque - this is the brief's exact
+  "active pill/selected day" spec, extended to every primary button too,
+  so "white stays the accent" reads as one consistent frosted-white
+  language everywhere rather than flat-white buttons next to frosted-
+  white pills.
+- **`.app-shell::before`/`::after`**: the fixed cinematic backdrop (3
+  radial blooms + base gradient + grain + inset vignette), scoped to the
+  app's own 480px centered column via `left:50%`/`translateX(-50%)`
+  rather than `inset:0` on the full browser viewport - otherwise the
+  vignette and grain would bleed into the desktop letterbox margins
+  outside the actual app content on wide screens. `isolation:isolate` on
+  `.app-shell` keeps the pseudo-elements' `z-index:-1` scoped to that
+  subtree instead of fighting the Toast/Confirm host's z-index:1000+.
+- **Sora imported for `--display` only** (weights 600/700/800, not the
+  full family) - since virtually every heading already renders through
+  `BRAND.display`/`T.display`, this one `@import` reskinned every
+  screen's headings for free. Body text stays on Inter via `--sans`,
+  completely untouched.
+- **Category dot colors** retuned to the brief's exact breakfast/lunch/
+  dinner/snacks hex values (`--orange`/`--blue`/`--violet`/`--green`),
+  with a `.cat-dot { box-shadow: 0 0 10px currentColor }` glow utility -
+  the one place non-monochrome color survives, exactly as scoped.
+
+## Milestone 2 — glass on shared components
+
+Reskinned `Card.jsx`, `Button.jsx`, `Chip.jsx`, `Mini.jsx`, `Field.jsx`
+(inputs/textareas), `Sheet.jsx`, `ConfirmDialog.jsx`, `modal.js`, and
+both bottom nav bars. `Card.jsx` was the biggest lever here - it now
+renders `className="glass"`/`"glass-soft"` instead of inline background/
+border/radius, so every screen already built from `<Card>` (which turned
+out to be most of the coach side - see milestone 4) picked this up with
+zero further edits.
+
+- **Bottom nav active state**: per the brief's exact "active pill/
+  selected day" spec, the active tab's icon now sits on a near-solid
+  white frosted pill with a dark icon, replacing the old gold-tinted
+  background - this is the one nav treatment in the whole app now, used
+  consistently for client and coach.
+- **Modal/sheet scrims get `backdrop-filter: blur(6px)`** on top of the
+  existing dark overlay, so whatever's behind a modal reads as glass too
+  instead of a flat dark rectangle - small, cheap (one element per open
+  modal, never repeated), decent visual payoff.
+
+## Milestone 3 — client screens
+
+Explicit `.glass`/`.glass-soft` on the hand-rolled hero cards client
+screens build directly rather than through `<Card>` - Home's payment/
+check-in/workout banners, the nutrition and macro calendar cards, meal/
+habit/snack cards, progress's PB and streak/adherence tiles, the payment
+status card, check-in question pages. Every one of these is a single
+card or a small fixed-count group (3 meal cards, 2 stat tiles) - never a
+scrolling list - so nothing here needed revisiting in milestone 5.
+
+- **Fixed selected-day circles that used a category color** (nutrition
+  and macro calendars both used `T.blue` for "this day is selected").
+  Per the brief, selection state is white/frosted and category color is
+  for data only - a selected calendar day isn't "blue data," it's a
+  selection, so these now use the same white-pill treatment as the nav.
+- **Bigger catch: five screens never got the backdrop at all.**
+  `LoginScreen`, `PaymentLockedScreen`, `AccountNotActiveScreen`,
+  `ResetPasswordScreen`, and the boot-loading screen all render in
+  `App.jsx` *before* any route mounts `.app-shell` - so none of them
+  would have picked up the milestone-1 cinematic backdrop, and the login
+  screen (the one screen every single user sees) would have shipped
+  looking like the old flat theme. Fixed by pulling the backdrop gradient
+  into a shared `--cinematic-gradient` custom property used by both
+  `.app-shell::before` and a new `.cinematic-bg` class, applied to all
+  five. Worth flagging because it's exactly the kind of gap that's easy
+  to miss when "every screen" implicitly means "every screen inside the
+  main app shell."
+
+## Milestone 4 — coach screens
+
+Turned out to be mostly already done by milestone 2: `PackageDesigner`,
+`BuddyPairs`, `Calendar`, `Trials`, `CoachContentScreen`, and `ScheduleTab`
+all build entirely from `<Card>`, so they inherited glass automatically.
+The only hand-rolled coach surfaces were `CoachDashboard`'s home tile
+grid (6 fixed dashboard tiles), its Tools grid (~10 fixed tiles), and two
+settings-screen surfaces - all bounded, all now `.glass`.
+
+Also spot-checked (and left alone, correctly already right): the client
+roster cards, per-notification rows (colored by severity tone, not
+glass), and the exercise library list all already used plain translucent
+-but-unblurred surfaces before this branch existed - someone had already
+made the right call here.
+
+## Milestone 5 — de-glass long lists, fallback, reduced motion, build
+
+- **Added a `flat` prop to `Card.jsx`** rather than hand-rolling a
+  one-off style for each list: `flat` swaps the `glass`/`glass-soft`
+  className for the plain `--card`/`--card-soft` token background (same
+  translucent tint and border language, zero `backdrop-filter`). Applied
+  to the four `<Card>` usages that sit inside a `.map()` over a
+  collection that can genuinely grow unbounded over the life of an
+  account: the Learn tab's two article-list views (coach's publishing
+  list and the client-facing feed - same underlying growing collection),
+  the coach's "all scheduled sessions across every client" view, and the
+  coach's saved-program-templates list. Left `<Card>` items that are
+  small/bounded by nature as full glass (buddy pairs, package catalog, a
+  single session's completed-exercise list) - blurring five or ten items
+  once per screen view isn't the GPU cost the brief is warning about.
+- **`@supports not (backdrop-filter)` fallback** and the **light-theme
+  glass variants** were written directly into the milestone-1 utility
+  classes rather than bolted on after, so there was nothing left to add
+  here - confirmed by re-reading `theme.css`'s `.glass`/`.glass-soft`/
+  `.glass-nav` blocks rather than assuming.
+- **`prefers-reduced-motion`**: the app already had a blanket rule
+  collapsing all animation/transition durations to near-zero
+  (pre-existing, not part of this branch). The one new animation this
+  branch added - `.glass-glow`, a slow breathing box-shadow pulse applied
+  to the client Home's "Today's Workout" hero card as the one deliberate
+  "get creative" flourish - is caught by that same existing rule with no
+  extra work, so reduced-motion users get a static glow instead of a
+  pulsing one automatically.
+- **Incident: an accidental `git checkout main -- .`** while trying to
+  capture a before/after eslint diff briefly reverted the entire working
+  tree to `main`'s pre-restyle content. Caught immediately via `git
+  status`/`git diff --stat HEAD` before anything was committed or pushed.
+  All four prior milestones were already committed and were completely
+  unaffected; `git reset --hard HEAD` cleanly discarded the bad checkout,
+  and the handful of not-yet-committed milestone-5 edits (the `Card.jsx`
+  `flat` prop and its four call sites, plus the `.glass-glow` addition)
+  were manually redone from the exact diffs already produced earlier in
+  the run. Net effect: zero lost work, but worth recording since it's
+  the kind of near-miss that's only harmless because nothing had reached
+  `main` or been pushed yet.
+
+## Scope limitations - what this branch did *not* fully do
+
+- **"Screen titles ~28-30px"** was addressed only via the Sora font-
+  family swap (which flows through `--display` everywhere for free) and
+  weight bumps on a handful of components edited directly for other
+  reasons (`Mini.jsx`, `ConfirmDialog.jsx`, `Sheet.jsx` titles). The many
+  screen-specific hardcoded `fontSize: 22-30` headings scattered across
+  three dozen files were *not* individually swept to a single value -
+  that's a much larger, purely mechanical find-and-replace with real
+  risk of layout shifts per screen, and the font-family change already
+  does most of the visual work the brief is after ("bold type," not
+  literally identical pixel sizes everywhere).
+- **Not every hand-rolled card in every file got an explicit `.glass`
+  class.** The token cascade (milestone 1) means every surface built
+  from `BRAND.card`/`T.card2`/etc. already reads as glass-tinted even
+  without one - explicit classes were added where blur was worth the
+  GPU cost (see milestones 2-4's reasoning) rather than chasing 100%
+  literal coverage of every `<div>` in the codebase. If a specific card
+  somewhere still looks flatter than expected, it's very likely one of
+  these un-swept spots rather than a broken token.
+- **Coach-authenticated screens were verified by code audit and eslint/
+  build diffing, not a live screenshot** - this sandbox has no coach
+  test credentials. The client login screen (the one screen reachable
+  without auth) was screenshotted and re-verified after every milestone;
+  everything past that gate is verified by reading the rendered JSX and
+  its resolved styles, not by seeing pixels. Worth a real device/browser
+  pass before calling this fully done.
+- **Google Fonts network loading** (the Sora `@import`) couldn't be
+  confirmed to actually fetch successfully from this sandboxed
+  environment the same way a real deploy would - the font rendered
+  correctly in the one screenshot this run could take, which is a good
+  sign, but a Vercel preview-deploy check is worth doing before trusting
+  it fully in production.
+

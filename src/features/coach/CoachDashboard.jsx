@@ -637,7 +637,7 @@ export function CoachTemplates({ user, clients, refresh, onBack }) {
         const usedBy = clients.filter((c) => c.program?.templateId === t.id).length;
         const isAssigning = assigningTemplate?.id === t.id;
         return (
-          <Card key={t.id} style={{ padding: 14 }}>
+          <Card key={t.id} flat style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 500, fontSize: 16 }}>{t.name}</div>

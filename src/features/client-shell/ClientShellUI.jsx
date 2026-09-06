@@ -32,7 +32,7 @@ export function ScheduledView({ clients, selectClient }) {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
           {scheduled.map((s) => (
-            <Card key={s.id} onClick={() => selectClient(s.client)} style={{ cursor: "pointer", borderColor: s.client.color }}>
+            <Card key={s.id} flat onClick={() => selectClient(s.client)} style={{ cursor: "pointer", borderColor: s.client.color }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                 <div>
                   <div style={{ color: s.client.color, fontSize: 12, fontWeight: 500 }}>{s.day} · {timeLabel(s.time)}</div>
