@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { T } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
-import { fetchLatestScreening, isCurrentScreening } from "./data.js";
+import { fetchLatestScreening, isCurrentScreening, readCachedScreeningOk, cacheScreeningOk } from "./data.js";
 import { ScreeningForm } from "./ScreeningForm.jsx";
 
 function FullScreenMessage({ children }) {
@@ -22,12 +22,21 @@ export function ScreeningGate({ client, children }) {
     fetchLatestScreening(client.id)
       .then((screening) => {
         if (cancelled) return;
-        setStatus(isCurrentScreening(screening) ? "screened" : "needs_screening");
+        const ok = isCurrentScreening(screening);
+        cacheScreeningOk(client.id, ok);
+        setStatus(ok ? "screened" : "needs_screening");
       })
       .catch(() => {
-        // Fail closed: a network error blocks access rather than silently
-        // letting an unscreened client through. The error screen offers Retry.
-        if (!cancelled) setStatus("error");
+        if (cancelled) return;
+        // Fail closed only for a client this device has never confirmed
+        // screened before - a genuine "never screened, and we can't check"
+        // case shouldn't let them through just because they're offline.
+        // A client who already passed this check at least once (the
+        // common case - this fetch reruns on every visit to the program
+        // tab) stays let in on the same cached result while offline or
+        // mid network-hiccup, which is what actually makes the program
+        // usable offline instead of getting re-blocked every time.
+        setStatus(readCachedScreeningOk(client.id) ? "screened" : "error");
       });
     return () => { cancelled = true; };
   }, [client.id, retryCount]);
