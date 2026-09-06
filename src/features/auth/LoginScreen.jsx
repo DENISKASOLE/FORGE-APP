@@ -17,10 +17,10 @@ function AuthField({ label, value, onChange, type = "text", placeholder = "", ri
       </div>
       <div style={{
         background: focused ? BRAND.card2 : BRAND.card,
-        border: `1px solid ${focused ? "rgba(242,133,61,0.4)" : BRAND.line}`,
+        border: `1px solid ${focused ? "color-mix(in srgb, var(--accent) 35%, transparent)" : BRAND.line}`,
         borderRadius: 13,
         padding: "15px 14px",
-        boxShadow: focused ? "0 0 0 3px rgba(242,133,61,0.08)" : "none",
+        boxShadow: focused ? "0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent)" : "none",
       }}>
         <input
           type={type}
@@ -77,7 +77,7 @@ export function LoginScreen({ onReady }) {
   const msgIsGood = msg.includes("sent") || msg.includes("created") || msg.includes("connected");
   return (
     <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: -130, right: -90, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, rgba(242,133,61,0.16) 0%, transparent 66%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: -130, right: -90, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 66%)", pointerEvents: "none" }} />
       <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column", padding: isMobile ? "56px 24px 40px" : "72px 24px 48px", position: "relative", minHeight: "100vh", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 40 }}>
           <div style={{ fontFamily: BRAND.display, fontSize: 15, fontWeight: 800, letterSpacing: "0.1em", color: BRAND.text }}>FORGE</div>
@@ -117,7 +117,7 @@ export function LoginScreen({ onReady }) {
           style={{
             width: "100%", background: BRAND.gold, border: "none", borderRadius: 14, padding: 17,
             fontFamily: BRAND.sans, fontWeight: 700, fontSize: 15, color: BRAND.btnInk, cursor: loading ? "not-allowed" : "pointer",
-            marginTop: 24, boxShadow: "0 8px 28px rgba(242,133,61,0.32)", opacity: loading ? 0.6 : 1,
+            marginTop: 24, boxShadow: "0 8px 28px color-mix(in srgb, var(--accent) 26%, transparent)", opacity: loading ? 0.6 : 1,
           }}
         >
           {isInvite ? "Accept invite" : "Sign in"}

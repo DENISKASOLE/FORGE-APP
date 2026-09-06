@@ -1,35 +1,38 @@
-/* Central design-token system: warm amber/desert palette (ember accent,
-   coffee/tan surfaces), restored per the user's explicit preference over
-   the black/white/Sora system this replaced. Default theme is dark.
-   See DECISIONS.md for background on both token generations. */
+/* Central design-token system: monochrome premium core (true black/white,
+   no brown/amber wash) with vivid category colors (blue/orange/violet/
+   green/yellow/red) reserved for actual data categories rather than a
+   single all-purpose brand accent. Default theme is dark. See DECISIONS.md
+   for background on this and prior token generations. */
 
 :root, [data-theme="light"]{
-  --shell:#EFE6D8; --page:#FAF5EC; --card:#FFFFFF; --card-soft:#FBF7EF; --chip:#F3EBDC;
-  --line:rgba(36,28,18,.12); --line-soft:rgba(36,28,18,.07); --line-strong:rgba(36,28,18,.22);
-  --ink:#241C12; --ink-2:#6B5A42; --ink-3:#8A7860;
-  --green:#66C79B; --green-bg:rgba(102,199,155,.15);
-  --blue:#7FA6D9;  --blue-bg:rgba(127,166,217,.15);
-  --yellow:#F0BE3C; --yellow-bg:rgba(240,190,60,.15);
-  --violet:#8B6FC4; --violet-bg:rgba(139,111,196,.14);
-  --red:#C4453B; --red-bg:rgba(196,69,59,.13);
-  --accent:#F2853D; --accent-deep:#C85E22;
-  --btn-bg:var(--accent); --btn-ink:#1A130A;
+  --shell:#EFEFEF; --page:#FAFAFA; --card:#FFFFFF; --card-soft:#F5F5F5; --chip:#EEEEEE;
+  --line:rgba(0,0,0,.10); --line-soft:rgba(0,0,0,.06); --line-strong:rgba(0,0,0,.20);
+  --ink:#0A0A0A; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
+  --green:#1FA97A; --green-bg:rgba(31,169,122,.13);
+  --blue:#2B7FE0;  --blue-bg:rgba(43,127,224,.13);
+  --yellow:#D9A017; --yellow-bg:rgba(217,160,23,.14);
+  --violet:#8B5CF6; --violet-bg:rgba(139,92,246,.13);
+  --red:#E0453B; --red-bg:rgba(224,69,59,.12);
+  --orange:#E8811F; --orange-bg:rgba(232,129,31,.13);
+  --accent:#0A0A0A; --accent-deep:#2A2A2A;
+  --btn-bg:var(--accent); --btn-ink:#FFFFFF;
   --radius-card:14px; --radius-control:12px; --hairline:0.5px;
   --display:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#16120E; --page:#16120E; --card:#272014; --card-soft:#1D1710; --chip:#342A18;
-  --line:rgba(243,236,225,.12); --line-soft:rgba(243,236,225,.07); --line-strong:rgba(243,236,225,.22);
-  --ink:#FFFFFF; --ink-2:#C8B69E; --ink-3:#8A7860;
-  --green:#66C79B; --green-bg:rgba(102,199,155,.14);
-  --blue:#7FA6D9;  --blue-bg:rgba(127,166,217,.14);
-  --yellow:#F0BE3C; --yellow-bg:rgba(240,190,60,.14);
-  --violet:#B79CE8; --violet-bg:rgba(183,156,232,.12);
-  --red:#DC5046; --red-bg:rgba(220,80,70,.13);
-  --accent:#F2853D; --accent-deep:#C85E22;
-  --btn-bg:var(--accent); --btn-ink:#1A130A;
+  --shell:#0A0A0A; --page:#0A0A0A; --card:#161616; --card-soft:#101010; --chip:#1F1F1F;
+  --line:rgba(255,255,255,.12); --line-soft:rgba(255,255,255,.06); --line-strong:rgba(255,255,255,.22);
+  --ink:#FFFFFF; --ink-2:#ABABAB; --ink-3:#707070;
+  --green:#3ED598; --green-bg:rgba(62,213,152,.14);
+  --blue:#4FA8FF;  --blue-bg:rgba(79,168,255,.14);
+  --yellow:#FFC94A; --yellow-bg:rgba(255,201,74,.14);
+  --violet:#B694FF; --violet-bg:rgba(182,148,255,.14);
+  --red:#FF5F57; --red-bg:rgba(255,95,87,.14);
+  --orange:#FF9F45; --orange-bg:rgba(255,159,69,.14);
+  --accent:#FFFFFF; --accent-deep:#D6D6D6;
+  --btn-bg:var(--accent); --btn-ink:#0A0A0A;
 }
 
 /* Surfaces layer page -> card-soft -> card. Every border is a hairline in
@@ -78,7 +81,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A7860' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8A8A' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
@@ -112,7 +115,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-radius: 999px;
   -webkit-appearance: -apple-pay-button;
   -apple-pay-button-type: plain;
-  -apple-pay-button-style: black;
+  -apple-pay-button-style: white-outline;
 }
 
 .app-shell {

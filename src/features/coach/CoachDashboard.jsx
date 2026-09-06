@@ -229,13 +229,15 @@ export function computeNotifications(clients) {
   return items.sort((a, b) => a.severity - b.severity);
 }
 export const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", payment: "\u{1F4B0}", food: "\u{1F37D}️", exercise: "\u{1F4AA}" };
-// severity 0 = overdue/urgent (red), 1-2 = warm (ember/amber), 3 = celebratory (violet), 4 = informational (amber)
+// severity 0 = overdue/urgent (red), 1-2 = payment reminder (green), 3 =
+// celebratory (violet), 4 = food (yellow)/exercise (orange) - each type gets
+// its own fixed category color rather than a shared brand accent.
 function notifTone(n) {
   if (n.type === "payment" && n.severity === 0) return { fg: BRAND.red, bg: BRAND.redBg, border: "rgba(220,80,70,0.2)" };
   if (n.type === "birthday") return { fg: BRAND.violet, bg: BRAND.violetBg, border: "rgba(183,156,232,0.18)" };
   if (n.type === "payment") return { fg: BRAND.green, bg: BRAND.greenBg, border: "rgba(102,199,155,0.15)" };
   if (n.type === "food") return { fg: BRAND.yellow, bg: BRAND.yellowBg, border: "rgba(240,190,60,0.18)" };
-  return { fg: BRAND.gold, bg: "rgba(242,133,61,0.1)", border: "rgba(242,133,61,0.15)" };
+  return { fg: BRAND.orange, bg: BRAND.orangeBg, border: "rgba(255,159,69,0.18)" };
 }
 export function NotificationsTab({ notifications, selectClient }) {
   const [handled, setHandled] = useState(() => new Set());

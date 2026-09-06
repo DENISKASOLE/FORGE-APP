@@ -139,7 +139,7 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.4px", color: BRAND.text }}>Weekly Check-in</div>
-            {streak >= 2 && <span style={{ fontFamily: BRAND.sans, background: "rgba(242,133,61,0.12)", color: BRAND.gold, borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 600 }}>🔥 {streak}-week streak</span>}
+            {streak >= 2 && <span style={{ fontFamily: BRAND.sans, background: "color-mix(in srgb, var(--accent) 10%, transparent)", color: BRAND.gold, borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 600 }}>🔥 {streak}-week streak</span>}
           </div>
           {isCoach && <Button variant="dark" onClick={() => setShowEditor(true)}>Edit Questions</Button>}
         </div>
@@ -156,9 +156,9 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
       {!isCoach && !loadingTemplate && dueForCheckIn && (
         <div style={{
           background: "color-mix(in srgb, var(--card) 65%, transparent)", backdropFilter: "blur(20px)",
-          border: "1px solid rgba(242,133,61,0.35)",
+          border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
           borderRadius: 20, padding: isMobile ? 14 : 18,
-          boxShadow: "0 0 32px rgba(242,133,61,0.08)",
+          boxShadow: "0 0 32px color-mix(in srgb, var(--accent) 6%, transparent)",
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, letterSpacing: "-0.4px", color: BRAND.gold }}>{isReview ? "Review & submit" : "Your check-in is due"}</div>
@@ -185,8 +185,8 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
             {step > 0 && <Button variant="dark" onClick={() => setStep(step - 1)} style={{ flex: 1 }}>Back</Button>}
-            {!isReview && <Button onClick={() => setStep(step + 1)} style={{ flex: 2, boxShadow: "0 6px 20px rgba(242,133,61,0.3)" }}>Continue →</Button>}
-            {isReview && <Button onClick={submit} disabled={saving} style={{ flex: 2, boxShadow: "0 8px 24px rgba(242,133,61,0.35)" }}>{saving ? "Submitting..." : "Submit Check-in →"}</Button>}
+            {!isReview && <Button onClick={() => setStep(step + 1)} style={{ flex: 2, boxShadow: "0 6px 20px color-mix(in srgb, var(--accent) 22%, transparent)" }}>Continue →</Button>}
+            {isReview && <Button onClick={submit} disabled={saving} style={{ flex: 2, boxShadow: "0 8px 24px color-mix(in srgb, var(--accent) 26%, transparent)" }}>{saving ? "Submitting..." : "Submit Check-in →"}</Button>}
           </div>
         </div>
       )}

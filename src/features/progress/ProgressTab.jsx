@@ -285,7 +285,7 @@ export function ProgressTab({ client }) {
     </div>
 
     <div style={{ display: "flex", gap: 8 }}>
-      <div style={{ flex: 1, background: "rgba(242,133,61,0.08)", border: "1px solid rgba(242,133,61,0.15)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ flex: 1, background: "color-mix(in srgb, var(--accent) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 15%, transparent)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>STREAK</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.gold }}>{streak} <span style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted }}>wks</span></div></div>
       </div>
       <div style={{ flex: 1, background: BRAND.greenBg, border: "1px solid rgba(102,199,155,0.13)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -342,7 +342,7 @@ export function ProgressTab({ client }) {
       </div>
     </div>
 
-    <div style={{ background: "rgba(242,133,61,0.06)", border: "1px solid rgba(242,133,61,0.14)", borderRadius: 16, padding: 14 }}>
+    <div style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 14%, transparent)", borderRadius: 16, padding: 14 }}>
       <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13 }}>{insight.text}</div>
     </div>
   </div>;

@@ -218,14 +218,14 @@ function ClientHome({ client, goTo }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning," : hour < 18 ? "Good afternoon," : "Good evening,";
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, maxWidth: "100%", overflowX: "hidden", position: "relative" }}>
-    <div style={{ position: "absolute", top: -60, left: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(242,133,61,0.06) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} />
+    <div style={{ position: "absolute", top: -60, left: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 65%)", pointerEvents: "none", zIndex: 0 }} />
     <InstallPrompt color={client.color} />
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 2px 2px", position: "relative", zIndex: 1 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: BRAND.sans, fontSize: 12, fontWeight: 400, color: BRAND.muted }}>{greeting}</div>
         <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.4px", color: BRAND.text, marginTop: 2 }}>{firstName}.</div>
         {streakWeeks >= 2 && (
-          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(242,133,61,0.12)", border: "1px solid rgba(242,133,61,0.22)", borderRadius: 100, padding: "4px 11px" }}>
+          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: "color-mix(in srgb, var(--accent) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 100, padding: "4px 11px" }}>
             <span style={{ fontSize: 11 }}>🔥</span>
             <span style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 600, color: BRAND.gold }}>{streakWeeks}-week streak</span>
           </div>
@@ -235,10 +235,10 @@ function ClientHome({ client, goTo }) {
     </div>
 
     {goTo && showPaymentBanner && (
-      <div onClick={() => goTo("payments")} style={{ cursor: "pointer", background: daysToPayment < 0 ? "linear-gradient(135deg,#1f0e0c 0%,#2e1210 100%)" : "linear-gradient(135deg,#1f1208 0%,#2e1a08 100%)", border: `1.5px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.5)" : "rgba(242,133,61,0.45)"}`, borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: daysToPayment < 0 ? "0 0 32px rgba(220,80,70,0.12)" : "0 0 32px rgba(242,133,61,0.1)", zIndex: 1 }}>
+      <div onClick={() => goTo("payments")} style={{ cursor: "pointer", background: daysToPayment < 0 ? "linear-gradient(135deg,#1f0e0c 0%,#2e1210 100%)" : "linear-gradient(135deg,#141414 0%,#1e1e1e 100%)", border: `1.5px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.5)" : "color-mix(in srgb, var(--accent) 35%, transparent)"}`, borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: daysToPayment < 0 ? "0 0 32px rgba(220,80,70,0.12)" : "0 0 32px color-mix(in srgb, var(--accent) 8%, transparent)", zIndex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: daysToPayment < 0 ? "rgba(220,80,70,0.15)" : "rgba(242,133,61,0.15)", border: `1px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.3)" : "rgba(242,133,61,0.3)"}`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: daysToPayment < 0 ? "rgba(220,80,70,0.15)" : "color-mix(in srgb, var(--accent) 15%, transparent)", border: `1px solid ${daysToPayment < 0 ? "rgba(220,80,70,0.3)" : "color-mix(in srgb, var(--accent) 30%, transparent)"}`, display: "grid", placeItems: "center", flexShrink: 0 }}>
               <NavIcon name="card" size={16} color={daysToPayment < 0 ? BRAND.red : BRAND.gold} />
             </div>
             <div>
@@ -252,24 +252,24 @@ function ClientHome({ client, goTo }) {
           </div>
           {daysToPayment < 0 && <div style={{ background: BRAND.red, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>Overdue</div>}
         </div>
-        <button style={{ width: "100%", background: daysToPayment < 0 ? BRAND.red : BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: daysToPayment < 0 ? "0 4px 18px rgba(220,80,70,0.3)" : "0 4px 18px rgba(242,133,61,0.3)" }}>Pay Now →</button>
+        <button style={{ width: "100%", background: daysToPayment < 0 ? BRAND.red : BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: daysToPayment < 0 ? "#fff" : BRAND.btnInk, cursor: "pointer", boxShadow: daysToPayment < 0 ? "0 4px 18px rgba(220,80,70,0.3)" : "0 4px 18px color-mix(in srgb, var(--accent) 28%, transparent)" }}>Pay Now →</button>
       </div>
     )}
 
     {goTo && checkinDue ? (
-      <div onClick={() => goTo("checkins")} style={{ cursor: "pointer", background: "linear-gradient(135deg,#1f1208 0%,#2e1a08 100%)", border: "1.5px solid rgba(242,133,61,0.45)", borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: "0 0 32px rgba(242,133,61,0.1)", zIndex: 1 }}>
+      <div onClick={() => goTo("checkins")} style={{ cursor: "pointer", background: "linear-gradient(135deg,#141414 0%,#1e1e1e 100%)", border: "1.5px solid color-mix(in srgb, var(--accent) 35%, transparent)", borderRadius: 20, padding: 16, position: "relative", overflow: "hidden", boxShadow: "0 0 32px color-mix(in srgb, var(--accent) 8%, transparent)", zIndex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(242,133,61,0.15)", border: "1px solid rgba(242,133,61,0.3)", display: "grid", placeItems: "center", flexShrink: 0 }}><NavIcon name="check" size={16} color={BRAND.gold} /></div>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: "color-mix(in srgb, var(--accent) 15%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", display: "grid", placeItems: "center", flexShrink: 0 }}><NavIcon name="check" size={16} color={BRAND.gold} /></div>
             <div>
               <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: BRAND.text }}>Weekly Check-in Due</div>
               <div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted, marginTop: 2 }}>Your coach is waiting for your update</div>
             </div>
           </div>
-          <div style={{ background: BRAND.gold, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>Required</div>
+          <div style={{ background: BRAND.gold, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: BRAND.btnInk, whiteSpace: "nowrap" }}>Required</div>
         </div>
         <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, lineHeight: 1.5, marginBottom: 12 }}>Your coach needs your update before the next session is loaded. Takes about 2 minutes.</div>
-        <button style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: "0 4px 18px rgba(242,133,61,0.3)" }}>Start Check-in →</button>
+        <button style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: BRAND.btnInk, cursor: "pointer", boxShadow: "0 4px 18px color-mix(in srgb, var(--accent) 28%, transparent)" }}>Start Check-in →</button>
       </div>
     ) : goTo && checkinSubmittedThisWindow && (
       <div style={{ background: BRAND.greenBg, border: "1px solid rgba(102,199,155,0.15)", borderRadius: 14, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
@@ -285,7 +285,7 @@ function ClientHome({ client, goTo }) {
       </Card>
     )}
 
-    <div style={{ background: "linear-gradient(135deg,#2a1508,#3d1e08 60%,#241505)", border: "1px solid rgba(242,133,61,0.22)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
+    <div style={{ background: "linear-gradient(135deg,#161616,#202020 60%,#141414)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
       <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 600, color: BRAND.gold, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 7 }}>Today's Workout</div>
       {w ? (
         <>
@@ -297,7 +297,7 @@ function ClientHome({ client, goTo }) {
             <div style={{ width: 1, background: BRAND.line }} />
             <div><div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, color: BRAND.text }}>{estMin ? `~${estMin}m` : "–"}</div><div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 9, color: BRAND.muted, marginTop: 2 }}>est.</div></div>
           </div>
-          {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: "0 4px 18px rgba(242,133,61,0.3)" }}>Start Workout →</button>}
+          {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: BRAND.btnInk, cursor: "pointer", boxShadow: "0 4px 18px color-mix(in srgb, var(--accent) 28%, transparent)" }}>Start Workout →</button>}
         </>
       ) : (
         <div style={{ display: "grid", justifyItems: "center", gap: 10, padding: "12px 10px 4px" }}>

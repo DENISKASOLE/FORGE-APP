@@ -201,7 +201,7 @@ export function FoodSearchScreen({ client, updateClient, date, slot, onClose }) 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: T.display, fontSize: 18, fontWeight: 800, color: T.accent }}>Add to {slotLabel}</div>
         </div>
-        {building && <div style={{ background: T.gold, color: "#fff", fontFamily: T.sans, fontWeight: 700, fontSize: 11, borderRadius: 999, padding: "5px 10px" }}>{builderItems.length} in meal</div>}
+        {building && <div style={{ background: T.gold, color: T.btnInk, fontFamily: T.sans, fontWeight: 700, fontSize: 11, borderRadius: 999, padding: "5px 10px" }}>{builderItems.length} in meal</div>}
       </div>
 
       <div style={{ display: "flex", gap: 6, padding: "14px 16px 0", flexShrink: 0, overflowX: "auto" }}>
