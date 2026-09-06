@@ -121,11 +121,22 @@ export default function App() {
       return;
     }
     setSyncStatus("syncing");
-    await flushSyncQueue();
-    await ensureTrainer(user);
-    await loadRole(user);
-    setSyncStatus("online");
-    setLoading(false);
+    try {
+      await flushSyncQueue();
+      await ensureTrainer(user);
+      await loadRole(user);
+      setSyncStatus("online");
+    } catch (error) {
+      // An uncaught throw here (a bad API response shape, a network drop
+      // mid-fetch) used to leave boot() permanently unresolved - loading
+      // stayed true forever with no way out except closing the app. Now it
+      // logs and falls through to whatever was already resolved (cache, or
+      // nothing), same as any other "role not confirmed yet" state.
+      console.error("Forge: boot() failed", error);
+      setSyncStatus(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
+    } finally {
+      setLoading(false);
+    }
   }
   async function ensureTrainer(user) {
     const email = user.email || "";
