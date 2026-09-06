@@ -51,6 +51,11 @@ export default function App() {
   const [trainer, setTrainer] = useState(null);
   const [clients, setClients] = useState([]);
   const [clientPortal, setClientPortal] = useState(null);
+  // Only flips true once we have positive confirmation this session belongs
+  // to a coach (a trusted cached coach snapshot, or a completed loadCoach()
+  // call) - the coach dashboard must never be the default/fallback view
+  // while role is still being determined, only something explicitly earned.
+  const [isCoachConfirmed, setIsCoachConfirmed] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [accountNotActive, setAccountNotActive] = useState(false);
   const [syncStatus, setSyncStatus] = useState(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
@@ -89,7 +94,7 @@ export default function App() {
       if (_event === "TOKEN_REFRESHED" || _event === "USER_UPDATED") return; // session stayed the same, just the token renewed - don't reload data mid-session
       if (recoveryModeRef.current) return; // don't auto-boot into the dashboard while someone is mid-way through setting a new password - use the ref, not the state, since this callback is created once and would otherwise see a permanently stale value
       if (sess) boot(sess.user);
-      else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); }
+      else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); setIsCoachConfirmed(false); }
     });
     return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); clearInterval(retryTimer); sub.subscription.unsubscribe(); };
   }, []);
@@ -99,6 +104,13 @@ export default function App() {
       setTrainer(cached.trainer || null);
       setClients(cached.clients || []);
       setClientPortal(cached.clientPortal || null);
+      // A cache is only ever saved after loadRole() has already resolved this
+      // user's role once (see loadRole/loadCoach below) - so a cached
+      // snapshot with a trainer and no clientPortal is a trustworthy signal
+      // this is a coach, safe to show immediately. Absent that, stay
+      // unconfirmed until the fresh loadRole() call below settles it -
+      // never assume coach just because clientPortal happens to be empty.
+      setIsCoachConfirmed(!!cached.trainer && !cached.clientPortal);
       setLoading(false);
     } else {
       setLoading(true);
@@ -152,6 +164,7 @@ export default function App() {
         return next;
       });
       setClients([]);
+      setIsCoachConfirmed(false);
       return;
     }
     const { data: trainerMatch } = await supabase.from("trainers").select("id").eq("id", user.id).maybeSingle();
@@ -160,6 +173,7 @@ export default function App() {
       // Not an existing trainer, not the bootstrap coach email, and no client profile found (deleted, or never existed) - never fall through to the coach dashboard.
       await supabase.auth.signOut();
       setSession(null); setTrainer(null); setClients([]); setClientPortal(null);
+      setIsCoachConfirmed(false);
       setAccountNotActive(true);
       setLoading(false);
       return;
@@ -168,6 +182,10 @@ export default function App() {
   }
   async function loadCoach(user = session?.user) {
     if (!user) return;
+    // Reaching this function at all - whether just now confirmed by loadRole()
+    // above, or a plain refresh from an already-rendered coach dashboard -
+    // means the role is settled as coach, so it's safe to render CoachRoutes.
+    setIsCoachConfirmed(true);
     const { data: trainerRow } = await supabase.from("trainers").select("*").eq("id", user.id).maybeSingle();
     setTrainer(trainerRow || { id: user.id, name: user.email?.split("@")[0], email: user.email });
     if ((user.email || "").toLowerCase() === DENIS_EMAIL) {
@@ -205,10 +223,11 @@ export default function App() {
       return nextPortal;
     });
   }
+  const bootScreen = <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>;
   return <>
     {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
-    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>
+    : loading ? bootScreen
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
     : clientPortal && paymentLockout(clientPortal).locked ? (
       <PaymentLockedScreen client={clientPortal} updateClient={updateClient} overdueDays={paymentLockout(clientPortal).overdueDays} />
@@ -218,7 +237,7 @@ export default function App() {
         <Route path="/:tab" element={<ClientPortalRoute clientPortal={clientPortal} updateClient={updateClient} refresh={() => boot(session.user)} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    ) : (
+    ) : isCoachConfirmed ? (
       <Routes>
         <Route path="/coach" element={<CoachDashboardRoute user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />} />
         <Route path="/coach/:tab" element={<CoachDashboardRoute user={session.user} trainer={trainer} setTrainer={setTrainer} clients={clients} setClients={setClients} refresh={() => loadCoach(session.user)} syncStatus={syncStatus} />} />
@@ -226,6 +245,11 @@ export default function App() {
         <Route path="/coach/clients/:clientId/:tab" element={<CoachClientRoute clients={clients} updateClient={updateClient} refresh={() => loadCoach(session.user)} />} />
         <Route path="*" element={<Navigate to="/coach" replace />} />
       </Routes>
+    ) : (
+      // Role not yet positively confirmed either way (mid loadRole() fetch,
+      // no cache to fast-resume from) - never default to the coach dashboard
+      // just because clientPortal happens to be empty at this instant.
+      bootScreen
     )}
     <ToastHost />
     <ConfirmHost />
