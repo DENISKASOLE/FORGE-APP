@@ -389,8 +389,8 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
           </div>
         )}
         <div style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 12, paddingBottom: 4, alignItems: "center" }}>
-          {p.weeks.map((w, i) => <Button key={w.id} variant={i === safeWk ? "gold" : "dark"} onClick={() => { setWk(i); setWo(0); }}>W{w.weekNum}{w.label ? ` · ${w.label}` : ""}</Button>)}
-          <Button variant="ghost" onClick={addWeek}>+ Week</Button>
+          {p.weeks.map((w, i) => <Button key={w.id} variant={i === safeWk ? "gold" : "dark"} onClick={() => { setWk(i); setWo(0); }} style={{ flexShrink: 0 }}>W{w.weekNum}{w.label ? ` · ${w.label}` : ""}</Button>)}
+          <Button variant="ghost" onClick={addWeek} style={{ flexShrink: 0 }}>+ Week</Button>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
           <Button variant="dark" onClick={() => duplicateWeek(safeWk)} style={{ fontSize: 12 }}>Duplicate W{week.weekNum}</Button>
@@ -429,8 +429,8 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 12, paddingBottom: 4, alignItems: "center" }}>
-          {week.workouts.map((w, i) => <Button key={w.id} variant={i === safeWo ? "gold" : "dark"} onClick={() => setWo(i)}>{w.name}</Button>)}
-          <Button variant="ghost" onClick={addWorkout}>+ Workout</Button>
+          {week.workouts.map((w, i) => <Button key={w.id} variant={i === safeWo ? "gold" : "dark"} onClick={() => setWo(i)} style={{ flexShrink: 0 }}>{w.name}</Button>)}
+          <Button variant="ghost" onClick={addWorkout} style={{ flexShrink: 0 }}>+ Workout</Button>
         </div>
         {workout ? <>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -657,7 +657,7 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
         {program.weeks.map((w) => {
           const wd = days.filter((d) => d.weekNum === w.weekNum && !d.isRest);
           const allDone = wd.length > 0 && wd.every((d) => d.state === "completed");
-          return <Button key={w.id} variant={w.weekNum === week.weekNum ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px" }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>;
+          return <Button key={w.id} variant={w.weekNum === week.weekNum ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px", flexShrink: 0 }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>;
         })}
       </div>
       {(week.label || week.focus || week.targetRpe) && (
