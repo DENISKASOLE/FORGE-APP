@@ -449,17 +449,17 @@ export const COACH_NAV = [
 ];
 export function CoachBottomNav({ tab, setTab, unread }) {
   return (
-    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `${BRAND.hairline} solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+    <div className="glass-nav" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {COACH_NAV.map((item) => {
         const active = tab === item.key;
-        const color = active ? BRAND.gold : BRAND.dim;
+        const color = active ? "#0A090B" : BRAND.dim;
         return (
           <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
-            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `color-mix(in srgb, ${BRAND.gold} 14%, transparent)` : "transparent", display: "grid", placeItems: "center" }}>
+            <div className={active ? "glass-pill-active" : undefined} style={{ width: 42, height: 28, borderRadius: 999, display: "grid", placeItems: "center", transition: "box-shadow .2s, background .2s" }}>
               {item.icon === "gear" || item.icon === "home" ? <NavIcon name={item.icon} color={color} /> : <CoachIcon name={item.icon} size={21} color={color} />}
-              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unread > 9 ? "9+" : unread}</div>}
+              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid var(--shell)` }}>{unread > 9 ? "9+" : unread}</div>}
             </div>
-            <div style={{ fontSize: 10, fontWeight: active ? 500 : 400, color }}>{item.label}</div>
+            <div style={{ fontSize: 10, fontWeight: active ? 700 : 400, color: active ? BRAND.text : BRAND.dim }}>{item.label}</div>
           </button>
         );
       })}

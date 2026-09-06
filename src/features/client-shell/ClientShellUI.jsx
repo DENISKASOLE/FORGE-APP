@@ -139,16 +139,16 @@ export const CLIENT_BOTTOM_NAV = [
 ];
 export function ClientBottomNav({ tab, setTab, unreadMessages }) {
   return (
-    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+    <div className="glass-nav" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {CLIENT_BOTTOM_NAV.map((item) => {
         const active = item.group.includes(tab);
         return (
           <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
-            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `color-mix(in srgb, ${BRAND.gold} 14%, transparent)` : "transparent", display: "grid", placeItems: "center" }}>
-              <NavIcon name={item.icon} size={22} color={active ? BRAND.gold : BRAND.dim} />
-              {item.key === "me_hub" && unreadMessages > 0 && <div style={{ position: "absolute", top: -2, right: 6, width: 16, height: 16, borderRadius: "50%", background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
+            <div className={active ? "glass-pill-active" : undefined} style={{ width: 42, height: 28, borderRadius: 999, display: "grid", placeItems: "center", transition: "box-shadow .2s, background .2s" }}>
+              <NavIcon name={item.icon} size={22} color={active ? "#0A090B" : BRAND.dim} />
+              {item.key === "me_hub" && unreadMessages > 0 && <div style={{ position: "absolute", top: -2, right: 6, width: 16, height: 16, borderRadius: "50%", background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid var(--shell)` }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
             </div>
-            <div style={{ fontSize: 9, fontWeight: active ? 500 : 400, whiteSpace: "nowrap", color: active ? BRAND.gold : BRAND.dim }}>{item.label}</div>
+            <div style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", color: active ? BRAND.text : BRAND.dim }}>{item.label}</div>
           </button>
         );
       })}
@@ -179,7 +179,7 @@ export function ClientAvatar({ client, size = 54 }) {
 }
 function SettingsSection({ label, children }) {
   return (
-    <div style={{ background: "color-mix(in srgb, var(--card) 85%, transparent)", backdropFilter: "blur(14px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, overflow: "hidden" }}>
+    <div className="glass-soft" style={{ borderRadius: 16, overflow: "hidden" }}>
       {label && <div style={{ padding: "10px 14px", fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.1em", textTransform: "uppercase", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>{label}</div>}
       {children}
     </div>
