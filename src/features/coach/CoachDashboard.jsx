@@ -432,7 +432,7 @@ export function CoachToolsTab({ onOpen }) {
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
-      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14, color: BRAND.text }}>
+      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} className="glass" style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", padding: 14, color: BRAND.text }}>
         <div style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, background: BRAND.card2, display: "grid", placeItems: "center", marginBottom: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: BRAND.gold, display: "block" }} /></div>
         <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 500 }}>{t.name}</div>
         <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>{t.meta}</div>
@@ -468,10 +468,9 @@ export function CoachBottomNav({ tab, setTab, unread }) {
 }
 export function CoachTile({ icon, name, meta, count, quiet, wide, isTablet, color = BRAND.gold, onClick }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} className="glass" style={{
       fontFamily: BRAND.sans,
       gridColumn: wide ? "1 / -1" : "auto",
-      background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard,
       padding: isTablet ? 24 : 18, minHeight: wide ? (isTablet ? 110 : 96) : (isTablet ? 172 : 136), cursor: "pointer", position: "relative",
       display: "flex", flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start",
       justifyContent: wide ? "flex-start" : "space-between", gap: wide ? 16 : 0, textAlign: "left", minWidth: 0,
@@ -762,7 +761,7 @@ function SettingsGlassSection({ label, children, extra }) {
       {label && <div style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 400, color: BRAND.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
         <span>{label}</span>{extra}
       </div>}
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 18, overflow: "hidden" }}>
+      <div className="glass" style={{ overflow: "hidden" }}>
         {children}
       </div>
     </div>
@@ -783,7 +782,7 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   const syncLabel = syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced";
   return <div style={{ display: "grid", gap: 14 }}>
     <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Settings</div>
-    <div onClick={onEditProfile} style={{ cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+    <div onClick={onEditProfile} className="glass" style={{ cursor: "pointer", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
       <div style={{ fontFamily: BRAND.display, width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.accentDeep}, ${BRAND.gold})`, overflow: "hidden", display: "grid", placeItems: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 16, color: BRAND.text }}>{trainer?.name || user.email?.split("@")[0]}</div>
