@@ -22,7 +22,7 @@ function MacroCalendarCard({ nutrition, date, setDate }) {
   const monthLabel = weekStart.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   function shiftWeek(dir) { setAnchor((a) => addDays(a, dir * 7)); }
   return (
-    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 20, padding: 18 }}>
+    <div className="glass" style={{ padding: 18 }}>
       <div style={{ fontFamily: T.display, fontSize: 24, fontWeight: 800, color: T.gold, letterSpacing: "-0.4px" }}>Macro Tracker</div>
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 14, marginBottom: 14 }}>
         <button onClick={() => shiftWeek(-1)} style={{ background: "none", border: "none", color: T.muted, fontSize: 18, cursor: "pointer", padding: 4 }}>&lsaquo;</button>
@@ -42,6 +42,7 @@ function MacroCalendarCard({ nutrition, date, setDate }) {
                 style={{
                   width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
                   background: selected ? T.gold : "transparent",
+                  boxShadow: selected ? "0 6px 20px rgba(255,255,255,.18)" : "none",
                   color: selected ? T.btnInk : T.accent,
                   fontFamily: T.sans, fontWeight: 700, fontSize: 15,
                   display: "grid", placeItems: "center",

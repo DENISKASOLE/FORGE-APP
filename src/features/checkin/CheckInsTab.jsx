@@ -168,7 +168,7 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
             <div style={{ height: 4, width: `${((step + 1) / totalSteps) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} />
           </div>
           {!isReview && <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>{pages[step].map((q) => (
-            <div key={q.id} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: "14px 16px" }}>
+            <div key={q.id} className="glass-soft" style={{ padding: "14px 16px" }}>
               {renderQuestion(q)}
             </div>
           ))}</div>}

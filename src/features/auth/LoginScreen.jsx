@@ -76,7 +76,7 @@ export function LoginScreen({ onReady }) {
   const isInvite = mode === "invite";
   const msgIsGood = msg.includes("sent") || msg.includes("created") || msg.includes("connected");
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+    <div className="cinematic-bg" style={{ minHeight: "100vh", color: BRAND.text, display: "flex", justifyContent: "center", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: -130, right: -90, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 66%)", pointerEvents: "none" }} />
       <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column", padding: isMobile ? "56px 24px 40px" : "72px 24px 48px", position: "relative", minHeight: "100vh", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 40 }}>

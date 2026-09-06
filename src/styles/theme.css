@@ -22,6 +22,11 @@
   --accent:rgba(10,9,11,.92); --accent-deep:rgba(10,9,11,.78);
   --btn-bg:var(--accent); --btn-ink:#FFFFFF;
   --glass-hi:rgba(255,255,255,.7); --glass-hi-2:rgba(10,9,11,.04); --glass-shadow:rgba(20,18,22,.16);
+  --cinematic-gradient:
+    radial-gradient(65% 40% at 18% -5%, rgba(10,9,11,.07), transparent 60%),
+    radial-gradient(55% 40% at 95% 12%, rgba(10,9,11,.04), transparent 60%),
+    radial-gradient(90% 55% at 50% 118%, rgba(10,9,11,.03), transparent 55%),
+    linear-gradient(180deg,#FDFCFA,#F3F1ED 55%,#EDEAE4);
   --radius-card:22px; --radius-control:14px; --hairline:1px;
   --display:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
   --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -40,6 +45,11 @@
   --accent:rgba(255,255,255,.92); --accent-deep:rgba(255,255,255,.72);
   --btn-bg:var(--accent); --btn-ink:#0A090B;
   --glass-hi:rgba(255,255,255,.16); --glass-hi-2:rgba(255,255,255,.02); --glass-shadow:rgba(0,0,0,.7);
+  --cinematic-gradient:
+    radial-gradient(65% 40% at 18% -5%, rgba(255,255,255,.14), transparent 60%),
+    radial-gradient(55% 40% at 95% 12%, rgba(255,255,255,.07), transparent 60%),
+    radial-gradient(90% 55% at 50% 118%, rgba(255,255,255,.06), transparent 55%),
+    linear-gradient(180deg,#111013,#0A090B 55%,#070608);
 }
 
 /* Surfaces layer page -> card-soft -> card, now translucent glass tiers
@@ -157,24 +167,22 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   pointer-events: none;
 }
 .app-shell::before {
-  background:
-    radial-gradient(65% 40% at 18% -5%, rgba(255,255,255,.14), transparent 60%),
-    radial-gradient(55% 40% at 95% 12%, rgba(255,255,255,.07), transparent 60%),
-    radial-gradient(90% 55% at 50% 118%, rgba(255,255,255,.06), transparent 55%),
-    linear-gradient(180deg,#111013,#0A090B 55%,#070608);
-}
-[data-theme="light"] .app-shell::before {
-  background:
-    radial-gradient(65% 40% at 18% -5%, rgba(10,9,11,.07), transparent 60%),
-    radial-gradient(55% 40% at 95% 12%, rgba(10,9,11,.04), transparent 60%),
-    radial-gradient(90% 55% at 50% 118%, rgba(10,9,11,.03), transparent 55%),
-    linear-gradient(180deg,#FDFCFA,#F3F1ED 55%,#EDEAE4);
+  background: var(--cinematic-gradient);
 }
 .app-shell::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: .04;
   mix-blend-mode: overlay;
   box-shadow: inset 0 0 120px 20px var(--glass-shadow);
+}
+
+/* Same cinematic backdrop, for the handful of full-page screens that
+   render outside .app-shell entirely (login, payment-locked, account-
+   not-active) - these can't use a fixed pseudo-element scoped to a
+   parent that doesn't exist yet, so they paint the gradient directly. */
+.cinematic-bg {
+  background: var(--cinematic-gradient);
+  position: relative;
 }
 
 /* ---------------------------------------------------------------------

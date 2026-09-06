@@ -27,7 +27,7 @@ function NutritionCalendarCard({ nutrition, date, setDate, onOpenMacros }) {
   const monthLabel = weekStart.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   function shiftWeek(dir) { setAnchor((a) => addDays(a, dir * 7)); }
   return (
-    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 20, padding: 18 }}>
+    <div className="glass" style={{ padding: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
         <div style={{ fontFamily: T.display, fontSize: 24, fontWeight: 800, color: T.gold, letterSpacing: "-0.4px" }}>Nutrition</div>
         <button
@@ -59,8 +59,9 @@ function NutritionCalendarCard({ nutrition, date, setDate, onOpenMacros }) {
                 onClick={() => setDate(d.date)}
                 style={{
                   width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
-                  background: selected ? T.blue : "transparent",
-                  color: selected ? "#06202b" : T.accent,
+                  background: selected ? "rgba(255,255,255,.92)" : "transparent",
+                  boxShadow: selected ? "0 6px 20px rgba(255,255,255,.18)" : "none",
+                  color: selected ? "#0A090B" : T.accent,
                   fontFamily: T.sans, fontWeight: 700, fontSize: 15,
                   display: "grid", placeItems: "center",
                 }}
@@ -77,10 +78,10 @@ function NutritionCalendarCard({ nutrition, date, setDate, onOpenMacros }) {
 function MealCard({ label, color, entry, onOpen, right }) {
   const ingredientsText = entry?.ingredients?.length ? entry.ingredients.map(fmtIngredient).join(", ") : "";
   return (
-    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 18, padding: 16 }}>
+    <div className="glass" style={{ padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: entry ? 14 : 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+          <span className="cat-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: color, color, flexShrink: 0 }} />
           <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</span>
         </div>
         <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.dim, letterSpacing: "0.04em" }}>{right}</span>
@@ -105,7 +106,7 @@ function MealCard({ label, color, entry, onOpen, right }) {
 function HabitCard({ habits, onChange }) {
   const label = { fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: T.dim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, textAlign: "center" };
   return (
-    <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 18, padding: 16 }}>
+    <div className="glass" style={{ padding: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.gold, flexShrink: 0 }} />
         <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>Log Habits</span>
@@ -187,10 +188,10 @@ export function FoodDiary({ client, updateClient, nutrition }) {
       <MealCard label="Lunch" color={T.meal.lunch} entry={day.lunch} onOpen={() => setEditing({ slot: "lunch" })} right={day.lunch?.time || ""} />
       <MealCard label="Dinner" color={T.meal.dinner} entry={day.dinner} onOpen={() => setEditing({ slot: "dinner" })} right={day.dinner?.time || ""} />
 
-      <div style={{ background: T.card, border: `${T.hairline} solid ${T.line}`, borderRadius: 18, padding: 16 }}>
+      <div className="glass" style={{ padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: day.snacks.length ? 14 : 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.meal.snacks, flexShrink: 0 }} />
+            <span className="cat-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: T.meal.snacks, color: T.meal.snacks, flexShrink: 0 }} />
             <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>Snacks</span>
           </div>
           {day.snacks.length > 0 && <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 500, color: T.dim, letterSpacing: "0.04em" }}>{day.snacks.length} LOGGED</span>}

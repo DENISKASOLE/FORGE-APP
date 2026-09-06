@@ -208,7 +208,7 @@ export default function App() {
   return <>
     {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
-    : loading ? <div style={{ minHeight: "100vh", background: BRAND.bg, display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>
+    : loading ? <div className="cinematic-bg" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><div style={{ textAlign: "center" }}><div style={{ fontFamily: BRAND.display, color: BRAND.gold, fontSize: isMobile ? 40 : 54, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1 }}>Forge</div></div></div>
     : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
     : clientPortal && paymentLockout(clientPortal).locked ? (
       <PaymentLockedScreen client={clientPortal} updateClient={updateClient} overdueDays={paymentLockout(clientPortal).overdueDays} />

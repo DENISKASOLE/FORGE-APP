@@ -79,7 +79,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
       {index < photos.length - 1 && <button onClick={() => onNavigate(index + 1)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 2, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", width: 40, height: 40, borderRadius: "50%", fontSize: 20, fontWeight: 500, cursor: "pointer" }}>&rsaquo;</button>}
       <div style={{ maxWidth: 480, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <PhotoImg photo={photo} alt={photo.type} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 14 }} />
-        <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14, marginTop: 12, width: "100%" }}>
+        <div className="glass" style={{ padding: 14, marginTop: 12, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.text, fontWeight: 500 }}><span>{photo.type}</span><span style={{ color: BRAND.muted, fontWeight: 400 }}>{photo.date}</span></div>
           {photo.weight && <div style={{ color: BRAND.gold, fontWeight: 500, fontSize: 13, marginTop: 4 }}>{photo.weight}kg</div>}
           {photo.notes && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 6 }}>{photo.notes}</div>}
@@ -90,7 +90,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDelete }) {
 }
 function PhotoCompareSlot({ label, photo, onPick }) {
   return (
-    <button onClick={onPick} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", padding: 0, textAlign: "left", width: "100%" }}>
+    <button onClick={onPick} className="glass" style={{ overflow: "hidden", cursor: "pointer", padding: 0, textAlign: "left", width: "100%" }}>
       <div style={{ padding: "10px 12px", color: BRAND.dim, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em" }}>{label}</div>
       {photo?.image || photo?.url ? <PhotoImg photo={photo} alt={label} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover" }} /> : <div style={{ aspectRatio: "3/4", display: "grid", placeItems: "center", color: BRAND.dim, fontSize: 13, fontWeight: 400 }}>No photo</div>}
       {photo && <div style={{ padding: "8px 12px 12px" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400 }}>{photo.date}{photo.weight ? ` · ${photo.weight}kg` : ""}</div></div>}
