@@ -6,6 +6,13 @@ import {
   Trophy,
   VideoCamera,
   Bell,
+  LinkSimple,
+  Newspaper,
+  CreditCard,
+  Package,
+  ClipboardText,
+  Megaphone,
+  Lightning,
 } from "@phosphor-icons/react";
 
 const COACH_ICON_COMPONENTS = {
@@ -16,6 +23,13 @@ const COACH_ICON_COMPONENTS = {
   trials: Trophy,
   exlib: VideoCamera,
   bell: Bell,
+  buddypairs: LinkSimple,
+  content: Newspaper,
+  payments: CreditCard,
+  packages: Package,
+  forms: ClipboardText,
+  broadcast: Megaphone,
+  automations: Lightning,
 };
 
 export function CoachIcon({ name, size = 22, color = "currentColor" }) {

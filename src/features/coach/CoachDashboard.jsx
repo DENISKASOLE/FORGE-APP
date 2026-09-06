@@ -416,24 +416,24 @@ export function CoachAutomationsScreen({ user, onBack }) {
 export function CoachToolsTab({ onOpen }) {
   const isMobile = useIsMobile(520);
   const TOOLS = [
-    { key: "templates", name: "Programs", meta: "Templates & builder" },
-    { key: "exercise_library", name: "Exercise Library", meta: "Custom moves & video" },
-    { key: "calendar", name: "Calendar", meta: "Sessions & bookings" },
-    { key: "analytics", name: "Analytics", meta: "Adherence & trends" },
-    { key: "trials", name: "Trials", meta: "Consults & assessments" },
-    { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot" },
-    { key: "content", name: "Content", meta: "Forge Academy articles" },
-    { key: "payments", name: "Payments", meta: "Plans & invoices" },
-    { key: "packages", name: "Packages", meta: "Design your offers" },
-    { key: "forms", name: "Intake Forms", meta: "Onboarding & health" },
-    { key: "broadcast", name: "Broadcast", meta: "Message every client" },
-    { key: "automations", name: "Automations", meta: "Reminders & nudges" },
+    { key: "templates", name: "Programs", meta: "Templates & builder", icon: "templates", color: BRAND.blue },
+    { key: "exercise_library", name: "Exercise Library", meta: "Custom moves & video", icon: "exlib", color: BRAND.yellow },
+    { key: "calendar", name: "Calendar", meta: "Sessions & bookings", icon: "calendar", color: BRAND.violet },
+    { key: "analytics", name: "Analytics", meta: "Adherence & trends", icon: "analytics", color: BRAND.green },
+    { key: "trials", name: "Trials", meta: "Consults & assessments", icon: "trials", color: BRAND.red },
+    { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot", icon: "buddypairs", color: BRAND.orange },
+    { key: "content", name: "Content", meta: "Forge Academy articles", icon: "content", color: BRAND.blue },
+    { key: "payments", name: "Payments", meta: "Plans & invoices", icon: "payments", color: BRAND.green },
+    { key: "packages", name: "Packages", meta: "Design your offers", icon: "packages", color: BRAND.violet },
+    { key: "forms", name: "Intake Forms", meta: "Onboarding & health", icon: "forms", color: BRAND.yellow },
+    { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
+    { key: "automations", name: "Automations", meta: "Reminders & nudges", icon: "automations", color: BRAND.orange },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
       {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14, color: BRAND.text }}>
-        <div style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, background: BRAND.card2, display: "grid", placeItems: "center", marginBottom: 10 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: BRAND.gold, display: "block" }} /></div>
+        <div style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, background: `color-mix(in srgb, ${t.color} 18%, transparent)`, display: "grid", placeItems: "center", marginBottom: 10 }}><CoachIcon name={t.icon} size={18} color={t.color} /></div>
         <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 500 }}>{t.name}</div>
         <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>{t.meta}</div>
       </button>)}
@@ -479,7 +479,7 @@ export function CoachTile({ icon, name, meta, count, quiet, wide, isTablet, colo
       {count != null && !wide && (
         <div style={{ position: "absolute", top: isTablet ? 20 : 16, right: isTablet ? 20 : 16, minWidth: isTablet ? 26 : 22, height: isTablet ? 26 : 22, padding: "0 7px", borderRadius: 999, background: quiet ? "transparent" : color, border: quiet ? `${BRAND.hairline} solid ${BRAND.line}` : "none", color: quiet ? BRAND.dim : "#000", fontSize: isTablet ? 13 : 11, fontWeight: 500, display: "grid", placeItems: "center" }}>{count}</div>
       )}
-      <div style={{ width: isTablet ? 66 : 52, height: isTablet ? 66 : 52, borderRadius: isTablet ? BRAND.radiusCard : BRAND.radiusControl, background: BRAND.card2, display: "grid", placeItems: "center", flexShrink: 0 }}>
+      <div style={{ width: isTablet ? 66 : 52, height: isTablet ? 66 : 52, borderRadius: isTablet ? BRAND.radiusCard : BRAND.radiusControl, background: `color-mix(in srgb, ${color} 18%, transparent)`, display: "grid", placeItems: "center", flexShrink: 0 }}>
         <CoachIcon name={icon} size={isTablet ? 32 : 26} color={color} />
       </div>
       <div style={{ flex: wide ? 1 : "none", width: wide ? "auto" : "100%", minWidth: 0, marginTop: wide ? 0 : "auto" }}>
@@ -564,12 +564,12 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
       )}
       <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Go to</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: isTablet ? 18 : 12 }}>
-        <CoachTile isTablet={isTablet} icon="clients" name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} onClick={onOpenClients} />
-        <CoachTile isTablet={isTablet} icon="templates" name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet onClick={() => onTile("templates")} />
-        <CoachTile isTablet={isTablet} icon="calendar" name="Calendar" meta={`${todaysSessions ?? "..."} session${todaysSessions === 1 ? "" : "s"} today`} count={todaysSessions || null} onClick={() => onTile("calendar")} />
-        <CoachTile isTablet={isTablet} icon="analytics" name="Analytics" meta="Client activity trends" onClick={() => onTile("analytics")} />
-        <CoachTile isTablet={isTablet} icon="exlib" name="Exercise Library" meta={customExerciseCount ? `${customExerciseCount} custom exercise${customExerciseCount === 1 ? "" : "s"}` : "Add your own with video"} onClick={() => onTile("exercise_library")} />
-        <CoachTile isTablet={isTablet} icon="trials" name="Trials" meta={trialsCount ? `${trialsCount} saved · consultations & assessments` : "Consultations & fitness assessments"} count={trialsCount || null} onClick={() => onTile("trials")} />
+        <CoachTile isTablet={isTablet} icon="clients" color={BRAND.orange} name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} onClick={onOpenClients} />
+        <CoachTile isTablet={isTablet} icon="templates" color={BRAND.blue} name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet onClick={() => onTile("templates")} />
+        <CoachTile isTablet={isTablet} icon="calendar" color={BRAND.violet} name="Calendar" meta={`${todaysSessions ?? "..."} session${todaysSessions === 1 ? "" : "s"} today`} count={todaysSessions || null} onClick={() => onTile("calendar")} />
+        <CoachTile isTablet={isTablet} icon="analytics" color={BRAND.green} name="Analytics" meta="Client activity trends" onClick={() => onTile("analytics")} />
+        <CoachTile isTablet={isTablet} icon="exlib" color={BRAND.yellow} name="Exercise Library" meta={customExerciseCount ? `${customExerciseCount} custom exercise${customExerciseCount === 1 ? "" : "s"}` : "Add your own with video"} onClick={() => onTile("exercise_library")} />
+        <CoachTile isTablet={isTablet} icon="trials" color={BRAND.red} name="Trials" meta={trialsCount ? `${trialsCount} saved · consultations & assessments` : "Consultations & fitness assessments"} count={trialsCount || null} onClick={() => onTile("trials")} />
       </div>
     </div>
   );
