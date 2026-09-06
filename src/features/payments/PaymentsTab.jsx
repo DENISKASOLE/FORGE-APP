@@ -91,6 +91,98 @@ function ApplePayButton({ client, amount, onPaid, onError }) {
   );
 }
 
+function loadScript(id, src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.getElementById(id);
+    if (existing) {
+      if (existing.dataset.loaded === "true") { resolve(); return; }
+      existing.addEventListener("load", resolve);
+      existing.addEventListener("error", reject);
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = id;
+    script.src = src;
+    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+}
+
+// Google Pay only ever renders once both Google's own Pay JS library and
+// PayPal's Googlepay() component report the browser/device as eligible
+// (any Chrome browser with a card saved to Google Pay - desktop or
+// Android, no domain verification step like Apple Pay needs). Uses
+// Google's own createButton() for the visible button (required for Google
+// brand compliance) and PayPal's confirmOrder() to settle it, same as
+// Apple Pay above.
+function GooglePayButton({ client, amount, onPaid, onError }) {
+  const containerRef = useRef(null);
+  const paymentsClientRef = useRef(null);
+  const configRef = useRef(null);
+  const payRef = useRef(null);
+  const [eligible, setEligible] = useState(false);
+  const [paying, setPaying] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadScript("google-pay-sdk", "https://pay.google.com/gp/p/js/pay.js");
+        if (cancelled || !window.paypal?.Googlepay || !window.google?.payments?.api) return;
+        const googlepay = window.paypal.Googlepay();
+        const config = await googlepay.config();
+        if (cancelled || !config) return;
+        const paymentsClient = new window.google.payments.api.PaymentsClient({ environment: "PRODUCTION" });
+        const ready = await paymentsClient.isReadyToPay({
+          apiVersion: config.apiVersion,
+          apiVersionMinor: config.apiVersionMinor,
+          allowedPaymentMethods: config.allowedPaymentMethods,
+        });
+        if (cancelled || !ready?.result) return;
+        configRef.current = config;
+        paymentsClientRef.current = paymentsClient;
+        setEligible(true);
+      } catch { /* Google Pay just stays hidden if the eligibility check itself fails */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  async function pay() {
+    setPaying(true);
+    try {
+      const config = configRef.current;
+      const paymentData = await paymentsClientRef.current.loadPaymentData({
+        apiVersion: config.apiVersion,
+        apiVersionMinor: config.apiVersionMinor,
+        allowedPaymentMethods: config.allowedPaymentMethods,
+        merchantInfo: config.merchantInfo,
+        transactionInfo: {
+          countryCode: config.countryCode,
+          currencyCode: "USD",
+          totalPriceStatus: "FINAL",
+          totalPrice: String(amount),
+        },
+      });
+      const orderId = await createPayPalOrder(amount, `Coaching - ${client.name}`);
+      await window.paypal.Googlepay().confirmOrder({ orderId, paymentMethodData: paymentData.paymentMethodData });
+      const captured = await capturePayPalOrder(orderId);
+      onPaid(captured);
+    } catch (e) {
+      if (e?.statusCode !== "CANCELED") onError?.(); // the user closing the Google Pay sheet isn't an error
+    } finally {
+      setPaying(false);
+    }
+  }
+  useEffect(() => { payRef.current = pay; });
+  useEffect(() => {
+    if (!eligible || !containerRef.current || !paymentsClientRef.current) return;
+    containerRef.current.innerHTML = "";
+    const button = paymentsClientRef.current.createButton({ onClick: () => payRef.current(), buttonType: "pay", buttonSizeMode: "fill" });
+    containerRef.current.appendChild(button);
+  }, [eligible]);
+  if (!eligible) return null;
+  return <div ref={containerRef} style={{ marginTop: 8, opacity: paying ? 0.6 : 1, pointerEvents: paying ? "none" : "auto" }} />;
+}
+
 export function PayPalCheckout({ client, amount, onPaid }) {
   const ref = useRef(null);
   const [status, setStatus] = useState("loading");
@@ -126,7 +218,7 @@ export function PayPalCheckout({ client, amount, onPaid }) {
     if (!script) {
       script = document.createElement("script");
       script.id = id;
-      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&components=buttons,applepay&enable-funding=card`;
+      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&components=buttons,applepay,googlepay&enable-funding=card`;
       script.onload = render;
       script.onerror = () => { if (!cancelled) { setErr("Could not load PayPal."); setStatus("error"); } };
       document.body.appendChild(script);
@@ -147,6 +239,7 @@ export function PayPalCheckout({ client, amount, onPaid }) {
       {status === "paying" && <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 500, fontSize: 13, marginBottom: 8 }}>Confirming payment...</div>}
       <div ref={ref} />
       {status === "ready" && <ApplePayButton client={client} amount={amount} onPaid={(data) => { setStatus("done"); onPaid?.(data); }} onError={() => setErr("Apple Pay payment did not complete. Try again.")} />}
+      {status === "ready" && <GooglePayButton client={client} amount={amount} onPaid={(data) => { setStatus("done"); onPaid?.(data); }} onError={() => setErr("Google Pay payment did not complete. Try again.")} />}
       {err && <div style={{ fontFamily: BRAND.sans, color: BRAND.yellow, fontSize: 12, marginTop: 8 }}>{err}</div>}
     </div>
   );
