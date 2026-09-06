@@ -7,7 +7,7 @@ import { inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
-import { isoDate, currentStreakWeeks } from "../../lib/dateUtils.js";
+import { isoDate, currentStreakWeeks, isCheckInDue, hasSubmittedThisCheckInWindow } from "../../lib/dateUtils.js";
 import { daysSince, upsertSection, upsertTrainerData } from "../../lib/clientData.js";
 import { DEFAULT_CHECKIN_QUESTIONS } from "../../lib/constants.js";
 
@@ -84,7 +84,8 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
   const submissions = client.checkIns || [];
   const lastSubmission = submissions[submissions.length - 1];
   const daysSinceLast = lastSubmission ? daysSince(lastSubmission.date) : null;
-  const dueForCheckIn = daysSinceLast === null || daysSinceLast >= 7;
+  const dueForCheckIn = isCheckInDue(submissions);
+  const submittedThisWindow = hasSubmittedThisCheckInWindow(submissions);
   const streak = currentStreakWeeks(submissions.map((s) => s.date));
   useEffect(() => { loadCheckInTemplate(client.trainer_id).then((qs) => { setTemplate(qs); setLoadingTemplate(false); }); }, [client.trainer_id]);
   function setAnswer(id, v) { setAnswers((a) => ({ ...a, [id]: v })); }
@@ -144,15 +145,23 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
         </div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.6, marginTop: 4 }}>{lastSubmission ? `Last check-in: ${lastSubmission.date} (${daysSinceLast} day${daysSinceLast === 1 ? "" : "s"} ago)` : "No check-ins submitted yet."}</div>
       </Card>
-      {!isCoach && !loadingTemplate && (
+      {!isCoach && !loadingTemplate && !dueForCheckIn && (
+        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, padding: isMobile ? 14 : 18, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>{submittedThisWindow ? "✓" : "📅"}</span>
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.5 }}>
+            {submittedThisWindow ? "You're checked in for this week — nice work. The next one opens Saturday." : "This week's check-in window has closed. The next one opens Saturday."}
+          </div>
+        </div>
+      )}
+      {!isCoach && !loadingTemplate && dueForCheckIn && (
         <div style={{
           background: "color-mix(in srgb, var(--card) 65%, transparent)", backdropFilter: "blur(20px)",
-          border: `1px solid ${dueForCheckIn ? "rgba(242,133,61,0.35)" : BRAND.line}`,
+          border: "1px solid rgba(242,133,61,0.35)",
           borderRadius: 20, padding: isMobile ? 14 : 18,
-          boxShadow: dueForCheckIn ? "0 0 32px rgba(242,133,61,0.08)" : "none",
+          boxShadow: "0 0 32px rgba(242,133,61,0.08)",
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, letterSpacing: "-0.4px", color: dueForCheckIn ? BRAND.gold : BRAND.text }}>{isReview ? "Review & submit" : dueForCheckIn ? "Your check-in is due" : "Check in early if you'd like"}</div>
+            <div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, letterSpacing: "-0.4px", color: BRAND.gold }}>{isReview ? "Review & submit" : "Your check-in is due"}</div>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>{Math.min(step + 1, totalSteps)} / {totalSteps}</div>
           </div>
           <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden", marginBottom: 18 }}>

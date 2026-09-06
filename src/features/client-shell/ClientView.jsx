@@ -7,9 +7,9 @@ import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
-import { isoDate, currentStreakWeeks } from "../../lib/dateUtils.js";
+import { isoDate, currentStreakWeeks, isCheckInDue, hasSubmittedThisCheckInWindow } from "../../lib/dateUtils.js";
 import { useIsMobile } from "../../lib/browser.js";
-import { paymentStatus, daysSince, daysUntil, paymentLockout } from "../../lib/clientData.js";
+import { paymentStatus, daysUntil, paymentLockout } from "../../lib/clientData.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
@@ -206,8 +206,9 @@ function ClientHome({ client, goTo }) {
   const nutritionPhaseLabel = { baseline: "Baseline week", report: "Report ready", adjustment: "Adjustment week", maintenance: "Maintenance" }[nutrition.phase] || "";
   const mealGoal = 4;
   const mealPct = Math.min(100, Math.round((loggedCount / mealGoal) * 100));
-  const lastCheckIn = client.checkIns?.[client.checkIns.length - 1];
-  const checkinDue = !lastCheckIn || daysSince(lastCheckIn.date) >= 7;
+  const checkinSubmissions = client.checkIns || [];
+  const checkinDue = isCheckInDue(checkinSubmissions);
+  const checkinSubmittedThisWindow = hasSubmittedThisCheckInWindow(checkinSubmissions);
   const isOnlinePaying = client.clientType === "Online" && client.paymentDueDate && !client.paymentPaid;
   const daysToPayment = isOnlinePaying ? daysUntil(client.paymentDueDate) : null;
   const showPaymentBanner = isOnlinePaying && daysToPayment != null && daysToPayment <= 5;
@@ -270,7 +271,7 @@ function ClientHome({ client, goTo }) {
         <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, lineHeight: 1.5, marginBottom: 12 }}>Your coach needs your update before the next session is loaded. Takes about 2 minutes.</div>
         <button style={{ width: "100%", background: BRAND.gold, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", boxShadow: "0 4px 18px rgba(242,133,61,0.3)" }}>Start Check-in →</button>
       </div>
-    ) : goTo && (
+    ) : goTo && checkinSubmittedThisWindow && (
       <div style={{ background: BRAND.greenBg, border: "1px solid rgba(102,199,155,0.15)", borderRadius: 14, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
         <NavIcon name="check" size={16} color={BRAND.green} />
         <span style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 11, color: BRAND.green }}>Check-in submitted — you're all caught up ✓</span>

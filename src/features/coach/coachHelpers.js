@@ -1,6 +1,6 @@
 import { supabase } from "../../supabaseClient.js";
-import { isoDate, startOfWeek, weekKey, weekDays } from "../../lib/dateUtils.js";
-import { daysSince, paymentStatus } from "../../lib/clientData.js";
+import { isoDate, startOfWeek, weekKey, weekDays, isCheckInDue } from "../../lib/dateUtils.js";
+import { paymentStatus } from "../../lib/clientData.js";
 
 export function autoBookingsFor(clients, weekStart) {
   const days = weekDays(weekStart);
@@ -42,12 +42,7 @@ export async function loadTodaysAgenda(clients, trainerId) {
     })
     .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 
-  const checkInsDue = clients.filter((c) => {
-    const submissions = c.checkIns || [];
-    const last = submissions[submissions.length - 1];
-    const daysSinceLast = last ? daysSince(last.date) : null;
-    return daysSinceLast === null || daysSinceLast >= 7;
-  });
+  const checkInsDue = clients.filter((c) => isCheckInDue(c.checkIns || []));
 
   const paymentsDue = clients.filter((c) => c.clientType === "Online" && ["overdue", "due"].some((k) => (paymentStatus(c).label || "").toLowerCase().includes(k)));
 
