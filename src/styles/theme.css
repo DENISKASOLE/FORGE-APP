@@ -1,42 +1,51 @@
-/* Central design-token system: monochrome premium core (true black/white,
-   no brown/amber wash) with vivid category colors (blue/orange/violet/
-   green/yellow/red) reserved for actual data categories rather than a
-   single all-purpose brand accent. Default theme is dark. See DECISIONS.md
-   for background on this and prior token generations. */
+/* Central design-token system: glassmorphic "ultra-luxury" restyle
+   (feature/glass-restyle). Warm near-black monochrome base (not pure
+   black) + cinematic edge-lit glass surfaces. White stays the one
+   accent; category colors (breakfast/lunch/dinner/snacks -> orange/
+   blue/violet/green) are reserved for small functional dots, never a
+   brand-color wash. See DECISIONS.md for every judgement call made
+   while building this out. Default theme is dark - glass is tuned for
+   dark first, light gets an equivalent frosted treatment (see below). */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap');
 
 :root, [data-theme="light"]{
-  --shell:#EFEFEF; --page:#FAFAFA; --card:#FFFFFF; --card-soft:#F5F5F5; --chip:#EEEEEE;
-  --line:rgba(0,0,0,.10); --line-soft:rgba(0,0,0,.06); --line-strong:rgba(0,0,0,.20);
+  --shell:#EFEFEF; --page:#FAFAFA; --card:rgba(255,255,255,.55); --card-soft:rgba(255,255,255,.4); --chip:rgba(255,255,255,.65);
+  --line:rgba(10,9,11,.10); --line-soft:rgba(10,9,11,.06); --line-strong:rgba(10,9,11,.20);
   --ink:#0A0A0A; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
-  --green:#1FA97A; --green-bg:rgba(31,169,122,.13);
-  --blue:#2B7FE0;  --blue-bg:rgba(43,127,224,.13);
-  --yellow:#D9A017; --yellow-bg:rgba(217,160,23,.14);
-  --violet:#8B5CF6; --violet-bg:rgba(139,92,246,.13);
-  --red:#E0453B; --red-bg:rgba(224,69,59,.12);
-  --orange:#E8811F; --orange-bg:rgba(232,129,31,.13);
-  --accent:#0A0A0A; --accent-deep:#2A2A2A;
+  --green:#2E9B68; --green-bg:rgba(46,155,104,.13);
+  --blue:#4472C4;  --blue-bg:rgba(68,114,196,.13);
+  --yellow:#B8860B; --yellow-bg:rgba(184,134,11,.14);
+  --violet:#7C5CD9; --violet-bg:rgba(124,92,217,.13);
+  --red:#C3392F; --red-bg:rgba(195,57,47,.12);
+  --orange:#C06B1F; --orange-bg:rgba(192,107,31,.13);
+  --accent:rgba(10,9,11,.92); --accent-deep:rgba(10,9,11,.78);
   --btn-bg:var(--accent); --btn-ink:#FFFFFF;
-  --radius-card:14px; --radius-control:12px; --hairline:0.5px;
-  --display:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --glass-hi:rgba(255,255,255,.7); --glass-hi-2:rgba(10,9,11,.04); --glass-shadow:rgba(20,18,22,.16);
+  --radius-card:22px; --radius-control:14px; --hairline:1px;
+  --display:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
   --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#0A0A0A; --page:#0A0A0A; --card:#161616; --card-soft:#101010; --chip:#1F1F1F;
-  --line:rgba(255,255,255,.12); --line-soft:rgba(255,255,255,.06); --line-strong:rgba(255,255,255,.22);
-  --ink:#FFFFFF; --ink-2:#ABABAB; --ink-3:#707070;
-  --green:#3ED598; --green-bg:rgba(62,213,152,.14);
-  --blue:#4FA8FF;  --blue-bg:rgba(79,168,255,.14);
+  --shell:#0A090B; --page:#0A090B; --card:rgba(255,255,255,.05); --card-soft:rgba(255,255,255,.03); --chip:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05); --line-strong:rgba(255,255,255,.18);
+  --ink:#F6F5F2; --ink-2:#ABA9A4; --ink-3:#727069;
+  --green:#5FBE86; --green-bg:rgba(95,190,134,.14);
+  --blue:#5B8FD6;  --blue-bg:rgba(91,143,214,.14);
   --yellow:#FFC94A; --yellow-bg:rgba(255,201,74,.14);
-  --violet:#B694FF; --violet-bg:rgba(182,148,255,.14);
-  --red:#FF5F57; --red-bg:rgba(255,95,87,.14);
-  --orange:#FF9F45; --orange-bg:rgba(255,159,69,.14);
-  --accent:#FFFFFF; --accent-deep:#D6D6D6;
-  --btn-bg:var(--accent); --btn-ink:#0A0A0A;
+  --violet:#9B7BE0; --violet-bg:rgba(155,123,224,.14);
+  --red:#FF6B61; --red-bg:rgba(255,107,97,.14);
+  --orange:#E0913E; --orange-bg:rgba(224,145,62,.14);
+  --accent:rgba(255,255,255,.92); --accent-deep:rgba(255,255,255,.72);
+  --btn-bg:var(--accent); --btn-ink:#0A090B;
+  --glass-hi:rgba(255,255,255,.16); --glass-hi-2:rgba(255,255,255,.02); --glass-shadow:rgba(0,0,0,.7);
 }
 
-/* Surfaces layer page -> card-soft -> card. Every border is a hairline in
-   --line; internal dividers use --line-soft. No drop shadows in the UI. */
+/* Surfaces layer page -> card-soft -> card, now translucent glass tiers
+   instead of flat fills - see .glass/.glass-soft below for the blurred
+   variants used on shared chrome (cards, sheets, nav, headers). Every
+   border is a hairline in --line; internal dividers use --line-soft. */
 
 * { box-sizing: border-box; }
 
@@ -45,7 +54,7 @@ html, body, #root {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
-  background: var(--page);
+  background: var(--shell);
   color: var(--ink);
 }
 
@@ -87,7 +96,7 @@ select {
   background-size: 16px;
   padding-right: 32px !important;
 }
-option { background: var(--card); color: var(--ink); }
+option { background: var(--shell); color: var(--ink); }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 18px; height: 18px; }
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
@@ -118,14 +127,125 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   -apple-pay-button-style: white-outline;
 }
 
+/* ---------------------------------------------------------------------
+   Cinematic backdrop - fixed behind every screen, scoped to the app's
+   own centered column (not the full browser viewport) so it doesn't
+   bleed into the desktop letterbox margins outside .app-shell. This is
+   what glass surfaces actually blur/reflect; without it every glass
+   card just looks like a flat grey box.
+--------------------------------------------------------------------- */
 .app-shell {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
-  background: var(--page);
+  background: transparent;
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
+}
+.app-shell::before,
+.app-shell::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(480px, 100vw);
+  transform: translateX(-50%);
+  z-index: -1;
+  pointer-events: none;
+}
+.app-shell::before {
+  background:
+    radial-gradient(65% 40% at 18% -5%, rgba(255,255,255,.14), transparent 60%),
+    radial-gradient(55% 40% at 95% 12%, rgba(255,255,255,.07), transparent 60%),
+    radial-gradient(90% 55% at 50% 118%, rgba(255,255,255,.06), transparent 55%),
+    linear-gradient(180deg,#111013,#0A090B 55%,#070608);
+}
+[data-theme="light"] .app-shell::before {
+  background:
+    radial-gradient(65% 40% at 18% -5%, rgba(10,9,11,.07), transparent 60%),
+    radial-gradient(55% 40% at 95% 12%, rgba(10,9,11,.04), transparent 60%),
+    radial-gradient(90% 55% at 50% 118%, rgba(10,9,11,.03), transparent 55%),
+    linear-gradient(180deg,#FDFCFA,#F3F1ED 55%,#EDEAE4);
+}
+.app-shell::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: .04;
+  mix-blend-mode: overlay;
+  box-shadow: inset 0 0 120px 20px var(--glass-shadow);
+}
+
+/* ---------------------------------------------------------------------
+   Glass surfaces. .glass = primary cards/headers/sheets/modals. .glass-soft
+   = nested panels inside a glass card. .glass-nav = the bottom tab bars.
+   Deliberately NOT applied to individual rows of long scrolling lists -
+   see DECISIONS.md "performance" section - those stay near-solid via the
+   plain --card/--card2 tokens for GPU cost reasons, which also reads as
+   correct hierarchy (hero surfaces glow, list rows sit quietly under them).
+--------------------------------------------------------------------- */
+.glass {
+  background: rgba(255,255,255,.05);
+  backdrop-filter: blur(26px) saturate(1.15);
+  -webkit-backdrop-filter: blur(26px) saturate(1.15);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 22px;
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-hi-2),
+    0 18px 44px -14px var(--glass-shadow);
+}
+.glass-soft {
+  background: rgba(255,255,255,.03);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+[data-theme="light"] .glass {
+  background: rgba(255,255,255,.5);
+  border-color: rgba(10,9,11,.08);
+}
+[data-theme="light"] .glass-soft {
+  background: rgba(255,255,255,.35);
+  border-color: rgba(10,9,11,.06);
+}
+.glass-nav {
+  background: rgba(255,255,255,.04);
+  backdrop-filter: blur(30px) saturate(1.1);
+  -webkit-backdrop-filter: blur(30px) saturate(1.1);
+  border-top: 1px solid rgba(255,255,255,.09);
+}
+[data-theme="light"] .glass-nav {
+  background: rgba(255,255,255,.55);
+  border-top-color: rgba(10,9,11,.08);
+}
+/* Frosted "active" pill - nav items, selected calendar days, selected
+   chips. White stays the only accent; this is its one glowing form. */
+.glass-pill-active {
+  background: rgba(255,255,255,.92);
+  color: #0A090B;
+  box-shadow: 0 6px 20px rgba(255,255,255,.18);
+}
+/* Category dots (meal slots, habit types) glow softly in their own hue -
+   the only place non-monochrome color survives in this restyle. */
+.cat-dot {
+  box-shadow: 0 0 10px currentColor;
+}
+
+/* No backdrop-filter support (old Firefox/older WebViews): fall back to
+   a solid near-opaque surface rather than a see-through, unreadable one. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .glass-soft { background: rgba(28,27,30,.92); }
+  [data-theme="light"] .glass, [data-theme="light"] .glass-soft { background: rgba(255,255,255,.92); }
+  .glass-nav { background: rgba(16,15,17,.92); }
+  [data-theme="light"] .glass-nav { background: rgba(255,255,255,.92); }
+}
+
+.app-shell {
+  font-family: var(--sans);
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -134,6 +254,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 @keyframes forge-toast-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes forge-glow-pulse {
+  0%, 100% { box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-hi-2), 0 18px 44px -14px var(--glass-shadow); }
+  50% { box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-hi-2), 0 18px 54px -12px var(--glass-shadow), 0 0 32px -6px rgba(255,255,255,.10); }
+}
+.glass-glow {
+  animation: forge-glow-pulse 5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
