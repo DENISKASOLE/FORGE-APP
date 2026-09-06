@@ -22,6 +22,7 @@ export const DEFAULT_ARTICLES = [
   { id: "seed4", cat: "Mindset", title: "Consistency beats intensity", read: "2 min", date: "Starter", body: "The best programme is the one you actually follow.\n\nThree solid sessions every week for a year will out-build a perfect plan you abandon in a month. Show up, log it, repeat." },
 ];
 const ART_ICON = { Training: "🏋", Nutrition: "🥗", Mindset: "🧠", Recovery: "😴" };
+const ART_COLOR = { Training: BRAND.orange, Nutrition: BRAND.green, Mindset: BRAND.violet, Recovery: BRAND.blue };
 
 export function CoachContentScreen({ user, onBack }) {
   const cats = ["Training", "Nutrition", "Mindset", "Recovery"];
@@ -158,18 +159,21 @@ export function HomeLearnStrip({ client, goTo }) {
         {goTo && <button onClick={() => goTo("learn")} style={{ fontFamily: BRAND.sans, background: "none", border: "none", color: BRAND.blue, fontWeight: 500, fontSize: 11, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em" }}>See all ›</button>}
       </div>
       <div ref={ref} style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, minWidth: 0, width: "100%" }}>
-        {list.map((a) => (
+        {list.map((a) => {
+          const color = ART_COLOR[a.cat] || BRAND.gold;
+          return (
           <div key={a.id} onClick={() => goTo && goTo("learn")} style={{ flex: "0 0 210px", cursor: "pointer", borderRadius: BRAND.radiusCard, overflow: "hidden", border: `${BRAND.hairline} solid ${BRAND.line}`, background: BRAND.card }}>
-            <div style={{ height: 96, background: `linear-gradient(140deg, ${BRAND.card2}, ${BRAND.panel})`, display: "grid", placeItems: "center", position: "relative" }}>
+            <div style={{ height: 96, background: `linear-gradient(140deg, ${color} 0%, color-mix(in srgb, ${color} 55%, black) 100%)`, display: "grid", placeItems: "center", position: "relative" }}>
               <span style={{ fontSize: 30 }}>{ART_ICON[a.cat] || "📖"}</span>
-              <div style={{ position: "absolute", top: 8, left: 8, fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: BRAND.text, background: BRAND.card, borderRadius: 6, padding: "3px 7px" }}>{a.cat}</div>
+              <div style={{ position: "absolute", top: 8, left: 8, fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "#0A0A0A", background: "#FFFFFF", borderRadius: 6, padding: "3px 7px" }}>{a.cat}</div>
             </div>
             <div style={{ padding: 11 }}>
               <div style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 13, lineHeight: 1.25, color: BRAND.text, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.title}</div>
               <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 10, fontWeight: 500, marginTop: 6, textTransform: "uppercase" }}>{a.read} read</div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
