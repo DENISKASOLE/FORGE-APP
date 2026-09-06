@@ -120,7 +120,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const parentHubLabel = "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
-    { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program?.name ? `${client.program.name} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
+    { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program ? `${client.program.goal || "Training"} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
     { key: "progress", icon: "progress", color: BRAND.blue, title: "Progress", sub: "See your trends and personal bests" },
     { key: "photos", icon: "photo", color: BRAND.dim, title: "Photos", sub: client.transformPhotos?.length ? `${client.transformPhotos.length} photo${client.transformPhotos.length === 1 ? "" : "s"} saved` : "No photos yet" },
   ];

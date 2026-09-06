@@ -47,8 +47,9 @@ export async function downloadProgramPDF2(client, program) {
     table: (w.workouts || []).flatMap((wo) => (wo.blocks || []).flatMap((b, bi) => (b.exercises || []).map((ex, ei) => [exerciseTag(b, bi, ei), ex.name, fmtExerciseSummary(ex), ex.note || ""]))),
   }));
   const subtitle = `Client: ${client?.name || ""}  ·  Goal: ${program.goal || ""}  ·  ${program.weeks?.length || 0} weeks`;
-  const blob = await buildPdfDoc(program.name, subtitle, sections);
-  return { blob, filename: `${safeFilename(program.name)}.pdf` };
+  const programTitle = `${client?.name || "Client"}'s Program`;
+  const blob = await buildPdfDoc(programTitle, subtitle, sections);
+  return { blob, filename: `${safeFilename(programTitle)}.pdf` };
 }
 
 export function ExerciseLibraryScreen({ trainerId, onBack }) {
@@ -1101,11 +1102,11 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 500 }}>{program?.name || "No program yet"}</div>
+            <div style={{ fontSize: 22, fontWeight: 500 }}>{program ? `${client.name}'s Program` : "No program yet"}</div>
             {program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, program.name); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
+            {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setShowVacationModal(true)}>{isVacationActive(vacation) ? "Vacation Mode" : "Set Vacation Mode"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>
