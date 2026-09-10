@@ -132,15 +132,99 @@ All 396 built-in exercises (100%) have a muscle group, a movement pattern,
 and exactly 3 coaching cues — the 24 above just also carry a flag asking
 you to spot-check the classification.
 
+## Milestone 3 — form changes
+
+`AddCustomExerciseModal` (`src/features/train/TrainScreens.jsx`) now
+requires muscle group, movement pattern, and all 3 coaching cues before
+saving a custom exercise, alongside the existing name/video fields — both
+on create and on edit (not just create). Choosing to require on edit too,
+rather than only for brand-new exercises, was a deliberate simplification:
+after the Part B backfill runs, every existing custom exercise will already
+have best-effort values pre-filled, so requiring completeness on edit never
+blocks a coach with an empty form — it just means an edit can't be saved
+half-finished. One validation path instead of two reduces the chance of
+drift between "new" and "edit" rules later.
+
+There were two separate, duplicated custom-exercise editor components
+(`AddCustomExerciseModal`, used by the full-screen library, and
+`ExerciseLibraryEditor`, a second hand-rolled form used inline from the
+program-builder's "Exercise Library" button). Refactored
+`ExerciseLibraryEditor` to reuse `AddCustomExerciseModal` rather than
+duplicating the new required fields a second time.
+
+## Milestone 4 — browse/filter/detail UI
+
+`ExerciseLibraryScreen` now browses the **combined** library (all 396
+built-ins + the trainer's custom exercises, deduped by name) rather than
+only custom ones, with two rows of filter chips (muscle group, movement
+pattern — single-select each, "All" clears it) and a tag-badge on every
+row. Tapping a row opens a new read-only `ExerciseDetailModal` (two tags,
+a "Primary Muscle" line, and the 3 cues as a numbered list); custom rows
+keep their existing inline Edit/Remove buttons alongside.
+
+Muscle-group tags were added to exercise rows in `WorkoutSession`,
+`SupersetLogger` (both fully resolve via the coach's own custom-exercise
+list, not just the static/DB taxonomy — same `client.trainer_id` pattern
+already used elsewhere in this file), `DayDetail` (workout preview list),
+and `VacationBanner` (home-workout card). `DayDetail` and `VacationBanner`
+resolve tags from the built-in/DB taxonomy only (no `trainerId` prop
+currently flows into either) — a custom exercise shown in those two spots
+just won't carry a tag yet. Noted as a small scoped gap rather than
+plumbing a new prop through call sites outside this task's stated scope;
+straightforward to extend later the same way `WorkoutSession` does it.
+
+## Verification
+
+Ran `npm run build` after every milestone (all clean). Since the Exercise
+Library screen lives behind coach auth I don't have test credentials for,
+full click-through UI testing of the filter chips/detail modal wasn't
+possible. Instead: started the Vite dev server and drove it with a
+headless-Playwright smoke check against the app's existing Edge
+installation (no network access in this sandbox to download Playwright's
+own Chromium build, so used `channel: 'msedge'` instead) — the bundle
+loads and mounts the login screen with zero console errors and zero page
+errors, which rules out import/syntax crashes across all the new files
+(`exerciseTaxonomy.js`, `exerciseMeta.js`, `ExerciseTag.jsx`,
+`ExerciseDetailModal.jsx`) since a bad import anywhere in this single-chunk
+bundle would have broken the whole app, not just the library screen.
+
+## Deferred / not done
+
+- **Program-builder exercise picker** (`BlockEditor`'s "+ {name}" suggestion
+  pills when adding an exercise to a program) and the **vacation-mode
+  workout builder's** picker don't show muscle-group tags. The brief's
+  "when exercises appear inside a session" language reads as the live
+  logging experience specifically, which is covered; these two pickers are
+  program-*building* contexts, not a session, so left out to stay in scope.
+  Would follow the same `getExerciseMeta()` pattern if wanted later.
+- **Search** in the library browse screen: only chip filters were
+  requested, not a text search. With ~396+ built-ins, filtering by muscle
+  group first gets a list down to a manageable size (largest group is
+  ~40 exercises), so this felt sufficient without inventing more UI than
+  asked for.
+- **DB-backed edits to built-in exercises**: coaches can edit their own
+  custom exercises' taxonomy through the app, but there's no UI to edit a
+  *built-in* exercise's tags/cues directly (only via re-running the SQL
+  seed migration with updated source data). This matches the brief, which
+  only asked for add/edit forms on custom exercises.
+
+## Reminder
+
+**Both migrations are unapplied.** Review
+`supabase/migrations/20260910120000_exercise_taxonomy_schema.sql` and
+`supabase/migrations/20260910120100_exercise_taxonomy_seed.sql` and run
+them yourself against production when ready — I did not and will not run
+either. The app works today without them (bundled static taxonomy fallback
+covers the built-in list); running them additionally populates
+`exercise_library` in the database and best-effort-tags whatever custom
+exercises already exist for every trainer.
+
 ## Status
 
 - [x] Milestone 1 — schema migration (`supabase/migrations/20260910120000_exercise_taxonomy_schema.sql`), additive-only, reviewed by you before running.
 - [x] Milestone 2 — data migration (`supabase/migrations/20260910120100_exercise_taxonomy_seed.sql`) seeding all 396 built-ins + best-effort custom-exercise tagging, reviewed by you before running.
-- [ ] Milestone 3 — add/edit custom exercise form fields (required muscle group + movement pattern + 3 cues).
-- [ ] Milestone 4 — library browse/filter UI, exercise detail view, muscle-group tags in session views.
-
-*(This file is updated as work continues; final version will also note
-anything deferred.)*
+- [x] Milestone 3 — add/edit custom exercise form fields (required muscle group + movement pattern + 3 cues).
+- [x] Milestone 4 — library browse/filter UI, exercise detail view, muscle-group tags in session views.
 
 ---
 
