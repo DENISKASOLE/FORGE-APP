@@ -1,3 +1,151 @@
+# Decisions Log
+
+This file has grown across branches. Newest work is at the top.
+
+---
+
+## Exercise Library Redesign (`feature/exercise-library`)
+
+Branch: `feature/exercise-library` (off `main`). Autonomous run — this log
+captures every judgment call made without stopping to ask, per your
+instructions.
+
+## Architecture: there was no `exercises` table
+
+The brief assumed an `exercises` table already held all exercise data. That
+table doesn't exist. Reality, confirmed by reading the code and a read-only
+inspection of production (see below):
+
+- The ~396 built-in exercises are a hardcoded JS array of plain strings —
+  `EXERCISE_LIBRARY` in `src/features/train/exerciseLibraryData.js`. No
+  metadata, no DB row per exercise.
+- There **is** a Supabase table called `exercise_library`, but it currently
+  has **0 rows** in production. The app only ever reads `name` from it
+  (`useExerciseLibrary()` hook, `src/features/train/TrainScreens.jsx:1143`)
+  and merges those names into the hardcoded list — it's a dormant,
+  never-written-to table.
+- Custom (coach-added) exercises live as JSONB, not table rows: a
+  `trainer_data` row per trainer, `section = 'custom_exercise_library'`,
+  shape `{ items: [{ id, name, videoUrl }, ...] }`.
+
+**Decision:** repurpose the empty `exercise_library` table as the canonical
+metadata store for the built-in list (additive `ALTER TABLE ... ADD COLUMN`
+— it has zero rows today, so this is zero-risk), and extend each
+custom-exercise JSON item with the same fields (`muscleGroup`,
+`movementPattern`, `coachingCues`, `needsReview`) rather than inventing a
+new relational table for custom exercises. This keeps the change additive
+and doesn't disturb the existing JSONB architecture for per-trainer data.
+
+## Also bundled the taxonomy as a static JS fallback
+
+`src/features/train/exerciseTaxonomy.js` ships the exact same
+muscle-group/movement-pattern/cues data as the SQL seed, as a plain JS
+object keyed by exercise name, bundled in the app. Reasoning:
+
+- The SQL migrations in this branch are **not applied** by me — you review
+  and run them. Until you do, `exercise_library` stays empty in production.
+- Without a bundled fallback, the whole UI (filter chips, tag rows, cue
+  lists) would show nothing until the migration is run.
+- With it, the feature works immediately on this branch, `exercise_library`
+  DB rows (once seeded) simply take precedence at runtime, and — this is
+  what makes the "make sure the cues reflect for clients already having
+  programs" ask work — **every existing client program benefits
+  immediately**, with no migration of program data at all. Program
+  exercises are only ever referenced by name; cues are resolved by a
+  name lookup at render time (`getExerciseMeta()`, new file
+  `src/lib/exerciseMeta.js`), never stored on the program itself. Any
+  program (old or new) that references a name in the taxonomy shows tags
+  and cues the moment this branch ships.
+
+## `.env` was already committed to git
+
+Found while setting up (not part of the ask, but a real safety issue): `.env`
+containing `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` is tracked in git
+history already (`git ls-files .env` returns it), and `.gitignore` never
+excluded it. Only the anon key is in there (safe-by-design, RLS-gated, no
+service-role key) — but I added `.env` to `.gitignore` going forward. I did
+**not** rewrite git history to purge it from past commits (destructive,
+needs a force-push, your call) — flagging this to you directly: consider
+whether the anon key should be rotated and whether history should be
+scrubbed.
+
+## Read-only production inspection (no writes made)
+
+To write an accurate, non-guessed migration, I ran a few read-only queries
+against production with the app's own anon key (same access the app
+already has client-side — no elevated access used, nothing written):
+`select * from exercise_library limit 2` (confirmed: 0 rows, table exists),
+and an attempt to read all `trainer_data` rows for
+`custom_exercise_library` (confirmed: RLS correctly returned 0 rows —
+anon-key access is properly scoped to the signed-in trainer, so I could not
+see real custom exercise names). No migration was executed; only `select`.
+
+## Custom exercises I couldn't read
+
+Because RLS correctly blocks anonymous, unauthenticated reads of other
+trainers' `trainer_data`, I have no way to know what custom exercises
+already exist or what they're called. Rather than skip them, Part B of the
+seed migration runs a **keyword-matching heuristic live in SQL** (a
+`pg_temp` PL/pgSQL function, dropped at the end of the migration) against
+whatever custom exercise names actually exist at the moment you run the
+migration — inferring muscle group/movement pattern/cues from the exercise
+name (e.g. name contains "squat" → Quads/Squat; "curl" but not "leg curl" →
+Biceps/Isolation; "row" → Back/Horizontal pull; etc.), the same logic used
+to hand-tag the built-in list. **Every custom exercise it touches gets
+`needsReview = true`**, unconditionally — none of this was verified by a
+human. It never touches an item that already has a `muscleGroup` key, so
+it's safe to re-run and won't clobber anything a coach has since edited
+through the new required form fields (Step 3).
+
+## Taxonomy value choices for ambiguous cases
+
+- **Deadlift / Rack Pulls / Block Pulls / Sumo / Trap Bar / Deficit
+  Deadlift** → `Back` / `Hinge`. **Romanian Deadlift, RDL variants, Good
+  Morning** → `Hamstrings` / `Hinge`. Both are defensible single-muscle-group
+  picks for a genuinely full-posterior-chain movement; I split them the way
+  most coaching apps do (conventional deadlift reads as a back/erector
+  movement, RDL reads as a hamstring stretch-focused movement).
+- **Dips / Chest Dips / Machine Dips / Bench Dips** → classified as
+  `Vertical push` (body moves vertically along a fixed point), not
+  `Horizontal push`, distinguishing them from bench-press-family movements.
+- **Diamond Push-Up, Close-Grip Bench Press** → `Triceps` (not `Chest`) as
+  the primary muscle group, since that's the deliberate purpose of the
+  narrow grip, even though the movement pattern is still `Horizontal push`.
+- **Cardio machines** (Assault Bike, Treadmill, Stair Climber, Elliptical,
+  Stationary/Spin Bike, VersaClimber) and **mobility-flow drills** (Cat-Cow,
+  World's Greatest Stretch, Thread the Needle, Foam Rolling, Hip CARs,
+  Child's Pose, Couch Stretch, Pigeon Stretch, Open Book Rotation) don't map
+  cleanly onto a single muscle group or one of the 10 strength movement
+  patterns. I still filled best-effort values for all of them (never left
+  blank) but flagged all 24 as `needsReview = true` — full list below.
+
+## `needsReview = true` — full list (24 of 396 built-in exercises)
+
+Hip CARs · World's Greatest Stretch · Cat-Cow · Open Book Rotation · Thread
+the Needle · Couch Stretch · Pigeon Stretch · Child's Pose · Foam Rolling ·
+Battle Ropes · Battle Rope Waves · Battle Rope Slams · Assault Bike · Air
+Bike · Stationary Bike · Spin Bike · Elliptical · Treadmill Walk · Incline
+Treadmill Walk · Treadmill Run · Stair Climber · Stairmaster · VersaClimber
+· Kettlebell Turkish Get-Up
+
+All 396 built-in exercises (100%) have a muscle group, a movement pattern,
+and exactly 3 coaching cues — the 24 above just also carry a flag asking
+you to spot-check the classification.
+
+## Status
+
+- [x] Milestone 1 — schema migration (`supabase/migrations/20260910120000_exercise_taxonomy_schema.sql`), additive-only, reviewed by you before running.
+- [x] Milestone 2 — data migration (`supabase/migrations/20260910120100_exercise_taxonomy_seed.sql`) seeding all 396 built-ins + best-effort custom-exercise tagging, reviewed by you before running.
+- [ ] Milestone 3 — add/edit custom exercise form fields (required muscle group + movement pattern + 3 cues).
+- [ ] Milestone 4 — library browse/filter UI, exercise detail view, muscle-group tags in session views.
+
+*(This file is updated as work continues; final version will also note
+anything deferred.)*
+
+---
+
+## v2 Restyle (`feature/glass-restyle`, merged to main)
+
 # v2 restyle — decisions log
 
 Autonomous overnight restyle run. One line per judgment call, in the order made.
