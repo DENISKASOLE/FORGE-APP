@@ -32,6 +32,9 @@ import {
   exerciseCountOf, findPrescribedExercise,
 } from "../../lib/programModel.js";
 import { EXERCISE_LIBRARY } from "./exerciseLibraryData.js";
+import { EXERCISE_TAXONOMY, MUSCLE_GROUPS, MOVEMENT_PATTERNS } from "./exerciseTaxonomy.js";
+import { getExerciseMeta } from "../../lib/exerciseMeta.js";
+import { MuscleGroupTag } from "./ExerciseTag.jsx";
 
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
@@ -93,7 +96,10 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
               {t ? <img src={t.thumb} alt="Exercise video" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: BRAND.radiusControl, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: BRAND.radiusControl, background: BRAND.card2, flexShrink: 0 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 500, fontSize: 14 }}>{it.name}</div>
-                <div style={{ color: it.videoUrl ? BRAND.blue : BRAND.dim, fontSize: 11, fontWeight: 400 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
+                  <div style={{ color: it.videoUrl ? BRAND.blue : BRAND.dim, fontSize: 11, fontWeight: 400 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
+                  <MuscleGroupTag muscleGroup={it.muscleGroup} needsReview={it.needsReview} />
+                </div>
               </div>
               <button onClick={() => { setEditingItem(it); setShowAdd(true); }} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Edit</button>
               <button onClick={() => remove(it.id)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, fontSize: 15, cursor: "pointer" }}>x</button>
@@ -108,17 +114,24 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
 export function AddCustomExerciseModal({ initial, onClose, onSave }) {
   const [name, setName] = useState(initial?.name || "");
   const [videoUrl, setVideoUrl] = useState(initial?.videoUrl || "");
+  const [muscleGroup, setMuscleGroup] = useState(initial?.muscleGroup || "");
+  const [movementPattern, setMovementPattern] = useState(initial?.movementPattern || "");
+  const [cues, setCues] = useState(() => { const c = initial?.coachingCues || []; return [c[0] || "", c[1] || "", c[2] || ""]; });
   const [saving, setSaving] = useState(false);
   const thumb = getVideoThumb(videoUrl);
+  function patchCue(i, v) { setCues((prev) => prev.map((c, ci) => (ci === i ? v : c))); }
   async function save() {
     if (!name.trim()) { showToast("Give this exercise a name.", "warn"); return; }
+    if (!muscleGroup) { showToast("Pick a muscle group.", "warn"); return; }
+    if (!movementPattern) { showToast("Pick a movement pattern.", "warn"); return; }
+    if (cues.some((c) => !c.trim())) { showToast("Fill in all 3 coaching cues.", "warn"); return; }
     setSaving(true);
-    await onSave({ name: name.trim(), videoUrl: videoUrl.trim() });
+    await onSave({ name: name.trim(), videoUrl: videoUrl.trim(), muscleGroup, movementPattern, coachingCues: cues.map((c) => c.trim()) });
     setSaving(false);
   }
   return (
     <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 420 }}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "88vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ fontSize: 18, fontWeight: 500 }}>{initial ? "Edit Exercise" : "New Exercise"}</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
@@ -126,6 +139,26 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
         <Field label="Exercise name" value={name} onChange={setName} placeholder="e.g. Cable Crossover" />
         <div style={{ marginTop: 10 }}><Field label="Video link" value={videoUrl} onChange={setVideoUrl} placeholder="https://..." /></div>
         {thumb && <img src={thumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 8 }} />}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+          <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Muscle group</div>
+            <select value={muscleGroup} onChange={(e) => setMuscleGroup(e.target.value)} style={inputStyle()}>
+              <option value="">Select...</option>
+              {MUSCLE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </label>
+          <label><div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Movement pattern</div>
+            <select value={movementPattern} onChange={(e) => setMovementPattern(e.target.value)} style={inputStyle()}>
+              <option value="">Select...</option>
+              {MOVEMENT_PATTERNS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </label>
+        </div>
+        <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Coaching cues (3)</div>
+        {[0, 1, 2].map((i) => (
+          <div key={i} style={{ marginTop: i ? 8 : 0 }}>
+            <Field label={i === 0 ? "Setup" : i === 1 ? "Execution" : "Common fault to avoid"} value={cues[i]} onChange={(v) => patchCue(i, v)} placeholder={i === 0 ? "e.g. Pin shoulder blades back and down" : i === 1 ? "e.g. Lower to mid-chest, elbows tucked ~45°" : "e.g. Don't let elbows flare out"} />
+          </div>
+        ))}
         <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 14 }}>{saving ? "Saving..." : initial ? "Save Changes" : "+ Add Exercise"}</Button>
       </Card>
     </div>
@@ -134,10 +167,8 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
 export function ExerciseLibraryEditor({ trainerId, onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [name, setName] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => { loadExerciseLibraryData(trainerId).then((data) => { setItems(data); setLoading(false); }); }, [trainerId]);
 
@@ -145,21 +176,12 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
     setItems(next);
     await upsertTrainerData(trainerId, "custom_exercise_library", { items: next });
   }
-  async function addOrUpdate() {
-    if (!name.trim()) { showToast("Enter an exercise name.", "warn"); return; }
-    setSaving(true);
-    if (editingId) {
-      await persist(items.map((it) => (it.id === editingId ? { ...it, name: name.trim(), videoUrl: videoUrl.trim() } : it)));
-    } else {
-      await persist([{ id: uid(), name: name.trim(), videoUrl: videoUrl.trim() }, ...items]);
-    }
-    setName(""); setVideoUrl(""); setEditingId(null); setSaving(false);
+  async function saveItem(form) {
+    if (editingItem) await persist(items.map((it) => (it.id === editingItem.id ? { ...it, ...form } : it)));
+    else await persist([{ id: uid(), ...form }, ...items]);
+    setShowAdd(false); setEditingItem(null);
   }
-  function startEdit(it) { setEditingId(it.id); setName(it.name); setVideoUrl(it.videoUrl || ""); }
-  function cancelEdit() { setEditingId(null); setName(""); setVideoUrl(""); }
-  async function remove(id) { await persist(items.filter((it) => it.id !== id)); if (editingId === id) cancelEdit(); }
-
-  const draftThumb = getVideoThumb(videoUrl);
+  async function remove(id) { await persist(items.filter((it) => it.id !== id)); }
 
   return (
     <div style={modalBackdrop()}>
@@ -170,15 +192,7 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
         </div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 14 }}>Add an exercise with a video link here, and it'll show up ready to pick - with the video already attached - whenever you're building a program.</div>
 
-        <Field label="Exercise name" value={name} onChange={setName} placeholder="e.g. Cable Crossover" />
-        <div style={{ marginTop: 10 }}>
-          <Field label="Video link" value={videoUrl} onChange={setVideoUrl} placeholder="https://..." />
-        </div>
-        {draftThumb && <img src={draftThumb.thumb} alt="Exercise video" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}`, marginTop: 8 }} />}
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <Button onClick={addOrUpdate} disabled={saving} style={{ flex: 1 }}>{saving ? "Saving..." : editingId ? "Update Exercise" : "+ Add Exercise"}</Button>
-          {editingId && <Button variant="ghost" onClick={cancelEdit}>Cancel</Button>}
-        </div>
+        <Button onClick={() => { setEditingItem(null); setShowAdd(true); }} style={{ width: "100%" }}>+ Add Exercise</Button>
 
         <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, margin: "18px 0 8px", textTransform: "uppercase" }}>Your Exercises ({items.length})</div>
         {loading ? <div style={{ color: BRAND.dim }}>Loading...</div> : items.length === 0 ? <div style={{ color: BRAND.dim, fontSize: 13 }}>No custom exercises yet.</div> : (
@@ -189,14 +203,18 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
                 {t ? <img src={t.thumb} alt="Exercise video" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: BRAND.radiusControl, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: BRAND.radiusControl, background: BRAND.panel, flexShrink: 0 }} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 500, fontSize: 13 }}>{it.name}</div>
-                  <div style={{ color: BRAND.dim, fontSize: 11 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
+                    <div style={{ color: BRAND.dim, fontSize: 11 }}>{it.videoUrl ? "Video attached" : "No video"}</div>
+                    <MuscleGroupTag muscleGroup={it.muscleGroup} needsReview={it.needsReview} />
+                  </div>
                 </div>
-                <button onClick={() => startEdit(it)} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Edit</button>
+                <button onClick={() => { setEditingItem(it); setShowAdd(true); }} style={{ background: "transparent", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Edit</button>
                 <button onClick={() => remove(it.id)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, fontSize: 15, cursor: "pointer" }}>x</button>
               </div>
             );
           })
         )}
+        {showAdd && <AddCustomExerciseModal initial={editingItem} onClose={() => { setShowAdd(false); setEditingItem(null); }} onSave={saveItem} />}
       </Card>
     </div>
   );
@@ -1164,4 +1182,33 @@ export function useExerciseLibrary() {
     return () => { active = false; };
   }, []);
   return library;
+}
+// Name -> {muscleGroup, movementPattern, cues, needsReview} for the built-in
+// library. Starts from the bundled static taxonomy (works immediately, even
+// before the exercise_library taxonomy migration is applied) and overlays
+// any DB rows once the migration has been run and seeded.
+export function useExerciseTaxonomyMap() {
+  const [map, setMap] = useState(EXERCISE_TAXONOMY);
+  useEffect(() => {
+    let active = true;
+    async function loadTaxonomy() {
+      try {
+        const { data, error } = await supabase
+          .from("exercise_library")
+          .select("name, muscle_group, movement_pattern, coaching_cues, needs_review");
+        if (!active || error || !Array.isArray(data) || !data.length) return;
+        const merged = { ...EXERCISE_TAXONOMY };
+        for (const row of data) {
+          if (!row?.name || !row.muscle_group) continue;
+          merged[row.name] = { muscleGroup: row.muscle_group, movementPattern: row.movement_pattern, cues: row.coaching_cues || [], needsReview: !!row.needs_review };
+        }
+        setMap(merged);
+      } catch (_) {
+        // Taxonomy columns not migrated yet - the bundled static fallback covers it.
+      }
+    }
+    loadTaxonomy();
+    return () => { active = false; };
+  }, []);
+  return map;
 }
