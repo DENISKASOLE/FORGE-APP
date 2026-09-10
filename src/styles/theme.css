@@ -1,20 +1,23 @@
-/* Central design-token system: monochrome premium core (true black/white,
-   no brown/amber wash) with vivid category colors (blue/orange/violet/
-   green/yellow/red) reserved for actual data categories rather than a
-   single all-purpose brand accent. Default theme is dark. See DECISIONS.md
-   for background on this and prior token generations. */
+/* Central design-token system: MacroFactor-style monochrome core - true
+   #000000 black / true #FFFFFF white, no off-black wash - with the native
+   iOS dark-mode system-color palette (systemGreen/Blue/Yellow/Purple/Red/
+   Orange) for functional accents, since a polished black-and-white iOS-
+   native app like the one this is modeled on plausibly leans on exactly
+   these values (or near enough that they read as "correct" rather than
+   custom). Default theme is dark. See DECISIONS.md for the rationale and
+   for the prior token generations this supersedes. */
 
 :root, [data-theme="light"]{
-  --shell:#EFEFEF; --page:#FAFAFA; --card:#FFFFFF; --card-soft:#F5F5F5; --chip:#EEEEEE;
-  --line:rgba(0,0,0,.10); --line-soft:rgba(0,0,0,.06); --line-strong:rgba(0,0,0,.20);
-  --ink:#0A0A0A; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
-  --green:#1FA97A; --green-bg:rgba(31,169,122,.13);
-  --blue:#2B7FE0;  --blue-bg:rgba(43,127,224,.13);
-  --yellow:#D9A017; --yellow-bg:rgba(217,160,23,.14);
-  --violet:#8B5CF6; --violet-bg:rgba(139,92,246,.13);
-  --red:#E0453B; --red-bg:rgba(224,69,59,.12);
-  --orange:#E8811F; --orange-bg:rgba(232,129,31,.13);
-  --accent:#0A0A0A; --accent-deep:#2A2A2A;
+  --shell:#F2F2F7; --page:#FFFFFF; --card:#FFFFFF; --card-soft:#F2F2F7; --chip:#E5E5EA;
+  --line:rgba(60,60,67,.16); --line-soft:rgba(60,60,67,.08); --line-strong:rgba(60,60,67,.29);
+  --ink:#000000; --ink-2:#3C3C43; --ink-3:#8E8E93;
+  --green:#34C759; --green-bg:rgba(52,199,89,.13);
+  --blue:#007AFF;  --blue-bg:rgba(0,122,255,.13);
+  --yellow:#CC9900; --yellow-bg:rgba(204,153,0,.14);
+  --violet:#AF52DE; --violet-bg:rgba(175,82,222,.13);
+  --red:#FF3B30; --red-bg:rgba(255,59,48,.12);
+  --orange:#FF9500; --orange-bg:rgba(255,149,0,.13);
+  --accent:#000000; --accent-deep:#3C3C43;
   --btn-bg:var(--accent); --btn-ink:#FFFFFF;
   --radius-card:14px; --radius-control:12px; --hairline:0.5px;
   --display:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -22,17 +25,17 @@
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#0A0A0A; --page:#0A0A0A; --card:#161616; --card-soft:#101010; --chip:#1F1F1F;
-  --line:rgba(255,255,255,.12); --line-soft:rgba(255,255,255,.06); --line-strong:rgba(255,255,255,.22);
-  --ink:#FFFFFF; --ink-2:#ABABAB; --ink-3:#707070;
-  --green:#3ED598; --green-bg:rgba(62,213,152,.14);
-  --blue:#4FA8FF;  --blue-bg:rgba(79,168,255,.14);
-  --yellow:#FFC94A; --yellow-bg:rgba(255,201,74,.14);
-  --violet:#B694FF; --violet-bg:rgba(182,148,255,.14);
-  --red:#FF5F57; --red-bg:rgba(255,95,87,.14);
-  --orange:#FF9F45; --orange-bg:rgba(255,159,69,.14);
-  --accent:#FFFFFF; --accent-deep:#D6D6D6;
-  --btn-bg:var(--accent); --btn-ink:#0A0A0A;
+  --shell:#000000; --page:#000000; --card:#1C1C1E; --card-soft:#121214; --chip:#2C2C2E;
+  --line:rgba(84,84,88,.65); --line-soft:rgba(84,84,88,.36); --line-strong:rgba(84,84,88,.85);
+  --ink:#FFFFFF; --ink-2:#98989F; --ink-3:#6C6C70;
+  --green:#30D158; --green-bg:rgba(48,209,88,.16);
+  --blue:#0A84FF;  --blue-bg:rgba(10,132,255,.16);
+  --yellow:#FFD60A; --yellow-bg:rgba(255,214,10,.16);
+  --violet:#BF5AF2; --violet-bg:rgba(191,90,242,.16);
+  --red:#FF453A; --red-bg:rgba(255,69,58,.16);
+  --orange:#FF9F0A; --orange-bg:rgba(255,159,10,.16);
+  --accent:#FFFFFF; --accent-deep:#D1D1D6;
+  --btn-bg:var(--accent); --btn-ink:#000000;
 }
 
 /* Surfaces layer page -> card-soft -> card. Every border is a hairline in
@@ -81,7 +84,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8A8A' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;

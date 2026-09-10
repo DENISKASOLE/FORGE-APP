@@ -1,6 +1,107 @@
-# v2 restyle — decisions log
+# MacroFactor-style recolor — decisions log
 
-Autonomous overnight restyle run. One line per judgment call, in the order made.
+Branch `feature/macrofactor-theme` (off `main`). Ask: make Forge's colors
+"exactly like MacroFactor" — same true-black background, same white text,
+"same feel," autonomous, no clarifying questions.
+
+## No reference image was actually attached
+
+The message referenced "micro factor app" and implied a screenshot/visual
+reference ("this is micro factor app"), but no image reached this
+conversation — only text. Read "micro factor" as **MacroFactor**, the
+nutrition-tracking app, and proceeded from general knowledge of its
+look (clean, data-focused, true-black dark UI, white primary CTA pill
+buttons on black) rather than a pixel reference, per "don't ask
+questions... get creative."
+
+## Where the leverage is: two files, not hundreds
+
+The prior "v2 restyle" (log below this section) already centralized every
+color as a CSS custom property in `src/styles/theme.css`, consumed via the
+`BRAND`/`T` token objects in `src/theme/tokens.js` (confirmed by spot-
+checking `Button.jsx`/`Card.jsx` — zero hardcoded colors, 100% token-
+driven). That means a full-app recolor is a token-*value* edit in one file,
+not a component-by-component pass. Only touched those two files (plus one
+hardcoded hex in the `select` arrow SVG that referenced the old gray
+literal directly).
+
+## Palette: anchored to Apple's iOS system colors, not invented hex codes
+
+Without a literal MacroFactor screenshot to match pixel-for-pixel, I
+anchored the new palette to Apple's documented iOS dark/light system
+colors (`systemBackground`, `secondarySystemBackground`, `label`/
+`secondaryLabel`/`tertiaryLabel`, `separator`, and the `systemGreen/Blue/
+Yellow/Purple/Red/Orange` functional set) rather than guessing arbitrary
+values. Reasoning: MacroFactor is a polished, native-feeling iOS app: a
+black-and-white app that "reads as correct" on iOS very plausibly uses
+these exact values, or close enough that the difference isn't visually
+meaningful. This is a defensible, verifiable reference point instead of an
+invented palette.
+
+- `--page`/`--shell` (dark): `#0A0A0A` → **`#000000`** — true black, not
+  near-black, per "exactly like MacroFactor."
+- `--ink` (dark): already `#FFFFFF` — confirmed pure white, unchanged.
+- `--card`: `#161616` → `#1C1C1E` (iOS `secondarySystemBackground` dark) —
+  a touch lighter, reads as a clearer, more deliberate elevation step off
+  true black than the old near-black-on-near-black.
+- `--chip`: `#1F1F1F` → `#2C2C2E` (iOS `tertiarySystemBackground` dark) —
+  chips/pills now sit visibly above cards instead of nearly blending in.
+- `--ink-2`/`--ink-3`: `#ABABAB`/`#707070` → `#98989F`/`#6C6C70` (iOS
+  `secondaryLabel`/`tertiaryLabel` dark, solid-color approximations of
+  Apple's alpha-blended values) — slightly cooler, more neutral grays.
+- `--line`/`--line-soft`/`--line-strong`: switched from white-alpha
+  (`rgba(255,255,255,.12)`) to iOS `separator` gray-alpha
+  (`rgba(84,84,88,.65)` etc.) — subtler, more "native," less glowing.
+- Functional accents (green/blue/yellow/violet/red/orange): swapped to
+  the iOS `systemGreen`/`systemBlue`/`systemYellow`/`systemPurple`/
+  `systemRed`/`systemOrange` dark-mode values. Same semantic roles as
+  before (progress/action/attention/etc.) — kept the "signals, not
+  decoration" rule from the v2 restyle, just refreshed the exact hues.
+- `--btn-bg`/`--btn-ink` (dark): white pill, black text — already correct
+  from the v2 restyle, just switched `--btn-ink` from `#0A0A0A` to pure
+  `#000000` to match the new true-black system.
+- Light theme got the equivalent iOS light-mode system-color treatment
+  (`--page:#FFFFFF`, `--ink:#000000`, `systemGreen/Blue/...` light
+  variants) for cross-theme consistency, even though the explicit ask was
+  about the dark/black look specifically — dark is the app's default
+  theme, so this is where nearly everyone will actually see the change.
+
+## What I deliberately left alone
+
+- The subtle decorative radial-gradient glows on `LoginScreen.jsx` and
+  `ClientView.jsx`'s greeting header (a faint white blob at 6-12% opacity)
+  — these already read as "black background, barely-there white glow,"
+  which is consistent with a black-and-white system rather than
+  conflicting "glassy" decoration. Removing them wasn't necessary to hit
+  "black background, white text."
+- The sticky-header `backdrop-filter: blur(...)` translucent headers
+  (`CoachDashboard.jsx`, `ClientView.jsx`, and a few card treatments) —
+  these are a standard, subtle native-iOS pattern (a blurred bar content
+  scrolls under), not the "frosted glass card" look, and the ask was about
+  color, not this structural effect.
+- Card/control corner radii, spacing, and typography (`Inter` for both
+  display and body) — untouched; the ask was specifically "colors," and
+  these were already clean and neutral.
+
+## Verification
+
+`npm run build` succeeded cleanly. Visual verification hit a real snag:
+the Vite **dev server's** HMR/websocket reconnect cycle was silently
+corrupting mid-script Playwright evaluations against it (computed styles
+reading back as garbage/transparent partway through a script, despite the
+CSS itself being fine) — cost real time chasing a non-bug. Switched to
+`vite preview` (serving the actual static production build, no HMR) and
+confirmed cleanly there instead: `getComputedStyle(body).backgroundColor`
+is exactly `rgb(0, 0, 0)` in dark and `rgb(255, 255, 255)` in light, zero
+console/page errors, and screenshots (taken via the machine's local Edge
+install — this sandbox has no outbound network access to download
+Playwright's own Chromium build) show the login screen with a true-black
+page, pure-white heading text, and a white "Sign in" pill button with
+black text in dark mode, mirrored correctly (black button, white text) in
+light mode. Screens behind coach/client auth weren't reachable without
+real credentials, so this is a login-screen-level visual confirmation plus
+a token-architecture argument (fully centralized, no hardcoded colors in
+`Button`/`Card`) for why the rest of the app should follow the same way.
 
 ## Setup
 
