@@ -1,10 +1,16 @@
 /* Central design-token system: glassmorphic "ultra-luxury" restyle
-   (feature/glass-restyle). Warm near-black monochrome base (not pure
-   black) + cinematic edge-lit glass surfaces. White stays the one
-   accent; category colors (breakfast/lunch/dinner/snacks -> orange/
-   blue/violet/green) are reserved for small functional dots, never a
-   brand-color wash. See DECISIONS.md for every judgement call made
-   while building this out. Default theme is dark - glass is tuned for
+   (feature/glass-restyle), with true #000000/#FFFFFF black-and-white base
+   neutrals (feature/macrofactor-theme) - cinematic edge-lit glass surfaces
+   sitting on an exactly-black page/ink pair rather than glass-restyle's
+   original warm near-black/off-white. Functional accent colors (green/
+   blue/yellow/violet/red/orange) keep glass-restyle's own hand-tuned hues,
+   not macrofactor-theme's iOS system-color set - they're already the
+   values the Home-screen momentum-ring redesign was built against, so
+   they're validated, not arbitrary. Category colors (breakfast/lunch/
+   dinner/snacks -> orange/blue/violet/green) are reserved for small
+   functional dots, never a brand-color wash. See DECISIONS.md for every
+   judgement call made while building this out and for how these two
+   branches were reconciled. Default theme is dark - glass is tuned for
    dark first, light gets an equivalent frosted treatment (see below). */
 
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap');
@@ -12,14 +18,14 @@
 :root, [data-theme="light"]{
   --shell:#EFEFEF; --page:#FAFAFA; --card:rgba(255,255,255,.55); --card-soft:rgba(255,255,255,.4); --chip:rgba(255,255,255,.65);
   --line:rgba(10,9,11,.10); --line-soft:rgba(10,9,11,.06); --line-strong:rgba(10,9,11,.20);
-  --ink:#0A0A0A; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
+  --ink:#000000; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
   --green:#2E9B68; --green-bg:rgba(46,155,104,.13);
   --blue:#4472C4;  --blue-bg:rgba(68,114,196,.13);
   --yellow:#B8860B; --yellow-bg:rgba(184,134,11,.14);
   --violet:#7C5CD9; --violet-bg:rgba(124,92,217,.13);
   --red:#C3392F; --red-bg:rgba(195,57,47,.12);
   --orange:#C06B1F; --orange-bg:rgba(192,107,31,.13);
-  --accent:rgba(10,9,11,.92); --accent-deep:rgba(10,9,11,.78);
+  --accent:#000000; --accent-deep:#3C3C43;
   --btn-bg:var(--accent); --btn-ink:#FFFFFF;
   --glass-hi:rgba(255,255,255,.7); --glass-hi-2:rgba(10,9,11,.04); --glass-shadow:rgba(20,18,22,.16);
   --cinematic-gradient:
@@ -36,17 +42,17 @@
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#0A090B; --page:#0A090B; --card:rgba(255,255,255,.05); --card-soft:rgba(255,255,255,.03); --chip:rgba(255,255,255,.06);
+  --shell:#000000; --page:#000000; --card:rgba(255,255,255,.05); --card-soft:rgba(255,255,255,.03); --chip:rgba(255,255,255,.06);
   --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05); --line-strong:rgba(255,255,255,.18);
-  --ink:#F6F5F2; --ink-2:#ABA9A4; --ink-3:#727069;
+  --ink:#FFFFFF; --ink-2:#ABA9A4; --ink-3:#727069;
   --green:#5FBE86; --green-bg:rgba(95,190,134,.14);
   --blue:#5B8FD6;  --blue-bg:rgba(91,143,214,.14);
   --yellow:#FFC94A; --yellow-bg:rgba(255,201,74,.14);
   --violet:#9B7BE0; --violet-bg:rgba(155,123,224,.14);
   --red:#FF6B61; --red-bg:rgba(255,107,97,.14);
   --orange:#E0913E; --orange-bg:rgba(224,145,62,.14);
-  --accent:rgba(255,255,255,.92); --accent-deep:rgba(255,255,255,.72);
-  --btn-bg:var(--accent); --btn-ink:#0A090B;
+  --accent:#FFFFFF; --accent-deep:#D1D1D6;
+  --btn-bg:var(--accent); --btn-ink:#000000;
   --glass-hi:rgba(255,255,255,.16); --glass-hi-2:rgba(255,255,255,.02); --glass-shadow:rgba(0,0,0,.7);
   --hero-gradient: linear-gradient(135deg,#161616,#202020 60%,#141414);
   --hero-gradient-warm: linear-gradient(135deg,#141414 0%,#1e1e1e 100%);
@@ -55,7 +61,7 @@
     radial-gradient(65% 40% at 18% -5%, rgba(255,255,255,.14), transparent 60%),
     radial-gradient(55% 40% at 95% 12%, rgba(255,255,255,.07), transparent 60%),
     radial-gradient(90% 55% at 50% 118%, rgba(255,255,255,.06), transparent 55%),
-    linear-gradient(180deg,#111013,#0A090B 55%,#070608);
+    linear-gradient(180deg,#0A0A0A,#000000 55%,#000000);
 }
 
 /* Surfaces layer page -> card-soft -> card, now translucent glass tiers
@@ -106,7 +112,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A8A8A' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 16px;
