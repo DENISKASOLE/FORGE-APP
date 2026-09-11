@@ -4,6 +4,8 @@ import { isTimedExercise } from "../../lib/browser.js";
 import { getVideoThumb } from "../../lib/exerciseVideos.js";
 import { fmtExerciseSummary, lastSessionSetsFor, suggestProgression, suggestPlateauBump } from "../../lib/trainingLogs.js";
 import { inputStyle } from "../../components/ui/Field.jsx";
+import { getExerciseMeta } from "../../lib/exerciseMeta.js";
+import { MuscleGroupTag } from "./ExerciseTag.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
 
 const GROUP_LETTERS = "ABCDEFGH";
@@ -13,7 +15,7 @@ const GROUP_LETTERS = "ABCDEFGH";
 // exercise (see groupSessionSteps in lib/trainingLogs.js) - this component
 // only changes which entry is currently visible, and that choice is local,
 // unsaved screen state.
-export function SupersetLogger({ group, exById, logsBefore, rpePickerFor, setRpePickerFor, patchSet, patchEntry, addSet, toggleDone, exerciseLibrary = [], onPlayVideo, onExit }) {
+export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, customExercises = [], rpePickerFor, setRpePickerFor, patchSet, patchEntry, addSet, toggleDone, exerciseLibrary = [], onPlayVideo, onExit }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [justCompleted, setJustCompleted] = useState(false);
   const [subFor, setSubFor] = useState(null);
@@ -26,6 +28,7 @@ export function SupersetLogger({ group, exById, logsBefore, rpePickerFor, setRpe
   const timed = isTimedExercise(effectiveName);
   const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
   const prog = suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets);
+  const exMeta = getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises });
   const thumb = getVideoThumb(ex.videoUrl);
   const letters = group.map((_, i) => GROUP_LETTERS[i] || String(i + 1));
   const subbing = subFor === entry.id;
@@ -66,6 +69,7 @@ export function SupersetLogger({ group, exById, logsBefore, rpePickerFor, setRpe
       <div>
         <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.1 }}>{effectiveName}</div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 4 }}>{fmtExerciseSummary(ex) || "—"}</div>
+        {exMeta?.muscleGroup && <div style={{ marginTop: 6 }}><MuscleGroupTag muscleGroup={exMeta.muscleGroup} needsReview={exMeta.needsReview} /></div>}
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
