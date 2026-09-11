@@ -13,7 +13,7 @@ export function PaymentLockedScreen({ client, updateClient, overdueDays }) {
     // false on its next render - no reload or extra navigation needed.
   }
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div className="cinematic-bg" style={{ minHeight: "100vh", color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
         <div style={{ fontFamily: BRAND.display, color: BRAND.text, fontSize: 30, fontWeight: 500, letterSpacing: "0.06em" }}>FORGE</div>
         <Card style={{ marginTop: 26, padding: 26 }}>
@@ -39,7 +39,7 @@ export function PaymentLockedScreen({ client, updateClient, overdueDays }) {
             <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, marginBottom: 22 }}>Your coach hasn't set a price yet - contact them below to pay.</div>
           )}
 
-          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 12 }}>
+          <div className="glass-soft" style={{ padding: 12 }}>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Contact</div>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 14, fontWeight: 500, marginTop: 4 }}>Denis &middot; +971 567 088 638</div>
           </div>

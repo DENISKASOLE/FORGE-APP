@@ -4,7 +4,7 @@ import { Card } from "../../components/ui/Card.jsx";
 
 export function AccountNotActiveScreen({ onBackToLogin }) {
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div className="cinematic-bg" style={{ minHeight: "100vh", color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 380, textAlign: "center" }}>
         <div style={{ fontFamily: BRAND.display, color: BRAND.text, fontSize: 30, fontWeight: 500, letterSpacing: "0.06em" }}>FORGE</div>
         <Card style={{ marginTop: 26, padding: 26 }}>
@@ -13,7 +13,7 @@ export function AccountNotActiveScreen({ onBackToLogin }) {
           </div>
           <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 10 }}>This account is no longer active</div>
           <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, fontWeight: 400, lineHeight: 1.6, marginBottom: 20 }}>We couldn't find an active client profile for this login. If you think this is a mistake, reach out to your coach directly.</div>
-          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 12, marginBottom: 22 }}>
+          <div className="glass-soft" style={{ padding: 12, marginBottom: 22 }}>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Contact</div>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 14, fontWeight: 500, marginTop: 4 }}>Denis &middot; +971 567 088 638</div>
           </div>

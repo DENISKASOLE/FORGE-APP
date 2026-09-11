@@ -275,7 +275,7 @@ export function PaymentsTab({ client, updateClient, isCoach }) {
   return (
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 12 }}>Payments</div>
-      <div style={{ background: BRAND.card2, border: `1px solid ${status.color}`, borderRadius: BRAND.radiusCard, padding: 14, marginBottom: 16 }}>
+      <div className="glass" style={{ border: `1px solid ${status.color}`, padding: 14, marginBottom: 16 }}>
         <div style={{ fontFamily: BRAND.sans, color: status.color, fontWeight: 500, fontSize: 16 }}>{status.label}</div>
         {client.price && <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 15, fontWeight: 500, marginTop: 4 }}>${client.price} / month</div>}
         {client.paymentDueDate && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Due date: {client.paymentDueDate}</div>}

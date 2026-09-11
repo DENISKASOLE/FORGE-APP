@@ -23,7 +23,7 @@ import { GOAL_OPTIONS } from "../../lib/constants.js";
 import {
   fmtLoad, fmtSetTarget, fmtExerciseSummary, blockTitle, exerciseTag, parseSeconds, fmtClock,
   emptyTrainingLogs, startSession, sessionForWorkout, upsertSessionInLogs, setScoreV2, fmtLoggedSet,
-  suggestProgression, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
+  suggestProgression, suggestPlateauBump, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
 } from "../../lib/trainingLogs.js";
 import {
   newSet, newExercise, newBlock, newWorkout, newProgWeek, newProgram, cloneWithNewIds,
@@ -47,8 +47,9 @@ export async function downloadProgramPDF2(client, program) {
     table: (w.workouts || []).flatMap((wo) => (wo.blocks || []).flatMap((b, bi) => (b.exercises || []).map((ex, ei) => [exerciseTag(b, bi, ei), ex.name, fmtExerciseSummary(ex), ex.note || ""]))),
   }));
   const subtitle = `Client: ${client?.name || ""}  ·  Goal: ${program.goal || ""}  ·  ${program.weeks?.length || 0} weeks`;
-  const blob = await buildPdfDoc(program.name, subtitle, sections);
-  return { blob, filename: `${safeFilename(program.name)}.pdf` };
+  const programTitle = `${client?.name || "Client"}'s Program`;
+  const blob = await buildPdfDoc(programTitle, subtitle, sections);
+  return { blob, filename: `${safeFilename(programTitle)}.pdf` };
 }
 
 export function ExerciseLibraryScreen({ trainerId, onBack }) {
@@ -546,7 +547,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const thumb = getVideoThumb(ex.videoUrl);
   const subbing = subFor === entry.id;
   const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
-  const prog = suggestProgression(lastSets);
+  const prog = suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets);
   const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
   const ringC = 2 * Math.PI * 26;
   const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
@@ -567,8 +568,10 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
           rpePickerFor={rpePickerFor}
           setRpePickerFor={setRpePickerFor}
           patchSet={patchSet}
+          patchEntry={patchEntry}
           addSet={addSet}
           toggleDone={toggleDone}
+          exerciseLibrary={exerciseLibrary}
           onPlayVideo={(videoId, title) => setPlayingVideo({ videoId, title })}
           onExit={handleExit}
         />
@@ -1101,11 +1104,11 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 500 }}>{program?.name || "No program yet"}</div>
+            <div style={{ fontSize: 22, fontWeight: 500 }}>{program ? `${client.name}'s Program` : "No program yet"}</div>
             {program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, program.name); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
+            {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setShowVacationModal(true)}>{isVacationActive(vacation) ? "Vacation Mode" : "Set Vacation Mode"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>

@@ -285,17 +285,17 @@ export function ProgressTab({ client }) {
     </div>
 
     <div style={{ display: "flex", gap: 8 }}>
-      <div style={{ flex: 1, background: "color-mix(in srgb, var(--accent) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 15%, transparent)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="glass-soft" style={{ flex: 1, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>STREAK</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.gold }}>{streak} <span style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted }}>wks</span></div></div>
       </div>
-      <div style={{ flex: 1, background: BRAND.greenBg, border: "1px solid rgba(102,199,155,0.13)", borderRadius: 14, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="glass-soft" style={{ flex: 1, background: BRAND.greenBg, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>ADHERENCE</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.green }}>{adherence.total ? `${adherence.pct}%` : "–"}</div></div>
       </div>
     </div>
 
     <div>
       <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 7 }}>Personal Records</div>
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 16, padding: 14 }}>
+      <div className="glass" style={{ padding: 14 }}>
         {pbs.length === 0 && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13 }}>No PBs yet - complete a few sessions and they'll show up here.</div>}
         {pbs.slice(0, 3).map((pb, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
@@ -316,7 +316,7 @@ export function ProgressTab({ client }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${measurementEntries.length}, minmax(0,1fr))`, gap: 8 }}>
           {measurementEntries.map(([key, label]) => (
-            <div key={key} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 10, padding: 9, textAlign: "center" }}>
+            <div key={key} className="glass-soft" style={{ borderRadius: 10, padding: 9, textAlign: "center" }}>
               <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, color: BRAND.text }}>{client.measurements[key]}</div>
               <div style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 8, color: BRAND.muted, marginTop: 3 }}>{label}</div>
             </div>
@@ -342,7 +342,7 @@ export function ProgressTab({ client }) {
       </div>
     </div>
 
-    <div style={{ background: "color-mix(in srgb, var(--accent) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 14%, transparent)", borderRadius: 16, padding: 14 }}>
+    <div className="glass-soft" style={{ padding: 14 }}>
       <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13 }}>{insight.text}</div>
     </div>
   </div>;

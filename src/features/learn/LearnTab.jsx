@@ -72,7 +72,7 @@ export function CoachContentScreen({ user, onBack }) {
       {loading && <Card><div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14 }}>Loading...</div></Card>}
       {!loading && articles.length === 0 && <Card><div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14 }}>No articles yet. Write your first one above.</div></Card>}
       {articles.map((a) => (
-        <Card key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <Card key={a.id} flat style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: BRAND.sans, fontWeight: 500, fontSize: 14, color: BRAND.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</div>
             <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, marginTop: 3 }}>{a.cat} · {a.date}</div>
@@ -126,7 +126,7 @@ export function LearnTab({ client }) {
           })}
         </div>
         {list.map((a) => (
-          <Card key={a.id} onClick={() => setOpen(a)} style={{ cursor: "pointer" }}>
+          <Card key={a.id} flat onClick={() => setOpen(a)} style={{ cursor: "pointer" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{a.cat}</div>
               {a.isNew && <span style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: BRAND.blue, background: BRAND.blueBg, borderRadius: 999, padding: "3px 8px" }}>New</span>}

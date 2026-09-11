@@ -142,6 +142,32 @@ export function lastSessionSetsFor(logs, exerciseName) {
   }
   return [];
 }
+// Sets logged for an exercise across its last n completed sessions, oldest first.
+export function lastNSessionSetsFor(logs, exerciseName, n = 2) {
+  const name = String(exerciseName || "").toLowerCase();
+  const sessions = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => a.date.localeCompare(b.date));
+  const out = [];
+  for (let i = sessions.length - 1; i >= 0 && out.length < n; i--) {
+    const entry = (sessions[i].entries || []).find((e) => String(e.substitutedName || e.name || "").toLowerCase() === name);
+    if (entry && entry.sets?.length) out.unshift(entry.sets);
+  }
+  return out;
+}
+function workingWeight(sets) {
+  const loads = (sets || []).filter((s) => s.done).map((s) => Number(s.load)).filter((n) => !isNaN(n) && n > 0);
+  return loads.length ? Math.max(...loads) : null;
+}
+// Same working weight logged in the last two completed sessions for this
+// exercise (e.g. two weeks running on a weekly program) -> flat +2.5kg nudge,
+// independent of RPE data (which many clients never log).
+export function suggestPlateauBump(logs, exerciseName) {
+  const [older, newer] = lastNSessionSetsFor(logs, exerciseName, 2);
+  if (!older || !newer) return null;
+  const w1 = workingWeight(older);
+  const w2 = workingWeight(newer);
+  if (w1 == null || w2 == null || w1 !== w2) return null;
+  return { bump: 2.5, weight: w2, reason: "plateau" };
+}
 export function exerciseHistoryV2(logs, exerciseName) {
   const name = String(exerciseName || "").toLowerCase();
   const timed = isTimedExercise(exerciseName);

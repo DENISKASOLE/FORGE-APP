@@ -1,13 +1,15 @@
 import { BRAND } from "../../theme/tokens.js";
 
 export function inputStyle(extra = {}) {
-  return { width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, color: BRAND.text, borderRadius: BRAND.radiusControl, padding: "11px 12px", outline: "none", fontSize: 16, fontFamily: BRAND.sans, ...extra };
+  return { width: "100%", minWidth: 0, boxSizing: "border-box", background: BRAND.card2, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: `${BRAND.hairline} solid ${BRAND.line}`, color: BRAND.text, borderRadius: BRAND.radiusControl, padding: "11px 12px", outline: "none", fontSize: 16, fontFamily: BRAND.sans, ...extra };
 }
 
 export const textareaStyle = (extra = {}) => ({
   width: "100%",
   minHeight: 90,
   background: BRAND.card2,
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
   border: `${BRAND.hairline} solid ${BRAND.line}`,
   borderRadius: BRAND.radiusControl,
   color: BRAND.text,

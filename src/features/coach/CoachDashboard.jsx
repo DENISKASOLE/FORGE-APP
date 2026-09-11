@@ -432,7 +432,7 @@ export function CoachToolsTab({ onOpen }) {
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
-      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 14, color: BRAND.text }}>
+      {TOOLS.map((t) => <button key={t.key} onClick={() => onOpen(t.key)} className="glass" style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", padding: 14, color: BRAND.text }}>
         <div style={{ width: 34, height: 34, borderRadius: BRAND.radiusControl, background: `color-mix(in srgb, ${t.color} 18%, transparent)`, display: "grid", placeItems: "center", marginBottom: 10 }}><CoachIcon name={t.icon} size={18} color={t.color} /></div>
         <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 500 }}>{t.name}</div>
         <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>{t.meta}</div>
@@ -449,17 +449,17 @@ export const COACH_NAV = [
 ];
 export function CoachBottomNav({ tab, setTab, unread }) {
   return (
-    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: BRAND.panel, borderTop: `${BRAND.hairline} solid ${BRAND.line}`, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+    <div className="glass-nav" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       {COACH_NAV.map((item) => {
         const active = tab === item.key;
-        const color = active ? BRAND.gold : BRAND.dim;
+        const color = active ? BRAND.btnInk : BRAND.dim;
         return (
           <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
-            <div style={{ width: 42, height: 28, borderRadius: 999, background: active ? `color-mix(in srgb, ${BRAND.gold} 14%, transparent)` : "transparent", display: "grid", placeItems: "center" }}>
+            <div className={active ? "glass-pill-active" : undefined} style={{ width: 42, height: 28, borderRadius: 999, display: "grid", placeItems: "center", transition: "box-shadow .2s, background .2s" }}>
               {item.icon === "gear" || item.icon === "home" ? <NavIcon name={item.icon} color={color} /> : <CoachIcon name={item.icon} size={21} color={color} />}
-              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid ${BRAND.panel}` }}>{unread > 9 ? "9+" : unread}</div>}
+              {item.key === "alerts" && unread > 0 && <div style={{ position: "absolute", top: -2, right: 10, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid var(--shell)` }}>{unread > 9 ? "9+" : unread}</div>}
             </div>
-            <div style={{ fontSize: 10, fontWeight: active ? 500 : 400, color }}>{item.label}</div>
+            <div style={{ fontSize: 10, fontWeight: active ? 700 : 400, color: active ? BRAND.text : BRAND.dim }}>{item.label}</div>
           </button>
         );
       })}
@@ -468,10 +468,9 @@ export function CoachBottomNav({ tab, setTab, unread }) {
 }
 export function CoachTile({ icon, name, meta, count, quiet, wide, isTablet, color = BRAND.gold, onClick }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} className="glass" style={{
       fontFamily: BRAND.sans,
       gridColumn: wide ? "1 / -1" : "auto",
-      background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard,
       padding: isTablet ? 24 : 18, minHeight: wide ? (isTablet ? 110 : 96) : (isTablet ? 172 : 136), cursor: "pointer", position: "relative",
       display: "flex", flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start",
       justifyContent: wide ? "flex-start" : "space-between", gap: wide ? 16 : 0, textAlign: "left", minWidth: 0,
@@ -638,7 +637,7 @@ export function CoachTemplates({ user, clients, refresh, onBack }) {
         const usedBy = clients.filter((c) => c.program?.templateId === t.id).length;
         const isAssigning = assigningTemplate?.id === t.id;
         return (
-          <Card key={t.id} style={{ padding: 14 }}>
+          <Card key={t.id} flat style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 500, fontSize: 16 }}>{t.name}</div>
@@ -762,7 +761,7 @@ function SettingsGlassSection({ label, children, extra }) {
       {label && <div style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 400, color: BRAND.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
         <span>{label}</span>{extra}
       </div>}
-      <div style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 18, overflow: "hidden" }}>
+      <div className="glass" style={{ overflow: "hidden" }}>
         {children}
       </div>
     </div>
@@ -783,8 +782,8 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
   const syncLabel = syncStatus === "offline" ? "Offline" : syncStatus === "syncing" ? "Syncing" : "Synced";
   return <div style={{ display: "grid", gap: 14 }}>
     <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Settings</div>
-    <div onClick={onEditProfile} style={{ cursor: "pointer", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ fontFamily: BRAND.display, width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.accentDeep}, ${BRAND.gold})`, overflow: "hidden", display: "grid", placeItems: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
+    <div onClick={onEditProfile} className="glass" style={{ cursor: "pointer", padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ fontFamily: BRAND.display, width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.accentDeep}, ${BRAND.gold})`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.btnInk, fontWeight: 800, fontSize: 18, flexShrink: 0 }}>{trainerPhotoUrl ? <img src={trainerPhotoUrl} alt="Coach" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(trainer?.name || user.email)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 16, color: BRAND.text }}>{trainer?.name || user.email?.split("@")[0]}</div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Online Fitness Coach</div>

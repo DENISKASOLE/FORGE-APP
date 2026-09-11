@@ -39,8 +39,8 @@ export function ConfirmHost() {
   const { message, opts } = pending;
   return (
     <div style={modalBackdrop()} onClick={() => choose(false)}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 20 }}>
-        {opts.title && <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 8 }}>{opts.title}</div>}
+      <div onClick={(e) => e.stopPropagation()} className="glass" style={{ width: "100%", maxWidth: 380, padding: 20 }}>
+        {opts.title && <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 8 }}>{opts.title}</div>}
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, fontWeight: 400, lineHeight: 1.6 }}>{message}</div>
         {isPrompt && <input autoFocus value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") choose(true); }} style={{ ...inputStyle(), marginTop: 12 }} />}
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>

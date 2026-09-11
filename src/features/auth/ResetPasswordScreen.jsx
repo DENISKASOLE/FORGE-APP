@@ -20,7 +20,7 @@ export function ResetPasswordScreen({ onDone }) {
     setTimeout(() => { window.location.href = window.location.origin; }, 1500);
   }
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
+    <div className="cinematic-bg" style={{ minHeight: "100vh", color: BRAND.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
       <Card style={{ width: "100%", maxWidth: 430, padding: 26 }}>
         <div style={{ fontFamily: BRAND.display, color: BRAND.text, fontSize: 26, fontWeight: 500, letterSpacing: "0.06em", textAlign: "center" }}>FORGE</div>
         <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginTop: 12, textAlign: "center" }}>Set a new password</div>
