@@ -18,7 +18,7 @@ import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
 import { upsertSection, upsertTrainerData, loadTrainerTemplates } from "../../lib/clientData.js";
 import { buildPdfDoc, downloadBlob, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
 import { updateClientRow } from "../../lib/cache.js";
-import { getVideoThumb, DEFAULT_EXERCISE_VIDEOS } from "../../lib/exerciseVideos.js";
+import { getVideoThumb } from "../../lib/exerciseVideos.js";
 import { GOAL_OPTIONS } from "../../lib/constants.js";
 import {
   fmtLoad, fmtSetTarget, fmtExerciseSummary, blockTitle, exerciseTag, parseSeconds, fmtClock,
@@ -91,7 +91,7 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
   async function remove(id) { await persist(items.filter((it) => it.id !== id)); }
 
   const customNames = new Set(items.map((it) => it.name));
-  const builtInRows = exerciseLibrary.filter((n) => !customNames.has(n)).map((n) => ({ id: n, name: n, isCustom: false, videoUrl: DEFAULT_EXERCISE_VIDEOS?.[n] || "" }));
+  const builtInRows = exerciseLibrary.filter((n) => !customNames.has(n)).map((n) => ({ id: n, name: n, isCustom: false, videoUrl: "" }));
   const allRows = [...items.map((it) => ({ ...it, isCustom: true })), ...builtInRows].sort((a, b) => a.name.localeCompare(b.name));
   const rowsWithMeta = allRows.map((r) => ({ ...r, meta: getExerciseMeta(r.name, { dbMetaByName: taxonomyMap, customItems: items }) }));
   const filteredRows = rowsWithMeta.filter((r) => {
@@ -987,9 +987,9 @@ export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) 
   const [endDate, setEndDate] = useState(vacation?.endDate || isoDate(addDays(new Date(), 6)));
   const [workoutName, setWorkoutName] = useState(vacation?.workout?.name || "Bodyweight Full Body");
   const [exercises, setExercises] = useState(vacation?.workout?.exercises?.length ? vacation.workout.exercises : [
-    { id: uid(), name: "Goblet Squat", sets: "3", reps: "15", videoUrl: DEFAULT_EXERCISE_VIDEOS["Goblet Squat"] || "" },
-    { id: uid(), name: "Push-Up", sets: "3", reps: "12", videoUrl: DEFAULT_EXERCISE_VIDEOS["Push-Up"] || "" },
-    { id: uid(), name: "Plank", sets: "3", reps: "45s", videoUrl: DEFAULT_EXERCISE_VIDEOS["Plank"] || "" },
+    { id: uid(), name: "Goblet Squat", sets: "3", reps: "15", videoUrl: "" },
+    { id: uid(), name: "Push-Up", sets: "3", reps: "12", videoUrl: "" },
+    { id: uid(), name: "Plank", sets: "3", reps: "45s", videoUrl: "" },
   ]);
   const [saving, setSaving] = useState(false);
   const [pickSource, setPickSource] = useState("library");
@@ -1005,7 +1005,7 @@ export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) 
   function updateEx(id, patch) { setExercises((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))); }
   function removeEx(id) { setExercises((prev) => prev.filter((e) => e.id !== id)); }
   function addExercise(name) {
-    const videoUrl = customVideoMap[name] || DEFAULT_EXERCISE_VIDEOS[name] || "";
+    const videoUrl = customVideoMap[name] || "";
     setExercises((prev) => [...prev, { id: uid(), name, sets: "3", reps: "12", videoUrl }]);
     setAddSearch("");
   }
@@ -1044,6 +1044,7 @@ export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) 
                 <input value={ex.sets} onChange={(e) => updateEx(ex.id, { sets: e.target.value })} placeholder="sets" style={inputStyle()} />
                 <input value={ex.reps} onChange={(e) => updateEx(ex.id, { reps: e.target.value })} placeholder="reps" style={inputStyle()} />
               </div>
+              <input value={ex.videoUrl || ""} onChange={(e) => updateEx(ex.id, { videoUrl: e.target.value })} placeholder="Video link (https://...)" style={{ ...inputStyle(), marginTop: 6 }} />
             </div>
           );
         })}

@@ -1,11 +1,10 @@
 import { uid } from "./uid.js";
 import { isoDate, startOfWeek, addDays } from "./dateUtils.js";
 import { sessionForWorkout } from "./trainingLogs.js";
-import { DEFAULT_EXERCISE_VIDEOS } from "./exerciseVideos.js";
 
 export function newSet() { return { id: uid(), targetReps: "", targetLoad: "", targetRpe: "" }; }
 export function newExercise(name = "") {
-  return { id: uid(), name, loadType: "kg", tempo: "", rest: "", note: "", videoUrl: DEFAULT_EXERCISE_VIDEOS[name] || "", sets: [newSet(), newSet(), newSet()] };
+  return { id: uid(), name, loadType: "kg", tempo: "", rest: "", note: "", videoUrl: "", sets: [newSet(), newSet(), newSet()] };
 }
 export function newBlock(type = "straight") { return { id: uid(), type, rounds: type === "circuit" ? 3 : 1, exercises: [] }; }
 export function newWorkout(name = "Workout") { return { id: uid(), name, note: "", blocks: [], dayOfWeek: null }; }
