@@ -23,7 +23,7 @@ import { GOAL_OPTIONS } from "../../lib/constants.js";
 import {
   fmtLoad, fmtSetTarget, fmtExerciseSummary, blockTitle, exerciseTag, parseSeconds, fmtClock,
   emptyTrainingLogs, startSession, sessionForWorkout, upsertSessionInLogs, setScoreV2, fmtLoggedSet,
-  suggestProgression, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
+  suggestProgression, suggestPlateauBump, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
 } from "../../lib/trainingLogs.js";
 import {
   newSet, newExercise, newBlock, newWorkout, newProgWeek, newProgram, cloneWithNewIds,
@@ -547,7 +547,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const thumb = getVideoThumb(ex.videoUrl);
   const subbing = subFor === entry.id;
   const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
-  const prog = suggestProgression(lastSets);
+  const prog = suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets);
   const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
   const ringC = 2 * Math.PI * 26;
   const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
@@ -568,8 +568,10 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
           rpePickerFor={rpePickerFor}
           setRpePickerFor={setRpePickerFor}
           patchSet={patchSet}
+          patchEntry={patchEntry}
           addSet={addSet}
           toggleDone={toggleDone}
+          exerciseLibrary={exerciseLibrary}
           onPlayVideo={(videoId, title) => setPlayingVideo({ videoId, title })}
           onExit={handleExit}
         />
