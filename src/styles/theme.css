@@ -1,40 +1,41 @@
-/* Central design-token system: glassmorphic "ultra-luxury" restyle
-   (feature/glass-restyle), with true #000000/#FFFFFF black-and-white base
-   neutrals (feature/macrofactor-theme) - cinematic edge-lit glass surfaces
-   sitting on an exactly-black page/ink pair rather than glass-restyle's
-   original warm near-black/off-white. Functional accent colors (green/
-   blue/yellow/violet/red/orange) keep glass-restyle's own hand-tuned hues,
-   not macrofactor-theme's iOS system-color set - they're already the
-   values the Home-screen momentum-ring redesign was built against, so
-   they're validated, not arbitrary. Category colors (breakfast/lunch/
-   dinner/snacks -> orange/blue/violet/green) are reserved for small
-   functional dots, never a brand-color wash. See DECISIONS.md for every
-   judgement call made while building this out and for how these two
-   branches were reconciled. Default theme is dark - glass is tuned for
-   dark first, light gets an equivalent frosted treatment (see below). */
+/* Central design-token system: v3 brand pivot - dark teal/deep-green
+   (#16A88A dark theme / #0B6B58 light theme) is now the app's brand
+   accent, replacing the monochrome black/white accent from the prior
+   restyle. Everything downstream of --accent (buttons, active nav/tab
+   states, focus rings, text emphasis via BRAND.gold, glass edge-lighting,
+   the cinematic backdrop's ambient glow, hero-card gradients) picks this
+   up automatically since it's all wired through this one token - see
+   DECISIONS.md for the full palette rationale (why teal specifically, and
+   why the functional semantic colors below were mostly left alone).
+   Structural surfaces (page/card/glass frost) keep the same near-black/
+   near-white neutrals as before, just with a whisper of the brand hue
+   mixed in rather than staying perfectly monochrome, so the brand color
+   reads as woven through the whole app rather than only living in
+   buttons. Default theme is dark - glass is tuned for dark first, light
+   gets an equivalent frosted treatment (see below). */
 
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap');
 
 :root, [data-theme="light"]{
-  --shell:#EFEFEF; --page:#FAFAFA; --card:rgba(255,255,255,.55); --card-soft:rgba(255,255,255,.4); --chip:rgba(255,255,255,.65);
-  --line:rgba(10,9,11,.10); --line-soft:rgba(10,9,11,.06); --line-strong:rgba(10,9,11,.20);
-  --ink:#000000; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
+  --shell:#EEF2F0; --page:#F7FAF9; --card:rgba(255,255,255,.6); --card-soft:rgba(255,255,255,.42); --chip:rgba(255,255,255,.7);
+  --line:rgba(6,36,30,.10); --line-soft:rgba(6,36,30,.06); --line-strong:rgba(6,36,30,.20);
+  --ink:#04140F; --ink-2:#4B5E58; --ink-3:#83928D;
   --green:#2E9B68; --green-bg:rgba(46,155,104,.13);
   --blue:#4472C4;  --blue-bg:rgba(68,114,196,.13);
   --yellow:#B8860B; --yellow-bg:rgba(184,134,11,.14);
   --violet:#7C5CD9; --violet-bg:rgba(124,92,217,.13);
   --red:#C3392F; --red-bg:rgba(195,57,47,.12);
   --orange:#C06B1F; --orange-bg:rgba(192,107,31,.13);
-  --accent:#000000; --accent-deep:#3C3C43;
+  --accent:#0B6B58; --accent-deep:#053D32;
   --btn-bg:var(--accent); --btn-ink:#FFFFFF;
-  --glass-hi:rgba(255,255,255,.7); --glass-hi-2:rgba(10,9,11,.04); --glass-shadow:rgba(20,18,22,.16);
+  --glass-hi:rgba(255,255,255,.7); --glass-hi-2:rgba(6,36,30,.04); --glass-shadow:rgba(6,30,25,.16);
   --cinematic-gradient:
-    radial-gradient(65% 40% at 18% -5%, rgba(10,9,11,.07), transparent 60%),
-    radial-gradient(55% 40% at 95% 12%, rgba(10,9,11,.04), transparent 60%),
-    radial-gradient(90% 55% at 50% 118%, rgba(10,9,11,.03), transparent 55%),
-    linear-gradient(180deg,#FDFCFA,#F3F1ED 55%,#EDEAE4);
-  --hero-gradient: linear-gradient(135deg,#FFFFFF 0%,#F3F1ED 100%);
-  --hero-gradient-warm: linear-gradient(135deg,#FFFFFF,#F6EFE4 60%,#F1E7D6);
+    radial-gradient(65% 40% at 18% -5%, rgba(11,107,88,.09), transparent 60%),
+    radial-gradient(55% 40% at 95% 12%, rgba(11,107,88,.05), transparent 60%),
+    radial-gradient(90% 55% at 50% 118%, rgba(11,107,88,.04), transparent 55%),
+    linear-gradient(180deg,#FBFDFC,#F1F6F4 55%,#E9F1EE);
+  --hero-gradient: linear-gradient(135deg,#FFFFFF 0%,#EAF4F1 100%);
+  --hero-gradient-warm: linear-gradient(135deg,#FFFFFF,#E7F4EF 60%,#DCEFE7);
   --hero-gradient-danger: linear-gradient(135deg,#FDEEEC 0%,#FBDDD9 100%);
   --radius-card:22px; --radius-control:14px; --hairline:1px;
   --display:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -42,26 +43,26 @@
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#000000; --page:#000000; --card:rgba(255,255,255,.05); --card-soft:rgba(255,255,255,.03); --chip:rgba(255,255,255,.06);
-  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05); --line-strong:rgba(255,255,255,.18);
-  --ink:#FFFFFF; --ink-2:#ABA9A4; --ink-3:#727069;
+  --shell:#040D0B; --page:#040D0B; --card:rgba(180,255,235,.05); --card-soft:rgba(180,255,235,.03); --chip:rgba(180,255,235,.07);
+  --line:rgba(170,255,230,.10); --line-soft:rgba(170,255,230,.055); --line-strong:rgba(170,255,230,.20);
+  --ink:#F4FBF9; --ink-2:#A9BDB6; --ink-3:#6C7E78;
   --green:#5FBE86; --green-bg:rgba(95,190,134,.14);
   --blue:#5B8FD6;  --blue-bg:rgba(91,143,214,.14);
   --yellow:#FFC94A; --yellow-bg:rgba(255,201,74,.14);
   --violet:#9B7BE0; --violet-bg:rgba(155,123,224,.14);
   --red:#FF6B61; --red-bg:rgba(255,107,97,.14);
   --orange:#E0913E; --orange-bg:rgba(224,145,62,.14);
-  --accent:#FFFFFF; --accent-deep:#D1D1D6;
-  --btn-bg:var(--accent); --btn-ink:#000000;
-  --glass-hi:rgba(255,255,255,.16); --glass-hi-2:rgba(255,255,255,.02); --glass-shadow:rgba(0,0,0,.7);
-  --hero-gradient: linear-gradient(135deg,#161616,#202020 60%,#141414);
-  --hero-gradient-warm: linear-gradient(135deg,#141414 0%,#1e1e1e 100%);
+  --accent:#16A88A; --accent-deep:#0D6E59;
+  --btn-bg:var(--accent); --btn-ink:#04140F;
+  --glass-hi:rgba(180,255,235,.15); --glass-hi-2:rgba(180,255,235,.02); --glass-shadow:rgba(0,0,0,.7);
+  --hero-gradient: linear-gradient(135deg,#0F1B17,#1A2E27 60%,#0D1512);
+  --hero-gradient-warm: linear-gradient(135deg,#0F1B17 0%,#1B302A 100%);
   --hero-gradient-danger: linear-gradient(135deg,#1f0e0c 0%,#2e1210 100%);
   --cinematic-gradient:
-    radial-gradient(65% 40% at 18% -5%, rgba(255,255,255,.14), transparent 60%),
-    radial-gradient(55% 40% at 95% 12%, rgba(255,255,255,.07), transparent 60%),
-    radial-gradient(90% 55% at 50% 118%, rgba(255,255,255,.06), transparent 55%),
-    linear-gradient(180deg,#0A0A0A,#000000 55%,#000000);
+    radial-gradient(65% 40% at 18% -5%, rgba(22,168,138,.16), transparent 60%),
+    radial-gradient(55% 40% at 95% 12%, rgba(22,168,138,.08), transparent 60%),
+    radial-gradient(90% 55% at 50% 118%, rgba(22,168,138,.06), transparent 55%),
+    linear-gradient(180deg,#050F0D,#040D0B 55%,#030908);
 }
 
 /* Surfaces layer page -> card-soft -> card, now translucent glass tiers
@@ -285,7 +286,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 @keyframes forge-glow-pulse {
   0%, 100% { box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-hi-2), 0 18px 44px -14px var(--glass-shadow); }
-  50% { box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-hi-2), 0 18px 54px -12px var(--glass-shadow), 0 0 32px -6px rgba(255,255,255,.10); }
+  50% { box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-hi-2), 0 18px 54px -12px var(--glass-shadow), 0 0 32px -6px color-mix(in srgb, var(--accent) 45%, transparent); }
 }
 .glass-glow {
   animation: forge-glow-pulse 5s ease-in-out infinite;
