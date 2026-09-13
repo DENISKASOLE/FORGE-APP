@@ -7,7 +7,7 @@ import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { NUTRITION_PHASES, weekOfFor, saveNutritionState } from "../../lib/nutrition.js";
 import { downloadNutritionExport } from "../../lib/nutritionExport.js";
-import { draftNutritionReport } from "../../lib/aiReport.js";
+import { draftNutritionReport } from "../../lib/ai.js";
 import { SupplementStack } from "./SupplementStack.jsx";
 import { FoodDiary } from "./FoodDiary.jsx";
 import { Report } from "./Report.jsx";

@@ -4,8 +4,74 @@ import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { sessionForWorkout, sessionStatsV2, detectSessionPBs } from "../../lib/trainingLogs.js";
 import { MEASUREMENT_FIELDS } from "../../lib/constants.js";
+import { showToast } from "../../components/ui/Toast.jsx";
+import { generateClientSummary } from "../../lib/ai.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
+
+function AIClientSummaryCard({ client }) {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function generate() {
+    setLoading(true);
+    try {
+      setSummary(await generateClientSummary(client));
+    } catch (e) {
+      showToast(e.message || "Couldn't generate a summary.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="glass" style={{ padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: summary ? 12 : 0 }}>
+        <div>
+          <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>Coach only</div>
+          <div style={{ fontFamily: BRAND.display, fontWeight: 700, fontSize: 16, color: BRAND.text, marginTop: 2 }}>AI Client Summary</div>
+        </div>
+        <button onClick={generate} disabled={loading} style={{ fontFamily: BRAND.sans, background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 500, fontSize: 12, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap", flexShrink: 0 }}>{loading ? "Thinking..." : summary ? "Regenerate" : "Generate ✨"}</button>
+      </div>
+      {!summary && !loading && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.dim, lineHeight: 1.5 }}>Analyzes the last 4 weeks of training, nutrition, and habits into one read - useful before a check-in call.</div>}
+      {summary && (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ fontFamily: BRAND.sans, fontSize: 14, fontWeight: 500, color: BRAND.text, lineHeight: 1.4 }}>{summary.headline}</div>
+          {summary.trainingHighlights?.length > 0 && (
+            <div>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, color: BRAND.green, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Training — working</div>
+              {summary.trainingHighlights.map((t, i) => <div key={i} style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted, lineHeight: 1.5 }}>• {t}</div>)}
+            </div>
+          )}
+          {summary.trainingConcerns?.length > 0 && (
+            <div>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, color: BRAND.red, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Training — concerns</div>
+              {summary.trainingConcerns.map((t, i) => <div key={i} style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted, lineHeight: 1.5 }}>• {t}</div>)}
+            </div>
+          )}
+          {summary.nutritionHighlights?.length > 0 && (
+            <div>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, color: BRAND.green, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Nutrition — working</div>
+              {summary.nutritionHighlights.map((t, i) => <div key={i} style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted, lineHeight: 1.5 }}>• {t}</div>)}
+            </div>
+          )}
+          {summary.nutritionConcerns?.length > 0 && (
+            <div>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, color: BRAND.red, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Nutrition — concerns</div>
+              {summary.nutritionConcerns.map((t, i) => <div key={i} style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted, lineHeight: 1.5 }}>• {t}</div>)}
+            </div>
+          )}
+          {summary.recommendation && (
+            <div style={{ background: BRAND.blueBg, border: `${BRAND.hairline} solid var(--blue)`, borderRadius: 12, padding: 12 }}>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Recommendation</div>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 13, color: BRAND.text, lineHeight: 1.5 }}>{summary.recommendation}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function clampPercent(value, total) {
   const v = Number(value || 0);
@@ -232,7 +298,7 @@ function buildProgressInsight(streak, volumeTrend, pbs) {
   if (parts.length === 0) return { text: "Keep logging sessions to start seeing trends here." };
   return { text: parts.join(" — ") };
 }
-export function ProgressTab({ client }) {
+export function ProgressTab({ client, isCoach }) {
   const isMobile = useIsMobile(520);
   const logs = client.trainingLogs;
   const streak = currentStreakWeeks(logs);
@@ -256,6 +322,8 @@ export function ProgressTab({ client }) {
         <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Progress</div>
       </div>
     </div>
+
+    {isCoach && <AIClientSummaryCard client={client} />}
 
     <div style={{ background: "color-mix(in srgb, var(--card) 70%, transparent)", backdropFilter: "blur(20px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden" }}>
       <div style={{ padding: "15px 17px 0" }}>
@@ -353,7 +421,7 @@ export function ProgressHub({ client, updateClient, isCoach }) {
   const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14 }}>
     <div style={{ display: "flex", gap: 6, overflowX: "auto", minWidth: 0 }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? BRAND.btnInk : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `${BRAND.hairline} solid ${sub === k ? "transparent" : BRAND.line}` }}>{l}</button>)}</div>
-    {sub === "trends" && <ProgressTab client={client} />}
+    {sub === "trends" && <ProgressTab client={client} isCoach={isCoach} />}
     {sub === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
   </div>;

@@ -1,4 +1,4 @@
-# AI-drafted nutrition reports — decisions log
+# AI integration — decisions log
 
 Ask: "start with ai intergration find a free api and put it in there,"
 following up on a strategic gap-analysis where the #2 finding was that the
@@ -6,6 +6,21 @@ nutrition report — the flagship deliverable of the nutrition-coaching
 flow — is 100% manual: the coach hand-writes/pastes a JSON blob into a
 plain textarea (`NutritionFlow.jsx`'s `CoachPhaseControls`). Autonomous,
 no clarifying questions.
+
+The user then asked for a much bigger vision - "AI at the center of the
+app full 360": workout progression analysis, an AI nutrition coach, a
+natural-language coach assistant (create/modify programs, summarize a
+client), a client-facing chatbot, and automated weekly reports. Given the
+scope, sequenced it into phases (stated to the user, not asked) rather
+than attempting all five in one pass - phase 1 (this entry) is the
+foundation (one shared AI backend) plus the two lowest-risk, highest-
+overlap pieces: nutrition report drafting (already built) and a 4-week
+client summary for the coach, which covers both "weekly client reports"
+and "coach assistant: summarize this client's last 4 weeks" in one
+feature. Deliberately deferred to a later phase: anything that would have
+AI *write* real program/client data (create/modify a program) or hold a
+live conversation (the client chatbot) - those need a reviewed pattern
+for letting AI touch real data safely, which doesn't exist yet.
 
 ## What got built
 
@@ -69,6 +84,55 @@ source is complete and correct but **not deployed and not live** - see
 the reminder at the end of this session's response for the exact 3 steps
 (get a free Gemini key, set the `GEMINI_API_KEY` secret, deploy the
 function) needed to turn this on.
+
+## Deploy debugging: the secret was set, the function never was
+
+While the user was mid-deploy, tested the live function directly
+(`supabase.functions.invoke`, same anon key the app itself uses - a safe
+read of a public-facing endpoint, not a write) and got `404 NOT_FOUND`
+under every name I could think to try (`forge-ai-report`,
+`GEMINI_API_KEY`, and casing/hyphen variants of both) even after the user
+said the project ref matched. Root cause, found by asking the user to
+describe exactly what they saw in the dashboard rather than guessing
+further: Supabase's "Edge Functions" section has two separate areas -
+Functions (deployed code) and Secrets (env vars) - and only the secret had
+been created; the actual "deploy a function" step was never done. Worth
+noting for future sessions: when a deployed-and-dashboard-confirmed
+resource still 404s via every name variant, "maybe it's not actually the
+thing you think it is" is a better next hypothesis than more name
+guessing, and a live test call (safe, read-only, uses the app's own
+public anon key) found this in three tries instead of asking the user to
+paste CLI/dashboard output blind.
+
+## Consolidated onto one AI backend before the first deploy landed
+
+Renamed `forge-ai-report` -> `forge-ai` and `src/lib/aiReport.js` ->
+`src/lib/ai.js`, converting the edge function to action-based routing
+(`action: "nutrition_report"` | `"client_summary"`, more to come),
+mirroring the existing `forge-fatsecret` action-routing pattern. Given the
+much bigger 5-feature vision that came in right after this was built, and
+given the user was *already* stuck mid-deploy on the single-purpose
+version, this was the right moment to fix the shape - one function, one
+secret, one deploy, ever, no matter how many AI features Forge grows -
+rather than asking for a fresh deploy per feature going forward.
+
+## New: 4-week AI client summary (`ProgressTab.jsx`, coach-only)
+
+A "Generate ✨" button on a new "AI Client Summary" card, shown only when
+`isCoach` (threaded through both places `ProgressTab` is mounted -
+`ClientView.jsx` and `ProgressHub`'s own "Trends" tab). Gathers 28 days of
+completed training sessions (date, sets done/total, volume, avg RPE - all
+computed via the existing `sessionStatsV2`, not reimplemented) plus 28
+days of nutrition/habit data (reusing the same real-numbers-only pattern
+as the nutrition report) plus a bodyweight trend pulled from check-in
+answers, and asks the model for a headline, training/nutrition highlights
+and concerns, and one recommendation. Read-only and ephemeral by design -
+this first version doesn't persist the generated summary anywhere
+(no new `client_data` section, no schema change); it's regenerated
+on-demand each time and only ever lives in component state. Persisting it
+(so a coach could see history of past summaries) is a reasonable v2 if
+wanted, deliberately not built yet to keep this phase's surface area
+small.
 
 ---
 
