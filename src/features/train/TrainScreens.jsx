@@ -36,6 +36,7 @@ import { EXERCISE_TAXONOMY, MUSCLE_GROUPS, MOVEMENT_PATTERNS } from "./exerciseT
 import { getExerciseMeta } from "../../lib/exerciseMeta.js";
 import { MuscleGroupTag, MovementPatternTag } from "./ExerciseTag.jsx";
 import { ExerciseDetailModal } from "./ExerciseDetailModal.jsx";
+import { CoachAssistantModal } from "../coach/CoachAssistant.jsx";
 
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
@@ -1118,6 +1119,8 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   const [program, setProgram] = useState(client.program?.version === 2 ? client.program : null);
   const [logs, setLogs] = useState(client.trainingLogs || emptyTrainingLogs());
   const [builder, setBuilder] = useState(false);
+  const [assistant, setAssistant] = useState(false);
+  const [aiDraft, setAiDraft] = useState(null);
   const [live, setLive] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [mode, setMode] = useState("week");
@@ -1134,7 +1137,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
     if (nextLogs) { const r = await upsertSection(client.id, "training_logs", nextLogs); if (r?.error) failed = r.error; }
     if (failed) showToast(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`, "error");
   }
-  function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setWeekNum(currentProgramWeek(p)); }
+  function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setAiDraft(null); setWeekNum(currentProgramWeek(p)); }
   async function saveVacation(data) {
     const next = { ...vacation, ...data, completedDates: vacation?.completedDates || [] };
     setVacation(next);
@@ -1186,6 +1189,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setShowVacationModal(true)}>{isVacationActive(vacation) ? "Vacation Mode" : "Set Vacation Mode"}</Button>}
+            {isCoach && <Button variant="dark" onClick={() => setAssistant(true)}>Ask AI ✨</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>
         </div>
@@ -1214,7 +1218,8 @@ export function ProgramTab({ client, updateClient, isCoach }) {
             : <ProgramMonthView days={days} cursor={monthCursor} setCursor={setMonthCursor} currentWeek={currentProgramWeek(program)} onOpen={(d) => setOpenKey(d.key)} />}
         </>
       )}
-      {builder && <ProgramBuilder client={client} program={program} onClose={() => setBuilder(false)} onSave={saveProgram} />}
+      {assistant && <CoachAssistantModal client={client} program={program} onClose={() => setAssistant(false)} onApply={(p) => { setAiDraft(p); setAssistant(false); setBuilder(true); }} />}
+      {builder && <ProgramBuilder client={client} program={aiDraft || program} onClose={() => { setBuilder(false); setAiDraft(null); }} onSave={saveProgram} />}
     </div>
   );
 }

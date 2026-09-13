@@ -2,6 +2,7 @@ import { supabase } from "../supabaseClient.js";
 import { addDays, isoDate } from "./dateUtils.js";
 import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals, MACRO_SLOTS } from "./nutrition.js";
 import { sessionStatsV2, sessionEntriesV2 } from "./trainingLogs.js";
+import { hydrateAIProgram, summarizeProgramForAI } from "./programModel.js";
 
 async function callForgeAI(action, body) {
   const { data, error } = await supabase.functions.invoke("forge-ai", { body: { action, ...body } });
@@ -239,4 +240,103 @@ export async function getTrainingInsight(client, weeks = 6) {
   });
   if (!data?.insight) throw new Error("AI insight request returned nothing usable");
   return data.insight;
+}
+
+// ==================== Coach assistant: AI program builder ====================
+// Both functions below only ever return plain data for the coach to review -
+// neither writes to client_data. generateProgramFromAI's result is meant to
+// be opened in ProgramBuilder (pre-filling its state) and suggestProgramSwaps'
+// accepted swaps are applied to a local copy via applyProgramSwaps and ALSO
+// opened in ProgramBuilder - the coach's own "Save Program" click is the only
+// thing that ever persists it, exactly like a hand-built program.
+
+// Drafts a brand new program from a natural-language instruction, e.g.
+// "Create a 3-day full body program for this client, avoid overhead pressing".
+export async function generateProgramFromAI(client, instruction) {
+  const data = await callForgeAI("coach_program_create", {
+    clientName: client.name?.split(" ")[0] || "",
+    goal: client.goals?.join(", ") || client.goal || "",
+    injuries: client.profile?.injuries || client.injuries || "",
+    instruction,
+  });
+  if (!data?.program) throw new Error("AI program request returned nothing usable");
+  return { summary: data.summary || "", program: hydrateAIProgram(data.program) };
+}
+
+// Suggests exercise swaps against the client's CURRENT program, e.g.
+// "Modify this workout because of knee pain" - never a full rewrite, just a
+// reviewable list of {workoutName, exerciseName, suggestedReplacement, reason}.
+export async function suggestProgramSwaps(client, program, instruction) {
+  const data = await callForgeAI("coach_program_edit_suggest", {
+    goal: client.goals?.join(", ") || client.goal || "",
+    injuries: client.profile?.injuries || client.injuries || "",
+    instruction,
+    programSummary: summarizeProgramForAI(program),
+  });
+  if (!data) throw new Error("AI swap request returned nothing usable");
+  return { note: data.note || "", swaps: data.swaps || [] };
+}
+
+// Applies only the accepted swaps to a local copy of the program by exact
+// exercise-name match, leaving every other field (sets/reps/tempo/rest/notes,
+// even on other exercises with the same name in a different workout) untouched.
+export function applyProgramSwaps(program, acceptedSwaps) {
+  const byWorkout = {};
+  (acceptedSwaps || []).forEach((s) => {
+    if (!byWorkout[s.workoutName]) byWorkout[s.workoutName] = [];
+    byWorkout[s.workoutName].push(s);
+  });
+  if (!Object.keys(byWorkout).length) return program;
+  return {
+    ...program,
+    weeks: program.weeks.map((w) => ({
+      ...w,
+      workouts: w.workouts.map((wo) => {
+        const swaps = byWorkout[wo.name];
+        if (!swaps?.length) return wo;
+        return {
+          ...wo,
+          blocks: wo.blocks.map((b) => ({
+            ...b,
+            exercises: b.exercises.map((ex) => {
+              const swap = swaps.find((s) => s.exerciseName === ex.name);
+              return swap ? { ...ex, name: swap.suggestedReplacement } : ex;
+            }),
+          })),
+        };
+      }),
+    })),
+  };
+}
+
+// ==================== Client AI chat ====================
+// Open-ended, multi-turn, grounded in the client's own real data. Reuses
+// the same summary builders as the coach summary/training-insight features
+// above rather than duplicating them.
+
+// On-demand, sent fresh with every message rather than cached, since it's
+// cheap to compute and the client's data may have changed since the chat
+// was opened (a session logged, a meal tracked).
+function buildChatGroundingContext(client) {
+  return {
+    trainingSummary: buildTrainingSummary(client, 28),
+    nutritionSummary: client.nutrition ? buildNutritionSummary(client.nutrition, 7) : "No nutrition data logged.",
+    programOverview: summarizeProgramForAI(client.program),
+  };
+}
+
+// history: [{role: "user"|"model", text}], oldest first, NOT including the
+// new message. Only the last 20 turns are sent to keep the request small -
+// the full history still lives in client.aiChat for display/persistence.
+export async function sendClientChatMessage(client, history, message) {
+  const ctx = buildChatGroundingContext(client);
+  const data = await callForgeAI("client_chat", {
+    clientName: client.name?.split(" ")[0] || "",
+    goal: client.goals?.join(", ") || client.goal || "",
+    ...ctx,
+    history: (history || []).slice(-20).map((m) => ({ role: m.role, text: m.text })),
+    message,
+  });
+  if (!data?.reply) throw new Error("AI chat request returned nothing usable");
+  return data.reply;
 }

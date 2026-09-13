@@ -1,3 +1,86 @@
+# AI integration, phase 3 — coach assistant + client chatbot — decisions log
+
+Ask: "yeap get to work with those two" — the two features explicitly
+deferred at the end of phase 2 (see below): a natural-language coach
+assistant that creates/modifies real program data, and an open-ended
+client-facing AI chatbot. Both were deferred originally because they
+needed "a reviewed pattern for letting AI touch real program/client data
+safely" and because a chatbot "holds a live conversation instead of a
+single structured request." Autonomous, no clarifying questions.
+
+## The core safety decision: AI never writes program data directly
+
+The obvious design for "AI creates/modifies a program" would have the
+model return a full program JSON tree and save it. Rejected for two
+reasons: (1) it's a new, unreviewed write path into `client_data` for a
+feature whose whole risk profile is "AI writes real program data," and
+(2) asking an LLM to regenerate an entire program tree to make one small
+change (e.g. "swap squats for knee pain") is lossy — it tends to
+paraphrase or drop fields (tempo, rest, notes) on exercises that were
+never supposed to change.
+
+Instead, both coach-assistant actions produce a **plain draft that funnels
+through the existing, already-reviewed Program Builder save path** —
+nothing new is added to the database layer at all:
+- **Create**: the model returns a full program tree (fine here — there's
+  nothing existing to lose fidelity on). Hydrated into a real program
+  object client-side (`hydrateAIProgram` in `programModel.js` — assigns
+  real ids, clamps enums, fills defaults) and handed to `ProgramBuilder`
+  as its *initial* state, exactly as if the coach had started building it
+  by hand. The coach's own "Save Program" click is the only thing that
+  ever persists it.
+- **Modify** ("Suggest changes to the current program"): the model is
+  never shown the full program JSON and never asked to rewrite it. It's
+  given a compact exercise-names-only summary (`summarizeProgramForAI`)
+  and returns a *list* of proposed swaps
+  (`{workoutName, exerciseName, suggestedReplacement, reason}`), each
+  shown to the coach as a checkbox with its reasoning. Accepted swaps are
+  applied client-side by exact string match against the real program
+  (`applyProgramSwaps`), touching only the `name` field of matched
+  exercises — every other field on every exercise, touched or not, is
+  copied byte-for-byte from the original object. This is also then opened
+  in `ProgramBuilder` rather than saved directly, so the coach can still
+  tweak sets/reps before the same explicit Save click.
+
+Net effect: this feature adds zero new database-write code. The AI only
+ever populates local React state that feeds into a save path that already
+existed and was already trusted.
+
+## Client chatbot: grounded, constrained, session-stateless per request
+
+Reuses the phase-2 summary builders (`buildTrainingSummary`,
+`buildNutritionSummary`, `summarizeProgramForAI`) as grounding context
+rather than duplicating them — the chatbot answers from the same real
+data the coach-facing features already summarize. Each message sends
+fresh-computed grounding (cheap, and the client's data may have changed
+mid-conversation) plus the last 20 turns of history; the edge function
+uses Gemini's `systemInstruction` + multi-turn `contents` array (a new
+`callGeminiChat`, kept separate from the single-turn `callGemini` used by
+every other action so the four existing actions are untouched).
+
+Carries forward the exact safety rule already established for
+`training_insight`: never state a specific new weight/load number (the
+deterministic `suggestProgression`/`suggestPlateauBump` system owns that).
+Added a second hard rule for the open-ended chat surface specifically:
+never attempt medical/injury diagnosis — redirect to the coach. Chat
+history is persisted to its own `client_data` section (`ai_chat`),
+deliberately separate from the human coach↔client `messages` section
+(`MessagesTab.jsx`), so an AI thread never mixes with — or gets mistaken
+for — a real conversation with the coach.
+
+## UI placement
+
+Coach assistant: a button next to the existing "Edit Program"/"Build
+Program" control on `ProgramTab` (`TrainScreens.jsx`) — scoped to one
+client's program, matching how both example commands ("create a program
+for this client," "modify this workout") are inherently per-client, not a
+generic tool. Client chatbot: a card in the client's "Me" hub ("AI
+Coach"), plus starter-question buttons on first open — not a bottom-nav
+slot of its own, since the nav is a fixed 5-item structure and this is a
+secondary, on-demand surface like Payments/Settings already are.
+
+---
+
 # AI integration — decisions log
 
 Ask: "start with ai intergration find a free api and put it in there,"

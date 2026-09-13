@@ -118,3 +118,69 @@ export function findPrescribedExercise(workout, entry) {
   }
   return null;
 }
+
+// ---------- AI coach assistant: shape untrusted model output into a real program ----------
+// The model never writes to the database directly - it only produces plain JSON that
+// gets hydrated here (real ids, valid enums, no missing fields) and handed to
+// ProgramBuilder for the coach to review and explicitly Save, same as manual editing.
+const LOAD_TYPES = ["kg", "%1RM", "RPE", "BW"];
+const BLOCK_TYPES = ["straight", "superset", "circuit"];
+export function hydrateAIProgram(raw) {
+  const weeks = (raw?.weeks || []).map((w, wi) => ({
+    id: uid(),
+    weekNum: Number(w?.weekNum) || wi + 1,
+    label: w?.label || "",
+    focus: w?.focus || "",
+    targetRpe: w?.targetRpe || "",
+    restDays: {},
+    workouts: (w?.workouts || []).map((wo) => ({
+      id: uid(),
+      name: wo?.name || "Workout",
+      note: wo?.note || "",
+      dayOfWeek: Number(wo?.dayOfWeek) >= 1 && Number(wo?.dayOfWeek) <= 7 ? Number(wo.dayOfWeek) : null,
+      blocks: (wo?.blocks || []).map((b) => ({
+        id: uid(),
+        type: BLOCK_TYPES.includes(b?.type) ? b.type : "straight",
+        rounds: Number(b?.rounds) || (b?.type === "circuit" ? 3 : 1),
+        exercises: (b?.exercises || []).map((ex) => ({
+          id: uid(),
+          name: ex?.name || "",
+          loadType: LOAD_TYPES.includes(ex?.loadType) ? ex.loadType : "kg",
+          tempo: ex?.tempo || "",
+          rest: ex?.rest || "",
+          note: ex?.note || "",
+          videoUrl: "",
+          sets: (ex?.sets?.length ? ex.sets : [{}]).map((s) => ({
+            id: uid(),
+            targetReps: s?.targetReps || "",
+            targetLoad: s?.targetLoad || "",
+            targetRpe: s?.targetRpe || "",
+          })),
+        })),
+      })),
+    })),
+  }));
+  return normalizeProgramDays({
+    version: 2,
+    id: uid(),
+    name: raw?.name || "AI-Generated Program",
+    goal: raw?.goal || "",
+    startDate: isoDate(),
+    weeks: weeks.length ? weeks : [newProgWeek(1)],
+  });
+}
+// Compact text view of a program for feeding back to the model as context -
+// exercise names only (not sets/reps/tempo), so an edit-suggestion request
+// stays small and the model reasons over names it can reference exactly.
+export function summarizeProgramForAI(program) {
+  if (!program?.weeks?.length) return "No program exists yet for this client.";
+  const lines = [];
+  program.weeks.forEach((w) => {
+    lines.push(`Week ${w.weekNum}${w.label ? ` (${w.label})` : ""}${w.focus ? ` - focus: ${w.focus}` : ""}:`);
+    (w.workouts || []).forEach((wo) => {
+      const exNames = (wo.blocks || []).flatMap((b) => (b.exercises || []).map((e) => e.name)).filter(Boolean);
+      lines.push(`  ${wo.name}: ${exNames.join(", ") || "no exercises"}`);
+    });
+  });
+  return lines.join("\n");
+}

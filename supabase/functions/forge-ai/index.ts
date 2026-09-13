@@ -27,6 +27,20 @@
 //     (client-facing; MacroTracker.jsx "Get AI Feedback" button)
 //   training_insight          - cross-exercise trend analysis, no specific
 //     loads prescribed (client-facing; ProgressTab.jsx "AI Training Insight")
+//   coach_program_create      - generates a full program from a coach's
+//     instruction (coach-reviewed; CoachAssistantModal "Create a new
+//     program" - the client never sees this until the coach opens it in
+//     ProgramBuilder and explicitly clicks Save Program, exactly the same
+//     save path as a hand-built program)
+//   coach_program_edit_suggest - suggests exercise swaps against the
+//     CURRENT program (e.g. "knee pain") as a reviewable list, never a
+//     full-program rewrite - keeps every untouched field (sets/reps/tempo/
+//     notes) byte-identical since only matched exercise names are swapped
+//     client-side (see applyProgramSwaps in src/lib/ai.js)
+//   client_chat                - open-ended, multi-turn client chatbot
+//     grounded in that client's own real training/nutrition/program data;
+//     constrained like training_insight to never prescribe a specific
+//     new weight/load and to defer anything medical to their coach
 //
 // Secret required: GEMINI_API_KEY
 //   1. Get a free key: https://aistudio.google.com/apikey (Google account,
@@ -219,6 +233,203 @@ ${trainingSummary || "Not enough logged data to find a pattern yet."}
 TASK: Write JSON matching the schema - one specific, data-grounded insight and one safe strategy-level recommendation. If there's genuinely not enough data for a real pattern, say so honestly in the insight rather than inventing one.`;
 }
 
+// ---------- multi-turn chat call (client_chat only - the other actions are single-turn) ----------
+
+async function callGeminiChat(systemPrompt: string, contents: any[], responseSchema: any): Promise<any> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("AI features aren't set up yet - missing GEMINI_API_KEY secret.");
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.7 },
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `Gemini request failed (${res.status})`);
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini returned no content - it may have blocked the response.");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Gemini returned malformed JSON.");
+  }
+}
+
+// ---------- action: coach_program_create ----------
+// Full nested schema, fixed depth (program -> weeks -> workouts -> blocks ->
+// exercises -> sets) - not recursive, so an explicit nested schema is safe
+// and Gemini's structured-output mode enforces it exactly, no partial/
+// malformed shapes to guard against client-side beyond sane defaults.
+
+const SET_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    targetReps: { type: "STRING", description: "e.g. '8-10' or '5'." },
+    targetLoad: { type: "STRING", description: "e.g. '60' (kg) or '' if load type isn't kg or is coach's-discretion." },
+    targetRpe: { type: "STRING", description: "e.g. '8', or '' if not prescribing by RPE." },
+  },
+  required: ["targetReps", "targetLoad", "targetRpe"],
+};
+const EXERCISE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    name: { type: "STRING", description: "A real, specific gym exercise name." },
+    loadType: { type: "STRING", enum: ["kg", "%1RM", "RPE", "BW"] },
+    tempo: { type: "STRING", description: "e.g. '3-1-1', or '' if not prescribing tempo." },
+    rest: { type: "STRING", description: "e.g. '90s', or '' if not specified." },
+    note: { type: "STRING", description: "Short coaching cue, or '' if none." },
+    sets: { type: "ARRAY", items: SET_SCHEMA, description: "Typically 2-5 sets." },
+  },
+  required: ["name", "loadType", "tempo", "rest", "note", "sets"],
+};
+const BLOCK_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    type: { type: "STRING", enum: ["straight", "superset", "circuit"] },
+    rounds: { type: "INTEGER", description: "1 for straight/superset; 2-5 for circuit." },
+    exercises: { type: "ARRAY", items: EXERCISE_SCHEMA, description: "1 exercise for 'straight', 2+ for 'superset'/'circuit'." },
+  },
+  required: ["type", "rounds", "exercises"],
+};
+const WORKOUT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    name: { type: "STRING", description: "e.g. 'Upper Body', 'Push Day'." },
+    note: { type: "STRING", description: "Warm-up or session intent, or '' if none." },
+    dayOfWeek: { type: "INTEGER", description: "1=Monday..7=Sunday, spread sensibly across the week for the number of training days requested." },
+    blocks: { type: "ARRAY", items: BLOCK_SCHEMA, description: "Typically 3-8 blocks." },
+  },
+  required: ["name", "note", "dayOfWeek", "blocks"],
+};
+const WEEK_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    weekNum: { type: "INTEGER" },
+    label: { type: "STRING", description: "Phase label, e.g. 'Base', 'Deload', or '' if none." },
+    focus: { type: "STRING", description: "e.g. 'Hypertrophy - moderate volume', or '' if none." },
+    targetRpe: { type: "STRING", description: "e.g. '7-8', or '' if not specified." },
+    workouts: { type: "ARRAY", items: WORKOUT_SCHEMA },
+  },
+  required: ["weekNum", "label", "focus", "targetRpe", "workouts"],
+};
+const COACH_PROGRAM_CREATE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    summary: { type: "STRING", description: "1-2 sentences describing what was built, for the coach to read before opening it." },
+    program: {
+      type: "OBJECT",
+      properties: {
+        name: { type: "STRING" },
+        goal: { type: "STRING" },
+        weeks: { type: "ARRAY", items: WEEK_SCHEMA },
+      },
+      required: ["name", "goal", "weeks"],
+    },
+  },
+  required: ["summary", "program"],
+};
+
+function coachProgramCreatePrompt(input: any): string {
+  const { clientName, goal, injuries, instruction } = input;
+  return `You are an experienced strength & conditioning coach building a training program for a real client, to hand to their coach for review before anything is saved or shown to the client.
+
+CLIENT: ${clientName || "this client"}
+GOAL: ${goal || "not specified"}
+KNOWN INJURIES/LIMITATIONS: ${injuries || "none logged"}
+
+COACH'S INSTRUCTION: "${instruction}"
+
+TASK: Design a complete, sensible program as JSON matching the given schema.
+- Read the instruction for the number of training days per week and total program length; if either isn't stated, default to 4 weeks and a day-split that fits the client's goal (e.g. full body 3x/week for general fitness).
+- If injuries/limitations are given, actively avoid or substitute movements that would aggravate them - never include a contraindicated exercise.
+- Give every exercise real, specific set/rep/rest prescriptions appropriate to the goal (e.g. lower reps + more rest for strength, moderate reps + shorter rest for hypertrophy).
+- Vary week-to-week (label/focus/targetRpe) to show sensible progression across the program rather than repeating one week verbatim.
+- Spread workouts across dayOfWeek sensibly (e.g. don't stack two leg-dominant days back to back) with rest days between where appropriate.
+- This is a first draft the coach will review and can edit before saving - make it good enough to need only minor tweaks, not a placeholder.`;
+}
+
+// ---------- action: coach_program_edit_suggest ----------
+
+const COACH_PROGRAM_EDIT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    note: { type: "STRING", description: "1-2 sentences on the overall approach taken. If nothing needs changing, say so here and return an empty swaps array." },
+    swaps: {
+      type: "ARRAY",
+      description: "0-8 suggested exercise swaps. Only suggest a swap where the instruction genuinely warrants one.",
+      items: {
+        type: "OBJECT",
+        properties: {
+          workoutName: { type: "STRING", description: "Must exactly match a workout name from the program summary given." },
+          exerciseName: { type: "STRING", description: "Must exactly match an exercise name from that workout in the program summary given - copy it verbatim, do not paraphrase." },
+          suggestedReplacement: { type: "STRING", description: "A real, specific replacement exercise name." },
+          reason: { type: "STRING", description: "One short sentence, specific to this client's instruction." },
+        },
+        required: ["workoutName", "exerciseName", "suggestedReplacement", "reason"],
+      },
+    },
+  },
+  required: ["note", "swaps"],
+};
+
+function coachProgramEditPrompt(input: any): string {
+  const { goal, injuries, instruction, programSummary } = input;
+  return `You are an experienced strength & conditioning coach reviewing a client's CURRENT program and deciding which exercises, if any, need to be swapped out based on a specific instruction from their coach. This produces a reviewable list of suggestions only - you are not rewriting the program, only proposing individual exercise substitutions.
+
+CLIENT GOAL: ${goal || "not specified"}
+KNOWN INJURIES/LIMITATIONS: ${injuries || "none logged"}
+
+CURRENT PROGRAM (workout: exercise names)
+${programSummary}
+
+COACH'S INSTRUCTION: "${instruction}"
+
+TASK: Write JSON matching the schema.
+- Only suggest swapping an exercise that the instruction genuinely calls for changing (e.g. a movement that would aggravate a stated injury, or is off-goal). Do not touch exercises the instruction gives no reason to change.
+- exerciseName and workoutName must be copied EXACTLY, character-for-character, from the program summary above - the app matches on this string to apply your suggestion, so a mismatch means nothing happens.
+- suggestedReplacement should train a similar pattern/muscle group where reasonable, adjusted for the stated reason.
+- If nothing in the current program actually needs changing for this instruction, return an empty swaps array and say so in note - do not invent swaps just to have something to suggest.`;
+}
+
+// ---------- action: client_chat ----------
+
+const CLIENT_CHAT_SCHEMA = {
+  type: "OBJECT",
+  properties: { reply: { type: "STRING", description: "A conversational reply, 1-4 sentences unless the question genuinely needs more." } },
+  required: ["reply"],
+};
+
+function clientChatSystemPrompt(input: any): string {
+  const { clientName, goal, trainingSummary, nutritionSummary, programOverview } = input;
+  return `You are Forge's in-app AI coach, chatting directly with ${clientName || "a client"} inside their training app. Be warm, direct, and specific - ground every answer in the real data given below, never generic filler. Keep replies conversational and short unless the question needs more.
+
+CLIENT GOAL: ${goal || "not specified"}
+
+CURRENT PROGRAM
+${programOverview || "No program assigned yet."}
+
+RECENT TRAINING (last ~4 weeks)
+${trainingSummary || "No completed sessions logged recently."}
+
+RECENT NUTRITION (last ~7 days)
+${nutritionSummary || "No nutrition data logged recently."}
+
+HARD RULES - never break these:
+1. NEVER prescribe a specific new weight/load/rep number for an exercise - Forge has a separate deterministic system for that (tell them to check their next logged set if they ask "what weight should I lift"). You CAN discuss patterns, trends, and general training principles.
+2. NEVER give medical or injury-diagnosis advice - if they mention pain, injury, or a medical concern, say plainly that this needs their coach or a medical professional, don't try to diagnose or treat it.
+3. If the data above is too thin to answer specifically, say that honestly rather than inventing numbers or history that wasn't given to you.
+4. You're a supplement to their coach, not a replacement - for anything about changing their actual program or serious concerns, point them to message their coach.
+
+Respond to their message as JSON matching the schema.`;
+}
+
 // ---------- router ----------
 
 Deno.serve(async (req) => {
@@ -246,6 +457,26 @@ Deno.serve(async (req) => {
     if (action === "training_insight") {
       const insight = await callGemini(trainingInsightPrompt(body), TRAINING_INSIGHT_SCHEMA);
       return json({ insight });
+    }
+
+    if (action === "coach_program_create") {
+      const result = await callGemini(coachProgramCreatePrompt(body), COACH_PROGRAM_CREATE_SCHEMA);
+      return json(result);
+    }
+
+    if (action === "coach_program_edit_suggest") {
+      const result = await callGemini(coachProgramEditPrompt(body), COACH_PROGRAM_EDIT_SCHEMA);
+      return json(result);
+    }
+
+    if (action === "client_chat") {
+      const { history = [], message, ...ctx } = body;
+      const contents = [
+        ...history.map((h: any) => ({ role: h.role === "model" ? "model" : "user", parts: [{ text: h.text }] })),
+        { role: "user", parts: [{ text: message }] },
+      ];
+      const result = await callGeminiChat(clientChatSystemPrompt(ctx), contents, CLIENT_CHAT_SCHEMA);
+      return json(result);
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);

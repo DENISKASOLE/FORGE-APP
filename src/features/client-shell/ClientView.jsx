@@ -14,6 +14,7 @@ import { currentProgramWeek, workoutForDay, exerciseCountOf } from "../../lib/pr
 import { sessionForWorkout, parseSeconds } from "../../lib/trainingLogs.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
+import { ClientAIChat } from "../coach/ClientAIChat.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
 import { PackagesTab } from "../scheduling/PackagesTab.jsx";
 import { PaymentsTab } from "../payments/PaymentsTab.jsx";
@@ -46,7 +47,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   ] : [
     ["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"],
     ...(isOnline ? [["checkins", "Check-ins"], ["payments", "Payments"]] : []),
-    ["messages", "Messages"], ["profile", "Profile"],
+    ["messages", "Messages"], ["ai_coach", "AI Coach"], ["profile", "Profile"],
   ];
   async function delClient() {
     const ok = await confirmDialog(`Delete ${client.name}? This cannot be undone.`, { danger: true, confirmLabel: "Delete" });
@@ -75,6 +76,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "payments" && <PaymentsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
     {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "ai_coach" && !isCoach && <ClientAIChat client={client} updateClient={updateClient} />}
   </>;
 
   // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
@@ -118,7 +120,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
 
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
-  const parentHub = ["payments", "profile"].includes(tab) ? "me_hub" : null;
+  const parentHub = ["payments", "profile", "ai_coach"].includes(tab) ? "me_hub" : null;
   const parentHubLabel = "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
@@ -128,6 +130,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   ];
   const meCards = [
     ...(isCoach ? [] : [{ key: "whatsapp", icon: "me", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
+    { key: "ai_coach", icon: "msg", color: BRAND.blue, title: "AI Coach", sub: "Ask about your training & nutrition" },
     { key: "profile", icon: "gear", color: BRAND.dim, title: "Profile", sub: "Your details & settings" },
     { key: "payments", icon: "card", color: BRAND.green, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
