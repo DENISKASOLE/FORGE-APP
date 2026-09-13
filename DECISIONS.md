@@ -134,6 +134,71 @@ on-demand each time and only ever lives in component state. Persisting it
 wanted, deliberately not built yet to keep this phase's surface area
 small.
 
+## Model retirement mid-session: `gemini-2.0-flash` -> `gemini-3.6-flash`
+
+Found by testing the freshly-deployed function live rather than trusting
+it worked: Google had retired `gemini-2.0-flash` and the API itself told
+callers to switch to `gemini-3.6-flash`. One-line fix, verified with real
+test calls against both actions afterward (both returned specific,
+data-grounded output, not generic filler - included in the chat response
+for a spot-check).
+
+## Deploy saga, for the record
+
+The full path from "ask for AI integration" to "actually working" hit
+three independent, stacked failures, each only found by testing the live
+endpoint directly rather than trusting a reported success: (1) the coach
+had set the `GEMINI_API_KEY` secret but never actually deployed the
+function - dashboard's Edge Functions page has separate Functions/Secrets
+tabs, easy to conflate; (2) `npx supabase login` printed "You are now
+logged in" but never persisted a token to `~/.supabase` on this Windows
+machine (confirmed by checking the directory directly - only a
+`telemetry.json` existed, no token file), so every subsequent CLI command
+401'd regardless of account; (3) the retired-model issue above. Ended up
+deploying via the Dashboard's "Via Editor" browser-based flow instead of
+the CLI entirely, which sidestepped issue (2) completely. Worth
+remembering for next time a Supabase Edge Function needs deploying in
+this environment: try the Dashboard editor first, don't assume the CLI
+will authenticate cleanly via `npx` on Windows.
+
+## Phase 2: AI nutrition coach + training-trend insight
+
+Two more actions added to the same `forge-ai` function (no new deploy
+target, no new secret) - `daily_nutrition_feedback` and
+`training_insight`. Both are the first *client-facing* AI actions (the
+two Phase-1 ones are coach-reviewed drafts) - noted explicitly in the edge
+function's own header comment, since it changes the safety bar: both
+prompts are constrained to safe, generic, non-prescriptive advice, and
+`training_insight` has a hard rule against ever stating a specific
+weight/load number, since Forge already has a deterministic system for
+that (`suggestProgression`/`suggestPlateauBump` in `trainingLogs.js`) and
+two systems disagreeing on a number would be worse than one.
+
+- **`daily_nutrition_feedback`** - "Get Feedback ✨" button in
+  `MacroTracker.jsx`, client-facing, today only (doesn't make sense for a
+  past day). Uses the totals/targets the screen already has on-screen
+  rather than recomputing them, plus the actual food item names logged
+  today (for specific, not generic, meal suggestions).
+- **`training_insight`** - "Get Insight ✨" card in `ProgressTab.jsx`,
+  visible to both coach and client (unlike the coach-only client
+  summary) - this one is genuinely meant for the lifter to read directly,
+  more like the existing rule-based one-line insight it sits next to than
+  like the candid coach-only summary. Needed a proper per-exercise trend
+  view (session-by-session top set + RPE, grouped by exercise) rather than
+  the session-level rollup Phase 1's client summary uses, since "notice a
+  pattern in this specific lift" needs finer grain than "how was this
+  training block overall."
+
+**Refactor while here**: moved `sessionEntriesV2` (and its private
+`parseNumberFromText` helper) from `ProgressTab.jsx` into
+`trainingLogs.js`. `src/lib/ai.js` needed it for the new exercise-trend
+summary, and `ProgressTab.jsx` already imports from `ai.js`
+(`generateClientSummary`) - importing `sessionEntriesV2` back out of
+`ProgressTab.jsx` into `ai.js` would have created a circular import
+between the two. `trainingLogs.js` is where this function actually
+belongs anyway - it's a training-data transform, not view logic - so both
+files now import it from there instead.
+
 ---
 
 # MacroFactor-style recolor — decisions log

@@ -1,13 +1,45 @@
 import { useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
-import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
+import { useIsMobile } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
-import { sessionForWorkout, sessionStatsV2, detectSessionPBs } from "../../lib/trainingLogs.js";
+import { sessionForWorkout, sessionStatsV2, detectSessionPBs, sessionEntriesV2 } from "../../lib/trainingLogs.js";
 import { MEASUREMENT_FIELDS } from "../../lib/constants.js";
 import { showToast } from "../../components/ui/Toast.jsx";
-import { generateClientSummary } from "../../lib/ai.js";
+import { generateClientSummary, getTrainingInsight } from "../../lib/ai.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
+
+function AITrainingInsightCard({ client }) {
+  const [insight, setInsight] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function generate() {
+    setLoading(true);
+    try {
+      setInsight(await getTrainingInsight(client));
+    } catch (e) {
+      showToast(e.message || "Couldn't get a training insight.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="glass-soft" style={{ padding: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: insight ? 10 : 0 }}>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>AI Training Insight</div>
+        <button onClick={generate} disabled={loading} style={{ fontFamily: BRAND.sans, background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 12px", fontWeight: 500, fontSize: 11, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap", flexShrink: 0 }}>{loading ? "Thinking..." : insight ? "Refresh" : "Get Insight ✨"}</button>
+      </div>
+      {!insight && !loading && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.dim, lineHeight: 1.5 }}>Spot patterns across your recent training that a single session can't show.</div>}
+      {insight && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13, lineHeight: 1.4 }}>{insight.insight}</div>
+          {insight.recommendation && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, lineHeight: 1.5 }}>{insight.recommendation}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AIClientSummaryCard({ client }) {
   const [summary, setSummary] = useState(null);
@@ -79,10 +111,6 @@ export function clampPercent(value, total) {
   if (!t) return 0;
   return Math.max(0, Math.min(100, Math.round((v / t) * 100)));
 }
-function parseNumberFromText(value) {
-  const match = String(value || "").match(/\d+(?:\.\d+)?/);
-  return match ? Number(match[0]) : 0;
-}
 function metricDisplay(entry, timed) {
   if (!entry) return "-";
   if (timed) return `${entry.value}s`;
@@ -114,22 +142,6 @@ export function ProgressRing({ label, value, total, unit = "", color = BRAND.gre
   );
 }
 
-function sessionEntriesV2(logs) {
-  const entries = [];
-  (logs?.sessions || []).forEach((s) => {
-    if (s.status !== "completed") return;
-    (s.entries || []).forEach((e) => {
-      const name = e.substitutedName || e.name;
-      const timed = isTimedExercise(name);
-      (e.sets || []).forEach((set, si) => {
-        const value = timed ? parseNumberFromText(set.duration || set.reps) : Number(set.load || 0);
-        if (!value) return;
-        entries.push({ week: s.weekNum, date: s.date || "", exercise: name, timed, value, weight: set.load, reps: set.reps, duration: set.duration, rpe: set.rpe, set: si + 1 });
-      });
-    });
-  });
-  return entries;
-}
 function computePerformanceMetrics(logs) {
   const wanted = ["Dead Hang", "Plank", "Bench Press", "Squat", "Deadlift"];
   const aliases = {
@@ -413,6 +425,8 @@ export function ProgressTab({ client, isCoach }) {
     <div className="glass-soft" style={{ padding: 14 }}>
       <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13 }}>{insight.text}</div>
     </div>
+
+    <AITrainingInsightCard client={client} />
   </div>;
 }
 

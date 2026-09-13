@@ -5,19 +5,28 @@
 // `if (action === "...")` block for each new capability as it's built.
 // Uses Google's Gemini API (free tier - see README below).
 //
-// Every action here is a DRAFT/ANALYSIS for a human (coach) to review,
-// never a direct write to the database and never something shown to a
-// client without a coach seeing it first. Numeric math (averages, totals,
-// trends) is always computed by the calling code in src/lib/ai.js and
-// passed in pre-computed - the model is only ever asked to read numbers
-// and write prose/recommendations around them, never to do arithmetic
-// itself.
+// Never a direct write to the database. Two actions (nutrition_report,
+// client_summary) are coach-facing drafts reviewed by a human before a
+// client ever sees them; two (daily_nutrition_feedback, training_insight)
+// go straight to the client on-demand (they tapped a button asking for
+// it), so their prompts are deliberately constrained to safe, generic
+// advice - never a specific prescribed load/weight (that's the app's
+// existing deterministic suggestProgression/suggestPlateauBump's job, see
+// trainingLogs.js) and never anything resembling medical/diagnostic
+// advice. Numeric math (averages, totals, trends) is always computed by
+// the calling code in src/lib/ai.js and passed in pre-computed - the
+// model is only ever asked to read numbers and write prose/recommend-
+// ations around them, never to do arithmetic itself.
 //
 // Actions:
-//   nutrition_report - drafts a client's weekly nutrition report
-//     (NutritionFlow.jsx's "Draft with AI" button)
-//   client_summary   - drafts a 4-week training+nutrition+habits summary
-//     for a coach (ProgressTab.jsx's "Generate AI Summary" button)
+//   nutrition_report         - drafts a client's weekly nutrition report
+//     (coach-reviewed; NutritionFlow.jsx's "Draft with AI" button)
+//   client_summary            - drafts a 4-week training+nutrition+habits
+//     summary for a coach (coach-only; ProgressTab.jsx "Generate AI Summary")
+//   daily_nutrition_feedback - today's macro gaps + meal suggestions
+//     (client-facing; MacroTracker.jsx "Get AI Feedback" button)
+//   training_insight          - cross-exercise trend analysis, no specific
+//     loads prescribed (client-facing; ProgressTab.jsx "AI Training Insight")
 //
 // Secret required: GEMINI_API_KEY
 //   1. Get a free key: https://aistudio.google.com/apikey (Google account,
@@ -153,6 +162,63 @@ TASK
 Write a coach-facing summary as JSON matching the given schema - headline, 1-3 training highlights, 0-3 training concerns, 1-3 nutrition highlights, 0-3 nutrition concerns, and one specific recommendation for what to do or discuss next. This is for the coach's eyes only, not the client - be candid.`;
 }
 
+// ---------- action: daily_nutrition_feedback ----------
+
+const DAILY_FEEDBACK_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    feedback: { type: "STRING", description: "1-2 sentences, direct and specific, in a supportive coach voice." },
+    gaps: {
+      type: "ARRAY",
+      description: "0-4 remaining gaps vs target for the rest of today. Empty array if no targets are set or nothing stands out.",
+      items: { type: "OBJECT", properties: { label: { type: "STRING" }, amount: { type: "STRING" } }, required: ["label", "amount"] },
+    },
+    mealSuggestions: {
+      type: "ARRAY",
+      description: "1-3 specific meal/snack ideas that would help close the gaps, using foods similar to what they already log where possible.",
+      items: { type: "OBJECT", properties: { name: { type: "STRING" }, description: { type: "STRING" } }, required: ["name", "description"] },
+    },
+  },
+  required: ["feedback", "gaps", "mealSuggestions"],
+};
+
+function dailyFeedbackPrompt(input: any): string {
+  const { goal, targets, totals, loggedToday } = input;
+  return `You are a supportive nutrition coach giving a client quick, in-the-moment feedback on today's eating so far. This goes straight to the client - be encouraging but specific and honest, never generic ("great job!" alone is not acceptable), and never give medical advice.
+
+CLIENT GOAL: ${goal || "not specified"}
+TARGETS FOR TODAY: ${targets ? `${targets.calories}kcal, ${targets.protein}g protein, ${targets.carbs}g carbs, ${targets.fats}g fats` : "no targets set yet"}
+LOGGED SO FAR TODAY: ${totals ? `${totals.kcal}kcal, ${totals.protein}g protein, ${totals.carbs}g carbs, ${totals.fats}g fats` : "nothing logged yet"}
+FOODS LOGGED TODAY: ${loggedToday || "nothing logged yet"}
+
+TASK: Write JSON matching the schema - one specific feedback sentence, the concrete remaining gaps for the rest of today (empty array if no targets exist or they're on track), and 1-3 realistic meal/snack suggestions that would help close those gaps using food similar to what they already eat.`;
+}
+
+// ---------- action: training_insight ----------
+
+const TRAINING_INSIGHT_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    insight: { type: "STRING", description: "One specific, data-grounded observation about a pattern across their recent training." },
+    recommendation: { type: "STRING", description: "One safe, actionable strategy-level suggestion. NEVER a specific weight/load/rep number to lift next - only pattern-level advice (e.g. deload, vary rep range, address recovery, work a lagging pattern)." },
+  },
+  required: ["insight", "recommendation"],
+};
+
+function trainingInsightPrompt(input: any): string {
+  const { goal, trainingSummary } = input;
+  return `You are an experienced strength coach reviewing a client's recent training log for a pattern worth pointing out to them directly. This goes straight to the client.
+
+CRITICAL RULE: Do NOT prescribe a specific weight, load, or rep number for their next session - Forge already has a separate deterministic system that handles exact load recommendations per set. Your job is pattern-level: is RPE creeping up while load stalls (possible plateau/overreach)? Is one movement pattern lagging? Is volume trending down? Etc. Recommend a strategy (deload a week, vary rep range, prioritize recovery, address a specific weak pattern), never a number.
+
+CLIENT GOAL: ${goal || "not specified"}
+
+RECENT TRAINING DATA (grouped by exercise, chronological)
+${trainingSummary || "Not enough logged data to find a pattern yet."}
+
+TASK: Write JSON matching the schema - one specific, data-grounded insight and one safe strategy-level recommendation. If there's genuinely not enough data for a real pattern, say so honestly in the insight rather than inventing one.`;
+}
+
 // ---------- router ----------
 
 Deno.serve(async (req) => {
@@ -170,6 +236,16 @@ Deno.serve(async (req) => {
     if (action === "client_summary") {
       const summary = await callGemini(clientSummaryPrompt(body), CLIENT_SUMMARY_SCHEMA);
       return json({ summary });
+    }
+
+    if (action === "daily_nutrition_feedback") {
+      const feedback = await callGemini(dailyFeedbackPrompt(body), DAILY_FEEDBACK_SCHEMA);
+      return json({ feedback });
+    }
+
+    if (action === "training_insight") {
+      const insight = await callGemini(trainingInsightPrompt(body), TRAINING_INSIGHT_SCHEMA);
+      return json({ insight });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);

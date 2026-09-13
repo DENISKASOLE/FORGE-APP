@@ -201,6 +201,31 @@ export function sessionStatsV2(session) {
   const dur = session?.startedAt && session?.completedAt ? Math.round((new Date(session.completedAt) - new Date(session.startedAt)) / 1000) : 0;
   return { volume: Math.round(volume), setsDone, setsTotal, durationSec: dur };
 }
+function parseNumberFromText(value) {
+  const match = String(value || "").match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : 0;
+}
+// Flattens every completed session's logged sets into one array, one entry
+// per set, for trend analysis across the whole history (used by
+// ProgressTab.jsx's performance-metrics cards and by src/lib/ai.js's
+// training-insight prompt building - kept here, not in a component, so
+// both can import it without a circular dependency).
+export function sessionEntriesV2(logs) {
+  const entries = [];
+  (logs?.sessions || []).forEach((s) => {
+    if (s.status !== "completed") return;
+    (s.entries || []).forEach((e) => {
+      const name = e.substitutedName || e.name;
+      const timed = isTimedExercise(name);
+      (e.sets || []).forEach((set, si) => {
+        const value = timed ? parseNumberFromText(set.duration || set.reps) : Number(set.load || 0);
+        if (!value) return;
+        entries.push({ week: s.weekNum, date: s.date || "", exercise: name, timed, value, weight: set.load, reps: set.reps, duration: set.duration, rpe: set.rpe, set: si + 1 });
+      });
+    });
+  });
+  return entries;
+}
 export function detectSessionPBs(session, logsBefore) {
   const pbs = []; const seen = new Set();
   for (const e of session?.entries || []) {

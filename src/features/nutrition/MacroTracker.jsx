@@ -4,9 +4,59 @@ import { Card } from "../../components/ui/Card.jsx";
 import { MacroBar } from "../../components/ui/MacroBar.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate, addDays, startOfWeek, weekDays } from "../../lib/dateUtils.js";
 import { MACRO_SLOTS, macroDayFor, macroDayTotals, slotTotals, saveNutritionState } from "../../lib/nutrition.js";
+import { getDailyNutritionFeedback } from "../../lib/ai.js";
 import { FoodSearchScreen } from "./FoodSearchScreen.jsx";
+
+function AIFeedbackCard({ client, day, totals, targets }) {
+  const [feedback, setFeedback] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function generate() {
+    setLoading(true);
+    try {
+      setFeedback(await getDailyNutritionFeedback(client, day, totals, targets));
+    } catch (e) {
+      showToast(e.message || "Couldn't get feedback.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card style={{ padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: feedback ? 12 : 0 }}>
+        <SectionLabel color={T.muted}>AI Feedback</SectionLabel>
+        <button onClick={generate} disabled={loading} style={{ fontFamily: T.sans, background: T.gold, color: T.btnInk, border: "none", borderRadius: 999, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap", flexShrink: 0 }}>{loading ? "Thinking..." : feedback ? "Refresh" : "Get Feedback ✨"}</button>
+      </div>
+      {!feedback && !loading && <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, lineHeight: 1.5 }}>See how today's eating stacks up and get a few meal ideas to close any gaps.</div>}
+      {feedback && (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.accent, lineHeight: 1.5 }}>{feedback.feedback}</div>
+          {feedback.gaps?.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {feedback.gaps.map((g, i) => (
+                <span key={i} style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.good, background: T.card2, borderRadius: 999, padding: "5px 10px" }}>{g.label}: {g.amount}</span>
+              ))}
+            </div>
+          )}
+          {feedback.mealSuggestions?.length > 0 && (
+            <div style={{ display: "grid", gap: 8 }}>
+              {feedback.mealSuggestions.map((m, i) => (
+                <div key={i} style={{ background: T.card2, borderRadius: 12, padding: "10px 12px" }}>
+                  <div style={{ fontFamily: T.sans, fontWeight: 700, fontSize: 12, color: T.accent }}>{m.name}</div>
+                  <div style={{ fontFamily: T.sans, fontSize: 11, color: T.muted, marginTop: 2 }}>{m.description}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 const SLOT_META = {
   breakfast: { label: "Breakfast", color: T.meal.breakfast },
@@ -134,6 +184,8 @@ export function MacroTracker({ client, updateClient, onClose }) {
             </div>
           )}
         </Card>
+
+        {date === today && <AIFeedbackCard client={client} day={day} totals={totals} targets={targets} />}
 
         {MACRO_SLOTS.map((slot) => (
           <SlotCard key={slot} meta={SLOT_META[slot]} items={day[slot]} onAdd={() => setAddingSlot(slot)} onDelete={(item) => deleteItem(slot, item)} />

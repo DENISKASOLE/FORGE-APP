@@ -1,7 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import { addDays, isoDate } from "./dateUtils.js";
-import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals } from "./nutrition.js";
-import { sessionStatsV2 } from "./trainingLogs.js";
+import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals, MACRO_SLOTS } from "./nutrition.js";
+import { sessionStatsV2, sessionEntriesV2 } from "./trainingLogs.js";
 
 async function callForgeAI(action, body) {
   const { data, error } = await supabase.functions.invoke("forge-ai", { body: { action, ...body } });
@@ -168,4 +168,75 @@ export async function generateClientSummary(client, days = 28) {
   });
   if (!data?.summary) throw new Error("AI summary request returned nothing usable");
   return data.summary;
+}
+
+// ==================== Daily nutrition feedback ====================
+
+// Names of what's actually been eaten today, for the model to reference
+// specifically and to base meal suggestions on similar foods.
+function buildLoggedTodayText(day) {
+  const parts = [];
+  for (const slot of MACRO_SLOTS) {
+    const items = day[slot] || [];
+    if (items.length) parts.push(`${slot}: ${items.map((i) => i.name).filter(Boolean).join(", ")}`);
+  }
+  return parts.join(" | ");
+}
+
+// On-demand, client-facing feedback on today's eating so far vs targets.
+// totals/targets are passed in already computed (MacroTracker.jsx already
+// has this data on screen) rather than recomputed here.
+export async function getDailyNutritionFeedback(client, day, totals, targets) {
+  const data = await callForgeAI("daily_nutrition_feedback", {
+    goal: client.goals?.join(", ") || client.goal || "",
+    targets: targets ? { calories: targets.calories, protein: targets.protein, carbs: targets.carbs, fats: targets.fats } : null,
+    totals: { kcal: Math.round(totals.kcal), protein: Math.round(totals.protein), carbs: Math.round(totals.carbs), fats: Math.round(totals.fats) },
+    loggedToday: buildLoggedTodayText(day) || "nothing logged yet",
+  });
+  if (!data?.feedback) throw new Error("AI feedback request returned nothing usable");
+  return data.feedback;
+}
+
+// ==================== Training trend insight ====================
+
+// Groups logged sets by exercise, one line per session showing that
+// session's top set (max value logged) and its RPE if given - compact
+// enough to fit many exercises/sessions in one prompt while still showing
+// a real week-over-week trajectory per exercise.
+function buildExerciseTrendSummary(client, weeks) {
+  const entries = sessionEntriesV2(client.trainingLogs);
+  const cutoff = isoDate(addDays(new Date(), -weeks * 7));
+  const byExercise = {};
+  for (const e of entries) {
+    if (!e.date || e.date < cutoff) continue;
+    byExercise[e.exercise] = byExercise[e.exercise] || {};
+    const bySession = byExercise[e.exercise];
+    const rpe = Number(e.rpe) || 0;
+    if (!bySession[e.date] || e.value > bySession[e.date].value) {
+      bySession[e.date] = { value: e.value, rpe, timed: e.timed };
+    }
+  }
+
+  const lines = [];
+  for (const [exercise, bySession] of Object.entries(byExercise)) {
+    const sessions = Object.entries(bySession).sort(([a], [b]) => a.localeCompare(b));
+    if (sessions.length < 2) continue; // need at least 2 points to show a trend
+    const recent = sessions.slice(-6);
+    const points = recent.map(([date, s]) => `${date}: ${s.value}${s.timed ? "s" : "kg"}${s.rpe ? `@RPE${s.rpe}` : ""}`);
+    lines.push(`${exercise} — ${points.join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
+// On-demand, client-facing pattern-level insight across recent training
+// (never a specific prescribed load - see the edge function's prompt for
+// why). Purely informational.
+export async function getTrainingInsight(client, weeks = 6) {
+  const trainingSummary = buildExerciseTrendSummary(client, weeks);
+  const data = await callForgeAI("training_insight", {
+    goal: client.goals?.join(", ") || client.goal || "",
+    trainingSummary,
+  });
+  if (!data?.insight) throw new Error("AI insight request returned nothing usable");
+  return data.insight;
 }
