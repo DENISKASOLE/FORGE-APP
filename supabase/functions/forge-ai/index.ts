@@ -22,7 +22,7 @@
 // Secret required: GEMINI_API_KEY
 //   1. Get a free key: https://aistudio.google.com/apikey (Google account,
 //      no payment method needed - the free tier is generous: as of writing,
-//      ~15 requests/minute and 1,500 requests/day on gemini-2.0-flash).
+//      ~15 requests/minute and 1,500 requests/day on the model below).
 //   2. Set it on this project: either
 //        supabase secrets set GEMINI_API_KEY=your-key-here
 //      or Supabase Dashboard -> Edge Functions -> Secrets.
@@ -37,7 +37,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.6-flash";
 
 async function callGemini(prompt: string, responseSchema: any): Promise<any> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
