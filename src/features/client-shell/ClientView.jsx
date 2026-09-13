@@ -120,7 +120,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
 
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
-  const parentHub = ["payments", "profile", "ai_coach"].includes(tab) ? "me_hub" : null;
+  const parentHub = ["payments", "profile"].includes(tab) ? "me_hub" : null;
   const parentHubLabel = "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
@@ -130,7 +130,6 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   ];
   const meCards = [
     ...(isCoach ? [] : [{ key: "whatsapp", icon: "me", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
-    { key: "ai_coach", icon: "msg", color: BRAND.blue, title: "AI Coach", sub: "Ask about your training & nutrition" },
     { key: "profile", icon: "gear", color: BRAND.dim, title: "Profile", sub: "Your details & settings" },
     { key: "payments", icon: "card", color: BRAND.green, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
