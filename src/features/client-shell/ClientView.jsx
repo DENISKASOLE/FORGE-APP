@@ -129,10 +129,10 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     { key: "photos", icon: "photo", color: BRAND.dim, title: "Photos", sub: client.transformPhotos?.length ? `${client.transformPhotos.length} photo${client.transformPhotos.length === 1 ? "" : "s"} saved` : "No photos yet" },
   ];
   const meCards = [
-    ...(isCoach ? [] : [{ key: "whatsapp", icon: "me", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
+    ...(isCoach ? [] : [{ key: "whatsapp", icon: "msg", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
     { key: "progress_hub", icon: "progress", color: BRAND.blue, title: "Progress", sub: "Trends, photos & check-ins" },
-    { key: "profile", icon: "gear", color: BRAND.dim, title: "Profile", sub: "Your details & settings" },
-    { key: "payments", icon: "card", color: BRAND.green, title: "Payments", sub: paymentStatus(client).label },
+    { key: "profile", icon: "me", color: BRAND.violet, title: "Profile", sub: "Your details & settings" },
+    { key: "payments", icon: "card", color: BRAND.yellow, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
   ];
   function handleMeOpen(key) { if (key === "settings") setShowSettings(true); else if (key === "whatsapp") window.open("https://wa.me/971567088638", "_blank"); else setTab(key); }

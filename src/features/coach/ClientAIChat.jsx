@@ -74,7 +74,7 @@ export function ClientAIChat({ client, updateClient }) {
         <div ref={bottomRef} />
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Ask your AI coach..." disabled={sending} style={inputStyle()} />
+        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Ask your AI coach..." disabled={sending} style={inputStyle({ flex: 1, minWidth: 0 })} />
         <Button onClick={() => send()} disabled={sending}>Send</Button>
       </div>
     </Card>

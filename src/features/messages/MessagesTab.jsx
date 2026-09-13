@@ -52,7 +52,7 @@ export function MessagesTab({ client, updateClient, isCoach }) {
         })}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Type a message..." style={inputStyle()} />
+        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Type a message..." style={inputStyle({ flex: 1, minWidth: 0 })} />
         <Button onClick={send} disabled={sending}>Send</Button>
       </div>
     </Card>

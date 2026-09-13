@@ -156,20 +156,22 @@ export function ClientBottomNav({ tab, setTab, unreadMessages }) {
   );
 }
 export function HubScreen({ title, subtitle, cards, onOpen }) {
+  const isMobile = useIsMobile(520);
   return (
     <div>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 2 }}>{title}</div>
       <div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 400, marginBottom: 16 }}>{subtitle}</div>
-      {cards.map((c) => (
-        <button key={c.key} onClick={() => onOpen(c.key)} style={{ fontFamily: BRAND.sans, width: "100%", textAlign: "left", background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
-          <div style={{ width: 48, height: 48, borderRadius: 15, background: `color-mix(in srgb, ${c.color} 18%, transparent)`, display: "grid", placeItems: "center", flexShrink: 0 }}><NavIcon name={c.icon} size={24} color={c.color} /></div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 15 }}>{c.title}</div>
-            <div style={{ color: c.alert ? BRAND.yellow : BRAND.muted, fontWeight: 400, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
-          </div>
-          <NavIcon name="back" size={16} color={BRAND.dim} rotate={180} />
-        </button>
-      ))}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
+        {cards.map((c) => (
+          <button key={c.key} onClick={() => onOpen(c.key)} className="glass" style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", padding: 14, color: BRAND.text }}>
+            <div style={{ width: 40, height: 40, borderRadius: BRAND.radiusControl, background: `color-mix(in srgb, ${c.color} 20%, transparent)`, display: "grid", placeItems: "center", marginBottom: 10 }}>
+              <NavIcon name={c.icon} size={20} color={c.color} />
+            </div>
+            <div style={{ color: BRAND.text, fontWeight: 500, fontSize: 13 }}>{c.title}</div>
+            <div style={{ color: c.alert ? BRAND.yellow : BRAND.muted, fontWeight: 400, fontSize: 11, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.sub}</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
