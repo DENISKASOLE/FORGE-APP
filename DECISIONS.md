@@ -1,3 +1,77 @@
+# AI-drafted nutrition reports — decisions log
+
+Ask: "start with ai intergration find a free api and put it in there,"
+following up on a strategic gap-analysis where the #2 finding was that the
+nutrition report — the flagship deliverable of the nutrition-coaching
+flow — is 100% manual: the coach hand-writes/pastes a JSON blob into a
+plain textarea (`NutritionFlow.jsx`'s `CoachPhaseControls`). Autonomous,
+no clarifying questions.
+
+## What got built
+
+A "Draft with AI ✨" button next to the existing "Set report" control.
+Clicking it gathers the client's week of logged food/macro/habit data,
+sends it to a new Supabase Edge Function (`forge-ai-report`), and fills
+the *existing* JSON textarea with a draft — the coach still reviews and
+edits before clicking Save, exactly the same human-in-the-loop path as
+today. Nothing is auto-published to a client; nothing new is written to
+the database by this feature at all, it only pre-fills a form field.
+
+## Free API choice: Google Gemini (`gemini-2.0-flash`)
+
+Considered the realistic free options: OpenAI and Anthropic have no
+meaningful free API tier (trial credits only); Hugging Face's free
+inference tier is slow/unreliable for structured output; OpenRouter's
+free models are rate-limited and availability shifts. Google's Gemini API
+has a genuinely usable free tier (as of writing: ~15 req/min, 1,500
+req/day on `gemini-2.0-flash`, no payment method required to get a key at
+aistudio.google.com/apikey) and, importantly, supports a `responseSchema`
+/ `responseMimeType: "application/json"` mode that constrains the model
+to valid JSON matching a given schema server-side — far more reliable
+than parsing free-form text and hoping it's valid JSON.
+
+## Split: deterministic math vs. AI-generated prose
+
+The model is never asked to compute the report's numeric `averages` -
+those are calculated client-side (`src/lib/aiReport.js`, reusing the
+existing `macroDayFor`/`macroDayTotals` helpers already used by
+`MacroTracker.jsx`) from whatever real macro-tracker data exists for the
+week, then merged into the AI's response afterward. LLMs are unreliable
+at arithmetic over multi-day data and there's no reason to risk a wrong
+calorie average when the app already has the exact code that computes it
+correctly elsewhere. The model only writes the qualitative parts:
+`verdict`, `working`/`issues`, `swaps`, a `targetDay` meal plan,
+`supplementReview`, `nextStep`, and a *proposed* `targets` object (a
+coaching judgment call grounded in goal/bodyweight, not something
+data alone determines — the coach can and should edit it).
+
+## Handling clients who only use the photo diary
+
+Many clients likely log meals as photos+descriptions (`food_log`) rather
+than the structured macro/food-search tracker (`macro_log`) - the two are
+parallel, independent systems in this app (see the exercise-library-era
+DECISIONS.md entries for other prior architecture notes). When a week has
+zero macro-tracker entries, `averages` is deliberately left as an empty
+object rather than substituted with anything else (an earlier draft of
+this fell back to the AI's *proposed targets* as a stand-in "average,"
+which would have made the report's progress bars falsely show the client
+already hitting targets they hadn't started - caught and fixed before
+shipping). The prompt also explicitly tells the model not to invent
+precise numeric claims when only descriptive logging exists.
+
+## Deployment: I could not deploy this myself
+
+`supabase functions list` returned 401 Unauthorized with this
+environment's CLI link - I have no valid login/access token for this
+Supabase project, by design (same reason I've never run a SQL migration
+myself all session, just written them for review). The edge function
+source is complete and correct but **not deployed and not live** - see
+the reminder at the end of this session's response for the exact 3 steps
+(get a free Gemini key, set the `GEMINI_API_KEY` secret, deploy the
+function) needed to turn this on.
+
+---
+
 # MacroFactor-style recolor — decisions log
 
 Branch `feature/macrofactor-theme` (off `main`). Ask: make Forge's colors

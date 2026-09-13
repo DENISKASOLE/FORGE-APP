@@ -4,8 +4,10 @@ import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { Chip } from "../../components/ui/Chip.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
+import { showToast } from "../../components/ui/Toast.jsx";
 import { NUTRITION_PHASES, weekOfFor, saveNutritionState } from "../../lib/nutrition.js";
 import { downloadNutritionExport } from "../../lib/nutritionExport.js";
+import { draftNutritionReport } from "../../lib/aiReport.js";
 import { SupplementStack } from "./SupplementStack.jsx";
 import { FoodDiary } from "./FoodDiary.jsx";
 import { Report } from "./Report.jsx";
@@ -17,6 +19,7 @@ function CoachPhaseControls({ client, nutrition, onPersist }) {
   const [showReportEditor, setShowReportEditor] = useState(false);
   const [reportError, setReportError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [drafting, setDrafting] = useState(false);
 
   function setPhase(phase) {
     onPersist({ ...nutrition, phase, week_of: (phase === "baseline" || phase === "adjustment") ? weekOfFor() : nutrition.week_of });
@@ -35,6 +38,20 @@ function CoachPhaseControls({ client, nutrition, onPersist }) {
     setExporting(true);
     try { await downloadNutritionExport(client, nutrition); } finally { setExporting(false); }
   }
+  async function draftWithAI() {
+    setDrafting(true);
+    try {
+      const draft = await draftNutritionReport(client, nutrition);
+      setReportDraft(JSON.stringify(draft, null, 2));
+      setReportError("");
+      setShowReportEditor(true);
+      showToast("Draft ready — review it before saving.", "success");
+    } catch (e) {
+      showToast(e.message || "Couldn't draft a report.", "error");
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   return (
     <Card style={{ padding: 14, display: "grid", gap: 10 }}>
@@ -46,11 +63,12 @@ function CoachPhaseControls({ client, nutrition, onPersist }) {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <Button variant="dark" onClick={exportWeek} disabled={exporting}>{exporting ? "Exporting..." : "Export week (JSON + photos)"}</Button>
+        <Button onClick={draftWithAI} disabled={drafting}>{drafting ? "Drafting..." : "Draft with AI ✨"}</Button>
         <Button variant="dark" onClick={() => setShowReportEditor((v) => !v)}>{showReportEditor ? "Close report editor" : "Set report"}</Button>
       </div>
       {showReportEditor && (
         <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ color: T.muted, fontSize: 12 }}>Paste the ReportData JSON you got back for this client.</div>
+          <div style={{ color: T.muted, fontSize: 12 }}>Paste JSON here, or use "Draft with AI" above to fill this in from the week's logged data — review and edit before saving either way.</div>
           <textarea value={reportDraft} onChange={(e) => setReportDraft(e.target.value)} rows={8} style={{ width: "100%", background: T.card2, border: `var(--hairline) solid ${T.line}`, borderRadius: 12, color: T.accent, padding: 12, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box" }} />
           {reportError && <div style={{ color: T.bad, fontSize: 12, fontWeight: 500 }}>{reportError}</div>}
           <Button onClick={saveReport}>Save report</Button>
