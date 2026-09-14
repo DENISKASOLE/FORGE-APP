@@ -1,3 +1,74 @@
+# Switching the AI provider: Gemini → SiliconFlow — decisions log
+
+Ask: "Let's change our ai from Gemini to this" (screenshot of a
+SiliconFlow API key named FORGE AI).
+
+All ten AI actions moved to SiliconFlow's OpenAI-compatible
+`/v1/chat/completions`. New secret: `SILICONFLOW_API_KEY`. The client side
+barely changed - everything routes through one edge function, which is
+exactly why that action-router shape was chosen in phase 1.
+
+## Two provider gaps had to be engineered around
+
+Checked SiliconFlow's docs rather than assuming OpenAI parity, and found
+two things that the old Gemini implementation depended on:
+
+1. **No schema-enforced JSON.** Gemini's `responseSchema` *guaranteed*
+   conforming output; SiliconFlow offers only `response_format:
+   {type: "json_object"}` (valid JSON, but any shape). Since all ten
+   actions parse structured fields, every schema is now also rendered into
+   the prompt as literal JSON Schema, and responses go through a
+   `parseJsonLoose` helper that strips ``` fences and falls back to
+   slicing the outermost `{...}`. The ten schema constants were NOT
+   rewritten by hand - a `toJsonSchema` helper lowercases Gemini's
+   uppercase type dialect at runtime, because hand-editing ten nested
+   literals is how you silently typo a field name.
+2. **Vision models reject JSON mode entirely**, so `body_analysis_extract`
+   has no `response_format` at all and leans wholly on the prompt +
+   loose parsing.
+
+## PDFs no longer read natively - so we rasterize
+
+The bigger break: Gemini read the uploaded body-analysis PDF directly.
+SiliconFlow's VLMs take images only. Rather than drop the feature to
+images-only or keep a second provider around just for it, PDFs are now
+rasterized client-side to page JPEGs (`src/lib/pdfToImages.js`, new
+`pdfjs-dist` dependency) and sent as image parts. Notes on that:
+- pdfjs is **lazily imported** so it stays out of the main bundle until
+  someone actually picks a PDF - the bundle is already over Vite's warning
+  threshold.
+- Pages are capped at 4 and rendered at 1400px wide: wide enough that the
+  small print on an InBody sheet survives OCR, capped so nobody uploads a
+  60-page document into a request body.
+- The canvas is filled white first - PDFs have no background of their own,
+  and transparent areas otherwise rasterize black, making text unreadable.
+
+## max_tokens is now load-bearing
+
+Gemini streamed until done; an OpenAI-style API truncates mid-JSON when it
+hits the cap, which for us means a malformed program tree. Default is 4096,
+`coach_program_create` gets 16384 (a multi-week program is by far the
+largest thing generated here), and `finish_reason: "length"` is detected
+explicitly and surfaced as "the answer was cut off" rather than a confusing
+parse error.
+
+## Both model ids are env-overridable
+
+`SILICONFLOW_MODEL` (default `Qwen/Qwen2.5-72B-Instruct`) and
+`SILICONFLOW_VISION_MODEL` (default `Qwen/Qwen2.5-VL-72B-Instruct`).
+Deliberate: this project already lost `gemini-2.0-flash` to a mid-build
+retirement, and catalogs shift constantly. Swapping a secret beats a code
+change plus a redeploy. Note SiliconFlow's docs exclude DeepSeek R1/V3
+from JSON mode - so those ids specifically should not be set here.
+
+## Stored chat history wasn't migrated
+
+`client_data.ai_chat` rows already use Gemini's `"model"` role for past
+replies. Rather than migrate existing rows, the router maps
+`"model"` → `"assistant"` on the way out. Old conversations keep working.
+
+---
+
 # Body analysis report upload (AI-read) — decisions log
 
 Ask: "Let's add in a section where I upload the clients body analysis
