@@ -162,6 +162,7 @@ export function mapClient(row, dataRows = [], index = 0) {
     vacation: sections.vacation_mode || null,
     messages: sections.messages?.list || [],
     aiChat: sections.ai_chat?.list || [],
+    bodyAnalysis: sections.body_analysis?.reports || [],
     intake: sections.intake || null,
     trainingLogs: sections.training_logs || null,
     notes: profile.notes || row.notes || "",

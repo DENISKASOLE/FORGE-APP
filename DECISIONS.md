@@ -1,3 +1,66 @@
+# Body analysis report upload (AI-read) — decisions log
+
+Ask: "Let's add in a section where I upload the clients body analysis
+report as PDF file and ai reads it so that it understands the client
+fully let's put it in progress somewhere."
+
+## The point is the grounding, not the archive
+
+"So that it understands the client fully" is the actual requirement -
+storing a PDF somewhere would satisfy the letter of the request and miss
+it entirely. So the extracted numbers are wired into the three AI
+features where body composition genuinely changes the answer:
+`nutrition_report` (protein/calorie targets should key off lean mass, not
+just scale weight), `client_summary`, and `client_chat` (the client can
+now ask "what's my body fat doing" and get their real numbers). A new
+`buildBodyAnalysisSummary` in lib/ai.js renders the latest report plus the
+one before it, so the model sees direction of travel, not just a snapshot.
+`training_insight` was left alone - its prompt is about load/RPE trends
+and body comp doesn't sharpen it.
+
+## Flexible metrics array, not fixed fields
+
+The obvious schema is named fields (bodyFatPercent, skeletalMuscleMass,
+...). Rejected: these reports vary enormously - InBody vs DEXA vs a smart
+scale printout vs a hand-written caliper sheet - and a fixed schema either
+pressures the model to invent a value that isn't on the page, or silently
+drops rows that are. Instead: an array of `{label, value, unit, note,
+key}` capturing everything printed, where `key` is a canonical name
+(weight, body_fat_percent, ...) only when the row clearly is one, empty
+otherwise. Nothing is lost, the headline tiles and AI grounding can still
+find the important numbers, and the model is never cornered into guessing.
+
+## Anti-hallucination is the whole ballgame here
+
+This is health data a coach will make real programming decisions on, so
+the prompt is aggressively extraction-only: transcribe what's printed,
+never estimate/infer/convert, leave missing values out entirely, return an
+empty metrics array if the document isn't a body analysis report at all,
+and explicitly do not diagnose - flag anything clinically concerning as
+"worth review by a medical professional" rather than interpreting it.
+Temperature is dropped to 0.1 (vs 0.6-0.7 elsewhere) since this is
+transcription, not writing. Gemini reads the PDF natively via inline_data
+rather than us parsing text client-side, because these reports are mostly
+tables and charts that text extraction mangles.
+
+## Storing the original is best-effort
+
+Extraction happens first; the PDF upload to Supabase storage is wrapped so
+a storage failure (e.g. bucket MIME restrictions on `client-photos`)
+warns but still saves the extracted data. A good read shouldn't be thrown
+away because the archive copy failed.
+
+## Placement
+
+One mount point - a card in `ProgressTab` - covers both audiences,
+because the coach sees `ProgressTab` directly while the client sees it
+nested inside `ProgressHub`'s "Trends" sub-tab. Upload/delete are gated on
+`isCoach` (the coach uploads, per the ask); the client sees their own
+results read-only. `ProgressTab` needed `updateClient` threaded in at both
+mount points, since it had never written anything before.
+
+---
+
 # AI-driven plateau progression — decisions log
 
 Ask: "Now let ai handle the progression inside training, suggestions

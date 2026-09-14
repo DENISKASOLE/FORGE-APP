@@ -31,6 +31,56 @@ async function callForgeAI(action, body) {
   return data;
 }
 
+// ==================== Body analysis report (uploaded PDF) ====================
+
+// Max file we'll send. Gemini's inline-data ceiling is far higher, but a
+// body analysis report is a couple of pages - anything much bigger is
+// almost certainly the wrong file, and base64 inflates it by ~33% on the
+// way to the edge function.
+export const MAX_BODY_ANALYSIS_BYTES = 10 * 1024 * 1024;
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.readAsDataURL(file);
+  });
+}
+
+// Reads an uploaded body-composition report into structured data. Pure
+// extraction - the model is instructed to transcribe only what's printed
+// (see the prompt in forge-ai/index.ts), never to estimate a missing value.
+export async function extractBodyAnalysis(file) {
+  if (file.size > MAX_BODY_ANALYSIS_BYTES) throw new Error("That file is too big - please upload a report under 10MB.");
+  const fileBase64 = await fileToBase64(file);
+  const data = await callForgeAI("body_analysis_extract", { fileBase64, mimeType: file.type || "application/pdf" });
+  if (!data?.summary) throw new Error("Couldn't read that report - is it a body analysis report?");
+  return data;
+}
+
+export function bodyAnalysisMetric(report, key) {
+  return (report?.metrics || []).find((m) => m.key === key) || null;
+}
+
+// The whole point of storing these: every other AI feature gets grounded in
+// the client's real body composition instead of just their bodyweight.
+// Latest report, plus the one before it when there is one, so the model can
+// see the direction of travel (e.g. fat down / muscle held).
+function buildBodyAnalysisSummary(client) {
+  const reports = client?.bodyAnalysis || [];
+  if (!reports.length) return "";
+  const describe = (r) => {
+    const when = r.extracted?.testDate || r.date || "undated";
+    const rows = (r.extracted?.metrics || []).map((m) => `${m.label}: ${m.value}${m.unit || ""}`).join(", ");
+    return `${when}${r.extracted?.reportType ? ` (${r.extracted.reportType})` : ""}: ${rows || "no metrics captured"}`;
+  };
+  const parts = [`Latest body analysis — ${describe(reports[0])}`];
+  if (reports[1]) parts.push(`Previous body analysis — ${describe(reports[1])}`);
+  if (reports[0].extracted?.coachNotes) parts.push(`Notes from that report: ${reports[0].extracted.coachNotes}`);
+  return parts.join("\n");
+}
+
 // ==================== Nutrition report drafting ====================
 
 const MEAL_SLOT_LABELS = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
@@ -99,6 +149,7 @@ export async function draftNutritionReport(client, nutrition) {
     weekSummary: summaryText,
     hasNumericData,
     supplementStack,
+    bodyAnalysis: buildBodyAnalysisSummary(client),
   });
   if (!data?.draft) throw new Error("AI report request returned nothing usable");
 
@@ -186,6 +237,7 @@ export async function generateClientSummary(client, days = 28) {
     periodLabel: `Last ${days} days`,
     trainingSummary,
     nutritionSummary,
+    bodyAnalysis: buildBodyAnalysisSummary(client),
   });
   if (!data?.summary) throw new Error("AI summary request returned nothing usable");
   return data.summary;
@@ -342,6 +394,7 @@ function buildChatGroundingContext(client) {
     trainingSummary: buildTrainingSummary(client, 28),
     nutritionSummary: client.nutrition ? buildNutritionSummary(client.nutrition, 7) : "No nutrition data logged.",
     programOverview: summarizeProgramForAI(client.program),
+    bodyAnalysis: buildBodyAnalysisSummary(client),
   };
 }
 

@@ -54,6 +54,12 @@
 //   progression_suggestion    - exercise-aware next-session increment for
 //     a detected 2-session plateau (client-facing, automatic; see the
 //     "ONE deliberate exception" note above)
+//   body_analysis_extract     - reads an uploaded body-composition report
+//     PDF (InBody/DEXA/etc) and returns what is literally printed on it as
+//     structured data, so every other AI feature can be grounded in the
+//     client's real body composition. Extraction only - it is prompted to
+//     never estimate a value that is not on the page, and never to
+//     diagnose (see BodyAnalysisCard + buildBodyAnalysisSummary)
 //
 // Secret required: GEMINI_API_KEY
 //   1. Get a free key: https://aistudio.google.com/apikey (Google account,
@@ -131,7 +137,7 @@ const NUTRITION_REPORT_SCHEMA = {
 };
 
 function nutritionReportPrompt(input: any): string {
-  const { goal, weightKg, phase, weekSummary, hasNumericData, supplementStack } = input;
+  const { goal, weightKg, phase, weekSummary, hasNumericData, supplementStack, bodyAnalysis } = input;
   return `You are an experienced physique/performance nutrition coach writing a weekly check-in report for your client. Be direct, specific, and encouraging - never generic filler. Base every claim strictly on the data given below; if data is thin, say so plainly rather than inventing specifics.
 
 CLIENT
@@ -139,6 +145,7 @@ CLIENT
 - Bodyweight: ${weightKg ? `${weightKg}kg` : "not specified"}
 - Current nutrition phase: ${phase || "not specified"}
 - Supplement stack: ${supplementStack || "none logged"}
+${bodyAnalysis ? `\nBODY COMPOSITION (from the client's uploaded body analysis report - use lean mass, not just bodyweight, when setting protein and calorie targets)\n${bodyAnalysis}` : ""}
 
 THIS WEEK'S LOGGED DATA
 ${weekSummary || "No food was logged this week."}
@@ -172,7 +179,7 @@ const CLIENT_SUMMARY_SCHEMA = {
 };
 
 function clientSummaryPrompt(input: any): string {
-  const { clientName, goal, periodLabel, trainingSummary, nutritionSummary } = input;
+  const { clientName, goal, periodLabel, trainingSummary, nutritionSummary, bodyAnalysis } = input;
   return `You are an experienced coach reviewing a client's recent progress before your next check-in call. Be direct and specific - reference actual numbers/patterns given below, never generic encouragement. If the data is too thin to say something specific, say that plainly instead of guessing.
 
 CLIENT: ${clientName || "this client"}
@@ -184,7 +191,7 @@ ${trainingSummary || "No training sessions logged in this period."}
 
 NUTRITION/HABITS DATA
 ${nutritionSummary || "No nutrition or habit data logged in this period."}
-
+${bodyAnalysis ? `\nBODY COMPOSITION (from uploaded body analysis reports)\n${bodyAnalysis}\n` : ""}
 TASK
 Write a coach-facing summary as JSON matching the given schema - headline, 1-3 training highlights, 0-3 training concerns, 1-3 nutrition highlights, 0-3 nutrition concerns, and one specific recommendation for what to do or discuss next. This is for the coach's eyes only, not the client - be candid.`;
 }
@@ -244,6 +251,85 @@ RECENT TRAINING DATA (grouped by exercise, chronological)
 ${trainingSummary || "Not enough logged data to find a pattern yet."}
 
 TASK: Write JSON matching the schema - one specific, data-grounded insight and one safe strategy-level recommendation. If there's genuinely not enough data for a real pattern, say so honestly in the insight rather than inventing one.`;
+}
+
+// ---------- document call (body_analysis_extract - reads an uploaded file) ----------
+
+async function callGeminiWithFile(prompt: string, fileBase64: string, mimeType: string, responseSchema: any): Promise<any> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("AI features aren't set up yet - missing GEMINI_API_KEY secret.");
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: fileBase64 } }, { text: prompt }] }],
+        // Low temperature: this is transcription of what's printed on a
+        // document, not a creative task.
+        generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.1 },
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || `Gemini request failed (${res.status})`);
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini returned no content - it may have blocked the response.");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Gemini returned malformed JSON.");
+  }
+}
+
+// ---------- action: body_analysis_extract ----------
+// Deliberately a flexible metrics ARRAY rather than fixed named fields:
+// body-composition reports vary enormously (InBody vs DEXA vs a smart
+// scale printout vs a caliper sheet), and a fixed schema would either
+// force the model to invent values the report doesn't have or silently
+// drop ones it does. `key` maps a row to a canonical name when it
+// recognises one, so trends/grounding can still find the important
+// numbers without constraining what gets captured.
+
+const BODY_ANALYSIS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    reportType: { type: "STRING", description: "e.g. 'InBody 770', 'DEXA scan', 'Bioimpedance scale'. Empty string if it isn't stated." },
+    testDate: { type: "STRING", description: "The test/scan date printed on the report as YYYY-MM-DD. Empty string if not printed - do NOT guess or use today's date." },
+    metrics: {
+      type: "ARRAY",
+      description: "Every measured value actually printed on the report, in the order they appear.",
+      items: {
+        type: "OBJECT",
+        properties: {
+          label: { type: "STRING", description: "The metric name as printed, e.g. 'Skeletal Muscle Mass'." },
+          value: { type: "STRING", description: "The value exactly as printed." },
+          unit: { type: "STRING", description: "e.g. 'kg', '%', 'kcal'. Empty string if unitless." },
+          key: { type: "STRING", description: "Canonical name IF this row clearly is one of: weight, body_fat_percent, skeletal_muscle_mass, fat_mass, lean_mass, bmi, visceral_fat, bmr, body_water. Otherwise an empty string." },
+          note: { type: "STRING", description: "Any range/rating printed alongside it (e.g. 'below normal'). Empty string if none." },
+        },
+        required: ["label", "value", "unit", "key", "note"],
+      },
+    },
+    keyFindings: { type: "ARRAY", items: { type: "STRING" }, description: "2-5 short, factual observations grounded strictly in the printed numbers." },
+    coachNotes: { type: "STRING", description: "What a strength/nutrition coach should take into account when programming for this person, based only on these numbers." },
+    summary: { type: "STRING", description: "2-3 plain-language sentences summarizing this report." },
+  },
+  required: ["reportType", "testDate", "metrics", "keyFindings", "coachNotes", "summary"],
+};
+
+function bodyAnalysisPrompt(): string {
+  return `You are reading a client's body composition / body analysis report that their coach has uploaded (e.g. an InBody printout, a DEXA scan, a bioimpedance scale report, or a manual measurement sheet). Your job is careful, literal EXTRACTION so the coaching app can use these numbers.
+
+CRITICAL RULES
+- Transcribe ONLY what is actually printed in the document. Never estimate, infer, average, or fill in a "typical" value for anything that isn't there. A missing value must simply be left out of the metrics list.
+- Do not convert units or recalculate anything - copy values as printed.
+- If the testDate isn't printed on the document, return an empty string for it. Do NOT substitute today's date.
+- If this document is NOT a body composition/analysis report at all, return an empty metrics array and say plainly what the document appears to be in the summary.
+- You are NOT a doctor: describe and contextualize for training/nutrition purposes, never diagnose. If a value looks clinically concerning, note in coachNotes that it's worth review by a medical professional - don't interpret it medically yourself.
+
+TASK: Return JSON matching the schema - the report type, the test date, every printed metric, 2-5 factual key findings, coach-relevant notes for programming, and a short plain-language summary.`;
 }
 
 // ---------- multi-turn chat call (client_chat only - the other actions are single-turn) ----------
@@ -420,7 +506,7 @@ const CLIENT_CHAT_SCHEMA = {
 };
 
 function clientChatSystemPrompt(input: any): string {
-  const { clientName, goal, trainingSummary, nutritionSummary, programOverview } = input;
+  const { clientName, goal, trainingSummary, nutritionSummary, programOverview, bodyAnalysis } = input;
   return `You are Forge's in-app AI coach, chatting directly with ${clientName || "a client"} inside their training app. Be warm, direct, and specific - ground every answer in the real data given below, never generic filler. Keep replies conversational and short unless the question needs more.
 
 CLIENT GOAL: ${goal || "not specified"}
@@ -433,7 +519,7 @@ ${trainingSummary || "No completed sessions logged recently."}
 
 RECENT NUTRITION (last ~7 days)
 ${nutritionSummary || "No nutrition data logged recently."}
-
+${bodyAnalysis ? `\nBODY COMPOSITION (from their own uploaded body analysis report - you may reference these numbers directly)\n${bodyAnalysis}\n` : ""}
 HARD RULES - never break these:
 1. NEVER prescribe a specific new weight/load/rep number for an exercise - Forge has a separate deterministic system for that (tell them to check their next logged set if they ask "what weight should I lift"). You CAN discuss patterns, trends, and general training principles.
 2. NEVER give medical or injury-diagnosis advice - if they mention pain, injury, or a medical concern, say plainly that this needs their coach or a medical professional, don't try to diagnose or treat it.
@@ -511,6 +597,12 @@ Deno.serve(async (req) => {
 
     if (action === "coach_program_edit_suggest") {
       const result = await callGemini(coachProgramEditPrompt(body), COACH_PROGRAM_EDIT_SCHEMA);
+      return json(result);
+    }
+
+    if (action === "body_analysis_extract") {
+      if (!body.fileBase64) return json({ error: "No file was sent to read." }, 400);
+      const result = await callGeminiWithFile(bodyAnalysisPrompt(), body.fileBase64, body.mimeType || "application/pdf", BODY_ANALYSIS_SCHEMA);
       return json(result);
     }
 

@@ -18,6 +18,15 @@ export async function uploadClientPhoto(clientId, folder, blob, extension = "jpg
   return path;
 }
 
+// Same bucket//path convention as photos, but keeps the file's real
+// content type - used for uploaded documents (body analysis report PDFs).
+export async function uploadClientFile(clientId, folder, file, extension = "pdf") {
+  const path = `clients/${clientId}/${folder}/${uniqueName(extension)}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream" });
+  if (error) throw error;
+  return path;
+}
+
 export async function uploadTrainerPhoto(trainerId, folder, blob, extension = "jpg") {
   const path = `trainers/${trainerId}/${folder}/${uniqueName(extension)}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || "image/jpeg" });

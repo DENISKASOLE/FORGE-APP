@@ -65,7 +65,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
       ? <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />
       : <ScreeningGate client={client}><ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} /></ScreeningGate>)}
     {tab === "nutrition" && <NutritionFlow client={client} updateClient={updateClient} isCoach={isCoach} />}
-    {tab === "progress" && <ProgressTab client={client} isCoach={isCoach} />}
+    {tab === "progress" && <ProgressTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "progress_hub" && <ProgressHub client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}

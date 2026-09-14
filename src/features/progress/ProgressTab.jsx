@@ -8,6 +8,7 @@ import { showToast } from "../../components/ui/Toast.jsx";
 import { generateClientSummary, getTrainingInsight } from "../../lib/ai.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
+import { BodyAnalysisCard } from "./BodyAnalysis.jsx";
 
 function AITrainingInsightCard({ client }) {
   const [insight, setInsight] = useState(null);
@@ -310,7 +311,7 @@ function buildProgressInsight(streak, volumeTrend, pbs) {
   if (parts.length === 0) return { text: "Keep logging sessions to start seeing trends here." };
   return { text: parts.join(" — ") };
 }
-export function ProgressTab({ client, isCoach }) {
+export function ProgressTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const logs = client.trainingLogs;
   const streak = currentStreakWeeks(logs);
@@ -336,6 +337,8 @@ export function ProgressTab({ client, isCoach }) {
     </div>
 
     {isCoach && <AIClientSummaryCard client={client} />}
+
+    {updateClient && <BodyAnalysisCard client={client} updateClient={updateClient} isCoach={isCoach} />}
 
     <div style={{ background: "color-mix(in srgb, var(--card) 70%, transparent)", backdropFilter: "blur(20px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden" }}>
       <div style={{ padding: "15px 17px 0" }}>
@@ -435,7 +438,7 @@ export function ProgressHub({ client, updateClient, isCoach }) {
   const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14 }}>
     <div style={{ display: "flex", gap: 6, overflowX: "auto", minWidth: 0 }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? BRAND.btnInk : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `${BRAND.hairline} solid ${sub === k ? "transparent" : BRAND.line}` }}>{l}</button>)}</div>
-    {sub === "trends" && <ProgressTab client={client} isCoach={isCoach} />}
+    {sub === "trends" && <ProgressTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
   </div>;
