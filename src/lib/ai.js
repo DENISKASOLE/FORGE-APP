@@ -4,9 +4,29 @@ import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals, MACRO_SLOTS } from
 import { sessionStatsV2, sessionEntriesV2 } from "./trainingLogs.js";
 import { hydrateAIProgram, summarizeProgramForAI } from "./programModel.js";
 
+// Supabase's client wraps every non-2xx edge function response in a generic
+// "Edge Function returned a non-2xx status code" message and discards the
+// real response body unless you go dig it out of error.context - so without
+// this, every AI failure (quota exceeded, missing API key, a bad Gemini
+// response, anything) surfaced that one useless string to whatever UI
+// caught it. Extract the real reason, and give the single most common real
+// failure (the shared free-tier Gemini key's request quota) a message an
+// end user can actually act on instead of a raw Google API error + URL.
 async function callForgeAI(action, body) {
   const { data, error } = await supabase.functions.invoke("forge-ai", { body: { action, ...body } });
-  if (error) throw new Error(error.message || "AI request failed");
+  if (error) {
+    let message = error.message || "AI request failed";
+    if (typeof error.context?.json === "function") {
+      try {
+        const errBody = await error.context.json();
+        if (errBody?.error) message = errBody.error;
+      } catch {}
+    }
+    if (/quota|rate.?limit/i.test(message)) {
+      throw new Error("The AI coach is getting a lot of requests right now — try again in a minute.");
+    }
+    throw new Error(message);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
