@@ -51,7 +51,7 @@ export function ClientAIChat({ client, updateClient }) {
   }
 
   return (
-    <Card style={{ padding: isMobile ? 12 : 16, display: "flex", flexDirection: "column", height: isMobile ? "70vh" : "72vh" }}>
+    <Card style={{ padding: isMobile ? 12 : 16, display: "flex", flexDirection: "column", height: isMobile ? "calc(100dvh - 118px)" : "calc(100vh - 122px)" }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 4 }}>AI Coach</div>
       <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 12 }}>Ask about your training or nutrition. For injuries or program changes, message your coach directly.</div>
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
