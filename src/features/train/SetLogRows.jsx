@@ -33,7 +33,9 @@ export function SetLogRows({ entry, timed, lastSets, prog, rpePickerFor, setRpeP
       <button onClick={() => addSet(entry.id)} style={{ fontFamily: BRAND.sans, width: "100%", marginTop: 2, padding: "12px", borderRadius: BRAND.radiusControl, border: `1px dashed ${BRAND.line}`, background: "transparent", color: BRAND.gold, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer" }}>+ Add set</button>
       {prog && (
         <div style={{ fontFamily: BRAND.sans, color: prog.reason === "plateau" ? BRAND.gold : BRAND.dim, fontSize: 11, fontWeight: 500, marginTop: 12, textAlign: "center" }}>
-          {prog.reason === "plateau" ? `Same weight 2 sessions running — try +${prog.bump}kg today` : `Progressive overload — +${prog.bump}kg vs last week`}
+          {prog.ai
+            ? `Same weight 2 sessions running — try ${prog.ai.suggestion}${prog.ai.reasoning ? ` (${prog.ai.reasoning})` : ""}`
+            : prog.reason === "plateau" ? `Same weight 2 sessions running — try +${prog.bump}kg today` : `Progressive overload — +${prog.bump}kg vs last week`}
         </div>
       )}
     </div>

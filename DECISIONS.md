@@ -1,3 +1,62 @@
+# AI-driven plateau progression — decisions log
+
+Ask: "Now let ai handle the progression inside training, suggestions
+should come to clients who have been using the same weight for the past
+two weeks suggest add 2.5kg or what feels right based on the nature of
+the exercise." Autonomous, no clarifying questions (explicitly told not
+to ask anything, working overnight).
+
+## Scoped exception to "AI never states a specific load"
+
+Every earlier AI phase enforced a hard rule: AI-generated advice
+(training_insight, client_chat) must never state a specific weight/load,
+because that's `trainingLogs.js`'s deterministic
+`suggestProgression`/`suggestPlateauBump` territory. This request is
+different in kind, not a violation of that rule: the user is asking AI to
+*compute the deterministic system's own number*, replacing a flat, always-
++2.5kg plateau rule with one that varies by the exercise's actual nature
+(a lateral raise and a deadlift plateauing at the same rate shouldn't get
+the same +2.5kg instruction). So `suggestPlateauBump` (the *trigger* -
+same working weight logged 2 sessions running) stays exactly as it was,
+still 100% local/instant/deterministic. What changed is only the
+*increment shown once a plateau is already detected*.
+
+## Progressive enhancement, not a replacement
+
+The workout-logging screen is a critical path - it cannot become slower,
+janky, or broken if the network/AI is briefly unavailable mid-set. So the
+flat +2.5kg badge still renders instantly and unconditionally the moment
+a plateau is detected (unchanged code, unchanged UX by default). A new
+`useProgressionSuggestion` hook (`src/features/train/`) then fires a
+background call to a new `progression_suggestion` edge-function action -
+given the exercise's name, taxonomy tags (muscle group/movement pattern,
+already available from the exercise-library work), current working
+weight, and last session's actual sets - and, if it resolves, silently
+swaps the badge text to the AI's tailored suggestion (e.g. "+1kg per
+dumbbell" for a unilateral isolation move vs "+2.5kg" for a barbell
+squat) plus a one-line reason. Any failure/timeout is swallowed - the
+deterministic badge simply stays as it was. Results are cached in-memory
+per exercise+weight so re-renders while typing a set (which happen
+constantly) don't refire the request.
+
+## A real Rules-of-Hooks bug caught before shipping
+
+Wiring the hook into `WorkoutSession` (TrainScreens.jsx) naively - right
+next to the existing `suggestPlateauBump`/`suggestProgression` calls -
+would have placed a real hook (useState/useEffect inside) AFTER two
+conditional early returns (`if (finished) return ...` and `if (!step)
+return ...`) that already existed in that component. Since `finished`
+genuinely toggles during a session's lifecycle, this would have thrown
+"Rendered fewer hooks than expected" the first time a session completed
+mid-use. Fixed by hoisting the entire `step`-derived variable chain
+(steps/entry/effectiveName/prog/etc, made null-tolerant with `?.`/guards)
+above both early returns, so the hook is called unconditionally on every
+render regardless of which branch ultimately gets returned.
+`SupersetLogger.jsx` had no such early return before its own equivalent
+code, so it only needed the straightforward addition.
+
+---
+
 # AI integration, phase 3 — coach assistant + client chatbot — decisions log
 
 Ask: "yeap get to work with those two" — the two features explicitly

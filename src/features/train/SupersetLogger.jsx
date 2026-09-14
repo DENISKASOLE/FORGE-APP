@@ -7,6 +7,7 @@ import { inputStyle } from "../../components/ui/Field.jsx";
 import { getExerciseMeta } from "../../lib/exerciseMeta.js";
 import { MuscleGroupTag } from "./ExerciseTag.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
+import { useProgressionSuggestion } from "./useProgressionSuggestion.js";
 
 const GROUP_LETTERS = "ABCDEFGH";
 
@@ -29,6 +30,8 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
   const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
   const prog = suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets);
   const exMeta = getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises });
+  const aiProg = useProgressionSuggestion(effectiveName, prog, exMeta, lastSets, timed);
+  const displayProg = aiProg ? { ...prog, ai: aiProg } : prog;
   const thumb = getVideoThumb(ex.videoUrl);
   const letters = group.map((_, i) => GROUP_LETTERS[i] || String(i + 1));
   const subbing = subFor === entry.id;
@@ -90,7 +93,7 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
         })}
       </div>
 
-      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={prog} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={BRAND.green} />
+      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={BRAND.green} />
 
       <div>
         <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>

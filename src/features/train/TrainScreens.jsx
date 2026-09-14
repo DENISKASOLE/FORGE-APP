@@ -37,6 +37,7 @@ import { getExerciseMeta } from "../../lib/exerciseMeta.js";
 import { MuscleGroupTag, MovementPatternTag } from "./ExerciseTag.jsx";
 import { ExerciseDetailModal } from "./ExerciseDetailModal.jsx";
 import { CoachAssistantModal } from "../coach/CoachAssistant.jsx";
+import { useProgressionSuggestion } from "./useProgressionSuggestion.js";
 
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
@@ -570,6 +571,29 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const stats = sessionStatsV2(session);
   const restLeft = rest ? Math.ceil((rest.until - Date.now()) / 1000) : 0;
   if (rest && restLeft <= 0) setTimeout(() => setRest(null), 0);
+  // Hoisted above the early returns below (finished / no-steps) so
+  // useProgressionSuggestion - a real hook - is always called in the same
+  // order every render, per React's Rules of Hooks. Every line here is
+  // null-tolerant since `step`/`entry` may not exist yet at this point.
+  const steps = groupSessionSteps(session, workout);
+  const total = steps.length;
+  const cur = Math.min(current, Math.max(0, total - 1));
+  const step = steps[cur];
+  const isSuperset = step?.type === "superset";
+  const entry = step ? (isSuperset ? step.entries[0] : step.entry) : null;
+  const meta = entry ? exById[entry.exerciseId] : null;
+  const ex = isSuperset ? {} : (meta?.ex || {});
+  const block = entry ? (workout?.blocks || []).find((b) => b.id === entry.blockId) : null;
+  const effectiveName = entry ? (entry.substitutedName || entry.name) : "";
+  const timed = isTimedExercise(effectiveName);
+  const lastSets = entry ? lastSessionSetsFor(logsBefore, effectiveName) : [];
+  const exMeta = entry ? getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises }) : null;
+  const thumb = getVideoThumb(ex.videoUrl);
+  const subbing = entry ? subFor === entry.id : false;
+  const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
+  const prog = entry ? (suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets)) : null;
+  const aiProg = useProgressionSuggestion(effectiveName, prog, exMeta, lastSets, timed);
+  const displayProg = aiProg ? { ...prog, ai: aiProg } : prog;
   if (finished) {
     const fStats = sessionStatsV2(finished);
     const pbs = detectSessionPBs(finished, logsBefore);
@@ -593,24 +617,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       </Card>
     );
   }
-  const steps = groupSessionSteps(session, workout);
-  const total = steps.length;
-  const cur = Math.min(current, Math.max(0, total - 1));
-  const step = steps[cur];
   if (!step) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
-  const isSuperset = step.type === "superset";
-  const entry = isSuperset ? step.entries[0] : step.entry;
-  const meta = exById[entry.exerciseId];
-  const ex = isSuperset ? {} : (meta?.ex || {});
-  const block = (workout?.blocks || []).find((b) => b.id === entry.blockId);
-  const effectiveName = entry.substitutedName || entry.name;
-  const timed = isTimedExercise(effectiveName);
-  const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
-  const exMeta = getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises });
-  const thumb = getVideoThumb(ex.videoUrl);
-  const subbing = subFor === entry.id;
-  const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
-  const prog = suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets);
   const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
   const ringC = 2 * Math.PI * 26;
   const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
@@ -657,7 +664,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
       {ex.note && <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 500 }}>Coach: </span>{ex.note}</div>}
-      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={prog} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
+      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
       <div>
         <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
         {subbing && <div style={{ marginTop: 8 }}>

@@ -10,13 +10,23 @@
 // client ever sees them; two (daily_nutrition_feedback, training_insight)
 // go straight to the client on-demand (they tapped a button asking for
 // it), so their prompts are deliberately constrained to safe, generic
-// advice - never a specific prescribed load/weight (that's the app's
-// existing deterministic suggestProgression/suggestPlateauBump's job, see
-// trainingLogs.js) and never anything resembling medical/diagnostic
-// advice. Numeric math (averages, totals, trends) is always computed by
-// the calling code in src/lib/ai.js and passed in pre-computed - the
-// model is only ever asked to read numbers and write prose/recommend-
-// ations around them, never to do arithmetic itself.
+// advice - never a specific prescribed load/weight (that's
+// trainingLogs.js's suggestProgression/suggestPlateauBump's job) and
+// never anything resembling medical/diagnostic advice. Numeric math
+// (averages, totals, trends) is always computed by the calling code in
+// src/lib/ai.js and passed in pre-computed - the model is only ever
+// asked to read numbers and write prose/recommendations around them,
+// never to do arithmetic itself.
+//
+// ONE deliberate, scoped exception to "never a specific load": progression_
+// suggestion. That request specifically asked AI to own the increment
+// on a detected plateau (previously a flat, always-+2.5kg rule) so it can
+// vary by the exercise's actual nature (small isolation moves vs heavy
+// compounds vs bodyweight/timed work) - it's not a second system
+// contradicting the deterministic one, it IS the deterministic plateau
+// rule's number, now computed by AI instead of hardcoded. It never
+// blocks or replaces the instant local suggestion in the UI - see
+// useProgressionSuggestion.js's progressive-enhancement comment.
 //
 // Actions:
 //   nutrition_report         - drafts a client's weekly nutrition report
@@ -41,6 +51,9 @@
 //     grounded in that client's own real training/nutrition/program data;
 //     constrained like training_insight to never prescribe a specific
 //     new weight/load and to defer anything medical to their coach
+//   progression_suggestion    - exercise-aware next-session increment for
+//     a detected 2-session plateau (client-facing, automatic; see the
+//     "ONE deliberate exception" note above)
 //
 // Secret required: GEMINI_API_KEY
 //   1. Get a free key: https://aistudio.google.com/apikey (Google account,
@@ -430,6 +443,38 @@ HARD RULES - never break these:
 Respond to their message as JSON matching the schema.`;
 }
 
+// ---------- action: progression_suggestion ----------
+
+const PROGRESSION_SUGGESTION_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    suggestion: { type: "STRING", description: "A short, concrete, actionable instruction for next session, e.g. '+2.5kg' or '+1kg per dumbbell' or 'Hold the weight, add 1-2 reps per set'." },
+    reasoning: { type: "STRING", description: "One short clause explaining why this fits this specific exercise - not generic filler." },
+  },
+  required: ["suggestion", "reasoning"],
+};
+
+function progressionSuggestionPrompt(input: any): string {
+  const { exerciseName, muscleGroup, movementPattern, workingWeight, timed, recentSets } = input;
+  const setsText = (recentSets || [])
+    .map((s: any, i: number) => `Set ${i + 1}: ${s.load ? `${s.load}kg` : ""}${s.reps ? ` x ${s.reps} reps` : ""}${s.duration ? `${s.duration}` : ""}${s.rpe ? ` @RPE${s.rpe}` : ""}`.trim())
+    .join("; ");
+  return `You are an experienced strength coach. A client has logged the exact same working weight on this exercise for two sessions running - it's time to recommend a specific, concrete next-session progression suited to THIS exercise's nature, not a flat generic rule.
+
+EXERCISE: ${exerciseName}
+MUSCLE GROUP: ${muscleGroup || "not tagged"}
+MOVEMENT PATTERN: ${movementPattern || "not tagged"}
+${timed ? "This is a timed/duration-based exercise, not a loaded one." : `CURRENT WORKING WEIGHT: ${workingWeight}kg`}
+MOST RECENT SESSION'S SETS: ${setsText || "not available"}
+
+TASK: Recommend the next-session progression as JSON matching the schema.
+- Small isolation movements (curls, lateral raises, cable/machine isolation work, etc.) should get a small increment (0.5-2kg) - a full 2.5kg jump is too aggressive for something like a lateral raise.
+- Large compound bilateral barbell lifts (squat, deadlift, bench press, barbell row) can typically take a full 2.5-5kg jump.
+- Unilateral or dumbbell work: specify the increment PER hand/side, not combined (e.g. "+1kg per dumbbell").
+- Bodyweight or timed/duration exercises: there's no weight to add - recommend adding reps, adding a pause/tempo constraint, or increasing duration instead.
+- Be concrete and specific ("+2.5kg", not "a bit more weight"), and give one short, specific reason grounded in this exercise's actual demands (joint stress, typical load jumps for this movement pattern, etc.), not a generic platitude.`;
+}
+
 // ---------- router ----------
 
 Deno.serve(async (req) => {
@@ -466,6 +511,11 @@ Deno.serve(async (req) => {
 
     if (action === "coach_program_edit_suggest") {
       const result = await callGemini(coachProgramEditPrompt(body), COACH_PROGRAM_EDIT_SCHEMA);
+      return json(result);
+    }
+
+    if (action === "progression_suggestion") {
+      const result = await callGemini(progressionSuggestionPrompt(body), PROGRESSION_SUGGESTION_SCHEMA);
       return json(result);
     }
 

@@ -340,3 +340,23 @@ export async function sendClientChatMessage(client, history, message) {
   if (!data?.reply) throw new Error("AI chat request returned nothing usable");
   return data.reply;
 }
+
+// ==================== Progression suggestion (plateau) ====================
+// The one place AI is allowed to state a specific number (see the header
+// comment in forge-ai/index.ts) - it's replacing what used to be a flat
+// "+2.5kg" rule in suggestPlateauBump with an exercise-aware one, not
+// contradicting a separate system. Called via useProgressionSuggestion.js
+// as a progressive enhancement - the deterministic +2.5kg badge always
+// shows first and stays if this fails or is slow.
+export async function getProgressionSuggestion({ exerciseName, muscleGroup, movementPattern, workingWeight, timed, recentSets }) {
+  const data = await callForgeAI("progression_suggestion", {
+    exerciseName,
+    muscleGroup: muscleGroup || "",
+    movementPattern: movementPattern || "",
+    workingWeight: workingWeight ?? null,
+    timed: !!timed,
+    recentSets: (recentSets || []).map((s) => ({ load: s.load, reps: s.reps, duration: s.duration, rpe: s.rpe })),
+  });
+  if (!data?.suggestion) throw new Error("AI progression request returned nothing usable");
+  return { suggestion: data.suggestion, reasoning: data.reasoning || "" };
+}
