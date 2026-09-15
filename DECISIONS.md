@@ -1,3 +1,57 @@
+# Back to Google AI, and the actual root cause of "AI is not working" — decisions log
+
+Ask: "change it to Google ai api no need for the siliconflow because I
+don't want to pay anyway, just point everything to google ai, and fix it
+to work" - after reporting the AI had been broken in-app for two days,
+and that it was NOT a credit problem.
+
+## The root cause was the model id, not the provider
+
+This is the important finding, and it means the SiliconFlow migration was
+treating a symptom. The app ran on `gemini-3.6-flash`, whose free-tier
+allowance is roughly **20 requests** - the quota errors seen in testing
+said exactly that (`limit: 20, model: gemini-3.6-flash`). With ten AI
+features sharing one key, that is exhausted almost immediately and then
+stays exhausted, which is precisely the "it's been two days and still the
+same problem" behaviour. It was misread at the time as ordinary burst
+rate-limiting caused by test traffic.
+
+The fix is a one-line default: **`gemini-2.5-flash`**, which is the line
+with a genuinely usable free quota (hundreds to ~1,500 requests/day
+depending on model). `gemini-2.5-flash-lite` has the highest free limits
+if headroom ever matters more than quality.
+
+Lesson worth keeping: on a free tier, *newest model* and *most usable
+model* are often opposites. Check the quota attached to a specific model
+id before adopting it.
+
+## Reverted the SiliconFlow work rather than keeping it around
+
+`git show cbb5a55:<file>` restored the known-good Gemini versions of the
+edge function and lib/ai.js exactly, rather than hand-reverting. Also
+removed with it: `pdfjs-dist`, `src/lib/pdfToImages.js` and the PWA
+`globIgnores` entry. All of that existed *only* to rasterize PDFs for
+SiliconFlow's vision models - Gemini reads PDFs natively, at better
+fidelity than a rasterized JPEG, so the dependency is pure cost now.
+
+Kept from that period, because they were never provider-specific: the
+real-error surfacing in `callForgeAI` (Supabase hides the actual failure
+behind a generic string) and making the model id env-overridable, which
+is now `GEMINI_MODEL`.
+
+## Added: honour Google's own retry hint
+
+Free-tier limits are per-minute as well as per-day, so two features firing
+together could 429 when the same call would have worked seconds later.
+429s are now retried up to twice, waiting exactly as long as Google's
+`retryDelay` says - capped at 12s so a *daily*-quota 429 (which asks for
+far longer) falls straight through to the error message instead of hanging
+a request. All three call paths (text, chat, document) share one
+`geminiRequest` helper, so retry and error handling can't drift apart the
+way three copy-pasted fetch blocks previously would have.
+
+---
+
 # Switching the AI provider: Gemini → SiliconFlow — decisions log
 
 Ask: "Let's change our ai from Gemini to this" (screenshot of a

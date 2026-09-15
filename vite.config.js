@@ -32,12 +32,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-        // pdfjs is only pulled in when someone uploads a body analysis
-        // report (see lib/pdfToImages.js), and that needs the network
-        // regardless since it calls the AI - so precaching ~430KB of it
-        // into every install buys nothing. Fetched on demand instead.
-        globIgnores: ["**/pdf-*.js", "**/pdf.worker*"]
+        globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
       }
     })
   ]

@@ -61,33 +61,24 @@
 //     never estimate a value that is not on the page, and never to
 //     diagnose (see BodyAnalysisCard + buildBodyAnalysisSummary)
 //
-// Provider: SiliconFlow (OpenAI-compatible chat completions).
-//
-// Secret required: SILICONFLOW_API_KEY
-//   1. Key comes from https://cloud.siliconflow.com -> API Keys.
+// Secret required: GEMINI_API_KEY
+//   1. Get a free key: https://aistudio.google.com/apikey (Google account,
+//      no payment method needed).
 //   2. Set it on this project: either
-//        supabase secrets set SILICONFLOW_API_KEY=your-key-here
+//        supabase secrets set GEMINI_API_KEY=your-key-here
 //      or Supabase Dashboard -> Edge Functions -> Secrets.
 //   3. Deploy this function: supabase functions deploy forge-ai
 //      (or paste this file's contents into Dashboard -> Edge Functions ->
 //      Deploy a new function, named exactly "forge-ai", if you'd rather
 //      not use the CLI - NOT the Secrets page, that's a different tab).
 //
-// Optional secrets - both models are env-overridable on purpose. Model
-// catalogs get retired without warning (this project already lost
-// gemini-2.0-flash mid-build), and swapping a secret beats a code change
-// plus redeploy. Set SILICONFLOW_MODEL / SILICONFLOW_VISION_MODEL to any
-// id from the SiliconFlow model marketplace to switch.
-//
-// Two provider quirks this file works around, both verified in their docs:
-//   - SiliconFlow's JSON mode is `response_format: {type: "json_object"}`
-//     only; there's no schema-enforced mode like Gemini's responseSchema.
-//     So every schema below is ALSO rendered into the prompt as literal
-//     JSON Schema, and responses are parsed defensively (parseJsonLoose).
-//   - Their VLM (vision) models do not support JSON mode at all, so
-//     body_analysis_extract relies purely on the prompt + loose parsing.
-//     VLMs also take images only, never PDFs - the client rasterizes PDF
-//     pages to JPEGs before upload (see src/lib/pdfToImages.js).
+// MODEL CHOICE MATTERS ON THE FREE TIER. This ran on gemini-3.6-flash for
+// a while and the app's AI appeared "broken" for days: that model's free
+// allowance is ~20 requests, so every feature 429'd almost immediately.
+// The 2.5 Flash line is the one with a workable free quota (hundreds to
+// ~1,500 requests/day). Override with the GEMINI_MODEL secret - no code
+// change needed - if quotas shift again or you want to trade quality for
+// headroom (gemini-2.5-flash-lite has the highest free limits).
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -95,81 +86,77 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SILICONFLOW_URL = "https://api.siliconflow.com/v1/chat/completions";
-const TEXT_MODEL = Deno.env.get("SILICONFLOW_MODEL") || "Qwen/Qwen2.5-72B-Instruct";
-const VISION_MODEL = Deno.env.get("SILICONFLOW_VISION_MODEL") || "Qwen/Qwen2.5-VL-72B-Instruct";
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
 
-// The schema constants below are written in Gemini's uppercase dialect
-// ("OBJECT"/"STRING"/...). Lowercasing recursively turns them into
-// standard JSON Schema for the prompt - done at runtime rather than by
-// rewriting ten nested literals by hand, which is exactly the kind of
-// edit that silently typos a field name.
-function toJsonSchema(node: any): any {
-  if (Array.isArray(node)) return node.map(toJsonSchema);
-  if (node && typeof node === "object") {
-    const out: any = {};
-    for (const [k, v] of Object.entries(node)) {
-      out[k] = k === "type" && typeof v === "string" ? v.toLowerCase() : toJsonSchema(v);
+// Free-tier limits are per-minute as well as per-day, so a couple of
+// features firing at once (or a coach clicking twice) can trip a 429 that
+// would have succeeded moments later. Google tells us how long to wait -
+// honour it once or twice rather than surfacing a failure the user has to
+// manually retry. Capped so nobody sits waiting on a dead request: a
+// daily-quota 429 asks for far longer than we're willing to hold, and
+// falls through to the error message instead.
+const MAX_RETRIES = 2;
+const MAX_RETRY_WAIT_MS = 12000;
+
+function retryDelayMs(errorBody: any): number | null {
+  const details = errorBody?.error?.details || [];
+  for (const d of details) {
+    const raw = d?.retryDelay;
+    if (typeof raw === "string") {
+      const seconds = parseFloat(raw.replace("s", ""));
+      if (!isNaN(seconds)) return Math.ceil(seconds * 1000);
     }
-    return out;
   }
-  return node;
+  const message = String(errorBody?.error?.message || "");
+  const match = message.match(/retry in ([\d.]+)s/i);
+  return match ? Math.ceil(parseFloat(match[1]) * 1000) : null;
 }
 
-function schemaInstruction(responseSchema: any): string {
-  return `\n\nReturn ONLY a JSON object - no prose, no markdown fences - matching this JSON Schema exactly:\n${JSON.stringify(toJsonSchema(responseSchema))}`;
-}
+async function geminiRequest(payload: any): Promise<any> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) throw new Error("AI features aren't set up yet - missing GEMINI_API_KEY secret.");
 
-// Models occasionally wrap JSON in ```json fences or add a stray sentence
-// despite the instruction, and VLMs have no JSON mode to lean on at all.
-function parseJsonLoose(text: string): any {
-  const cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1));
-      } catch { /* fall through */ }
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+    const data = await res.json().catch(() => null);
+
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const wait = retryDelayMs(data) ?? 3000;
+      if (wait <= MAX_RETRY_WAIT_MS) {
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
     }
-    throw new Error("The AI returned malformed JSON. Please try again.");
+
+    if (!res.ok) {
+      const message = data?.error?.message || `Gemini request failed (${res.status})`;
+      // The raw quota error is a wall of text with three URLs in it - not
+      // something to put in front of a client mid-workout.
+      if (res.status === 429) throw new Error(`Gemini rate limit reached (model ${GEMINI_MODEL}). ${message}`);
+      throw new Error(message);
+    }
+
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("Gemini returned no content - it may have blocked the response.");
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("Gemini returned malformed JSON.");
+    }
   }
 }
 
-async function postToSiliconFlow(payload: any): Promise<any> {
-  const apiKey = Deno.env.get("SILICONFLOW_API_KEY");
-  if (!apiKey) throw new Error("AI features aren't set up yet - missing SILICONFLOW_API_KEY secret.");
-
-  const res = await fetch(SILICONFLOW_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.message || data?.error?.message || `AI request failed (${res.status})`);
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error("The AI returned no content.");
-  if (data?.choices?.[0]?.finish_reason === "length") {
-    throw new Error("The AI's answer was cut off before it finished. Try again, or ask for something smaller.");
-  }
-  return parseJsonLoose(text);
-}
-
-// maxTokens matters here in a way it didn't with Gemini: an OpenAI-style
-// API truncates mid-JSON when it runs out, so anything that generates a
-// big nested object (a whole program) needs real headroom.
-async function callAI(prompt: string, responseSchema: any, maxTokens = 4096): Promise<any> {
-  return await postToSiliconFlow({
-    model: TEXT_MODEL,
-    messages: [
-      { role: "system", content: "You are a precise assistant that replies with a single valid JSON object and nothing else." },
-      { role: "user", content: prompt + schemaInstruction(responseSchema) },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.6,
-    max_tokens: maxTokens,
+async function callGemini(prompt: string, responseSchema: any): Promise<any> {
+  return await geminiRequest({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.6 },
   });
 }
 
@@ -321,17 +308,12 @@ TASK: Write JSON matching the schema - one specific, data-grounded insight and o
 
 // ---------- document call (body_analysis_extract - reads an uploaded file) ----------
 
-// Images only (the client rasterizes PDFs first), and deliberately NO
-// response_format: SiliconFlow's VLMs reject JSON mode, so the schema
-// instruction in the prompt plus parseJsonLoose is all that keeps this
-// honest. Low temperature - this is transcription, not writing.
-async function callAIVision(prompt: string, images: string[], responseSchema: any): Promise<any> {
-  const parts = images.map((url) => ({ type: "image_url", image_url: { url, detail: "high" } }));
-  return await postToSiliconFlow({
-    model: VISION_MODEL,
-    messages: [{ role: "user", content: [...parts, { type: "text", text: prompt + schemaInstruction(responseSchema) }] }],
-    temperature: 0.1,
-    max_tokens: 4096,
+async function callGeminiWithFile(prompt: string, fileBase64: string, mimeType: string, responseSchema: any): Promise<any> {
+  return await geminiRequest({
+    contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: fileBase64 } }, { text: prompt }] }],
+    // Low temperature: this is transcription of what's printed on a
+    // document, not a creative task.
+    generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.1 },
   });
 }
 
@@ -386,13 +368,11 @@ TASK: Return JSON matching the schema - the report type, the test date, every pr
 
 // ---------- multi-turn chat call (client_chat only - the other actions are single-turn) ----------
 
-async function callAIChat(systemPrompt: string, messages: any[], responseSchema: any): Promise<any> {
-  return await postToSiliconFlow({
-    model: TEXT_MODEL,
-    messages: [{ role: "system", content: systemPrompt + schemaInstruction(responseSchema) }, ...messages],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-    max_tokens: 2048,
+async function callGeminiChat(systemPrompt: string, contents: any[], responseSchema: any): Promise<any> {
+  return await geminiRequest({
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents,
+    generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.7 },
   });
 }
 
@@ -606,59 +586,53 @@ Deno.serve(async (req) => {
     const action = body.action;
 
     if (action === "nutrition_report") {
-      const draft = await callAI(nutritionReportPrompt(body), NUTRITION_REPORT_SCHEMA);
+      const draft = await callGemini(nutritionReportPrompt(body), NUTRITION_REPORT_SCHEMA);
       return json({ draft });
     }
 
     if (action === "client_summary") {
-      const summary = await callAI(clientSummaryPrompt(body), CLIENT_SUMMARY_SCHEMA);
+      const summary = await callGemini(clientSummaryPrompt(body), CLIENT_SUMMARY_SCHEMA);
       return json({ summary });
     }
 
     if (action === "daily_nutrition_feedback") {
-      const feedback = await callAI(dailyFeedbackPrompt(body), DAILY_FEEDBACK_SCHEMA);
+      const feedback = await callGemini(dailyFeedbackPrompt(body), DAILY_FEEDBACK_SCHEMA);
       return json({ feedback });
     }
 
     if (action === "training_insight") {
-      const insight = await callAI(trainingInsightPrompt(body), TRAINING_INSIGHT_SCHEMA);
+      const insight = await callGemini(trainingInsightPrompt(body), TRAINING_INSIGHT_SCHEMA);
       return json({ insight });
     }
 
     if (action === "coach_program_create") {
-      // A whole multi-week program is by far the largest thing generated
-      // here - without the extra headroom it truncates mid-JSON.
-      const result = await callAI(coachProgramCreatePrompt(body), COACH_PROGRAM_CREATE_SCHEMA, 16384);
+      const result = await callGemini(coachProgramCreatePrompt(body), COACH_PROGRAM_CREATE_SCHEMA);
       return json(result);
     }
 
     if (action === "coach_program_edit_suggest") {
-      const result = await callAI(coachProgramEditPrompt(body), COACH_PROGRAM_EDIT_SCHEMA);
+      const result = await callGemini(coachProgramEditPrompt(body), COACH_PROGRAM_EDIT_SCHEMA);
       return json(result);
     }
 
     if (action === "body_analysis_extract") {
-      const images: string[] = body.images || [];
-      if (!images.length) return json({ error: "No report pages were sent to read." }, 400);
-      const result = await callAIVision(bodyAnalysisPrompt(), images, BODY_ANALYSIS_SCHEMA);
+      if (!body.fileBase64) return json({ error: "No file was sent to read." }, 400);
+      const result = await callGeminiWithFile(bodyAnalysisPrompt(), body.fileBase64, body.mimeType || "application/pdf", BODY_ANALYSIS_SCHEMA);
       return json(result);
     }
 
     if (action === "progression_suggestion") {
-      const result = await callAI(progressionSuggestionPrompt(body), PROGRESSION_SUGGESTION_SCHEMA);
+      const result = await callGemini(progressionSuggestionPrompt(body), PROGRESSION_SUGGESTION_SCHEMA);
       return json(result);
     }
 
     if (action === "client_chat") {
       const { history = [], message, ...ctx } = body;
-      // Stored history still uses Gemini's "model" role for past replies
-      // (that's what's already saved in client_data.ai_chat), so map it to
-      // the OpenAI "assistant" role rather than migrating old rows.
-      const messages = [
-        ...history.map((h: any) => ({ role: h.role === "model" ? "assistant" : "user", content: h.text })),
-        { role: "user", content: message },
+      const contents = [
+        ...history.map((h: any) => ({ role: h.role === "model" ? "model" : "user", parts: [{ text: h.text }] })),
+        { role: "user", parts: [{ text: message }] },
       ];
-      const result = await callAIChat(clientChatSystemPrompt(ctx), messages, CLIENT_CHAT_SCHEMA);
+      const result = await callGeminiChat(clientChatSystemPrompt(ctx), contents, CLIENT_CHAT_SCHEMA);
       return json(result);
     }
 

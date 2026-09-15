@@ -3,7 +3,6 @@ import { addDays, isoDate } from "./dateUtils.js";
 import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals, MACRO_SLOTS } from "./nutrition.js";
 import { sessionStatsV2, sessionEntriesV2 } from "./trainingLogs.js";
 import { hydrateAIProgram, summarizeProgramForAI } from "./programModel.js";
-import { fileToImageDataUrls } from "./pdfToImages.js";
 
 // Supabase's client wraps every non-2xx edge function response in a generic
 // "Edge Function returned a non-2xx status code" message and discards the
@@ -40,15 +39,22 @@ async function callForgeAI(action, body) {
 // way to the edge function.
 export const MAX_BODY_ANALYSIS_BYTES = 10 * 1024 * 1024;
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.readAsDataURL(file);
+  });
+}
+
 // Reads an uploaded body-composition report into structured data. Pure
 // extraction - the model is instructed to transcribe only what's printed
 // (see the prompt in forge-ai/index.ts), never to estimate a missing value.
-// PDFs are rasterized to page images first, since the vision model can't
-// read PDFs directly.
 export async function extractBodyAnalysis(file) {
   if (file.size > MAX_BODY_ANALYSIS_BYTES) throw new Error("That file is too big - please upload a report under 10MB.");
-  const images = await fileToImageDataUrls(file);
-  const data = await callForgeAI("body_analysis_extract", { images });
+  const fileBase64 = await fileToBase64(file);
+  const data = await callForgeAI("body_analysis_extract", { fileBase64, mimeType: file.type || "application/pdf" });
   if (!data?.summary) throw new Error("Couldn't read that report - is it a body analysis report?");
   return data;
 }
