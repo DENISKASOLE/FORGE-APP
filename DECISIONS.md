@@ -5,25 +5,33 @@ don't want to pay anyway, just point everything to google ai, and fix it
 to work" - after reporting the AI had been broken in-app for two days,
 and that it was NOT a credit problem.
 
-## The root cause was the model id, not the provider
+## Two wrong diagnoses before the right one - worth recording honestly
 
-This is the important finding, and it means the SiliconFlow migration was
-treating a symptom. The app ran on `gemini-3.6-flash`, whose free-tier
-allowance is roughly **20 requests** - the quota errors seen in testing
-said exactly that (`limit: 20, model: gemini-3.6-flash`). With ten AI
-features sharing one key, that is exhausted almost immediately and then
-stays exhausted, which is precisely the "it's been two days and still the
-same problem" behaviour. It was misread at the time as ordinary burst
-rate-limiting caused by test traffic.
+**First wrong call:** the `limit: 20` quota errors were read as "this key
+is out of quota", which motivated the whole SiliconFlow migration. That
+migration was treating a symptom.
 
-The fix is a one-line default: **`gemini-2.5-flash`**, which is the line
-with a genuinely usable free quota (hundreds to ~1,500 requests/day
-depending on model). `gemini-2.5-flash-lite` has the highest free limits
-if headroom ever matters more than quality.
+**Second wrong call:** the limit was then read as ~20 requests *total*,
+and the fix was to default to `gemini-2.5-flash`. Deploying that failed
+every single action - the API replies that 2.5-flash is *"no longer
+available to new users... use models/gemini-3.6-flash"*. So that model
+isn't an option on this key at all.
 
-Lesson worth keeping: on a free tier, *newest model* and *most usable
-model* are often opposites. Check the quota attached to a specific model
-id before adopting it.
+**What's actually true:** `limit: 20` is 20 requests per **minute**. The
+429s say "please retry in ~9-50s"; a daily cap would quote hours. 20/min
+is plenty for real app usage - what exhausted it was rapid-fire test
+scripts firing nine actions back to back with no spacing. The in-app
+failures the user saw were a mix of that burst limiting and, later, the
+SiliconFlow account having no balance.
+
+So: back on `gemini-3.6-flash` (the model Google actually offers here,
+and the one that demonstrably produced good output on day one), with
+bursts absorbed by retries instead of surfacing as errors.
+
+Lesson worth keeping: read the *units* on a quota error before designing
+around it, and confirm a replacement model is actually available to the
+key before shipping it as a fix. Two migrations happened here that a
+single careful reading of "retry in 8.9s" would have avoided.
 
 ## Reverted the SiliconFlow work rather than keeping it around
 
@@ -41,14 +49,18 @@ is now `GEMINI_MODEL`.
 
 ## Added: honour Google's own retry hint
 
-Free-tier limits are per-minute as well as per-day, so two features firing
-together could 429 when the same call would have worked seconds later.
+This is the part that actually addresses the failure mode. The free tier
+allows 20 requests/minute, so two features firing together (or a coach
+clicking twice) can 429 on a call that would have worked seconds later.
 429s are now retried up to twice, waiting exactly as long as Google's
-`retryDelay` says - capped at 12s so a *daily*-quota 429 (which asks for
-far longer) falls straight through to the error message instead of hanging
-a request. All three call paths (text, chat, document) share one
-`geminiRequest` helper, so retry and error handling can't drift apart the
-way three copy-pasted fetch blocks previously would have.
+`retryDelay` says - capped at 12s so anything asking for longer falls
+through to the error message rather than hanging a request behind a
+spinner. Transient 500/503s ("The service is currently unavailable",
+seen intermittently in testing) get a short backoff too.
+
+All three call paths (text, chat, document) share one `geminiRequest`
+helper, so retry and error handling can't drift apart the way three
+copy-pasted fetch blocks previously would have.
 
 ---
 

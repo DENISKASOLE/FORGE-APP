@@ -72,13 +72,17 @@
 //      Deploy a new function, named exactly "forge-ai", if you'd rather
 //      not use the CLI - NOT the Secrets page, that's a different tab).
 //
-// MODEL CHOICE MATTERS ON THE FREE TIER. This ran on gemini-3.6-flash for
-// a while and the app's AI appeared "broken" for days: that model's free
-// allowance is ~20 requests, so every feature 429'd almost immediately.
-// The 2.5 Flash line is the one with a workable free quota (hundreds to
-// ~1,500 requests/day). Override with the GEMINI_MODEL secret - no code
-// change needed - if quotas shift again or you want to trade quality for
-// headroom (gemini-2.5-flash-lite has the highest free limits).
+// MODEL NOTE. gemini-2.5-flash is retired for new users - the API replies
+// "no longer available to new users... use models/gemini-3.6-flash", so
+// 3.6-flash is effectively the only choice on this key, and it works.
+//
+// Its free-tier quota is 20 requests per MINUTE (the 429s say "retry in
+// ~9-50s"; a daily cap would quote hours). That's ample for real use - it
+// was only ever tripped by rapid-fire test scripts - but bursts are
+// handled by the retry logic below rather than shown to a client.
+//
+// GEMINI_MODEL overrides this without a code change, for when Google
+// retires this one too.
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -86,7 +90,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.6-flash";
 
 // Free-tier limits are per-minute as well as per-day, so a couple of
 // features firing at once (or a coach clicking twice) can trip a 429 that
@@ -127,10 +131,20 @@ async function geminiRequest(payload: any): Promise<any> {
     );
     const data = await res.json().catch(() => null);
 
-    if (res.status === 429 && attempt < MAX_RETRIES) {
-      const wait = retryDelayMs(data) ?? 3000;
-      if (wait <= MAX_RETRY_WAIT_MS) {
-        await new Promise((r) => setTimeout(r, wait));
+    if (attempt < MAX_RETRIES) {
+      // 429 = per-minute quota; Google tells us exactly how long to wait.
+      if (res.status === 429) {
+        const wait = retryDelayMs(data) ?? 3000;
+        if (wait <= MAX_RETRY_WAIT_MS) {
+          await new Promise((r) => setTimeout(r, wait));
+          continue;
+        }
+      }
+      // 500/503 = Gemini having a moment ("The service is currently
+      // unavailable"), seen intermittently in testing. Nothing is wrong
+      // with the request, so a short backoff usually clears it.
+      if (res.status === 500 || res.status === 503) {
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
         continue;
       }
     }
