@@ -26,3 +26,4 @@ dist-ssr
 
 # Ad-hoc smoke-test screenshots
 smoke_screenshot.png
+__test-*.mjs
