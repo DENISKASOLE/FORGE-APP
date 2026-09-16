@@ -15,7 +15,6 @@ import { sessionForWorkout, parseSeconds } from "../../lib/trainingLogs.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
 import { ClientAIChat } from "../coach/ClientAIChat.jsx";
-import { ConnectedDevices } from "../health/ConnectedDevices.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
 import { PackagesTab } from "../scheduling/PackagesTab.jsx";
 import { PaymentsTab } from "../payments/PaymentsTab.jsx";
@@ -26,6 +25,7 @@ import { ProgressHub, ProgressTab } from "../progress/ProgressTab.jsx";
 import { TransformPhotos } from "../progress/TransformPhotos.jsx";
 import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
+import { HabitLogCard } from "../nutrition/HabitLogCard.jsx";
 import { ScreeningGate } from "../screening/ScreeningGate.jsx";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 
@@ -44,7 +44,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"],
     isOnline ? ["checkins", "Check-ins"] : ["schedule", "Schedule"],
     isOnline ? ["payments", "Payments"] : ["packages", "Packages"],
-    ["messages", "Messages"], ["devices", "Devices"], ["invite", "Invite"],
+    ["messages", "Messages"], ["invite", "Invite"],
   ] : [
     ["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"],
     ...(isOnline ? [["checkins", "Check-ins"], ["payments", "Payments"]] : []),
@@ -60,7 +60,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
   // ---- content block shared by both coach (tab bar) and client (bottom nav) ----
   const content = <>
-    {tab === "home" && <ClientHome client={client} goTo={!isCoach ? setTab : undefined} />}
+    {tab === "home" && <ClientHome client={client} updateClient={updateClient} goTo={!isCoach ? setTab : undefined} />}
     {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "program" && (isCoach
       ? <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />
@@ -78,7 +78,6 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
     {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "ai_coach" && !isCoach && <ClientAIChat client={client} updateClient={updateClient} />}
-    {tab === "devices" && <ConnectedDevices client={client} refresh={refresh} />}
   </>;
 
   // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
@@ -122,7 +121,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
 
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
-  const parentHub = ["payments", "profile", "progress_hub", "devices"].includes(tab) ? "me_hub" : null;
+  const parentHub = ["payments", "profile", "progress_hub"].includes(tab) ? "me_hub" : null;
   const parentHubLabel = "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
@@ -133,7 +132,6 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const meCards = [
     ...(isCoach ? [] : [{ key: "whatsapp", icon: "msg", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
     { key: "progress_hub", icon: "progress", color: BRAND.blue, title: "Progress", sub: "Trends, photos & check-ins" },
-    { key: "devices", icon: "check", color: BRAND.green, title: "Devices", sub: "Sync steps & sleep automatically" },
     { key: "profile", icon: "me", color: BRAND.violet, title: "Profile", sub: "Your details & settings" },
     { key: "payments", icon: "card", color: BRAND.yellow, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
@@ -234,7 +232,7 @@ function MomentumRing({ centerText, pct, color, label, size = 58, stroke = 6 }) 
   );
 }
 
-function ClientHome({ client, goTo }) {
+function ClientHome({ client, updateClient, goTo }) {
   const todayISO = isoDate();
   const jsDow = new Date().getDay();
   const dow = jsDow === 0 ? 7 : jsDow; // program model is Mon(1)-Sun(7); Date#getDay() is Sun(0)-Sat(6)
@@ -399,6 +397,11 @@ function ClientHome({ client, goTo }) {
         </div>
       </div>
     )}
+
+    {/* Habits live here rather than in the food diary: every client has
+        them, including macros-only clients who can't see the diary at all
+        and previously had no way to log steps or sleep. */}
+    {updateClient && <HabitLogCard client={client} updateClient={updateClient} />}
 
     <HomeLearnStrip client={client} goTo={goTo} />
   </div>;

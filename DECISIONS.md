@@ -1,70 +1,37 @@
-# Wearable sync: steps & sleep from Fitbit / Oura — decisions log
+# Habits move to Home; wearable sync dropped — decisions log
 
-Ask: "Is it possible to connect Google health and apple health to this app
-so that we can collect clients data, sleep steps and so on". Answered with
-the constraint below, then the user chose wearable cloud APIs and
-explicitly "keep it web-only".
+Ask: "i dont think its worthy if most clients wont use it anyway, so leave
+it just add tha habit log on the home screen for all clients remove it
+from nutrition."
 
-## Apple Health and Health Connect are not reachable, and that's structural
+## Wearable sync reverted before it ever ran
 
-Both store data on the device and expose no server API - Apple in
-particular has no backend for Health at all. Neither a browser, a PWA, nor
-our Supabase functions can read them; it requires a native app wrapper.
-Worth noting the old Google Fit REST API *was* web-accessible but is being
-shut down at the end of 2026 with Health Connect (on-device) as its
-successor, so that route is closing rather than opening.
+The Fitbit/Oura integration was reverted wholesale (`git revert` of
+c354d50). It was never deployed and its migration was never run, so
+nothing to unwind on the server - but leaving an inert "Devices" card that
+shows "no integrations configured" is worse than not having it. Correct
+call by the user: the integration only pays off if enough clients own a
+supported tracker, and it carried real ongoing cost (two OAuth app
+registrations, token refresh, a provider API that breaks on its own
+schedule). Everything is recoverable from that commit if it's ever worth
+revisiting.
 
-The user declined an app-store build, so those two stay out of reach and
-affected clients keep entering steps/sleep by hand. The UI says this
-plainly rather than leaving people hunting for an Apple Health button.
+## Habits belong on Home, not in the nutrition tab
 
-## What IS reachable without going native
+Steps/sleep/water were only reachable inside the food diary, which meant
+the coach-controlled macros-only mode had silently removed habit logging
+from those clients entirely - they had nowhere to record steps or sleep at
+all. Moving the card to Home fixes that as a side effect: it's now on the
+one screen every client sees daily, regardless of nutrition mode.
 
-Most sleep/step data originates on a wearable, and those vendors have
-their own cloud APIs - server-to-server OAuth, no device code. Shipped
-Fitbit and Oura because their developer programmes are self-serve and
-free. Garmin and Whoop both gate API access behind partner approval, so
-they're defined in `PROVIDER_META` and the provider map is shaped to take
-them as a drop-in later, but not implemented on spec.
+The extracted `HabitLogCard` persists itself rather than taking an
+onChange, because Home has no nutrition-saving parent to delegate to the
+way FoodDiary did. It always writes today's date - Home is a "today"
+surface, and the diary's date-scrubbing doesn't apply. Added a small x/3
+counter so the card reads as a daily task rather than three idle inputs.
 
-## It writes into the habits model that already existed
-
-The sync target is `nutrition.habits[date].{steps,sleep}` - the exact shape
-the food diary already wrote by hand. That means every downstream consumer
-(weekly report, client summary, the AI chat's grounding, which all already
-cite "avg steps / avg sleep") picked this up with zero changes. The whole
-feature is an ingestion problem, not a data-model one.
-
-Device values overwrite hand-typed ones for steps/sleep - they're measured,
-and connecting a tracker is the client saying to trust it - and a `source`
-marker records which provider wrote the day. `water` is never touched: no
-wearable reports it, so the manual entry is the only value there is.
-
-## Tokens are readable by nobody
-
-`client_health_connections` and `client_health_oauth_states` have RLS
-enabled and **no policies at all**, so every client/coach/anon request is
-denied and only the edge function's service role can read them. These rows
-are bearer credentials to a client's Fitbit/Oura account; a "select" policy
-here would hand those to whoever matched it. The app therefore never
-receives a token - it asks the function for connection *status*.
-
-The OAuth `state` is a row rather than something passed in the URL, because
-state is what binds a callback to the client who started it: accept an
-unverified client_id there and anyone could attach their wearable to
-someone else's account.
-
-## Redirect URI points at the function, not the app
-
-Registered redirect is the edge function's own `/callback`. It's a stable
-URL (no dependency on where the PWA is hosted), and it keeps the code
-exchange server-side where the client secret lives. The function then
-302s back to wherever the client started, with `?health=connected` for the
-UI to report - stripped from the URL afterwards so a refresh doesn't
-replay the toast.
-
-Migration is written but deliberately NOT run - production database, same
-additive/reviewable rule as the exercise-library work.
+Storage shape is untouched (`nutrition.habits[date]`), so the AI features
+that cite avg steps/sleep keep working with no changes.
 
 ---
 
