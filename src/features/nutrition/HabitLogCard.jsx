@@ -32,7 +32,7 @@ export function HabitLogCard({ client, updateClient }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 9, marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.gold, flexShrink: 0 }} />
-          <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>Today's Habits</span>
+          <span style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>Log today's Habits</span>
         </div>
         <span style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, color: logged === 3 ? T.good : T.dim, flexShrink: 0 }}>{logged}/3</span>
       </div>

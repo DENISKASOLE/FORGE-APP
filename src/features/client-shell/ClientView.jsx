@@ -345,6 +345,8 @@ function ClientHome({ client, updateClient, goTo }) {
       <MomentumRing centerText={`${trainStreak}`} pct={trainStreak ? trainStreak / streakRingTotal : 0} color={HOME_ACCENT.blue} label={"Streak · weeks"} />
     </div>
 
+    {updateClient && <HabitLogCard client={client} updateClient={updateClient} />}
+
     <div className="glass glass-glow" style={{ background: "var(--hero-gradient)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: 18, padding: 16, position: "relative", overflow: "hidden", zIndex: 1 }}>
       <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 600, color: BRAND.gold, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 7 }}>Today's Workout</div>
       {workout ? (
@@ -401,8 +403,6 @@ function ClientHome({ client, updateClient, goTo }) {
     {/* Habits live here rather than in the food diary: every client has
         them, including macros-only clients who can't see the diary at all
         and previously had no way to log steps or sleep. */}
-    {updateClient && <HabitLogCard client={client} updateClient={updateClient} />}
-
     <HomeLearnStrip client={client} goTo={goTo} />
   </div>;
 }
