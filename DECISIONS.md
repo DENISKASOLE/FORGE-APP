@@ -1,3 +1,68 @@
+# Coach-controlled nutrition mode (food log vs macros only) — decisions log
+
+Ask: "the food log at macro tracking is set by coach because some clients
+don't want food logging they just want to jump straight to macro
+tracking. And others when we finish the base week .... all the way to
+maintenance. Now I should be able to switch them to only macro tracking
+where they just track their macros, and they can't see food log again
+unless if I switch them back." Keep everything else working as-is.
+
+## Mode is a separate axis from phase, deliberately
+
+The existing `phase` (baseline → report → adjustment → maintenance) drives
+the *coaching cycle*. The new `tracking_mode` drives *what the client can
+see*. Folding mode into phase (e.g. adding a "macros" phase) was rejected:
+the two genuinely move independently - a brand-new client can be macros-only
+from day one, and a client in maintenance might still be journaling. Keeping
+them orthogonal also means zero change to existing phase behaviour, which
+was the explicit constraint.
+
+`tracking_mode` defaults to `"food_log"`, so every existing client is
+untouched until the coach decides otherwise.
+
+## Hidden, never deleted
+
+Switching to macros-only writes one field. The food log, habits and photos
+stay exactly where they are and reappear intact if the coach switches back.
+The coach-facing copy says so explicitly, because "switch them to macro
+only" could otherwise read as destructive and make a coach hesitate.
+
+## MacroTracker had to learn to be a screen, not just an overlay
+
+It was built as a fixed full-screen overlay (`position: fixed`, z-index
+1050) opened *from inside* the food diary, with a back arrow. For
+macros-only clients it IS the Nutrition tab, so an overlay would cover the
+bottom nav and strand them with a back button leading nowhere. Added an
+`embedded` prop that renders it inline and drops the back arrow, rather
+than forking a second component that would drift.
+
+## Two gaps the literal ask didn't mention but the feature needs
+
+1. **Targets.** A client sent straight to macros-only never runs the report
+   flow, so `report.targets` is empty and the tracker would show raw totals
+   with nothing to aim at - the feature would ship hollow. Added a
+   coach-set `nutrition.targets`, editable in a few taps, which takes
+   precedence over `report.targets`. Stored separately rather than faking a
+   partial `report` object, so the Report screen's shape stays valid.
+2. **Onboarding.** Macros-only skips the supplement-stack setup gate
+   entirely - "jump straight to macro tracking" shouldn't mean "first
+   complete a form about supplements". If they're later switched back to
+   food logging, they get the setup then, which is the right moment for it.
+
+## Creative bits worth keeping
+
+- **A nudge at the moment the ask described.** When a client is in
+  maintenance but still on the food diary, the coach panel surfaces a
+  one-tap "move them to macros only?" prompt. That's exactly the workflow
+  described ("when we finish ... all the way to maintenance, now I should
+  be able to switch them"), turned into something the app raises rather
+  than something the coach has to remember.
+- **The AI is told about the mode.** Without it, the nutrition report would
+  happily coach a macros-only client to "describe your meals in the diary"
+  - advice for a screen they can't reach. The prompt now suppresses that.
+
+---
+
 # Back to Google AI, and the actual root cause of "AI is not working" — decisions log
 
 Ask: "change it to Google ai api no need for the siliconflow because I

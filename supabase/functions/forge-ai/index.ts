@@ -204,7 +204,7 @@ const NUTRITION_REPORT_SCHEMA = {
 };
 
 function nutritionReportPrompt(input: any): string {
-  const { goal, weightKg, phase, weekSummary, hasNumericData, supplementStack, bodyAnalysis } = input;
+  const { goal, weightKg, phase, weekSummary, hasNumericData, supplementStack, bodyAnalysis, macrosOnly } = input;
   return `You are an experienced physique/performance nutrition coach writing a weekly check-in report for your client. Be direct, specific, and encouraging - never generic filler. Base every claim strictly on the data given below; if data is thin, say so plainly rather than inventing specifics.
 
 CLIENT
@@ -217,6 +217,7 @@ ${bodyAnalysis ? `\nBODY COMPOSITION (from the client's uploaded body analysis r
 THIS WEEK'S LOGGED DATA
 ${weekSummary || "No food was logged this week."}
 ${hasNumericData ? "" : "\nNote: this client did not use the macro tracker this week (photo/description diary only, no precise numbers) - do not state precise calorie/macro claims about what they ate; base 'working'/'issues' on the food choices and consistency described, not exact numbers."}
+${macrosOnly ? "\nNote: this client is on MACRO TRACKING ONLY - they have no food diary in the app and cannot photograph or describe meals. Never tell them to log/describe/photograph meals; coach them entirely through their macro numbers and food choices." : ""}
 
 TASK
 Write the report as JSON matching the given schema:

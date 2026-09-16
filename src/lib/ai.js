@@ -150,6 +150,9 @@ export async function draftNutritionReport(client, nutrition) {
     hasNumericData,
     supplementStack,
     bodyAnalysis: buildBodyAnalysisSummary(client),
+    // Macros-only clients have no food diary to describe meals in, so the
+    // report shouldn't coach them on something they can't see.
+    macrosOnly: nutrition.tracking_mode === "macros",
   });
   if (!data?.draft) throw new Error("AI report request returned nothing usable");
 

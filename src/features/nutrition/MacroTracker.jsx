@@ -138,14 +138,19 @@ function SlotCard({ meta, items, onAdd, onDelete }) {
   );
 }
 
-export function MacroTracker({ client, updateClient, onClose }) {
+// embedded = this IS the Nutrition tab (macros-only clients), rather than a
+// full-screen overlay opened from the food diary. Overlaying would cover the
+// bottom nav and strand them, and there's nothing to go "back" to.
+export function MacroTracker({ client, updateClient, onClose, embedded = false }) {
   const nutrition = client.nutrition;
   const [date, setDate] = useState(isoDate());
   const [addingSlot, setAddingSlot] = useState(null);
 
   const day = macroDayFor(nutrition, date);
   const totals = macroDayTotals(day);
-  const targets = nutrition.report?.targets;
+  // Coach-set targets win over the weekly report's, so a macros-only client
+  // who never ran the report flow still has numbers to hit.
+  const targets = nutrition.targets || nutrition.report?.targets;
   const today = isoDate();
 
   async function deleteItem(slot, item) {
@@ -157,13 +162,15 @@ export function MacroTracker({ client, updateClient, onClose }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 1050, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px 0", flexShrink: 0 }}>
-        <button onClick={onClose} style={{ background: T.card2, border: `${T.hairline} solid ${T.line}`, borderRadius: 10, width: 36, height: 36, color: T.muted, fontSize: 16, cursor: "pointer" }}>&larr;</button>
+    <div style={embedded
+      ? { display: "flex", flexDirection: "column" }
+      : { position: "fixed", inset: 0, background: T.bg, zIndex: 1050, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: embedded ? 0 : "16px 16px 0", flexShrink: 0 }}>
+        {!embedded && <button onClick={onClose} style={{ background: T.card2, border: `${T.hairline} solid ${T.line}`, borderRadius: 10, width: 36, height: 36, color: T.muted, fontSize: 16, cursor: "pointer" }}>&larr;</button>}
         <div style={{ fontFamily: T.sans, fontWeight: 600, fontSize: 13, color: T.muted }}>{date === today ? "Today" : date}</div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
+      <div style={{ flex: 1, overflowY: embedded ? "visible" : "auto", padding: embedded ? "12px 0 0" : 16, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
         <MacroCalendarCard nutrition={nutrition} date={date} setDate={setDate} />
 
         <Card style={{ padding: 16, display: "grid", gap: 12 }}>

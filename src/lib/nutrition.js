@@ -2,6 +2,16 @@ import { upsertSection } from "./clientData.js";
 import { isoDate, startOfWeek } from "./dateUtils.js";
 
 export const NUTRITION_PHASES = ["baseline", "report", "adjustment", "maintenance"];
+
+// What the client actually sees on their Nutrition tab, set by the coach.
+// "food_log" is the full journey (photo/description diary, habits, with the
+// macro tracker available from inside it) and stays the default so nothing
+// changes for existing clients. "macros" hides the diary entirely - for
+// clients who never wanted to photograph meals, and for graduates who've
+// come through baseline -> report -> adjustment -> maintenance and now just
+// need to hit numbers. Switching is non-destructive: the food log is hidden,
+// never deleted, and comes back intact if the coach switches them back.
+export const NUTRITION_MODES = ["food_log", "macros"];
 export const MEAL_SLOTS = ["breakfast", "lunch", "dinner"];
 export const MACRO_SLOTS = ["breakfast", "lunch", "dinner", "snacks"];
 
@@ -63,6 +73,7 @@ export function emptySavedMeal() {
 export function emptyNutritionState() {
   return {
     phase: "baseline",
+    tracking_mode: "food_log",
     week_of: weekOfFor(),
     setup_complete: false,
     supplement_stack: [],
@@ -70,6 +81,11 @@ export function emptyNutritionState() {
     habits: {},
     macro_log: {},
     saved_meals: [],
+    // Coach-set macro targets, independent of the weekly report. A client
+    // put straight onto macros-only never runs the report flow, so without
+    // this they'd have nothing to aim at. Takes precedence over
+    // report.targets when both exist.
+    targets: null,
     report: null,
   };
 }
@@ -105,6 +121,7 @@ export function normalizeNutritionState(raw) {
   const savedMeals = Array.isArray(raw.saved_meals) ? raw.saved_meals.map((m) => ({ ...emptySavedMeal(), ...m })) : [];
   return {
     phase: NUTRITION_PHASES.includes(raw.phase) ? raw.phase : base.phase,
+    tracking_mode: NUTRITION_MODES.includes(raw.tracking_mode) ? raw.tracking_mode : base.tracking_mode,
     week_of: raw.week_of || base.week_of,
     setup_complete: !!raw.setup_complete,
     supplement_stack: Array.isArray(raw.supplement_stack) ? raw.supplement_stack : [],
@@ -112,6 +129,7 @@ export function normalizeNutritionState(raw) {
     habits,
     macro_log: macroLog,
     saved_meals: savedMeals,
+    targets: raw.targets && typeof raw.targets === "object" ? raw.targets : null,
     report: raw.report || null,
   };
 }
