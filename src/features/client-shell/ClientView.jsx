@@ -15,6 +15,7 @@ import { sessionForWorkout, parseSeconds } from "../../lib/trainingLogs.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
 import { ClientAIChat } from "../coach/ClientAIChat.jsx";
+import { ConnectedDevices } from "../health/ConnectedDevices.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
 import { PackagesTab } from "../scheduling/PackagesTab.jsx";
 import { PaymentsTab } from "../payments/PaymentsTab.jsx";
@@ -43,7 +44,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"],
     isOnline ? ["checkins", "Check-ins"] : ["schedule", "Schedule"],
     isOnline ? ["payments", "Payments"] : ["packages", "Packages"],
-    ["messages", "Messages"], ["invite", "Invite"],
+    ["messages", "Messages"], ["devices", "Devices"], ["invite", "Invite"],
   ] : [
     ["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"],
     ...(isOnline ? [["checkins", "Check-ins"], ["payments", "Payments"]] : []),
@@ -77,6 +78,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
     {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "ai_coach" && !isCoach && <ClientAIChat client={client} updateClient={updateClient} />}
+    {tab === "devices" && <ConnectedDevices client={client} refresh={refresh} />}
   </>;
 
   // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
@@ -120,7 +122,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
 
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
-  const parentHub = ["payments", "profile", "progress_hub"].includes(tab) ? "me_hub" : null;
+  const parentHub = ["payments", "profile", "progress_hub", "devices"].includes(tab) ? "me_hub" : null;
   const parentHubLabel = "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   const trainCards = [
@@ -131,6 +133,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const meCards = [
     ...(isCoach ? [] : [{ key: "whatsapp", icon: "msg", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
     { key: "progress_hub", icon: "progress", color: BRAND.blue, title: "Progress", sub: "Trends, photos & check-ins" },
+    { key: "devices", icon: "check", color: BRAND.green, title: "Devices", sub: "Sync steps & sleep automatically" },
     { key: "profile", icon: "me", color: BRAND.violet, title: "Profile", sub: "Your details & settings" },
     { key: "payments", icon: "card", color: BRAND.yellow, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },
