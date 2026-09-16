@@ -26,6 +26,7 @@ import { TransformPhotos } from "../progress/TransformPhotos.jsx";
 import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
 import { HabitLogCard } from "../nutrition/HabitLogCard.jsx";
+import { MACRO_SLOTS, macroDayFor } from "../../lib/nutrition.js";
 import { ScreeningGate } from "../screening/ScreeningGate.jsx";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 
@@ -263,9 +264,16 @@ function ClientHome({ client, updateClient, goTo }) {
   const trainStreak = currentStreakWeeks(completedSessionDates);
   const streakRingTotal = Math.max(trainStreak + 1, 4); // always render "near-full", per spec
 
+  // Macros-only clients never write food_log at all (that screen is hidden
+  // from them - see NutritionFlow's tracking_mode routing), so this used to
+  // read as permanently 0/4 for them regardless of how much they'd
+  // actually logged. Read from whichever store the client's mode actually
+  // writes to, using the same four slots either way.
   const nutrition = client.nutrition;
-  const todaysLog = nutrition.food_log[todayISO];
-  const mealFlags = [!!todaysLog?.breakfast, !!todaysLog?.lunch, !!todaysLog?.dinner, !!todaysLog?.snacks?.length];
+  const macrosOnly = nutrition.tracking_mode === "macros";
+  const mealFlags = macrosOnly
+    ? (() => { const d = macroDayFor(nutrition, todayISO); return MACRO_SLOTS.map((s) => !!d[s]?.length); })()
+    : (() => { const d = nutrition.food_log[todayISO]; return [!!d?.breakfast, !!d?.lunch, !!d?.dinner, !!d?.snacks?.length]; })();
   const loggedCount = mealFlags.filter(Boolean).length;
   const mealGoal = 4;
 
