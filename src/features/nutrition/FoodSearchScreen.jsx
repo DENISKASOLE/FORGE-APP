@@ -11,7 +11,16 @@ import { searchFoods, getFoodServings } from "../../lib/fatsecret.js";
 import { MACRO_SLOTS, macroDayFor, saveNutritionState } from "../../lib/nutrition.js";
 
 const SLOT_LABELS = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" };
-const TABS = [["search", "Search"], ["saved", "Saved Meals"], ["recent", "Recent"], ["custom", "Custom"]];
+// Each tab carries its own colour so the selected one reads at a glance.
+// The previous version filled the selected pill with T.gold and wrote on it
+// in #fff - and T.gold is `var(--accent)`, which is pure white in dark mode,
+// so the active tab was white text on a white pill: invisible.
+const TABS = [
+  ["search", "Search", T.blue],
+  ["saved", "Saved Meals", T.violet],
+  ["recent", "Recent", T.good],
+  ["custom", "Custom", T.warn],
+];
 
 function MacroPreview({ kcal, protein, carbs, fats }) {
   return (
@@ -205,9 +214,24 @@ export function FoodSearchScreen({ client, updateClient, date, slot, onClose }) 
       </div>
 
       <div style={{ display: "flex", gap: 6, padding: "14px 16px 0", flexShrink: 0, overflowX: "auto" }}>
-        {TABS.map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ flexShrink: 0, fontFamily: T.sans, fontWeight: 600, fontSize: 12, padding: "8px 14px", borderRadius: 999, border: `${T.hairline} solid ${tab === k ? "transparent" : T.line}`, background: tab === k ? T.gold : T.card2, color: tab === k ? "#fff" : T.muted, cursor: "pointer" }}>{label}</button>
-        ))}
+        {TABS.map(([k, label, color]) => {
+          const active = tab === k;
+          return (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              style={{
+                flexShrink: 0, fontFamily: T.sans, fontWeight: active ? 700 : 600, fontSize: 12,
+                padding: "8px 14px", borderRadius: 999, cursor: "pointer",
+                // Tinted fill + the colour itself as text: readable in both
+                // themes, unlike a solid fill that has to guess an ink colour.
+                background: active ? `color-mix(in srgb, ${color} 22%, transparent)` : T.card2,
+                border: `1.5px solid ${active ? color : T.line}`,
+                color: active ? color : T.muted,
+              }}
+            >{label}</button>
+          );
+        })}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px 24px", display: "grid", gap: 10, alignContent: "start" }}>
@@ -216,8 +240,31 @@ export function FoodSearchScreen({ client, updateClient, date, slot, onClose }) 
             <div style={{ display: "flex", gap: 8 }}>
               <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search a food, e.g. chicken breast" style={{ ...inputStyle(), flex: 1 }} />
             </div>
-            <button onClick={() => { setBuilding((v) => !v); if (building) setBuilderItems([]); }} style={{ justifySelf: "start", background: "none", border: "none", padding: 0, color: building ? T.bad : T.blue, fontFamily: T.sans, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
-              {building ? "✕ Cancel building a meal" : "✚ Building a meal? Combine multiple foods and save them together"}
+            {/* Was a bare line of blue text that read as a stray caption
+                rather than something tappable. Now a real, full-width
+                action, with the explanation demoted to a subtitle. */}
+            <button
+              onClick={() => { setBuilding((v) => !v); if (building) setBuilderItems([]); }}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                background: building ? T.badBg : T.card2,
+                border: `1.5px ${building ? "solid" : "dashed"} ${building ? T.bad : T.blue}`,
+                borderRadius: 14, padding: "12px 14px", cursor: "pointer", fontFamily: T.sans,
+              }}
+            >
+              <span style={{
+                flexShrink: 0, width: 30, height: 30, borderRadius: 10, display: "grid", placeItems: "center",
+                background: `color-mix(in srgb, ${building ? T.bad : T.blue} 20%, transparent)`,
+                color: building ? T.bad : T.blue, fontSize: 15, fontWeight: 700, lineHeight: 1,
+              }}>{building ? "✕" : "✚"}</span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontWeight: 700, fontSize: 13, color: building ? T.bad : T.accent }}>
+                  {building ? "Cancel building a meal" : "Build a meal"}
+                </span>
+                <span style={{ display: "block", fontWeight: 400, fontSize: 11, color: T.muted, marginTop: 2 }}>
+                  {building ? "Discards what you've added so far" : "Combine multiple foods and save them together"}
+                </span>
+              </span>
             </button>
             {searching && <div style={{ color: T.muted, fontSize: 13 }}>Searching...</div>}
             {!searching && trimmedQuery && visibleResults.length === 0 && <div style={{ color: T.muted, fontSize: 13 }}>No results for "{query}".</div>}

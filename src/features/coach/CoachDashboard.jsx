@@ -253,7 +253,10 @@ export function NotificationsTab({ notifications, selectClient }) {
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         {[["all", "All"], ["unhandled", "Unhandled"], ["handled", "Handled"]].map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} style={{ background: filter === k ? BRAND.gold : BRAND.card, color: filter === k ? "#fff" : BRAND.muted, border: filter === k ? "none" : `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, padding: "6px 14px", fontFamily: BRAND.sans, fontWeight: filter === k ? 600 : 500, fontSize: 11, cursor: "pointer" }}>{label}</button>
+          // BRAND.gold is var(--accent) = white in dark mode, so "#fff" text
+          // on it made the selected filter unreadable. btnInk is the ink
+          // token meant to sit on an accent fill.
+          <button key={k} onClick={() => setFilter(k)} style={{ background: filter === k ? BRAND.gold : BRAND.card, color: filter === k ? BRAND.btnInk : BRAND.muted, border: filter === k ? "none" : `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, padding: "6px 14px", fontFamily: BRAND.sans, fontWeight: filter === k ? 600 : 500, fontSize: 11, cursor: "pointer" }}>{label}</button>
         ))}
       </div>
       {shown.length === 0 && <Card><div style={{ color: BRAND.muted }}>{filter === "unhandled" ? "You're all caught up. No unhandled alerts." : "Nothing here."}</div></Card>}
@@ -270,7 +273,10 @@ export function NotificationsTab({ notifications, selectClient }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 7 }}>
-              <button onClick={() => selectClient(n.client)} style={{ flex: 1, background: tone.fg, border: "none", borderRadius: 10, padding: 9, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 11, color: "#fff", cursor: "pointer" }}>Open Client</button>
+              {/* btnInk rather than #fff: these tone colours are light tints
+                  in dark mode (#FFC94A, #FF6B61...), where white text barely
+                  reads. btnInk inverts with the theme and works on all five. */}
+              <button onClick={() => selectClient(n.client)} style={{ flex: 1, background: tone.fg, border: "none", borderRadius: 10, padding: 9, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 11, color: BRAND.btnInk, cursor: "pointer" }}>Open Client</button>
               {!isHandled && <button onClick={() => markHandled(n.id)} style={{ flex: 1, background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 10, padding: 9, fontFamily: BRAND.sans, fontWeight: 500, fontSize: 11, color: BRAND.muted, cursor: "pointer" }}>Mark Handled</button>}
             </div>
           </div>
