@@ -17,6 +17,11 @@
 
 :root, [data-theme="light"]{
   --shell:#EFEFEF; --page:#FAFAFA; --card:rgba(255,255,255,.55); --card-soft:rgba(255,255,255,.4); --chip:rgba(255,255,255,.65);
+  /* Opaque surface for bottom sheets. Every other surface token is
+     deliberately translucent, which is right for cards floating over a
+     page - but a sheet is a form you fill in, and letting the page bleed
+     through it makes labels and placeholders unreadable. */
+  --sheet:#FFFFFF;
   --line:rgba(10,9,11,.10); --line-soft:rgba(10,9,11,.06); --line-strong:rgba(10,9,11,.20);
   --ink:#000000; --ink-2:#5C5C5C; --ink-3:#8A8A8A;
   --green:#2E9B68; --green-bg:rgba(46,155,104,.13);
@@ -43,6 +48,7 @@
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
   --shell:#000000; --page:#000000; --card:rgba(255,255,255,.05); --card-soft:rgba(255,255,255,.03); --chip:rgba(255,255,255,.06);
+  --sheet:#17161A;
   --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.05); --line-strong:rgba(255,255,255,.18);
   --ink:#FFFFFF; --ink-2:#ABA9A4; --ink-3:#727069;
   --green:#5FBE86; --green-bg:rgba(95,190,134,.14);
