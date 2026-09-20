@@ -159,7 +159,6 @@ export function mapClient(row, dataRows = [], index = 0) {
     paymentPaid: !!profile.paymentPaid,
     price: profile.price || "",
     checkIns: sections.checkins?.submissions || [],
-    vacation: sections.vacation_mode || null,
     messages: sections.messages?.list || [],
     aiChat: sections.ai_chat?.list || [],
     bodyAnalysis: sections.body_analysis?.reports || [],

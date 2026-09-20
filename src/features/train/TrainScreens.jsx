@@ -985,142 +985,6 @@ export function DayDetail({ day, onBack, onStart, canStart }) {
   );
 }
 // ---------- ProgramTab: coach + client entry point ----------
-export function isVacationActive(vacation) {
-  if (!vacation?.startDate || !vacation?.endDate) return false;
-  const today = isoDate();
-  return today >= vacation.startDate && today <= vacation.endDate;
-}
-export function VacationModeModal({ client, vacation, onClose, onSave, onEnd }) {
-  const [startDate, setStartDate] = useState(vacation?.startDate || isoDate());
-  const [endDate, setEndDate] = useState(vacation?.endDate || isoDate(addDays(new Date(), 6)));
-  const [workoutName, setWorkoutName] = useState(vacation?.workout?.name || "Bodyweight Full Body");
-  const [exercises, setExercises] = useState(vacation?.workout?.exercises?.length ? vacation.workout.exercises : [
-    { id: uid(), name: "Goblet Squat", sets: "3", reps: "15", videoUrl: "" },
-    { id: uid(), name: "Push-Up", sets: "3", reps: "12", videoUrl: "" },
-    { id: uid(), name: "Plank", sets: "3", reps: "45s", videoUrl: "" },
-  ]);
-  const [saving, setSaving] = useState(false);
-  const [pickSource, setPickSource] = useState("library");
-  const [addSearch, setAddSearch] = useState("");
-  const [showAddCustom, setShowAddCustom] = useState(false);
-  const [customLibrary, setCustomLibrary] = useState([]);
-  const exerciseLibrary = useExerciseLibrary();
-  useEffect(() => { if (client.trainer_id) loadExerciseLibraryData(client.trainer_id).then(setCustomLibrary); }, [client.trainer_id]);
-  const customVideoMap = Object.fromEntries(customLibrary.filter((it) => it.videoUrl).map((it) => [it.name, it.videoUrl]));
-  const customNames = customLibrary.map((it) => it.name);
-  const suggestions = !addSearch ? [] : (pickSource === "mine" ? customNames : exerciseLibrary).filter((n) => n.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 12);
-
-  function updateEx(id, patch) { setExercises((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))); }
-  function removeEx(id) { setExercises((prev) => prev.filter((e) => e.id !== id)); }
-  function addExercise(name) {
-    const videoUrl = customVideoMap[name] || "";
-    setExercises((prev) => [...prev, { id: uid(), name, sets: "3", reps: "12", videoUrl }]);
-    setAddSearch("");
-  }
-  async function save() {
-    if (!startDate || !endDate || startDate > endDate) { showToast("Check the dates - start must be before end.", "warn"); return; }
-    if (exercises.length === 0) { showToast("Add at least one exercise.", "warn"); return; }
-    setSaving(true);
-    await onSave({ startDate, endDate, workout: { name: workoutName, exercises } });
-    setSaving(false);
-  }
-  return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ fontSize: 19, fontWeight: 500 }}>Set Vacation Mode</div>
-          <Button variant="ghost" onClick={onClose}>X</Button>
-        </div>
-        <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 14 }}>{client.name?.split(" ")[0]}'s regular program stays exactly where it is - this just sits on top temporarily, then hands back automatically.</div>
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase" }}>Dates</div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={inputStyle()} />
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={inputStyle()} />
-        </div>
-        <Field label="Workout name" value={workoutName} onChange={setWorkoutName} placeholder="e.g. Bodyweight Full Body" />
-        <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, margin: "14px 0 8px", textTransform: "uppercase" }}>Home Workout Plan</div>
-        {exercises.map((ex) => {
-          const thumb = getVideoThumb(ex.videoUrl);
-          return (
-            <div key={ex.id} style={{ background: BRAND.card2, borderRadius: BRAND.radiusControl, padding: 10, marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {thumb ? <img src={thumb.thumb} alt="Exercise video" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: BRAND.radiusControl, flexShrink: 0 }} /> : <div style={{ width: 40, height: 40, borderRadius: BRAND.radiusControl, background: BRAND.panel, flexShrink: 0 }} />}
-                <div style={{ flex: 1, fontWeight: 500, fontSize: 13, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.name}</div>
-                <button onClick={() => removeEx(ex.id)} style={{ background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, fontSize: 15, cursor: "pointer", flexShrink: 0 }}>x</button>
-              </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                <input value={ex.sets} onChange={(e) => updateEx(ex.id, { sets: e.target.value })} placeholder="sets" style={inputStyle()} />
-                <input value={ex.reps} onChange={(e) => updateEx(ex.id, { reps: e.target.value })} placeholder="reps" style={inputStyle()} />
-              </div>
-              <input value={ex.videoUrl || ""} onChange={(e) => updateEx(ex.id, { videoUrl: e.target.value })} placeholder="Video link (https://...)" style={{ ...inputStyle(), marginTop: 6 }} />
-            </div>
-          );
-        })}
-        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginTop: 10, marginBottom: 8 }}>
-          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
-          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
-        </div>
-        <input placeholder={pickSource === "mine" ? "Search your exercises..." : "Search exercises to add..."} value={addSearch} onChange={(e) => setAddSearch(e.target.value)} style={inputStyle()} />
-        {addSearch && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ {n}</button>)}
-            {pickSource === "library" && suggestions.length === 0 && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
-          </div>
-        )}
-        <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 16 }}>{saving ? "Saving..." : "Activate Vacation Mode"}</Button>
-        {vacation && <Button variant="red" onClick={onEnd} style={{ width: "100%", marginTop: 8 }}>End Vacation Mode Now</Button>}
-      </Card>
-    </div>
-  );
-}
-export function VacationBanner({ vacation, isCoach, onEdit, onToggleDone, doneToday }) {
-  const [playingVideo, setPlayingVideo] = useState(null);
-  const taxonomyMap = useExerciseTaxonomyMap();
-  const active = isVacationActive(vacation);
-  if (!active) return null;
-  const fmt = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return (
-    <Card style={{ padding: 14, background: BRAND.yellowBg, border: `1px solid ${BRAND.yellow}`, marginBottom: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 20 }}>🏖️</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Vacation Mode Active</div>
-          <div style={{ color: BRAND.text, fontWeight: 400, fontSize: 12, marginTop: 2 }}>{fmt(vacation.startDate)} - {fmt(vacation.endDate)} · Regular program paused, resumes automatically</div>
-        </div>
-        {isCoach && <button onClick={onEdit} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 12px", color: BRAND.text, fontWeight: 500, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Edit</button>}
-      </div>
-      <div style={{ background: BRAND.card2, borderRadius: BRAND.radiusControl, padding: 12, marginTop: 12 }}>
-        <div style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500, textTransform: "uppercase", marginBottom: 6 }}>Today's Home Workout</div>
-        <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 8 }}>{vacation.workout?.name}</div>
-        {(vacation.workout?.exercises || []).map((ex) => {
-          const thumb = getVideoThumb(ex.videoUrl);
-          const exMeta = getExerciseMeta(ex.name, { dbMetaByName: taxonomyMap });
-          return (
-            <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `${BRAND.hairline} solid ${BRAND.line}` }}>
-              {thumb ? (
-                <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", position: "relative", flexShrink: 0 }}>
-                  <img src={thumb.thumb} alt="Exercise video" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}` }} />
-                  <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 9 }}>▶</div></div>
-                </button>
-              ) : <div style={{ width: 44, height: 44, borderRadius: BRAND.radiusControl, background: BRAND.panel, flexShrink: 0 }} />}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 400, fontSize: 13 }}>{ex.name}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
-                  <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400 }}>{ex.sets} x {ex.reps}</div>
-                  {exMeta?.muscleGroup && <MuscleGroupTag muscleGroup={exMeta.muscleGroup} />}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {!isCoach && (
-          <button onClick={onToggleDone} style={{ width: "100%", marginTop: 12, padding: 12, borderRadius: 999, border: "none", background: doneToday ? BRAND.green : BRAND.yellow, color: "#000", fontWeight: 500, fontSize: 13, cursor: "pointer" }}>{doneToday ? "✓ Marked Done Today" : "Mark Today's Workout Done"}</button>
-        )}
-      </div>
-      {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
-    </Card>
-  );
-}
 export function ProgramTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [program, setProgram] = useState(client.program?.version === 2 ? client.program : null);
@@ -1134,8 +998,6 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   const [openKey, setOpenKey] = useState(null);
   const [weekNum, setWeekNum] = useState(() => currentProgramWeek(client.program));
   const [monthCursor, setMonthCursor] = useState(() => new Date());
-  const [vacation, setVacation] = useState(client.vacation || null);
-  const [showVacationModal, setShowVacationModal] = useState(false);
   const days = useMemo(() => buildProgramDays(program, logs), [program, logs]);
   async function persist(nextProgram, nextLogs) {
     updateClient({ ...client, program: nextProgram, trainingLogs: nextLogs });
@@ -1145,28 +1007,6 @@ export function ProgramTab({ client, updateClient, isCoach }) {
     if (failed) showToast(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`, "error");
   }
   function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setAiDraft(null); setWeekNum(currentProgramWeek(p)); }
-  async function saveVacation(data) {
-    const next = { ...vacation, ...data, completedDates: vacation?.completedDates || [] };
-    setVacation(next);
-    updateClient({ ...client, vacation: next });
-    await upsertSection(client.id, "vacation_mode", next);
-    setShowVacationModal(false);
-  }
-  async function endVacation() {
-    const next = { ...vacation, endDate: isoDate(addDays(new Date(), -1)) };
-    setVacation(next);
-    updateClient({ ...client, vacation: next });
-    await upsertSection(client.id, "vacation_mode", next);
-    setShowVacationModal(false);
-  }
-  async function toggleVacationDoneToday() {
-    const today = isoDate();
-    const completedDates = vacation.completedDates || [];
-    const next = { ...vacation, completedDates: completedDates.includes(today) ? completedDates.filter((d) => d !== today) : [...completedDates, today] };
-    setVacation(next);
-    updateClient({ ...client, vacation: next });
-    await upsertSection(client.id, "vacation_mode", next);
-  }
   function saveLogs(l) { setLogs(l); persist(program, l); }
   function startOrContinue(day) {
     const existing = sessionForWorkout(logs, day.week.id, day.workout.id);
@@ -1195,14 +1035,11 @@ export function ProgramTab({ client, updateClient, isCoach }) {
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
-            {isCoach && <Button variant="dark" onClick={() => setShowVacationModal(true)}>{isVacationActive(vacation) ? "Vacation Mode" : "Set Vacation Mode"}</Button>}
             {isCoach && <Button variant="dark" onClick={() => setAssistant(true)}>Ask AI ✨</Button>}
             {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
           </div>
         </div>
       </Card>
-      <VacationBanner vacation={vacation} isCoach={isCoach} onEdit={() => setShowVacationModal(true)} onToggleDone={toggleVacationDoneToday} doneToday={(vacation?.completedDates || []).includes(isoDate())} />
-      {showVacationModal && <VacationModeModal client={client} vacation={vacation} onClose={() => setShowVacationModal(false)} onSave={saveVacation} onEnd={endVacation} />}
       {!program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
       {program && openDay && (
         openDay.state === "completed"
