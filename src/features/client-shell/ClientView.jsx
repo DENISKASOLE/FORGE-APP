@@ -71,7 +71,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "progress_hub" && <ProgressHub client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
-    {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} />}
+    {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "learn" && <LearnTab client={client} />}
     {tab === "intake" && <IntakeForm client={client} updateClient={updateClient} goTo={setTab} />}

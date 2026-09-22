@@ -257,12 +257,23 @@ export async function markClientPaidAfterCheckout(client, updateClient) {
   await markBuddyPairPaid(client.id);
 }
 
+// One feature per line in the textarea <-> a clean bullet list for the
+// client. Kept as plain newline-separated text rather than a repeating
+// field group - a coach describing "what's included" is writing prose
+// line by line, not filling out a form.
+function featuresToText(features) { return (features || []).join("\n"); }
+function textToFeatures(text) { return text.split("\n").map((l) => l.trim()).filter(Boolean); }
+
 export function PaymentsTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [dueDate, setDueDate] = useState(client.paymentDueDate || "");
   const [price, setPrice] = useState(client.price || "");
+  const [packageName, setPackageName] = useState(client.profile?.packageName || "");
+  const [featuresText, setFeaturesText] = useState(featuresToText(client.profile?.packageFeatures));
   const [saving, setSaving] = useState(false);
+  const [savingPackage, setSavingPackage] = useState(false);
   const status = paymentStatus(client);
+  const packageFeatures = client.profile?.packageFeatures || [];
   async function persist(next) {
     await upsertSection(client.id, "profile", { ...client.profile, ...next });
     updateClient({ ...client, ...next, profile: { ...client.profile, ...next } });
@@ -271,25 +282,63 @@ export function PaymentsTab({ client, updateClient, isCoach }) {
   async function markPaid() { await persist({ paymentPaid: true }); await markBuddyPairPaid(client.id); }
   async function renew30() { const next = new Date(); next.setDate(next.getDate() + 30); const nextDate = isoDate(next); setDueDate(nextDate); await persist({ paymentDueDate: nextDate, paymentPaid: false }); }
   async function savePrice() { setSaving(true); await persist({ price }); setSaving(false); }
+  async function savePackage() { setSavingPackage(true); await persist({ packageName, packageFeatures: textToFeatures(featuresText) }); setSavingPackage(false); }
   async function onPaid() { await markClientPaidAfterCheckout(client, updateClient); }
   return (
     <Card style={{ padding: isMobile ? 12 : 16 }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 12 }}>Payments</div>
-      <div className="glass" style={{ border: `1px solid ${status.color}`, padding: 14, marginBottom: 16 }}>
-        <div style={{ fontFamily: BRAND.sans, color: status.color, fontWeight: 500, fontSize: 16 }}>{status.label}</div>
-        {client.price && <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 15, fontWeight: 500, marginTop: 4 }}>${client.price} / month</div>}
-        {client.paymentDueDate && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Due date: {client.paymentDueDate}</div>}
-      </div>
+
+      {/* Client-facing: what they're actually paying for, not just a
+          number - a named plan with what's included, price, and due date
+          together in one card, shown before they're asked to pay. */}
+      {!isCoach && (client.price || client.profile?.packageName) && (
+        <div className="glass" style={{ border: `1px solid ${status.color}`, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontFamily: BRAND.sans, color: status.color, fontWeight: 500, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>{status.label}</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 500, color: BRAND.text, marginTop: 6 }}>{client.profile?.packageName || "Your Coaching Plan"}</div>
+          {packageFeatures.length > 0 && (
+            <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
+              {packageFeatures.map((f, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <span style={{ color: BRAND.green, fontSize: 13, fontWeight: 700, lineHeight: 1.5, flexShrink: 0 }}>✓</span>
+                  <span style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 13, lineHeight: 1.5 }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 14, paddingTop: 12, borderTop: `${BRAND.hairline} solid ${BRAND.line}` }}>
+            {client.price ? (<><span style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 700, color: BRAND.text }}>${client.price}</span><span style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12 }}>/ month</span></>) : (
+              <span style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13 }}>Your coach has not set a price yet.</span>
+            )}
+          </div>
+          {client.paymentDueDate && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, marginTop: 6 }}>Due date: {client.paymentDueDate}</div>}
+        </div>
+      )}
+      {isCoach && (
+        <div className="glass" style={{ border: `1px solid ${status.color}`, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontFamily: BRAND.sans, color: status.color, fontWeight: 500, fontSize: 16 }}>{status.label}</div>
+          {client.price && <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 15, fontWeight: 500, marginTop: 4 }}>${client.price} / month</div>}
+          {client.paymentDueDate && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, marginTop: 4 }}>Due date: {client.paymentDueDate}</div>}
+        </div>
+      )}
+
+      {!isCoach && !client.price && !client.profile?.packageName && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, marginBottom: 8 }}>Your coach has not set a price yet.</div>}
       {!isCoach && client.price && !client.paymentPaid && (
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontFamily: BRAND.sans, fontSize: 13, fontWeight: 500, marginBottom: 8, color: BRAND.muted }}>Pay ${client.price} — PayPal, card, Apple Pay or Google Pay</div>
           <PayPalCheckout client={client} amount={client.price} onPaid={onPaid} />
         </div>
       )}
-      {!isCoach && !client.price && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13 }}>Your coach has not set a price yet.</div>}
       {!isCoach && client.paymentPaid && <div style={{ fontFamily: BRAND.sans, color: BRAND.green, fontWeight: 500, fontSize: 14 }}>You are paid up. Thank you.</div>}
       {isCoach && (
         <>
+          <div style={{ marginBottom: 12 }}>
+            <Field label="Package name" value={packageName} onChange={setPackageName} placeholder="e.g. Elite Transformation" />
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" }}>What's included (one per line)</div>
+              <textarea value={featuresText} onChange={(e) => setFeaturesText(e.target.value)} rows={4} placeholder={"4 sessions per week\nCustom nutrition plan\nWeekly check-ins & AI progress reports"} style={{ width: "100%", boxSizing: "border-box", background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, color: BRAND.text, padding: 12, fontFamily: BRAND.sans, fontSize: 13, resize: "vertical" }} />
+            </div>
+            <Button onClick={savePackage} disabled={savingPackage} style={{ marginTop: 8 }}>{savingPackage ? "Saving..." : "Save Package"}</Button>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 8, marginBottom: 12 }}>
             <Field label="Monthly price (USD)" value={price} onChange={setPrice} type="number" />
             <Button onClick={savePrice} disabled={saving} style={{ alignSelf: "end" }}>Set Price</Button>
@@ -302,7 +351,7 @@ export function PaymentsTab({ client, updateClient, isCoach }) {
             <Button variant="dark" onClick={markPaid}>Mark as Paid</Button>
             <Button variant="dark" onClick={renew30}>Mark Paid & Renew 30 Days</Button>
           </div>
-          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, lineHeight: 1.6, marginTop: 12 }}>Set a monthly price so the client can pay in-app. Reminders go out 5 and 2 days before, and if overdue.</div>
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 12, lineHeight: 1.6, marginTop: 12 }}>Name the package and list what's included so the client sees exactly what they're paying for, not just a number. Reminders go out 5 and 2 days before, and if overdue.</div>
         </>
       )}
     </Card>

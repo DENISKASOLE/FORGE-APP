@@ -8,7 +8,7 @@ import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { moneyAED, upsertSection } from "../../lib/clientData.js";
 
-export function PackagesTab({ client, updateClient }) {
+export function PackagesTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [packages, setPackages] = useState(client.packages || []);
   const [form, setForm] = useState({ name: "10 Session Pack", total: 10, used: 0, price: "", paid: false });
@@ -24,19 +24,23 @@ export function PackagesTab({ client, updateClient }) {
         <Mini label="Used" value={usedSessions} />
         <Mini label="Left" value={Math.max(totalSessions - usedSessions, 0)} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-        <Field label="Package name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-        <Field label="Total sessions" type="number" value={form.total} onChange={(v) => setForm({ ...form, total: v })} />
-        <Field label="Used sessions" type="number" value={form.used} onChange={(v) => setForm({ ...form, used: v })} />
-        <Field label="Price AED" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} />
-      </div>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14 }}>
-        <input type="checkbox" checked={form.paid} onChange={(e) => setForm({ ...form, paid: e.target.checked })} /> Paid
-      </label>
-      <Button onClick={addPackage} style={{ marginTop: 12 }}>Add Package</Button>
+      {isCoach && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
+            <Field label="Package name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field label="Total sessions" type="number" value={form.total} onChange={(v) => setForm({ ...form, total: v })} />
+            <Field label="Used sessions" type="number" value={form.used} onChange={(v) => setForm({ ...form, used: v })} />
+            <Field label="Price AED" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14 }}>
+            <input type="checkbox" checked={form.paid} onChange={(e) => setForm({ ...form, paid: e.target.checked })} /> Paid
+          </label>
+          <Button onClick={addPackage} style={{ marginTop: 12 }}>Add Package</Button>
+        </>
+      )}
       <div style={{ marginTop: 14 }}>
         {packages.length === 0 ? (
-          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, textAlign: "center", padding: "12px 0" }}>No packages yet. Add one above.</div>
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, textAlign: "center", padding: "12px 0" }}>{isCoach ? "No packages yet. Add one above." : "Your coach hasn't added a package yet."}</div>
         ) : packages.map((p) => {
           const total = Number(p.total || 0);
           const used = Number(p.used || 0);
@@ -54,10 +58,12 @@ export function PackagesTab({ client, updateClient }) {
                     <div style={{ height: "100%", width: `${pct}%`, background: BRAND.green, borderRadius: 999 }} />
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <Button variant="dark" onClick={() => save(packages.map((x) => x.id === p.id ? { ...x, used: Math.min(Number(x.used || 0) + 1, Number(x.total || 0)) } : x))}>+ Use</Button>
-                  <Button variant="red" onClick={() => save(packages.filter((x) => x.id !== p.id))}>x</Button>
-                </div>
+                {isCoach && (
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <Button variant="dark" onClick={() => save(packages.map((x) => x.id === p.id ? { ...x, used: Math.min(Number(x.used || 0) + 1, Number(x.total || 0)) } : x))}>+ Use</Button>
+                    <Button variant="red" onClick={() => save(packages.filter((x) => x.id !== p.id))}>x</Button>
+                  </div>
+                )}
               </div>
             </div>
           );
