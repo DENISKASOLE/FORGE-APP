@@ -10,6 +10,9 @@ import { uid } from "../../lib/uid.js";
 import { isoDate, currentStreakWeeks, isCheckInDue, hasSubmittedThisCheckInWindow } from "../../lib/dateUtils.js";
 import { daysSince, upsertSection, upsertTrainerData } from "../../lib/clientData.js";
 import { DEFAULT_CHECKIN_QUESTIONS } from "../../lib/constants.js";
+import { compressImage } from "../../lib/compressImage.js";
+import { uploadClientPhoto, usePhotoUrl } from "../../lib/storage.js";
+import { showToast } from "../../components/ui/Toast.jsx";
 
 async function loadCheckInTemplate(trainerId) {
   if (!trainerId) return DEFAULT_CHECKIN_QUESTIONS;
@@ -61,6 +64,35 @@ function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
     </div>
   );
 }
+// Attaching a photo here writes straight into transformPhotos - the same
+// section the Photos tab reads from - so it shows up there automatically,
+// with no separate "check-in photos" store to keep in sync. checkInId on
+// the saved photo just lets the check-in history show its own thumbnail
+// back; the Photos tab doesn't need it and ignores it.
+function CheckInPhotoPicker({ file, previewUrl, onPick, onClear }) {
+  return (
+    <div>
+      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.14em" }}>Progress photo (optional)</div>
+      {previewUrl ? (
+        <div style={{ position: "relative", width: 140 }}>
+          <img src={previewUrl} alt="preview" style={{ width: 140, aspectRatio: "3/4", objectFit: "cover", borderRadius: 14 }} />
+          <button onClick={onClear} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 26, height: 26, fontWeight: 500, cursor: "pointer" }}>x</button>
+        </div>
+      ) : (
+        <label style={{ display: "grid", placeItems: "center", width: 140, aspectRatio: "3/4", background: BRAND.card2, border: `2px dashed ${BRAND.line}`, borderRadius: 14, cursor: "pointer", color: BRAND.muted, fontWeight: 500, fontSize: 12, textAlign: "center", padding: 8 }}>
+          📷 Add photo
+          <input type="file" accept="image/*" capture="environment" onChange={(e) => onPick(e.target.files?.[0])} style={{ display: "none" }} />
+        </label>
+      )}
+      <div style={{ color: BRAND.dim, fontSize: 11, marginTop: 6 }}>Lands in your Photos tab so your coach can track visual progress alongside your answers.</div>
+    </div>
+  );
+}
+function CheckInThumb({ photo }) {
+  const url = usePhotoUrl(photo.image);
+  if (!url) return null;
+  return <img src={url} alt="Progress photo" style={{ width: 34, height: 34, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />;
+}
 function computeCheckInFlags(template, answers) {
   const low = ["Struggling", "Poor", "Fair", "50-74%", "Below 50%"];
   const flags = [];
@@ -78,6 +110,8 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
   const [answers, setAnswers] = useState({});
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(null);
   const [step, setStep] = useState(0);
@@ -95,13 +129,44 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
   const totalSteps = pages.length + 1;
   const isReview = step >= pages.length;
   const liveFlags = computeCheckInFlags(template, answers);
+  function pickPhoto(file) {
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+  function clearPhoto() {
+    setPhotoFile(null);
+    setPhotoPreview("");
+  }
   async function submit() {
     setSaving(true);
-    const entry = { id: uid(), date: isoDate(), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })), flags: liveFlags };
+    const checkInId = uid();
+    let photoId = null;
+    let nextPhotos = client.transformPhotos || [];
+    // Photo upload is best-effort: a failed upload shouldn't block the
+    // check-in itself from being submitted - the answers matter more, and
+    // the client can always add the photo from the Photos tab directly.
+    if (photoFile) {
+      try {
+        const blob = await compressImage(photoFile);
+        const path = await uploadClientPhoto(client.id, "transform", blob);
+        photoId = uid();
+        nextPhotos = [{ id: photoId, image: path, type: "Progress", date: isoDate(), checkInId }, ...nextPhotos];
+        await upsertSection(client.id, "transformPhotos", nextPhotos);
+      } catch (error) {
+        nextPhotos = client.transformPhotos || [];
+        showToast(error.message || "Check-in saved, but the photo couldn't upload. Add it from Photos instead.", "warn");
+      }
+    }
+    const entry = { id: checkInId, date: isoDate(), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })), flags: liveFlags, photoId };
     const next = [...submissions, entry];
     await upsertSection(client.id, "checkins", { submissions: next });
-    updateClient({ ...client, checkIns: next });
+    // One combined update rather than two sequential calls - updateClient
+    // replaces the whole client object, so a second call spreading the
+    // pre-upload `client` would silently drop the photo just added above.
+    updateClient({ ...client, checkIns: next, transformPhotos: nextPhotos });
     setAnswers({}); setStep(0); setSaving(false);
+    clearPhoto();
   }
   function renderQuestion(q) {
     return (
@@ -180,6 +245,9 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
                   <div style={{ fontFamily: BRAND.sans, color: answers[q.id] ? BRAND.text : BRAND.dim, fontSize: 13, lineHeight: 1.6, marginTop: 2 }}>{answers[q.id] || "-"}</div>
                 </div>
               ))}
+              <div style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10 }}>
+                <CheckInPhotoPicker file={photoFile} previewUrl={photoPreview} onPick={pickPhoto} onClear={clearPhoto} />
+              </div>
               <div style={{ fontFamily: BRAND.sans, marginTop: 4, color: liveFlags.length ? BRAND.yellow : BRAND.green, fontSize: 12, fontWeight: 500 }}>{liveFlags.length ? `⚑ ${liveFlags.length} thing${liveFlags.length === 1 ? "" : "s"} flagged for your coach` : "✓ Nothing flagged"}</div>
             </div>
           )}
@@ -193,27 +261,34 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
       <Card style={{ padding: isMobile ? 12 : 16 }}>
         <div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 10 }}>History</div>
         {submissions.length === 0 && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14 }}>No check-ins yet.</div>}
-        {[...submissions].reverse().map((s) => (
-          <div key={s.id} onClick={() => setOpen(open === s.id ? null : s.id)} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: BRAND.sans }}>
-                <span style={{ fontWeight: 500, fontSize: 14, color: BRAND.text }}>{s.date}</span>
-                {s.flags && s.flags.length > 0 && <span style={{ color: BRAND.yellow, fontSize: 11, fontWeight: 500 }}>{"⚑"} {s.flags.length}</span>}
+        {[...submissions].reverse().map((s) => {
+          // Matched by checkInId rather than trusting the stored photoId
+          // alone, so this self-heals if the photo was later deleted from
+          // the Photos tab - it just stops showing instead of dangling.
+          const photo = s.photoId ? (client.transformPhotos || []).find((p) => p.checkInId === s.id) : null;
+          return (
+            <div key={s.id} onClick={() => setOpen(open === s.id ? null : s.id)} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: BRAND.sans, minWidth: 0 }}>
+                  {photo && <CheckInThumb photo={photo} />}
+                  <span style={{ fontWeight: 500, fontSize: 14, color: BRAND.text }}>{s.date}</span>
+                  {s.flags && s.flags.length > 0 && <span style={{ color: BRAND.yellow, fontSize: 11, fontWeight: 500 }}>{"⚑"} {s.flags.length}</span>}
+                </div>
+                <span style={{ fontFamily: BRAND.sans, color: BRAND.blue, fontSize: 12, fontWeight: 500, flexShrink: 0 }}>{open === s.id ? "Hide" : "View"}</span>
               </div>
-              <span style={{ fontFamily: BRAND.sans, color: BRAND.blue, fontSize: 12, fontWeight: 500 }}>{open === s.id ? "Hide" : "View"}</span>
+              {open === s.id && (
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  {s.answers.map((a, i) => (
+                    <div key={i}>
+                      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{a.question}</div>
+                      <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 13, lineHeight: 1.6 }}>{a.answer || "-"}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            {open === s.id && (
-              <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                {s.answers.map((a, i) => (
-                  <div key={i}>
-                    <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{a.question}</div>
-                    <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 13, lineHeight: 1.6 }}>{a.answer || "-"}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </Card>
       {showEditor && <CheckInTemplateEditor trainerId={client.trainer_id} template={template} onSave={(qs) => { setTemplate(qs); setShowEditor(false); }} onClose={() => setShowEditor(false)} />}
     </div>
