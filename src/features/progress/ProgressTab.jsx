@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
+import { Button } from "../../components/ui/Button.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { sessionForWorkout, sessionStatsV2, detectSessionPBs, sessionEntriesV2 } from "../../lib/trainingLogs.js";
@@ -9,6 +10,7 @@ import { generateClientSummary, getTrainingInsight } from "../../lib/ai.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
 import { BodyAnalysisCard } from "./BodyAnalysis.jsx";
+import { WeeklyReportModal } from "./WeeklyReport.jsx";
 
 function AITrainingInsightCard({ client }) {
   const [insight, setInsight] = useState(null);
@@ -313,6 +315,7 @@ function buildProgressInsight(streak, volumeTrend, pbs) {
 }
 export function ProgressTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
+  const [showWeeklyReport, setShowWeeklyReport] = useState(false);
   const logs = client.trainingLogs;
   const streak = currentStreakWeeks(logs);
   const volumeTrend = weeklyVolumeTrend(logs, 4);
@@ -329,11 +332,12 @@ export function ProgressTab({ client, updateClient, isCoach }) {
   const measurementEntries = MEASUREMENT_FIELDS.filter(([k]) => client.measurements?.[k]).slice(0, 3);
 
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
       <div>
         <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 400, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>PROGRESS</div>
         <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Progress</div>
       </div>
+      {isCoach && <Button variant="dark" onClick={() => setShowWeeklyReport(true)} style={{ flexShrink: 0 }}>Weekly Report</Button>}
     </div>
 
     {isCoach && <AIClientSummaryCard client={client} />}
@@ -430,6 +434,8 @@ export function ProgressTab({ client, updateClient, isCoach }) {
     </div>
 
     <AITrainingInsightCard client={client} />
+
+    {showWeeklyReport && <WeeklyReportModal client={client} onClose={() => setShowWeeklyReport(false)} />}
   </div>;
 }
 

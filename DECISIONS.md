@@ -1,3 +1,62 @@
+# Weekly progress report, exportable as PDF — decisions log
+
+Ask: "add weekly report that compares to the last 4 weeks with graphs and
+data that shows to the client that this is serious business, I can export
+these reports and send it in PDF to the client." Autonomous.
+
+## One data function, two render targets
+
+`lib/weeklyReport.js`'s `buildWeeklyReport(client, weeksBack)` is the only
+place the numbers get computed - training volume/sessions per week,
+nutrition days-logged per week (mode-aware, reusing the same
+macros-vs-food-log detection already proven correct elsewhere in this
+session), bodyweight trend from check-ins, and PBs achieved inside the
+report window specifically (not just "recent N", which could reach back
+further than what the report claims to cover). Both the on-screen modal
+(SVG) and the PDF (canvas PNG) call this same function and just render it
+two different ways - the alternative, computing stats twice in two
+places, is exactly the kind of drift that caused real bugs earlier in
+this project (the "S..." button truncation, the food_log/macro_log
+mismatch on Home). One source of truth, two paint jobs.
+
+## No charting library - canvas PNG for the PDF, SVG for the screen
+
+This app already hand-draws every on-screen chart (VolumeTrendChart,
+WeightSparkline) rather than using a charting library. pdf-lib can't
+render SVG or a charting library's output directly, so `reportCharts.js`
+is a small dependency-free Canvas 2D equivalent (bar + line) used only to
+rasterize a PNG for `embedPng` - same visual language, dependency-free
+approach carried through to the export path rather than pulling in a
+charting library just for PDFs.
+
+## A new PDF builder, not an extension of the existing one
+
+`buildPdfDoc` (text/table only) already backs the Program PDF share
+feature. Extending it to support embedded images would have changed its
+page-break math in ways that risked regressing a working feature for a
+capability it doesn't need. `buildWeeklyReportPDF` is a sibling function
+with its own page-break-aware layout, sharing only the PDFDocument/font
+setup pattern.
+
+## Export reuses the existing share pattern - no new delivery system
+
+"I can export these reports and send it in PDF to the client" describes
+the coach doing the sending, not a new in-app delivery mechanism - this
+app already has exactly one PDF distribution path (`sharePdfBlob`, used by
+the Program PDF: native share sheet on mobile, falls back to download).
+The weekly report reuses it as-is rather than building a second one.
+
+## PB window vs "recent N" reuses detectSessionPBs, not recentPBsAcrossHistory
+
+ProgressTab's existing `recentPBsAcrossHistory(logs, limit)` takes the
+last N PBs regardless of when they happened - fine for a homepage card,
+wrong for a report that claims to cover a specific date range. The report
+reruns `detectSessionPBs` per session directly, filtered to sessions on or
+after the window start, so a report never claims a PB it isn't actually
+showing the surrounding weeks for.
+
+---
+
 # Habits move to Home; wearable sync dropped — decisions log
 
 Ask: "i dont think its worthy if most clients wont use it anyway, so leave
