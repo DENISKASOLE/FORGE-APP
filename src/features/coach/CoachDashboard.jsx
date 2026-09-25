@@ -916,7 +916,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   let body;
   if (screen === "templates") body = <CoachTemplates user={user} clients={clients} refresh={refresh} onBack={goHome} />;
   else if (screen === "nutrition_plans") body = <NutritionPlansScreen trainerId={user.id} onBack={goHome} onOpenBuilder={(id) => { setPlanBuilderId(id); setScreen("plan_builder"); }} />;
-  else if (screen === "plan_builder") body = <PlanBuilder trainerId={user.id} templateId={planBuilderId} onExit={goHome} onSelectTemplate={(id) => setPlanBuilderId(id)} />;
+  else if (screen === "plan_builder") body = <PlanBuilder trainerId={user.id} templateId={planBuilderId} clients={clients} refresh={refresh} onExit={goHome} onSelectTemplate={(id) => setPlanBuilderId(id)} />;
   else if (screen === "calendar") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Calendar clients={clients} refresh={refresh} user={user} /></>;
   else if (screen === "analytics") body = <CoachAnalytics clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "trials") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Trials user={user} onConvert={convertTrialToClient} /></>;

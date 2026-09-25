@@ -14,6 +14,7 @@ import { SupplementStack } from "./SupplementStack.jsx";
 import { FoodDiary } from "./FoodDiary.jsx";
 import { MacroTracker } from "./MacroTracker.jsx";
 import { Report } from "./Report.jsx";
+import { CoachPlanView } from "../nutrition-plan/CoachPlanView.jsx";
 
 const PHASE_LABELS = { baseline: "Baseline", report: "Report", adjustment: "Adjustment", maintenance: "Maintenance" };
 const MODE_LABELS = { food_log: "Food log + macros", macros: "Macros only", prescribed_plan: "Coach-prescribed plan" };
@@ -220,6 +221,37 @@ function CoachPhaseControls({ client, nutrition, onPersist }) {
   );
 }
 
+// Coach control for prescribed_plan mode: just the mode switch, without the
+// baseline/report/adjustment/maintenance phase chips and macro-target/report
+// tooling that only apply to the client-driven food_log/macros journey.
+function CoachModeOnlyControls({ nutrition, onPersist }) {
+  return (
+    <Card style={{ padding: 14, display: "grid", gap: 10 }}>
+      <SectionLabel color={T.muted}>Coach controls</SectionLabel>
+      <TrackingModeControl nutrition={nutrition} onSetMode={(tracking_mode) => onPersist({ ...nutrition, tracking_mode })} />
+    </Card>
+  );
+}
+
+// Client-side placeholder until the full Fuel tracking screen (day rings,
+// tick/swap, Extras) ships - keeps this mode from being a dead end for a
+// client whose coach has already switched them onto it.
+function ClientPlanPlaceholder({ plan }) {
+  const active = plan?.active;
+  return (
+    <Card style={{ padding: 16, display: "grid", gap: 8 }}>
+      {active ? (
+        <>
+          <div style={{ fontWeight: 600, fontSize: 16 }}>{active.doc.name}</div>
+          <div style={{ color: T.muted, fontSize: 13 }}>Your coach has signed your plan (V{active.version}), starting {active.startDate}. Daily tracking is on its way — check back soon.</div>
+        </>
+      ) : (
+        <div style={{ color: T.muted, fontSize: 13 }}>Your coach hasn't assigned a nutrition plan yet.</div>
+      )}
+    </Card>
+  );
+}
+
 export function NutritionFlow({ client, updateClient, isCoach }) {
   const nutrition = client.nutrition;
 
@@ -237,9 +269,12 @@ export function NutritionFlow({ client, updateClient, isCoach }) {
   }
 
   const macrosOnly = nutrition.tracking_mode === "macros";
+  const prescribedPlan = nutrition.tracking_mode === "prescribed_plan";
 
   let body;
-  if (macrosOnly) {
+  if (prescribedPlan) {
+    body = isCoach ? <CoachPlanView client={client} /> : <ClientPlanPlaceholder plan={client.nutritionPlan} />;
+  } else if (macrosOnly) {
     // Straight to the numbers - no supplement-stack onboarding, no phase
     // routing, no diary. This is the whole tab for these clients, so it
     // renders inline (not as the overlay it is inside the food diary),
@@ -259,7 +294,7 @@ export function NutritionFlow({ client, updateClient, isCoach }) {
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      {isCoach && <CoachPhaseControls client={client} nutrition={nutrition} onPersist={persist} />}
+      {isCoach && (prescribedPlan ? <CoachModeOnlyControls nutrition={nutrition} onPersist={persist} /> : <CoachPhaseControls client={client} nutrition={nutrition} onPersist={persist} />)}
       {isCoach && <CoachHabitsCard nutrition={nutrition} />}
       {body}
     </div>

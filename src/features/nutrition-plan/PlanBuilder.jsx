@@ -4,12 +4,14 @@ import { useIsMobile } from "../../lib/browser.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog, promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { uid } from "../../lib/uid.js";
-import { loadPlanTemplates, savePlanTemplates, loadFoodLibrary, saveFoodLibrary, loadMealPresets, saveMealPresets } from "../../lib/nutritionPlan.js";
+import { loadPlanTemplates, savePlanTemplates, loadFoodLibrary, saveFoodLibrary, loadMealPresets, saveMealPresets, loadStudioSettings, signClientPlan } from "../../lib/nutritionPlan.js";
+import { upsertSection } from "../../lib/clientData.js";
 import {
   newPlanDay, newMealBlock, newMealItem, newSwapOption, newSwapsBlock, newNoteBlock, newEducationBlock,
-  newSupplementBlock, newHydrationBlock, newPhotoBlock, newDividerBlock, foodRefFromRow, DAY_TYPES,
+  newSupplementBlock, newHydrationBlock, newPhotoBlock, newDividerBlock, foodRefFromRow, DAY_TYPES, cloneDocWithNewIds,
 } from "./planModel.js";
 import { mealTotals, dayTotals, targetStatus, barPct, fmtKcal, roundMacros, suggestSwapAmount } from "./planMath.js";
+import { AssignPlanSheet } from "./AssignPlanSheet.jsx";
 
 const HISTORY_LIMIT = 50;
 const AUTOSAVE_MS = 1500;
@@ -409,11 +411,12 @@ function PlanSettingsPanel({ doc, onChange }) {
 }
 
 // ==================== main builder ====================
-export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate }) {
+export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate, clients, refresh }) {
   const isCompact = useIsMobile(1024);
   const [templates, setTemplates] = useState(null);
   const [foods, setFoods] = useState([]);
   const [mealPresets, setMealPresets] = useState([]);
+  const [studioSettings, setStudioSettings] = useState(null);
   const [entry, setEntry] = useState(null);
   const [swapPicker, setSwapPicker] = useState(null); // {step:'meal'} | {step:'item', mealId}
   const [dayIdx, setDayIdx] = useState(0);
@@ -422,6 +425,13 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   const [saveStatus, setSaveStatus] = useState("saved");
   const [mobileSheet, setMobileSheet] = useState(null); // 'add'|'targets'|'settings'|'templates'|null
   const [dayMenuOpen, setDayMenuOpen] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
+  const [signing, setSigning] = useState(false);
+  // Set once the coach picks "edit for this client before signing" in the
+  // assign sheet (spec §5.3 step 5): the doc in `entry` becomes a cloned,
+  // per-client copy (never saved back to the template it came from) and
+  // the header's primary action switches to SIGN & SEND.
+  const [clientSign, setClientSign] = useState(null); // {client, schedule, startDate, coachNote, sourceTemplateId} | null
 
   const historyRef = useRef({ stack: [], index: -1 });
   const saveTimerRef = useRef(null);
@@ -432,11 +442,12 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [list, library, presets] = await Promise.all([loadPlanTemplates(trainerId), loadFoodLibrary(trainerId), loadMealPresets(trainerId)]);
+      const [list, library, presets, settings] = await Promise.all([loadPlanTemplates(trainerId), loadFoodLibrary(trainerId), loadMealPresets(trainerId), loadStudioSettings(trainerId)]);
       if (cancelled) return;
       setTemplates(list);
       setFoods(library);
       setMealPresets(presets);
+      setStudioSettings(settings);
       const found = list.find((t) => t.id === templateId);
       if (found) {
         setEntry(found);
@@ -449,7 +460,7 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
 
   // warn on leaving with unsaved changes
   useEffect(() => {
-    function onBeforeUnload(e) { if (saveStatus === "draft" || saveStatus === "saving") { e.preventDefault(); e.returnValue = ""; } }
+    function onBeforeUnload(e) { if (saveStatus === "draft" || saveStatus === "saving" || saveStatus === "editing") { e.preventDefault(); e.returnValue = ""; } }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [saveStatus]);
@@ -463,6 +474,7 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   }, []);
 
   async function flushSave() {
+    if (clientSign) return; // editing a per-client copy - nothing to persist until Sign & Send
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
     const docToSave = pendingDocRef.current;
@@ -475,6 +487,7 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
     setSaveStatus(result?.queued ? "offline" : "saved");
   }
   function scheduleAutosave(nextDoc) {
+    if (clientSign) { pendingDocRef.current = nextDoc; setSaveStatus("editing"); return; }
     pendingDocRef.current = nextDoc;
     setSaveStatus("draft");
     clearTimeout(saveTimerRef.current);
@@ -620,6 +633,34 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
     showToast(`Saved "${name}" to Saved Meals.`, "success");
   }
 
+  async function signAndSend({ client, schedule, startDate, coachNote }) {
+    setSigning(true);
+    try {
+      const withGuidelines = doc.settings.showGuidelines ? { ...doc, guidelines: studioSettings?.guidelines || [] } : doc;
+      const templateIdForRecord = clientSign ? clientSign.sourceTemplateId : entry.id;
+      const state = await signClientPlan(client, { templateId: templateIdForRecord, doc: withGuidelines, schedule, startDate, coachNote });
+      const msg = { id: uid(), from: "coach", text: "Your new nutrition plan is ready — open Fuel to start.", date: new Date().toISOString(), read: false };
+      await upsertSection(client.id, "messages", { list: [...(client.messages || []), msg] });
+      showToast(`SIGNED · V${state.active.version}`, "success");
+      setShowAssign(false);
+      setClientSign(null);
+      if (refresh) await refresh();
+      onExit();
+    } catch (e) {
+      showToast(e.message || "Couldn't sign this plan.", "error");
+    } finally {
+      setSigning(false);
+    }
+  }
+  function editForClient({ client, schedule, startDate, coachNote }) {
+    const cloned = cloneDocWithNewIds(doc);
+    setClientSign({ client, schedule, startDate, coachNote, sourceTemplateId: entry.id });
+    setEntry((e) => ({ ...e, doc: cloned }));
+    historyRef.current = { stack: [cloned], index: 0 };
+    setShowAssign(false);
+    showToast(`Editing a copy for ${client.name} — this won't change the template.`, "success");
+  }
+
   if (!templates) return <div style={{ color: NP.muted, padding: 24, fontFamily: NP.font }}>Loading…</div>;
   if (!entry) return (
     <div style={{ padding: 24, fontFamily: NP.font, color: NP.muted }}>
@@ -629,7 +670,7 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   );
 
   const totals = dayTotals(day);
-  const statusPill = { draft: ["DRAFT", NP.muted], saving: ["SAVING…", NP.muted], saved: ["SAVED", NP.good], offline: ["OFFLINE – NOT SAVED", "#FF6B61"] }[saveStatus];
+  const statusPill = { draft: ["DRAFT", NP.muted], saving: ["SAVING…", NP.muted], saved: ["SAVED", NP.good], offline: ["OFFLINE – NOT SAVED", "#FF6B61"], editing: ["EDITING COPY · NOT SAVED TO TEMPLATE", NP.warn] }[saveStatus];
 
   const centerContent = (
     <>
@@ -710,11 +751,20 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
         <button onClick={() => { flushSave(); onExit(); }} aria-label="Back" style={npButton("ghost", { padding: "8px 10px", height: 36 })}>‹</button>
         <nav aria-label="Breadcrumb" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, letterSpacing: "0.1em", color: NP.dim, minWidth: 0, overflow: "hidden" }}>
           <span>TOOLS</span><span>/</span><span>NUTRITION PLANS</span><span>/</span><span style={{ color: NP.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
+          {clientSign && <><span>/</span><span style={{ color: NP.warn }}>FOR {clientSign.client.name.toUpperCase()}</span></>}
         </nav>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 10, letterSpacing: "0.1em", color: statusPill[1], border: `1px solid ${NP.line}`, borderRadius: 999, padding: "5px 10px" }}>{statusPill[0]}</span>
         {!isCompact && <button onClick={undo} style={npButton("ghost", { fontSize: 10, height: 36 })}>UNDO</button>}
         {!isCompact && <button onClick={redo} style={npButton("ghost", { fontSize: 10, height: 36 })}>REDO</button>}
+        {clientSign ? (
+          <button onClick={() => signAndSend(clientSign)} disabled={signing} style={npButton("fill", { fontSize: 10, height: 36 })}>{signing ? "SIGNING…" : `SIGN & SEND · ${clientSign.client.name.toUpperCase()}`}</button>
+        ) : (
+          <>
+            {!isCompact && <button onClick={() => { flushSave(); showToast("Template saved.", "success"); }} style={npButton("outline", { fontSize: 10, height: 36 })}>SAVE TEMPLATE</button>}
+            <button onClick={() => setShowAssign(true)} style={npButton("fill", { fontSize: 10, height: 36 })}>ASSIGN TO CLIENT</button>
+          </>
+        )}
       </header>
 
       {isCompact ? (
@@ -795,6 +845,10 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
           </div>
           <button onClick={() => setSwapPicker({ step: "meal" })} style={npButton("ghost", { marginTop: 12 })}>‹ BACK TO MEALS</button>
         </Sheet>
+      )}
+
+      {showAssign && (
+        <AssignPlanSheet doc={doc} clients={clients || []} onClose={() => setShowAssign(false)} onSignDirect={signAndSend} onEditForClient={editForClient} />
       )}
     </div>
   );
