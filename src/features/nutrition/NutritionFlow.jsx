@@ -16,7 +16,7 @@ import { MacroTracker } from "./MacroTracker.jsx";
 import { Report } from "./Report.jsx";
 
 const PHASE_LABELS = { baseline: "Baseline", report: "Report", adjustment: "Adjustment", maintenance: "Maintenance" };
-const MODE_LABELS = { food_log: "Food log + macros", macros: "Macros only" };
+const MODE_LABELS = { food_log: "Food log + macros", macros: "Macros only", prescribed_plan: "Coach-prescribed plan" };
 
 // Coach-facing switch for what the client's Nutrition tab actually is.
 // Deliberately separate from the phase chips above it: phase drives the
@@ -40,6 +40,8 @@ function TrackingModeControl({ nutrition, onSetMode }) {
       <div style={{ color: T.muted, fontSize: 12, lineHeight: 1.5 }}>
         {mode === "macros"
           ? "They track macros only — the food diary and habit logging are hidden. Their existing food log is kept, not deleted, and returns if you switch back."
+          : mode === "prescribed_plan"
+          ? "You build their exact meals in Nutrition Plans and assign one — they tick off what they ate each day instead of logging freely."
           : "The full journey: photo/description diary, habits, and the macro tracker available from inside it."}
       </div>
       {suggestSwitch && (

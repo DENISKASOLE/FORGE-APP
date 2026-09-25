@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { NP, npCard, npInput, npButton, npLabel, NPToggle } from "./theme.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { showToast } from "../../components/ui/Toast.jsx";
-import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { confirmDialog, promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { uid } from "../../lib/uid.js";
-import { loadPlanTemplates, savePlanTemplates, loadFoodLibrary, saveFoodLibrary } from "../../lib/nutritionPlan.js";
+import { loadPlanTemplates, savePlanTemplates, loadFoodLibrary, saveFoodLibrary, loadMealPresets, saveMealPresets } from "../../lib/nutritionPlan.js";
 import {
-  newPlanDay, newMealBlock, newMealItem, foodRefFromRow, DAY_TYPES,
+  newPlanDay, newMealBlock, newMealItem, newSwapOption, newSwapsBlock, newNoteBlock, newEducationBlock,
+  newSupplementBlock, newHydrationBlock, newPhotoBlock, newDividerBlock, foodRefFromRow, DAY_TYPES,
 } from "./planModel.js";
-import { mealTotals, dayTotals, targetStatus, barPct, fmtKcal, roundMacros } from "./planMath.js";
+import { mealTotals, dayTotals, targetStatus, barPct, fmtKcal, roundMacros, suggestSwapAmount } from "./planMath.js";
 
 const HISTORY_LIMIT = 50;
 const AUTOSAVE_MS = 1500;
@@ -99,9 +100,10 @@ function FoodSearch({ foods, onPick, onCreateNew }) {
 }
 
 // ---------- meal block ----------
-function MealBlockCard({ block, index, total, selected, expanded, onSelect, onToggleExpand, foods, onChange, onMove, onDuplicate, onDelete, isFirst, isLast, onQuickCreateFood }) {
+function MealBlockCard({ block, index, total, selected, expanded, onSelect, onToggleExpand, foods, mealPresets, onChange, onMove, onDuplicate, onDelete, isFirst, isLast, onQuickCreateFood, onUsePreset, onSaveAsPreset }) {
   const totals = mealTotals(block);
   const items = block.items;
+  const [showPresets, setShowPresets] = useState(false);
 
   function addItem(foodRow) {
     onChange({ ...block, items: [...items, newMealItem(foodRefFromRow(foodRow))] });
@@ -177,15 +179,27 @@ function MealBlockCard({ block, index, total, selected, expanded, onSelect, onTo
               );
             })}
           </div>
-          <div style={{ padding: "14px 16px", borderTop: `1px solid ${NP.line}` }}>
-            <FoodSearch foods={foods} onPick={addItem} onCreateNew={onQuickCreateFood} />
+          <div style={{ padding: "14px 16px", borderTop: `1px solid ${NP.line}`, display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}><FoodSearch foods={foods} onPick={addItem} onCreateNew={onQuickCreateFood} /></div>
+            <button onClick={() => setShowPresets((v) => !v)} style={npButton("outline", { fontSize: 10, height: 44, flexShrink: 0 })}>FROM SAVED MEALS</button>
           </div>
+          {showPresets && (
+            <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+              {mealPresets.length === 0 && <div style={{ color: NP.dim, fontSize: 12 }}>No saved meals yet - build one, then use the meal's ⋯ menu below to save it.</div>}
+              {mealPresets.map((p) => (
+                <button key={p.id} onClick={() => { onUsePreset(block.id, p); setShowPresets(false); }} style={{ textAlign: "left", background: NP.card2, border: "none", borderRadius: 8, padding: "9px 12px", color: NP.text, fontFamily: NP.font, fontSize: 12, cursor: "pointer" }}>
+                  {p.name} <span style={{ color: NP.dim, fontSize: 11 }}>· {p.items.length} food{p.items.length === 1 ? "" : "s"}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </>
       )}
 
       {expanded && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "0 16px 14px" }}>
           <button onClick={refreshFromLibrary} style={npButton("ghost", { fontSize: 10, height: 32, padding: "0 10px" })}>REFRESH VALUES FROM LIBRARY</button>
+          {items.length > 0 && <button onClick={() => onSaveAsPreset(block)} style={npButton("ghost", { fontSize: 10, height: 32, padding: "0 10px" })}>SAVE AS SAVED MEAL</button>}
           <button onClick={onDuplicate} style={npButton("ghost", { fontSize: 10, height: 32, padding: "0 10px" })}>DUPLICATE</button>
           <button onClick={handleDelete} style={npButton("ghost", { fontSize: 10, height: 32, padding: "0 10px", color: "#FF6B61" })}>DELETE</button>
         </div>
@@ -194,11 +208,139 @@ function MealBlockCard({ block, index, total, selected, expanded, onSelect, onTo
   );
 }
 
+// ---------- other block types (swaps, note, education, supplement, hydration, photo, divider) ----------
+// One shared shell (icon-less header + move/duplicate/delete toolbar) so
+// seven block types don't each duplicate that chrome - only the body
+// differs, switched on block.type.
+function BlockToolbar({ onMove, onDuplicate, onDelete, isFirst, isLast }) {
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <button onClick={() => onMove(-1)} disabled={isFirst} aria-label="Move up" style={{ background: "none", border: "none", color: isFirst ? NP.line : NP.dim, cursor: isFirst ? "default" : "pointer", fontSize: 11, padding: 0 }}>▲</button>
+      <button onClick={() => onMove(1)} disabled={isLast} aria-label="Move down" style={{ background: "none", border: "none", color: isLast ? NP.line : NP.dim, cursor: isLast ? "default" : "pointer", fontSize: 11, padding: 0 }}>▼</button>
+      <button onClick={onDuplicate} aria-label="Duplicate" style={{ background: "none", border: "none", color: NP.dim, cursor: "pointer", fontSize: 11, padding: 0 }}>⧉</button>
+      <button onClick={onDelete} aria-label="Delete" style={{ background: "none", border: "none", color: "#FF6B61", cursor: "pointer", fontSize: 11, padding: 0 }}>✕</button>
+    </div>
+  );
+}
+
+function SwapsBlockBody({ block, day, foods, onChange }) {
+  const meal = day.blocks.find((b) => b.id === block.mealId && b.type === "meal");
+  const item = meal?.items.find((it) => it.id === block.itemId);
+  const [adding, setAdding] = useState(false);
+
+  if (!meal || !item) return <div style={{ color: NP.dim, fontSize: 12 }}>The food this pointed at was removed from its meal.</div>;
+
+  function patchItem(nextItem) {
+    onChange(meal.id, { ...meal, items: meal.items.map((it) => (it.id === item.id ? nextItem : it)) });
+  }
+  function addSwap(foodRow) {
+    const { amount } = suggestSwapAmount(item, foodRow, item.swapMatchOn);
+    patchItem({ ...item, swaps: [...item.swaps, newSwapOption(foodRefFromRow(foodRow), amount)] });
+    setAdding(false);
+  }
+  function removeSwap(swapId) {
+    patchItem({ ...item, swaps: item.swaps.filter((s) => s.id !== swapId) });
+  }
+  const suggestion = item.swaps[0] ? suggestSwapAmount(item, { per100: item.swaps[0].food.per100, unit: item.swaps[0].food.unit, pieceGrams: item.swaps[0].food.pieceGrams }, item.swapMatchOn) : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={npLabel()}>FLEXIBLE SWAPS · {meal.name} {item.food.category.toUpperCase()}</div>
+        {suggestion && <div style={{ fontSize: 10, letterSpacing: "0.12em", color: NP.muted }}>MATCHED TO ±{suggestion.diff} G {suggestion.match.toUpperCase()}</div>}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ height: 34, display: "inline-flex", alignItems: "center", padding: "0 12px", borderRadius: 999, background: NP.text, color: "#000000", fontSize: 11, letterSpacing: "0.08em" }}>{item.food.name.toUpperCase()} {item.amount}{item.food.unit === "piece" ? "" : item.food.unit.toUpperCase()}</span>
+        {item.swaps.map((s) => (
+          <span key={s.id} style={{ height: 34, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 6px 0 12px", borderRadius: 999, background: NP.card2, color: NP.text, fontSize: 11, letterSpacing: "0.08em" }}>
+            {s.food.name.toUpperCase()} {s.amount}{s.food.unit === "piece" ? "" : s.food.unit.toUpperCase()}
+            <button onClick={() => removeSwap(s.id)} aria-label={`Remove ${s.food.name} swap`} style={{ background: "none", border: "none", color: NP.dim, cursor: "pointer", width: 22, height: 22 }}>×</button>
+          </span>
+        ))}
+        <button onClick={() => setAdding(true)} style={{ height: 34, padding: "0 12px", borderRadius: 999, background: "transparent", border: `1px dashed ${NP.lineDashed}`, color: NP.dim, fontSize: 11, letterSpacing: "0.08em", cursor: "pointer" }}>+ ADD SWAP</button>
+      </div>
+      {adding && (
+        <div style={{ maxWidth: 340 }}>
+          <FoodSearch foods={foods} onPick={addSwap} onCreateNew={() => setAdding(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OtherBlockCard({ block, day, foods, onBlockChange, onMealItemChange, onMove, onDuplicate, onDelete, isFirst, isLast }) {
+  const ICON_LABEL = { swaps: "SWAPS", note: "COACH NOTE", education: "EDUCATION", supplement: "SUPPLEMENT", hydration: "HYDRATION", photo: "PHOTO", divider: "DIVIDER" };
+  return (
+    <div style={npCard({ padding: 16, display: "flex", flexDirection: "column", gap: 12 })}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <div style={npLabel()}>{ICON_LABEL[block.type]}</div>
+        <BlockToolbar onMove={onMove} onDuplicate={onDuplicate} onDelete={onDelete} isFirst={isFirst} isLast={isLast} />
+      </div>
+
+      {block.type === "swaps" && <SwapsBlockBody block={block} day={day} foods={foods} onChange={onMealItemChange} />}
+
+      {block.type === "note" && (
+        <textarea value={block.text} onChange={(e) => onBlockChange({ ...block, text: e.target.value.slice(0, 500) })} placeholder="What should this client know?" rows={3}
+          style={{ ...npInput({ height: "auto", padding: 10 }), resize: "vertical", lineHeight: 1.5 }} />
+      )}
+
+      {block.type === "education" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <input value={block.title} onChange={(e) => onBlockChange({ ...block, title: e.target.value })} placeholder="Title" style={npInput()} />
+          <textarea value={block.body || ""} onChange={(e) => onBlockChange({ ...block, body: e.target.value })} placeholder="Body (optional)" rows={3} style={{ ...npInput({ height: "auto", padding: 10 }), resize: "vertical", lineHeight: 1.5 }} />
+        </div>
+      )}
+
+      {block.type === "supplement" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {block.items.map((s, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 32px", gap: 8 }}>
+              <input value={s.name} onChange={(e) => onBlockChange({ ...block, items: block.items.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)) })} placeholder="Name" style={npInput()} />
+              <input value={s.dose} onChange={(e) => onBlockChange({ ...block, items: block.items.map((x, xi) => (xi === i ? { ...x, dose: e.target.value } : x)) })} placeholder="Dose" style={npInput()} />
+              <input value={s.timing || ""} onChange={(e) => onBlockChange({ ...block, items: block.items.map((x, xi) => (xi === i ? { ...x, timing: e.target.value } : x)) })} placeholder="Timing" style={npInput()} />
+              <button onClick={() => onBlockChange({ ...block, items: block.items.filter((_, xi) => xi !== i) })} aria-label="Remove supplement" style={{ background: "none", border: "none", color: "#FF6B61", cursor: "pointer" }}>×</button>
+            </div>
+          ))}
+          <button onClick={() => onBlockChange({ ...block, items: [...block.items, { name: "", dose: "", timing: "" }] })} style={npButton("ghost", { fontSize: 10, height: 32, alignSelf: "start" })}>+ ADD SUPPLEMENT</button>
+        </div>
+      )}
+
+      {block.type === "hydration" && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: NP.muted }}>LITRES <input type="number" value={block.litres} onChange={(e) => onBlockChange({ ...block, litres: Number(e.target.value) || 0 })} style={npInput({ width: 70 })} /></label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: NP.muted }}>+ ON TRAINING DAYS <input type="number" value={block.trainingExtraLitres || 0} onChange={(e) => onBlockChange({ ...block, trainingExtraLitres: Number(e.target.value) || 0 })} style={npInput({ width: 70 })} /></label>
+        </div>
+      )}
+
+      {block.type === "photo" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => onBlockChange({ ...block, source: "checkin" })} style={npButton(block.source === "checkin" ? "fill" : "outline", { fontSize: 10, height: 32 })}>FROM CHECK-IN</button>
+            <button onClick={() => onBlockChange({ ...block, source: "upload" })} style={npButton(block.source === "upload" ? "fill" : "outline", { fontSize: 10, height: 32 })}>UPLOAD</button>
+          </div>
+          {block.source === "checkin" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 12 }}>
+              {["front", "side", "back"].map((pose) => (
+                <div key={pose} style={{ height: 56, border: `1px dashed ${NP.lineDashed}`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, letterSpacing: "0.14em", color: NP.dim }}>{pose.toUpperCase()} · FROM CHECK-IN</div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: NP.dim, lineHeight: 1.5 }}>Client-specific - uploaded per client after this plan is assigned, not here in the template.</div>
+          )}
+        </div>
+      )}
+
+      {block.type === "divider" && (
+        <input value={block.label || ""} onChange={(e) => onBlockChange({ ...block, label: e.target.value })} placeholder="Optional label" style={npInput()} />
+      )}
+    </div>
+  );
+}
+
 // ---------- add block palette (left column desktop / sheet mobile) ----------
 const BLOCK_PALETTE = [
-  ["meal", "MEAL", true],
-  ["swaps", "SWAPS", false], ["note", "COACH NOTE", false], ["education", "EDUCATION", false],
-  ["supplement", "SUPPLEMENT", false], ["hydration", "HYDRATION", false], ["photo", "PHOTO", false], ["divider", "DIVIDER", false],
+  ["meal", "MEAL", true], ["swaps", "SWAPS", true], ["note", "COACH NOTE", true], ["education", "EDUCATION", true],
+  ["supplement", "SUPPLEMENT", true], ["hydration", "HYDRATION", true], ["photo", "PHOTO", true], ["divider", "DIVIDER", true],
 ];
 function AddBlockPalette({ onAdd }) {
   return (
@@ -271,7 +413,9 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   const isCompact = useIsMobile(1024);
   const [templates, setTemplates] = useState(null);
   const [foods, setFoods] = useState([]);
+  const [mealPresets, setMealPresets] = useState([]);
   const [entry, setEntry] = useState(null);
+  const [swapPicker, setSwapPicker] = useState(null); // {step:'meal'} | {step:'item', mealId}
   const [dayIdx, setDayIdx] = useState(0);
   const [expandedBlockId, setExpandedBlockId] = useState(null);
   const [selectedBlockId, setSelectedBlockId] = useState(null);
@@ -288,10 +432,11 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [list, library] = await Promise.all([loadPlanTemplates(trainerId), loadFoodLibrary(trainerId)]);
+      const [list, library, presets] = await Promise.all([loadPlanTemplates(trainerId), loadFoodLibrary(trainerId), loadMealPresets(trainerId)]);
       if (cancelled) return;
       setTemplates(list);
       setFoods(library);
+      setMealPresets(presets);
       const found = list.find((t) => t.id === templateId);
       if (found) {
         setEntry(found);
@@ -401,13 +546,33 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
   }
 
   function addBlock(type) {
-    if (type !== "meal") return;
-    const block = newMealBlock("MEAL", "12:00");
+    if (type === "swaps") {
+      // Swaps needs a meal+item to point at, which doesn't exist yet -
+      // open the picker sheet instead of creating an orphaned block.
+      const mealBlocks = day.blocks.filter((b) => b.type === "meal" && b.items.length > 0);
+      if (mealBlocks.length === 0) { showToast("Add a meal with at least one food first.", "warn"); return; }
+      setSwapPicker({ step: "meal" });
+      setMobileSheet(null);
+      return;
+    }
+    const factory = {
+      meal: () => newMealBlock("MEAL", "12:00"), note: newNoteBlock, education: () => newEducationBlock(),
+      supplement: newSupplementBlock, hydration: () => newHydrationBlock(), photo: () => newPhotoBlock(), divider: () => newDividerBlock(),
+    }[type];
+    if (!factory) return;
+    const block = factory();
     patchDay({ blocks: [...day.blocks, block] });
-    setExpandedBlockId(block.id);
+    if (type === "meal") setExpandedBlockId(block.id);
     setSelectedBlockId(block.id);
     setMobileSheet(null);
   }
+  function finishSwapPicker(mealId, itemId) {
+    const block = newSwapsBlock(mealId, itemId);
+    patchDay({ blocks: [...day.blocks, block] });
+    setSwapPicker(null);
+    setSelectedBlockId(block.id);
+  }
+  function updateMealItem(mealId, nextMeal) { patchBlock(mealId, nextMeal); }
   function moveBlock(blockId, dir) {
     const i = day.blocks.findIndex((b) => b.id === blockId);
     const j = i + dir;
@@ -439,6 +604,20 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
     saveFoodLibrary(trainerId, nextFoods);
     showToast(`Added "${name}" to your library with 0 macros - edit it in Foods when you have real numbers.`, "warn");
     return newFood;
+  }
+  function usePreset(mealId, preset) {
+    const meal = day.blocks.find((b) => b.id === mealId);
+    const clonedItems = preset.items.map((it) => ({ ...it, id: uid(), swaps: (it.swaps || []).map((s) => ({ ...s, id: uid() })) }));
+    patchBlock(mealId, { ...meal, items: [...meal.items, ...clonedItems] });
+  }
+  async function saveAsPreset(block) {
+    const name = await promptDialog("Name this saved meal", block.name, { title: "Save as saved meal" });
+    if (!name) return;
+    const preset = { id: uid(), name, items: block.items.map((it) => ({ ...it, id: uid(), swaps: it.swaps.map((s) => ({ ...s, id: uid() })) })) };
+    const next = [preset, ...mealPresets];
+    setMealPresets(next);
+    await saveMealPresets(trainerId, next);
+    showToast(`Saved "${name}" to Saved Meals.`, "success");
   }
 
   if (!templates) return <div style={{ color: NP.muted, padding: 24, fontFamily: NP.font }}>Loading…</div>;
@@ -489,22 +668,37 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
 
       <DayTotalCard totals={totals} targets={day.targets} />
 
-      {day.blocks.map((block, i) => (
-        <MealBlockCard
-          key={block.id} block={block} index={i} total={day.blocks.length}
-          selected={selectedBlockId === block.id}
-          expanded={expandedBlockId === block.id}
-          onSelect={() => { setSelectedBlockId(block.id); if (isCompact) setMobileSheet("settings"); }}
-          onToggleExpand={() => setExpandedBlockId(expandedBlockId === block.id ? null : block.id)}
-          foods={foods}
-          onChange={(next) => patchBlock(block.id, next)}
-          onMove={(dir) => moveBlock(block.id, dir)}
-          onDuplicate={() => duplicateBlock(block.id)}
-          onDelete={() => deleteBlock(block.id)}
-          isFirst={i === 0} isLast={i === day.blocks.length - 1}
-          onQuickCreateFood={(name) => { const f = quickCreateFood(name); patchBlock(block.id, { ...block, items: [...block.items, newMealItem(foodRefFromRow(f))] }); }}
-        />
-      ))}
+      {day.blocks.map((block, i) =>
+        block.type === "meal" ? (
+          <MealBlockCard
+            key={block.id} block={block} index={i} total={day.blocks.length}
+            selected={selectedBlockId === block.id}
+            expanded={expandedBlockId === block.id}
+            onSelect={() => { setSelectedBlockId(block.id); if (isCompact) setMobileSheet("settings"); }}
+            onToggleExpand={() => setExpandedBlockId(expandedBlockId === block.id ? null : block.id)}
+            foods={foods}
+            mealPresets={mealPresets}
+            onChange={(next) => patchBlock(block.id, next)}
+            onMove={(dir) => moveBlock(block.id, dir)}
+            onDuplicate={() => duplicateBlock(block.id)}
+            onDelete={() => deleteBlock(block.id)}
+            isFirst={i === 0} isLast={i === day.blocks.length - 1}
+            onQuickCreateFood={(name) => { const f = quickCreateFood(name); patchBlock(block.id, { ...block, items: [...block.items, newMealItem(foodRefFromRow(f))] }); }}
+            onUsePreset={usePreset}
+            onSaveAsPreset={saveAsPreset}
+          />
+        ) : (
+          <OtherBlockCard
+            key={block.id} block={block} day={day} foods={foods}
+            onBlockChange={(next) => patchBlock(block.id, next)}
+            onMealItemChange={updateMealItem}
+            onMove={(dir) => moveBlock(block.id, dir)}
+            onDuplicate={() => duplicateBlock(block.id)}
+            onDelete={() => deleteBlock(block.id)}
+            isFirst={i === 0} isLast={i === day.blocks.length - 1}
+          />
+        )
+      )}
 
       <button onClick={() => (isCompact ? setMobileSheet("add") : addBlock("meal"))} style={{ height: 56, background: "transparent", border: `1px dashed ${NP.lineDashed}`, borderRadius: 16, color: NP.dim, fontSize: 12, letterSpacing: "0.14em", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", fontFamily: NP.font, fontWeight: 700 }}>+ ADD BLOCK</button>
     </>
@@ -574,6 +768,32 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate })
           <BlockSettingsPanel block={selectedBlock} onChange={(next) => patchBlock(selectedBlock.id, next)} />
           <div style={{ height: 20 }} />
           <PlanSettingsPanel doc={doc} onChange={applyDoc} />
+        </Sheet>
+      )}
+
+      {swapPicker?.step === "meal" && (
+        <Sheet onClose={() => setSwapPicker(null)}>
+          <div style={{ ...npLabel(), marginBottom: 12 }}>ADD SWAPS · PICK A MEAL</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {day.blocks.filter((b) => b.type === "meal" && b.items.length > 0).map((b) => (
+              <button key={b.id} onClick={() => setSwapPicker({ step: "item", mealId: b.id })} style={{ textAlign: "left", background: NP.card2, border: "none", borderRadius: 8, padding: "12px 14px", color: NP.text, fontFamily: NP.font, fontSize: 13, letterSpacing: "0.04em", cursor: "pointer" }}>
+                {b.name} <span style={{ color: NP.dim, fontSize: 11 }}>· {b.items.length} food{b.items.length === 1 ? "" : "s"}</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+      {swapPicker?.step === "item" && (
+        <Sheet onClose={() => setSwapPicker(null)}>
+          <div style={{ ...npLabel(), marginBottom: 12 }}>ADD SWAPS · PICK A FOOD</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(day.blocks.find((b) => b.id === swapPicker.mealId)?.items || []).map((it) => (
+              <button key={it.id} onClick={() => finishSwapPicker(swapPicker.mealId, it.id)} style={{ textAlign: "left", background: NP.card2, border: "none", borderRadius: 8, padding: "12px 14px", color: NP.text, fontFamily: NP.font, fontSize: 13, letterSpacing: "0.04em", cursor: "pointer" }}>
+                {it.food.name.toUpperCase()} <span style={{ color: NP.dim, fontSize: 11 }}>{it.amount}{it.food.unit === "piece" ? "" : it.food.unit.toUpperCase()}</span>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setSwapPicker({ step: "meal" })} style={npButton("ghost", { marginTop: 12 })}>‹ BACK TO MEALS</button>
         </Sheet>
       )}
     </div>

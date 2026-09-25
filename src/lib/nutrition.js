@@ -11,7 +11,10 @@ export const NUTRITION_PHASES = ["baseline", "report", "adjustment", "maintenanc
 // come through baseline -> report -> adjustment -> maintenance and now just
 // need to hit numbers. Switching is non-destructive: the food log is hidden,
 // never deleted, and comes back intact if the coach switches them back.
-export const NUTRITION_MODES = ["food_log", "macros"];
+// "prescribed_plan": a coach-built, client-ticked plan (NUTRITION_SPEC.md),
+// a third mode alongside the original two - see docs/nutrition-recon.md
+// §5 for why this is additive rather than a replacement.
+export const NUTRITION_MODES = ["food_log", "macros", "prescribed_plan"];
 export const MEAL_SLOTS = ["breakfast", "lunch", "dinner"];
 export const MACRO_SLOTS = ["breakfast", "lunch", "dinner", "snacks"];
 
