@@ -1,3 +1,47 @@
+# Pro nutrition plans (Phase 2: Foods library + guidelines) — decisions log
+
+Ask: "go" (continuing from Phase 1's stop-and-review point). Per the
+spec's phase table: Foods library + Appendix A seed + Settings →
+Nutrition guidelines.
+
+## Nutrition Plans tile deliberately not added yet
+
+Spec §5 says add both "Nutrition Plans" and "Foods" tiles to Tools now.
+Only "Foods" was added - the plan builder itself doesn't exist until
+Phase 3, and a tile that opens to nothing is a dead link a coach could
+tap today. It gets added alongside the builder in Phase 3 instead of
+sitting there broken for a phase.
+
+## Archive vs. delete, checked against real usage
+
+Spec §5.4: "archive instead of delete when a food is used in any
+template." Implemented literally - the Foods screen loads plan_templates
+and meal_presets on open and builds a set of every foodId actually
+referenced, then only offers hard Delete when a food isn't in that set.
+Since the plan builder (where templates get created) doesn't exist until
+Phase 3, this check currently always passes - which is correct, not a
+placeholder: there's nothing to protect against yet, and the guard is
+already live for the moment there is.
+
+## Macro sanity check as a tested pure function
+
+Added `macroSanityCheck()` to `planMath.js` rather than inlining the
+`|kcal - (4P+4C+9F)| > 15%` check in the form component, matching every
+other rule in that file - testable in isolation, reusable if a second
+place ever needs to flag the same thing (e.g. the AI refine feature in
+Phase 10, which the spec says should also respect real macros). Confirmed
+against a real case: swapping protein and fat on chicken breast (165kcal,
+"31P/0C/3.6F" entered as "3.6P/0C/31F") trips the warning; the real values
+don't.
+
+## Design tokens still not reconciled - flagged again, not fixed here
+
+The Foods list shows kcal in the spec's cyan (#22D3EE), hardcoded with a
+comment pointing at the still-open token reconciliation from Phase 1's
+recon note. Not scope-creeping into a full token pass for one color chip.
+
+---
+
 # Pro nutrition plans (Phase 1: data model, math, tests) — decisions log
 
 Ask: a 904-line build spec (`NUTRITION_SPEC.md`) + approved mockups

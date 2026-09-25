@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, targetStatus, itemScore, dayAdherence,
-  suggestSwapAmount, buildGroceryList,
+  suggestSwapAmount, buildGroceryList, macroSanityCheck,
 } from "./planMath.js";
 import { isoDate } from "../../lib/dateUtils.js";
 
@@ -151,6 +151,20 @@ describe("grocery list (§4.5)", () => {
     // (200 + 145)g cooked rice * 0.35 dry factor = 120.75g -> ceil to nearest 10 = 130g
     const rice = list.CARBS.find((r) => r.label === "Basmati rice, dry");
     expect(rice.display).toBe("130 g");
+  });
+});
+
+describe("macroSanityCheck (§5.4 food form warning)", () => {
+  it("chicken breast (165 kcal, 31P, 0C, 3.6F) is sane", () => {
+    // expected = 4*31 + 4*0 + 9*3.6 = 156.4, actual 165 -> 5.5% off
+    expect(macroSanityCheck({ kcal: 165, protein: 31, carbs: 0, fat: 3.6 }).ok).toBe(true);
+  });
+  it("flags a plausible data-entry error", () => {
+    // protein/fat swapped: expected = 4*3.6 + 0 + 9*31 = 293.4 vs stated 165
+    expect(macroSanityCheck({ kcal: 165, protein: 3.6, carbs: 0, fat: 31 }).ok).toBe(false);
+  });
+  it("never blocks - always returns ok, just flags", () => {
+    expect(macroSanityCheck({ kcal: 9999, protein: 0, carbs: 0, fat: 0 })).toEqual({ ok: true, expectedKcal: 0, pct: 0 });
   });
 });
 

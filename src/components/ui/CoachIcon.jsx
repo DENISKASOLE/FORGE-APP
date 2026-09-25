@@ -13,6 +13,7 @@ import {
   ClipboardText,
   Megaphone,
   Lightning,
+  ForkKnife,
 } from "@phosphor-icons/react";
 
 const COACH_ICON_COMPONENTS = {
@@ -30,6 +31,7 @@ const COACH_ICON_COMPONENTS = {
   forms: ClipboardText,
   broadcast: Megaphone,
   automations: Lightning,
+  foods: ForkKnife,
 };
 
 export function CoachIcon({ name, size = 22, color = "currentColor" }) {

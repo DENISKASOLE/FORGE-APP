@@ -28,6 +28,8 @@ import { ExerciseLibraryScreen, ProgramBuilder } from "../train/TrainScreens.jsx
 import { CoachContentScreen } from "../learn/LearnTab.jsx";
 import { INTAKE_FORM } from "../profile/IntakeForm.jsx";
 import { ClientCard } from "../client-shell/ClientShellUI.jsx";
+import { FoodsLibraryScreen } from "../nutrition-plan/FoodsLibraryScreen.jsx";
+import { NutritionGuidelinesScreen } from "../nutrition-plan/NutritionGuidelinesScreen.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
 import { BuddyPairsScreen } from "./BuddyPairs.jsx";
@@ -434,6 +436,10 @@ export function CoachToolsTab({ onOpen }) {
     { key: "forms", name: "Intake Forms", meta: "Onboarding & health", icon: "forms", color: BRAND.yellow },
     { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
     { key: "automations", name: "Automations", meta: "Reminders & nudges", icon: "automations", color: BRAND.orange },
+    // "Nutrition Plans" (the plan builder) intentionally isn't added here
+    // yet - it doesn't exist until Phase 3, and a tile that opens to
+    // nothing would be a dead link. Foods is real now (Phase 2).
+    { key: "foods", name: "Foods", meta: "Food library for nutrition plans", icon: "foods", color: BRAND.green },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
@@ -814,6 +820,9 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
     <SettingsGlassSection label="Notifications">
       <CoachSettingsRow k="Automations & reminders" v="Open ›" onClick={() => onOpenTool?.("automations")} last />
     </SettingsGlassSection>
+    <SettingsGlassSection label="Nutrition">
+      <CoachSettingsRow k="Studio guidelines" v="Open ›" onClick={() => onOpenTool?.("nutrition_guidelines")} last />
+    </SettingsGlassSection>
     <SettingsGlassSection label="Account">
       <CoachSettingsRow k="Active clients" v={String(clientsCount)} />
       <CoachSettingsRow k="Sync" v={syncLabel} last />
@@ -916,6 +925,8 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "automations") body = <CoachAutomationsScreen user={user} onBack={goHome} />;
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
+  else if (screen === "foods") body = <FoodsLibraryScreen trainerId={user.id} onBack={goHome} />;
+  else if (screen === "nutrition_guidelines") body = <NutritionGuidelinesScreen trainerId={user.id} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}

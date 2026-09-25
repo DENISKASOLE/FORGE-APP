@@ -35,6 +35,18 @@ export function roundMacros(m) {
 }
 export function fmtKcal(kcal) { return Math.round(kcal).toLocaleString("en-US"); }
 
+// ---------- §5.4 food-form macro sanity check ----------
+// Warns (never blocks) when a food's stated kcal doesn't roughly match
+// 4*protein + 4*carbs + 9*fat - catches typos (a decimal in the wrong
+// place, protein/fat swapped) without stopping a coach entering a real
+// food whose label genuinely rounds oddly.
+export function macroSanityCheck({ kcal, protein, carbs, fat }) {
+  const expected = 4 * (protein || 0) + 4 * (carbs || 0) + 9 * (fat || 0);
+  if (expected <= 0) return { ok: true, expectedKcal: 0, pct: 0 };
+  const pct = Math.abs((kcal || 0) - expected) / expected;
+  return { ok: pct <= 0.15, expectedKcal: Math.round(expected), pct };
+}
+
 // ---------- §4.2 target status chip ----------
 // Worst (largest) deviation across kcal/P/C/F decides the chip; the chip
 // text reports that same worst deviation, not an average of all four.
