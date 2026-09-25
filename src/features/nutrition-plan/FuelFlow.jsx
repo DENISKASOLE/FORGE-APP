@@ -7,6 +7,7 @@ import { isoDate } from "../../lib/dateUtils.js";
 import { savePlanLogs, planDayLogFor } from "../../lib/nutritionPlan.js";
 import { allMealItems, loggedDayTotals, entryFromEatenItem, entryFromSwap, skippedEntry, extraTotals } from "./planMath.js";
 import { estimateFoodExtra } from "../../lib/ai.js";
+import { buildNutritionPlanPDF, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
 
 const EDIT_WINDOW_DAYS = 2;
 const DOW_KEY_BY_JS_DAY = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -363,16 +364,31 @@ function ExtrasSheet({ recent, onClose, onAdd, seed }) {
 // Full plan, read-only (spec §6.7). Deliberately compact - a proper
 // DOWNLOAD PDF button arrives with the PDF export phase; this is the
 // in-app fallback so "View my full plan" is never a dead link.
-function MyPlanSheet({ signedPlan, onClose }) {
+function MyPlanSheet({ client, signedPlan, onClose }) {
   const [dayIdx, setDayIdx] = useState(0);
+  const [downloading, setDownloading] = useState(false);
   const doc = signedPlan.doc;
   const day = doc.days[Math.min(dayIdx, doc.days.length - 1)];
+
+  async function downloadPdf() {
+    setDownloading(true);
+    try {
+      const blob = await buildNutritionPlanPDF(client, signedPlan);
+      await sharePdfBlob(blob, `Forge-Nutrition-Plan-${safeFilename(client.name)}-v${signedPlan.version}.pdf`, doc.name);
+    } catch (e) {
+      showToast(e.message || "Couldn't build the PDF.", "error");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1300, background: NP.bg, overflow: "auto", fontFamily: NP.font, color: NP.text }}>
       <div style={{ padding: "20px 16px", display: "flex", flexDirection: "column", gap: 16, maxWidth: 480, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={onClose} aria-label="Back" style={{ width: 44, height: 44, borderRadius: 12, background: NP.card, border: `1px solid ${NP.line}`, color: NP.text, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>‹</button>
-          <span style={{ fontSize: 20, letterSpacing: "0.08em" }}>{doc.name}</span>
+          <span style={{ fontSize: 20, letterSpacing: "0.08em", flex: 1 }}>{doc.name}</span>
+          <button onClick={downloadPdf} disabled={downloading} style={npButton("outline", { fontSize: 10, height: 40 })}>{downloading ? "BUILDING…" : "DOWNLOAD PDF"}</button>
         </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
           {doc.days.map((d, i) => (
@@ -579,7 +595,7 @@ export function FuelFlow({ client, updateClient }) {
         />
       )}
       {showExtras && <ExtrasSheet recent={recentExtras} seed={extrasSeed} onClose={() => setShowExtras(false)} onAdd={addExtras} />}
-      {showPlan && <MyPlanSheet signedPlan={signedPlan} onClose={() => setShowPlan(false)} />}
+      {showPlan && <MyPlanSheet client={client} signedPlan={signedPlan} onClose={() => setShowPlan(false)} />}
     </div>
   );
 }

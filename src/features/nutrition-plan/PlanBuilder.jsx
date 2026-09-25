@@ -12,6 +12,7 @@ import {
 } from "./planModel.js";
 import { mealTotals, dayTotals, targetStatus, barPct, fmtKcal, roundMacros, suggestSwapAmount } from "./planMath.js";
 import { AssignPlanSheet } from "./AssignPlanSheet.jsx";
+import { buildNutritionPlanPDF, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
 
 const HISTORY_LIMIT = 50;
 const AUTOSAVE_MS = 1500;
@@ -652,6 +653,22 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate, c
       setSigning(false);
     }
   }
+  const [previewing, setPreviewing] = useState(false);
+  async function previewPdf() {
+    setPreviewing(true);
+    try {
+      const cycleKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+      const previewSchedule = Object.fromEntries(cycleKeys.map((k, i) => [k, doc.days[i % doc.days.length].id]));
+      const withGuidelines = doc.settings.showGuidelines ? { ...doc, guidelines: studioSettings?.guidelines || [] } : doc;
+      const previewPlan = { version: "—", doc: withGuidelines, schedule: previewSchedule, startDate: "START DATE", coachNote: "" };
+      const blob = await buildNutritionPlanPDF({ name: "CLIENT NAME", transformPhotos: [] }, previewPlan);
+      await sharePdfBlob(blob, `Forge-Nutrition-Plan-Preview-${safeFilename(doc.name)}.pdf`, doc.name);
+    } catch (e) {
+      showToast(e.message || "Couldn't build the PDF preview.", "error");
+    } finally {
+      setPreviewing(false);
+    }
+  }
   function editForClient({ client, schedule, startDate, coachNote }) {
     const cloned = cloneDocWithNewIds(doc);
     setClientSign({ client, schedule, startDate, coachNote, sourceTemplateId: entry.id });
@@ -761,6 +778,7 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate, c
           <button onClick={() => signAndSend(clientSign)} disabled={signing} style={npButton("fill", { fontSize: 10, height: 36 })}>{signing ? "SIGNING…" : `SIGN & SEND · ${clientSign.client.name.toUpperCase()}`}</button>
         ) : (
           <>
+            {!isCompact && <button onClick={previewPdf} disabled={previewing} style={npButton("outline", { fontSize: 10, height: 36 })}>{previewing ? "BUILDING…" : "PREVIEW PDF"}</button>}
             {!isCompact && <button onClick={() => { flushSave(); showToast("Template saved.", "success"); }} style={npButton("outline", { fontSize: 10, height: 36 })}>SAVE TEMPLATE</button>}
             <button onClick={() => setShowAssign(true)} style={npButton("fill", { fontSize: 10, height: 36 })}>ASSIGN TO CLIENT</button>
           </>
