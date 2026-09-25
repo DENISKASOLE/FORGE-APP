@@ -164,6 +164,13 @@ export function mapClient(row, dataRows = [], index = 0) {
     bodyAnalysis: sections.body_analysis?.reports || [],
     intake: sections.intake || null,
     trainingLogs: sections.training_logs || null,
+    // "prescribed plan" nutrition mode (NUTRITION_SPEC.md) - a third
+    // tracking_mode alongside food_log/macros in sections.nutrition.
+    // Raw here; normalizeClientPlanState() in lib/nutritionPlan.js is
+    // what callers should read through, same as nutrition's own
+    // normalizeNutritionState() pattern.
+    nutritionPlan: sections.nutrition_plan || null,
+    nutritionPlanLogs: sections.nutrition_plan_logs || {},
     notes: profile.notes || row.notes || "",
   };
 }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client meal ticking and swap</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#EDEDED}
+*{font-weight:700}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #000000; color: #EDEDED; position: relative; overflow: hidden">
+
+<div style="box-sizing: border-box; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" aria-label="Back" style="width: 44px; height: 44px; border-radius: 12px; background: #0d0d0d; border: 1px solid #262626; color: #EDEDED; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">20:00 · TICK WHAT YOU ATE</span>
+<h1 style="margin: 0; font-size: 20px; letter-spacing: 0.1em">DINNER</h1>
+</div>
+</div>
+
+<div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 64px">
+<button type="button" role="checkbox" aria-checked="true" aria-label="Salmon" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; border: 0; background: #3DD68C; color: #000000; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></button>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">Salmon fillet, raw</span><span style="font-size: 11px; color: #a1a1a1">150 g · 312 kcal</span></div>
+<button type="button" aria-label="Swap salmon" style="width: 40px; height: 40px; border-radius: 10px; background: transparent; border: 1px solid #262626; color: #a1a1a1; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"></path></svg></button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 64px; border-top: 1px solid #171717; background: #171717">
+<button type="button" role="checkbox" aria-checked="false" aria-label="Sweet potato" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; border: 2px solid #6e6e6e; background: transparent"></button>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">Sweet potato</span><span style="font-size: 11px; color: #a1a1a1">200 g · 172 kcal</span></div>
+<button type="button" aria-label="Swap sweet potato" style="width: 40px; height: 40px; border-radius: 10px; background: #EDEDED; border: 0; color: #000000; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"></path></svg></button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 64px; border-top: 1px solid #171717">
+<button type="button" role="checkbox" aria-checked="true" aria-label="Broccoli" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; border: 0; background: #3DD68C; color: #000000; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></button>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px">Broccoli</span><span style="font-size: 11px; color: #a1a1a1">150 g · 51 kcal</span></div>
+<button type="button" aria-label="Swap broccoli" style="width: 40px; height: 40px; border-radius: 10px; background: transparent; border: 1px solid #262626; color: #a1a1a1; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; gap: 8px">
+<button type="button" style="flex-grow: 1; height: 46px; background: transparent; color: #a1a1a1; border: 1px solid #262626; border-radius: 12px; font-size: 11px; letter-spacing: 0.12em">ATE LESS / MORE</button>
+<button type="button" style="flex-grow: 1; height: 46px; background: transparent; color: #a1a1a1; border: 1px solid #262626; border-radius: 12px; font-size: 11px; letter-spacing: 0.12em">SKIPPED MEAL</button>
+</div>
+</div>
+
+<!-- dim + sheet -->
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(0,0,0,0.6)"></div>
+<section role="dialog" aria-label="Swap sweet potato" style="position: absolute; left: 0; bottom: 0; width: 390px; box-sizing: border-box; padding: 12px 16px 24px; background: #0d0d0d; border-top: 1px solid #333333; border-radius: 24px 24px 0 0; display: flex; flex-direction: column; gap: 14px">
+<div style="width: 40px; height: 4px; border-radius: 999px; background: #333333; align-self: center"></div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">SWAP · YOUR COACH'S OPTIONS</span>
+<span style="font-size: 17px; letter-spacing: 0.08em">SWEET POTATO 200 G</span>
+<span style="font-size: 11px; color: #a1a1a1">Every option has the same carbs, about 40 g</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<button type="button" role="radio" aria-checked="false" style="height: 54px; padding: 0 14px; background: #000000; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; align-items: center; justify-content: space-between; font-size: 14px"><span>Basmati rice, cooked</span><span style="color: #a1a1a1; font-size: 12px">145 g</span></button>
+<button type="button" role="radio" aria-checked="true" style="height: 54px; padding: 0 14px; background: #EDEDED; border: 0; border-radius: 12px; color: #000000; display: flex; align-items: center; justify-content: space-between; font-size: 14px"><span>Potatoes, boiled</span><span style="font-size: 12px">235 g</span></button>
+<button type="button" role="radio" aria-checked="false" style="height: 54px; padding: 0 14px; background: #000000; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; align-items: center; justify-content: space-between; font-size: 14px"><span>Wholewheat pasta, cooked</span><span style="color: #a1a1a1; font-size: 12px">135 g</span></button>
+<button type="button" role="radio" aria-checked="false" style="height: 54px; padding: 0 14px; background: #000000; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; align-items: center; justify-content: space-between; font-size: 14px"><span>Sourdough</span><span style="color: #a1a1a1; font-size: 12px">80 g</span></button>
+</div>
+<button type="button" style="height: 52px; background: #EDEDED; color: #000000; border: 0; border-radius: 14px; font-size: 12px; letter-spacing: 0.14em">SWAP AND TICK</button>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

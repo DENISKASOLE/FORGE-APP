@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client adds an extra</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#EDEDED}
+*{font-weight:700}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #000000; color: #EDEDED; position: relative; overflow: hidden">
+
+<div style="box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 16px; opacity: 0.5">
+<span style="font-size: 10px; letter-spacing: 0.16em; color: #6e6e6e">FRI 25 SEP · TRAINING DAY</span>
+<h1 style="margin: 0; font-size: 26px; letter-spacing: 0.08em">FUEL</h1>
+<div style="height: 120px; background: #0d0d0d; border: 1px solid #262626; border-radius: 18px"></div>
+<div style="height: 62px; background: #0d0d0d; border: 1px solid #262626; border-radius: 16px"></div>
+<div style="height: 62px; background: #0d0d0d; border: 1px solid #262626; border-radius: 16px"></div>
+</div>
+
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(0,0,0,0.6)"></div>
+<section role="dialog" aria-label="Add an extra" style="position: absolute; left: 0; bottom: 0; width: 390px; box-sizing: border-box; padding: 12px 16px 24px; background: #0d0d0d; border-top: 1px solid #333333; border-radius: 24px 24px 0 0; display: flex; flex-direction: column; gap: 14px">
+<div style="width: 40px; height: 4px; border-radius: 999px; background: #333333; align-self: center"></div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">EXTRAS · NOT ON YOUR PLAN</span>
+<span style="font-size: 17px; letter-spacing: 0.08em">WHAT DID YOU HAVE?</span>
+</div>
+<label style="display: flex; align-items: center; height: 52px; box-sizing: border-box; padding: 0 14px; background: #000000; border: 1px solid #EDEDED; border-radius: 14px">
+<input value="2 dates and a handful of almonds" aria-label="What did you have?" style="flex-grow: 1; min-width: 0; background: transparent; border: 0; color: #EDEDED; font-size: 14px"></label>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<span style="font-size: 10px; letter-spacing: 0.12em; color: #6e6e6e">RECENT</span>
+<button type="button" style="height: 34px; padding: 0 12px; border-radius: 999px; background: #171717; border: 0; color: #EDEDED; font-size: 12px">Latte, oat milk</button>
+<button type="button" style="height: 34px; padding: 0 12px; border-radius: 999px; background: #171717; border: 0; color: #EDEDED; font-size: 12px">Protein bar</button>
+</div>
+
+<div style="background: #000000; border: 1px solid #262626; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.14em; color: #a1a1a1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>ESTIMATE</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span>Medjool dates × 2</span><span style="color: #a1a1a1">133 kcal</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span>Almonds, about 20 g</span><span style="color: #a1a1a1">116 kcal</span></div>
+<div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #262626; font-size: 11px; letter-spacing: 0.08em"><span>249 KCAL</span><span><span style="color: #3DD68C">5P</span> · <span style="color: #FFA94D">40C</span> · <span style="color: #A78BFA">10F</span></span></div>
+</div>
+<span style="font-size: 11px; color: #6e6e6e; line-height: 1.5">Tap a line to fix the amount. Your coach sees everything you add here.</span>
+<button type="button" style="height: 52px; background: #EDEDED; color: #000000; border: 0; border-radius: 14px; font-size: 12px; letter-spacing: 0.14em">ADD TO TODAY</button>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

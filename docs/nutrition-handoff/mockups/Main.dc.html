@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coach plan builder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-weight:700;color:#EDEDED}
+*{font-weight:700}
+button{font-family:inherit;cursor:pointer}
+input,textarea{font-family:inherit}
+a{color:#EDEDED}a:hover{color:#ffffff}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1500px; box-sizing: border-box; background: #000000; color: #EDEDED; display: flex; flex-direction: column">
+
+<!-- TOP BAR -->
+<header style="height: 68px; box-sizing: border-box; padding: 0 24px; display: flex; align-items: center; gap: 24px; border-bottom: 1px solid #262626; background: #070707">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="30" height="26" viewBox="0 0 30 26" aria-hidden="true"><path d="M2 2h26L15 24z" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linejoin="round"></path><text x="9" y="13.5" font-size="9" font-weight="800" fill="#ED000A" font-family="system-ui,sans-serif">F</text><text x="15" y="13.5" font-size="9" font-weight="800" fill="#EDEDED" font-family="system-ui,sans-serif">P</text></svg>
+<div style="font-size: 15px; letter-spacing: 0.22em">FORGE</div>
+</div>
+<nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: 0.1em; color: #6e6e6e">
+<span>TOOLS</span><span>/</span><span>NUTRITION PLANS</span><span>/</span><span style="color: #EDEDED">FAT LOSS · PHASE 1</span>
+</nav>
+<div style="flex-grow: 1"></div>
+<span style="font-size: 11px; letter-spacing: 0.12em; color: #a1a1a1; border: 1px solid #262626; border-radius: 999px; padding: 6px 12px">DRAFT</span>
+<button type="button" style="height: 40px; padding: 0 16px; background: transparent; color: #EDEDED; border: 1px solid #262626; border-radius: 10px; font-size: 12px; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>PREVIEW PDF</button>
+<button type="button" style="height: 40px; padding: 0 16px; background: transparent; color: #EDEDED; border: 1px solid #262626; border-radius: 10px; font-size: 12px; letter-spacing: 0.1em">SAVE TEMPLATE</button>
+<button type="button" style="height: 40px; padding: 0 18px; background: #EDEDED; color: #000000; border: 0; border-radius: 10px; font-size: 12px; letter-spacing: 0.1em">ASSIGN TO CLIENT</button>
+</header>
+
+<div style="flex-grow: 1; display: flex; min-height: 0">
+
+<!-- LEFT: BLOCKS + PLAN -->
+<aside style="width: 272px; flex-shrink: 0; box-sizing: border-box; padding: 24px 20px; background: #070707; border-right: 1px solid #262626; display: flex; flex-direction: column; gap: 28px">
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e">ADD BLOCK</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v7a2 2 0 0 0 4 0V3M6 12v9M18 3c-1.7 0-3 2-3 5s1.3 4 3 4v9"></path></svg>MEAL</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"></path></svg>SWAPS</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H9l-5 4z"></path></svg>COACH NOTE</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v14c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2zM12 6v14"></path></svg>EDUCATION</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 3.5a5 5 0 0 1 7 7l-7 7a5 5 0 0 1-7-7z"></path><path d="m8.5 8.5 7 7"></path></svg>SUPPLEMENT</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"></path></svg>HYDRATION</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 16-5-5-9 9"></path></svg>PHOTO</button>
+<button type="button" style="height: 72px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; color: #EDEDED; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 10px; letter-spacing: 0.1em"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16"></path></svg>DIVIDER</button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e">DAILY TARGETS · TRAINING DAY</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label style="display: flex; align-items: center; justify-content: space-between; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; padding: 0 12px; height: 44px; font-size: 11px; letter-spacing: 0.1em; color: #a1a1a1"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #22D3EE"></span>KCAL</span><input value="1,850" aria-label="Calorie target" style="width: 80px; background: transparent; border: 0; color: #EDEDED; font-size: 15px; text-align: right"></label>
+<label style="display: flex; align-items: center; justify-content: space-between; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; padding: 0 12px; height: 44px; font-size: 11px; letter-spacing: 0.1em; color: #a1a1a1"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #3DD68C"></span>PROTEIN</span><input value="160 g" aria-label="Protein target" style="width: 80px; background: transparent; border: 0; color: #EDEDED; font-size: 15px; text-align: right"></label>
+<label style="display: flex; align-items: center; justify-content: space-between; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; padding: 0 12px; height: 44px; font-size: 11px; letter-spacing: 0.1em; color: #a1a1a1"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #FFA94D"></span>CARBS</span><input value="200 g" aria-label="Carb target" style="width: 80px; background: transparent; border: 0; color: #EDEDED; font-size: 15px; text-align: right"></label>
+<label style="display: flex; align-items: center; justify-content: space-between; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; padding: 0 12px; height: 44px; font-size: 11px; letter-spacing: 0.1em; color: #a1a1a1"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #A78BFA"></span>FAT</span><input value="45 g" aria-label="Fat target" style="width: 80px; background: transparent; border: 0; color: #EDEDED; font-size: 15px; text-align: right"></label>
+</div>
+<div style="font-size: 11px; color: #6e6e6e; line-height: 1.5; letter-spacing: 0.02em">Rest day has its own targets. Switch days to edit them.</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e">MY TEMPLATES</div>
+<div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 0.06em">
+<a href="#" style="text-decoration: none; padding: 10px 12px; border-radius: 8px; background: #171717; color: #EDEDED">FAT LOSS · PHASE 1</a>
+<a href="#" style="text-decoration: none; padding: 10px 12px; border-radius: 8px; color: #a1a1a1">LEAN GAIN · 2,800</a>
+<a href="#" style="text-decoration: none; padding: 10px 12px; border-radius: 8px; color: #a1a1a1">MAINTENANCE · FLEXIBLE</a>
+<a href="#" style="text-decoration: none; padding: 10px 12px; border-radius: 8px; color: #6e6e6e">+ NEW TEMPLATE</a>
+</div>
+</section>
+</aside>
+
+<!-- CENTER: PLAN CANVAS -->
+<main style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 28px 36px; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e">TEMPLATE · 2 DAYS</div>
+<h1 style="margin: 0; font-size: 28px; letter-spacing: 0.04em">FAT LOSS · PHASE 1</h1>
+</div>
+<div style="display: flex; gap: 6px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; padding: 4px">
+<button type="button" aria-pressed="true" style="height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: #EDEDED; color: #000000; font-size: 11px; letter-spacing: 0.1em">DAY 1 · TRAINING</button>
+<button type="button" aria-pressed="false" style="height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: #a1a1a1; font-size: 11px; letter-spacing: 0.1em">DAY 2 · REST</button>
+<button type="button" style="height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; color: #6e6e6e; font-size: 11px; letter-spacing: 0.1em">+ ADD DAY</button>
+</div>
+</div>
+
+<!-- Day total -->
+<section aria-label="Day total" style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 18px 20px; display: flex; gap: 28px; align-items: center">
+<div style="display: flex; flex-direction: column; gap: 4px; width: 150px; flex-shrink: 0">
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">DAY TOTAL</div>
+<div style="font-size: 30px; letter-spacing: 0.02em">1,839</div>
+<div style="font-size: 11px; letter-spacing: 0.1em; color: #a1a1a1">OF 1,850 KCAL</div>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.1em"><span style="color: #a1a1a1">PROTEIN</span><span>158 / 160 G</span></div>
+<div style="height: 8px; border-radius: 999px; background: #171717"><div style="width: 99%; height: 8px; border-radius: 999px; background: #3DD68C"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.1em"><span style="color: #a1a1a1">CARBS</span><span>204 / 200 G</span></div>
+<div style="height: 8px; border-radius: 999px; background: #171717"><div style="width: 100%; height: 8px; border-radius: 999px; background: #FFA94D"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.1em"><span style="color: #a1a1a1">FAT</span><span>43 / 45 G</span></div>
+<div style="height: 8px; border-radius: 999px; background: #171717"><div style="width: 96%; height: 8px; border-radius: 999px; background: #A78BFA"></div></div>
+</div>
+</div>
+<span style="font-size: 10px; letter-spacing: 0.12em; color: #3DD68C; border: 1px solid #1f4d36; border-radius: 999px; padding: 6px 10px; flex-shrink: 0">WITHIN 2%</span>
+</section>
+
+<!-- Starting point photos -->
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; align-items: center; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 4px; width: 150px; flex-shrink: 0">
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">PHOTO BLOCK</div>
+<div style="font-size: 13px; letter-spacing: 0.06em">STARTING POINT</div>
+</div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<div style="height: 64px; border: 1px dashed #333333; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">FRONT · FROM CHECK-IN</div>
+<div style="height: 64px; border: 1px dashed #333333; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">SIDE · FROM CHECK-IN</div>
+<div style="height: 64px; border: 1px dashed #333333; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">BACK · FROM CHECK-IN</div>
+</div>
+</section>
+
+<!-- BREAKFAST (selected, expanded) -->
+<section style="background: #0d0d0d; border: 1px solid #EDEDED; border-radius: 16px; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid #262626">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e6e" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"></path></svg>
+<div style="font-size: 11px; letter-spacing: 0.12em; color: #6e6e6e; width: 48px">07:30</div>
+<div style="font-size: 16px; letter-spacing: 0.08em; flex-grow: 1">BREAKFAST</div>
+<div style="display: flex; gap: 14px; font-size: 11px; letter-spacing: 0.08em; color: #a1a1a1">
+<span><span style="color: #EDEDED">412</span> KCAL</span><span style="color: #3DD68C">34P</span><span style="color: #FFA94D">64C</span><span style="color: #A78BFA">3F</span>
+</div>
+</div>
+<div role="table" aria-label="Breakfast foods" style="display: flex; flex-direction: column">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px 52px 52px 52px 36px; gap: 8px; padding: 10px 20px; font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">
+<span role="columnheader">FOOD</span><span role="columnheader">AMOUNT</span><span role="columnheader" style="text-align: right">KCAL</span><span role="columnheader" style="text-align: right">P</span><span role="columnheader" style="text-align: right">C</span><span role="columnheader" style="text-align: right">F</span><span role="columnheader"></span>
+</div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px 52px 52px 52px 36px; gap: 8px; align-items: center; padding: 0 20px; height: 46px; border-top: 1px solid #171717; font-size: 13px">
+<span role="cell" style="letter-spacing: 0.04em">GREEK YOGURT 0%</span><span role="cell"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; background: #171717; border-radius: 8px">250 G</span></span><span role="cell" style="text-align: right">135</span><span role="cell" style="text-align: right; color: #a1a1a1">26</span><span role="cell" style="text-align: right; color: #a1a1a1">9</span><span role="cell" style="text-align: right; color: #a1a1a1">0</span><button type="button" aria-label="Remove Greek yogurt" style="width: 32px; height: 32px; background: transparent; border: 0; color: #6e6e6e; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px 52px 52px 52px 36px; gap: 8px; align-items: center; padding: 0 20px; height: 46px; border-top: 1px solid #171717; font-size: 13px">
+<span role="cell" style="letter-spacing: 0.04em">ROLLED OATS</span><span role="cell"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; background: #171717; border-radius: 8px">50 G</span></span><span role="cell" style="text-align: right">190</span><span role="cell" style="text-align: right; color: #a1a1a1">7</span><span role="cell" style="text-align: right; color: #a1a1a1">33</span><span role="cell" style="text-align: right; color: #a1a1a1">3</span><button type="button" aria-label="Remove rolled oats" style="width: 32px; height: 32px; background: transparent; border: 0; color: #6e6e6e; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px 52px 52px 52px 36px; gap: 8px; align-items: center; padding: 0 20px; height: 46px; border-top: 1px solid #171717; font-size: 13px">
+<span role="cell" style="letter-spacing: 0.04em">BLUEBERRIES</span><span role="cell"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; background: #171717; border-radius: 8px">100 G</span></span><span role="cell" style="text-align: right">57</span><span role="cell" style="text-align: right; color: #a1a1a1">1</span><span role="cell" style="text-align: right; color: #a1a1a1">14</span><span role="cell" style="text-align: right; color: #a1a1a1">0</span><button type="button" aria-label="Remove blueberries" style="width: 32px; height: 32px; background: transparent; border: 0; color: #6e6e6e; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px 52px 52px 52px 36px; gap: 8px; align-items: center; padding: 0 20px; height: 46px; border-top: 1px solid #171717; font-size: 13px">
+<span role="cell" style="letter-spacing: 0.04em">HONEY</span><span role="cell"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; background: #171717; border-radius: 8px">10 G</span></span><span role="cell" style="text-align: right">30</span><span role="cell" style="text-align: right; color: #a1a1a1">0</span><span role="cell" style="text-align: right; color: #a1a1a1">8</span><span role="cell" style="text-align: right; color: #a1a1a1">0</span><button type="button" aria-label="Remove honey" style="width: 32px; height: 32px; background: transparent; border: 0; color: #6e6e6e; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+</div>
+<div style="display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid #262626">
+<label style="flex-grow: 1; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; background: #000000; border: 1px solid #262626; border-radius: 10px; color: #6e6e6e">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<input placeholder="ADD FOOD — SEARCH YOUR FOODS DATABASE" aria-label="Add food" style="flex-grow: 1; background: transparent; border: 0; color: #EDEDED; font-size: 12px; letter-spacing: 0.08em"></label>
+<button type="button" style="height: 44px; padding: 0 14px; background: transparent; border: 1px solid #262626; border-radius: 10px; color: #a1a1a1; font-size: 11px; letter-spacing: 0.1em">FROM SAVED MEALS</button>
+</div>
+</section>
+
+<!-- COACH NOTE -->
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; gap: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M4 4h16v12H9l-5 4z"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">COACH NOTE</div>
+<div style="font-size: 14px; line-height: 1.55; color: #EDEDED; letter-spacing: 0.01em">Hit protein first at every meal. On training days, move the banana from your snack to 60 minutes before your session.</div>
+</div>
+</section>
+
+<!-- LUNCH collapsed -->
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e6e" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"></path></svg>
+<div style="font-size: 11px; letter-spacing: 0.12em; color: #6e6e6e; width: 48px">13:00</div>
+<div style="font-size: 16px; letter-spacing: 0.08em; flex-grow: 1">LUNCH</div>
+<div style="display: flex; gap: 14px; font-size: 11px; letter-spacing: 0.08em; color: #a1a1a1"><span><span style="color: #EDEDED">665</span> KCAL</span><span style="color: #3DD68C">62P</span><span style="color: #FFA94D">60C</span><span style="color: #A78BFA">17F</span></div>
+</div>
+<div style="padding-left: 88px; font-size: 12px; letter-spacing: 0.06em; color: #a1a1a1">CHICKEN BREAST 180 G · BASMATI RICE 200 G · MIXED SALAD 100 G · OLIVE OIL 10 G</div>
+</section>
+
+<!-- SWAPS -->
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"></path></svg>
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e; flex-grow: 1">FLEXIBLE SWAPS · LUNCH PROTEIN</div>
+<span style="font-size: 10px; letter-spacing: 0.12em; color: #a1a1a1">MATCHED TO ±5 G PROTEIN</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<span style="height: 34px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: #EDEDED; color: #000000; font-size: 11px; letter-spacing: 0.08em">CHICKEN BREAST 180 G</span>
+<span style="height: 34px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: #171717; font-size: 11px; letter-spacing: 0.08em">LEAN BEEF 5% 190 G</span>
+<span style="height: 34px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: #171717; font-size: 11px; letter-spacing: 0.08em">WHITE FISH 240 G</span>
+<span style="height: 34px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: #171717; font-size: 11px; letter-spacing: 0.08em">FIRM TOFU 330 G</span>
+<button type="button" style="height: 34px; padding: 0 12px; border-radius: 999px; background: transparent; border: 1px dashed #333333; color: #6e6e6e; font-size: 11px; letter-spacing: 0.08em">+ ADD SWAP</button>
+</div>
+</section>
+
+<!-- SNACK collapsed -->
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e6e" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"></path></svg>
+<div style="font-size: 11px; letter-spacing: 0.12em; color: #6e6e6e; width: 48px">16:30</div>
+<div style="font-size: 16px; letter-spacing: 0.08em; flex-grow: 1">PRE-SESSION SNACK</div>
+<div style="display: flex; gap: 14px; font-size: 11px; letter-spacing: 0.08em; color: #a1a1a1"><span><span style="color: #EDEDED">227</span> KCAL</span><span style="color: #3DD68C">25P</span><span style="color: #FFA94D">30C</span><span style="color: #A78BFA">2F</span></div>
+</div>
+<div style="padding-left: 88px; font-size: 12px; letter-spacing: 0.06em; color: #a1a1a1">WHEY PROTEIN 30 G · BANANA 120 G</div>
+</section>
+
+<!-- DINNER collapsed -->
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e6e" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"></path></svg>
+<div style="font-size: 11px; letter-spacing: 0.12em; color: #6e6e6e; width: 48px">20:00</div>
+<div style="font-size: 16px; letter-spacing: 0.08em; flex-grow: 1">DINNER</div>
+<div style="display: flex; gap: 14px; font-size: 11px; letter-spacing: 0.08em; color: #a1a1a1"><span><span style="color: #EDEDED">535</span> KCAL</span><span style="color: #3DD68C">37P</span><span style="color: #FFA94D">50C</span><span style="color: #A78BFA">21F</span></div>
+</div>
+<div style="padding-left: 88px; font-size: 12px; letter-spacing: 0.06em; color: #a1a1a1">SALMON 150 G RAW · SWEET POTATO 200 G · BROCCOLI 150 G</div>
+</section>
+
+<!-- HYDRATION + SUPPLEMENT -->
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; gap: 14px; align-items: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">HYDRATION</div>
+<div style="font-size: 14px; letter-spacing: 0.06em">3.0 L WATER · +0.5 L ON TRAINING DAYS</div>
+</div>
+</section>
+<section style="background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 16px 20px; display: flex; gap: 14px; align-items: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 3.5a5 5 0 0 1 7 7l-7 7a5 5 0 0 1-7-7z"></path><path d="m8.5 8.5 7 7"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">SUPPLEMENTS</div>
+<div style="font-size: 14px; letter-spacing: 0.06em">CREATINE 5 G · VITAMIN D3 2,000 IU</div>
+</div>
+</section>
+</div>
+
+<button type="button" style="height: 56px; background: transparent; border: 1px dashed #333333; border-radius: 16px; color: #6e6e6e; font-size: 12px; letter-spacing: 0.14em; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>ADD BLOCK</button>
+</main>
+
+<!-- RIGHT: SETTINGS + AI -->
+<aside style="width: 330px; flex-shrink: 0; box-sizing: border-box; padding: 24px 20px; background: #070707; border-left: 1px solid #262626; display: flex; flex-direction: column; gap: 28px">
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e">BLOCK SETTINGS · BREAKFAST</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 10px; letter-spacing: 0.14em; color: #a1a1a1">NAME<input value="BREAKFAST" style="height: 42px; box-sizing: border-box; padding: 0 12px; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; color: #EDEDED; font-size: 13px; letter-spacing: 0.06em"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 10px; letter-spacing: 0.14em; color: #a1a1a1">TIME<input value="07:30" style="height: 42px; box-sizing: border-box; padding: 0 12px; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; color: #EDEDED; font-size: 13px; letter-spacing: 0.06em"></label>
+<div style="display: flex; align-items: center; justify-content: space-between; height: 44px; font-size: 12px; letter-spacing: 0.08em"><span>SHOW MEAL TOTALS</span><button type="button" role="switch" aria-checked="true" aria-label="Show meal totals" style="width: 44px; height: 26px; border-radius: 999px; border: 0; background: #EDEDED; padding: 3px; display: flex; justify-content: flex-end"><span style="width: 20px; height: 20px; border-radius: 999px; background: #000000"></span></button></div>
+<div style="display: flex; align-items: center; justify-content: space-between; height: 44px; font-size: 12px; letter-spacing: 0.08em"><span>CLIENT CAN SWAP FOODS</span><button type="button" role="switch" aria-checked="false" aria-label="Client can swap foods" style="width: 44px; height: 26px; border-radius: 999px; border: 0; background: #262626; padding: 3px; display: flex; justify-content: flex-start"><span style="width: 20px; height: 20px; border-radius: 999px; background: #6e6e6e"></span></button></div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e">ADDED TO THIS PLAN</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; padding: 12px 14px">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; letter-spacing: 0.08em">STUDIO GUIDELINES</span><span style="font-size: 11px; color: #6e6e6e; line-height: 1.4">Your house rules, set once in Settings</span></div>
+<button type="button" role="switch" aria-checked="true" aria-label="Studio guidelines" style="width: 44px; height: 26px; flex-shrink: 0; border-radius: 999px; border: 0; background: #EDEDED; padding: 3px; display: flex; justify-content: flex-end"><span style="width: 20px; height: 20px; border-radius: 999px; background: #000000"></span></button>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; padding: 12px 14px">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; letter-spacing: 0.08em">GROCERY LIST</span><span style="font-size: 11px; color: #6e6e6e; line-height: 1.4">Built automatically from every meal</span></div>
+<button type="button" role="switch" aria-checked="true" aria-label="Grocery list" style="width: 44px; height: 26px; flex-shrink: 0; border-radius: 999px; border: 0; background: #EDEDED; padding: 3px; display: flex; justify-content: flex-end"><span style="width: 20px; height: 20px; border-radius: 999px; background: #000000"></span></button>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.14em; color: #6e6e6e"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>AI REFINE · BREAKFAST</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 10px; letter-spacing: 0.14em; color: #a1a1a1">WHAT SHOULD CHANGE?<textarea rows="3" style="box-sizing: border-box; padding: 10px 12px; background: #0d0d0d; border: 1px solid #262626; border-radius: 10px; color: #EDEDED; font-size: 13px; line-height: 1.5; resize: none">More fibre, keep macros within 5%</textarea></label>
+<button type="button" style="height: 44px; background: transparent; border: 1px solid #EDEDED; border-radius: 10px; color: #EDEDED; font-size: 11px; letter-spacing: 0.12em">PROPOSE CHANGE</button>
+
+<div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 10px; letter-spacing: 0.14em; color: #6e6e6e">PROPOSAL</div>
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; letter-spacing: 0.04em">
+<div style="display: flex; justify-content: space-between; color: #6e6e6e; text-decoration: line-through"><span>HONEY</span><span>10 G</span></div>
+<div style="display: flex; justify-content: space-between"><span>RASPBERRIES</span><span>80 G</span></div>
+</div>
+<div style="font-size: 11px; letter-spacing: 0.08em; color: #a1a1a1; line-height: 1.5">+5 G FIBRE · +12 KCAL · PROTEIN UNCHANGED</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button type="button" style="height: 40px; background: #EDEDED; border: 0; border-radius: 10px; color: #000000; font-size: 11px; letter-spacing: 0.12em">ACCEPT</button>
+<button type="button" style="height: 40px; background: transparent; border: 1px solid #262626; border-radius: 10px; color: #a1a1a1; font-size: 11px; letter-spacing: 0.12em">REJECT</button>
+</div>
+</div>
+<div style="font-size: 11px; color: #6e6e6e; line-height: 1.5">Claude only proposes. Nothing changes until you accept.</div>
+</section>
+</aside>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

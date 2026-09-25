@@ -1,3 +1,88 @@
+# Pro nutrition plans (Phase 1: data model, math, tests) — decisions log
+
+Ask: a 904-line build spec (`NUTRITION_SPEC.md`) + approved mockups
+(`mockups/*.dc.html`) for a coach-authored, client-ticked nutrition plan
+system, handed off with "build that." The spec's own first instruction is
+"read this whole file, do Phase 0, and stop" - so that's what happened
+first: `docs/nutrition-recon.md`, mapping the spec's assumed architecture
+against what's actually in this repo, with the real conflicts surfaced
+rather than guessed past. Denis then answered the three architecture
+questions the recon raised (see that doc §5 for the full reasoning):
+new mode alongside the current system, JSONB sections not new relational
+tables, Gemini not Anthropic. This entry covers Phase 1 built on those
+answers: `PlanDoc` model, validation, math, and tests.
+
+## TypeScript in the spec, plain JS here
+
+The spec writes the whole data model in TypeScript (`types.ts`). This
+codebase has zero TypeScript tooling anywhere - not a style choice to
+relitigate, just a fact recon surfaced. `planModel.js` uses plain JS
+factory functions (`newMealBlock`, `newPlanDay`, ...) exactly like
+`programModel.js` already does for the training-program document, plus a
+hand-written `validatePlanDoc()` instead of zod (also not installed).
+Adding a TypeScript toolchain for one feature would be a much bigger,
+riskier change than any of the library swaps already agreed.
+
+## IDs: the app's existing uid(), not crypto.randomUUID()
+
+The spec calls for `crypto.randomUUID()` everywhere. This app already has
+one id helper (`lib/uid.js`) used by every other feature. Swapped for
+consistency - the spec's actual requirement ("client-generated, stable,
+never reused") doesn't care about the string format.
+
+## sign_client_plan: one JSONB write, not archive-then-insert
+
+The spec's Postgres RPC does two relational statements (archive the old
+active row, insert the new one) inside a transaction for atomicity.
+Under the JSONB-sections decision there's no second table to keep in
+sync with - `signClientPlan()` in `lib/nutritionPlan.js` builds the next
+state (new active + old active appended to history) and writes it in one
+`upsertSection` call, which is one Postgres row UPDATE - already atomic,
+with less surface area than the two-statement version it replaces.
+
+## localDateKey: didn't add one - isoDate() already does this correctly
+
+Spec §0.5 warns hard against `new Date().toISOString().slice(0,10)` (UTC
+date, not local) and asks for a `localDateKey()` helper. Recon checked
+`lib/dateUtils.js`'s existing `isoDate()` first: it already builds from
+`getFullYear()/getMonth()/getDate()` (local getters), so it never had
+this bug. Verified with a test (25 Sep 00:30 vs 24 Sep 23:30 local, both
+land on their own local day) rather than assumed. Reused as-is instead of
+adding a second date-to-string helper that does the same thing.
+
+## Test data cross-checked against the mockups, not just the spec's prose
+
+The spec states Day 1's seed template totals as "1,839 kcal · 158 P ·
+204 C · 43 F." Computing it from the Appendix A per-100g table by hand
+gives 1839.6 kcal / 44.1 F - about 1 unit off on two of the four numbers.
+Rather than silently rounding the test to hit the spec's exact headline
+figure, cross-checked individual line items against the mockups
+themselves (`FuelToday.dc.html`'s Breakfast = 412 kcal and snack =
+227 kcal; `FuelMeal.dc.html`'s Salmon 150g = 312 kcal, Sweet potato 200g
+= 172 kcal, Broccoli 150g = 51 kcal) - all four matched the computed
+function exactly. That's strong evidence the math is right and the ~1-unit
+day-total gap is rounding noise already baked into the Appendix A source
+table, not a bug. The test asserts against the actual computed value with
+an explicit tolerance and a comment explaining the gap, rather than a
+number that doesn't really reconcile from its own inputs.
+
+## Added vitest (dev-only)
+
+The spec calls for Vitest-covered math (§4.6) and this repo had no test
+runner at all. Added as a devDependency only - doesn't touch the
+production bundle or PWA size, unlike the runtime libraries (`@dnd-kit`,
+`@react-pdf/renderer`) that were explicitly declined for this feature.
+
+## What Phase 1 does NOT include
+
+No UI, no Foods library screen, no plan builder, no client Fuel tab
+changes, no new AI actions, no PDF export, no Tools-grid entries. Per the
+spec's own phase table: stop after each phase, show Denis, wait for "go"
+before the next one. Phase 1 is model + math + storage functions + tests
+only - nothing user-facing changed yet.
+
+---
+
 # Weekly progress report, exportable as PDF — decisions log
 
 Ask: "add weekly report that compares to the last 4 weeks with graphs and
