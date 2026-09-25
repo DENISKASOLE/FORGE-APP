@@ -1,3 +1,85 @@
+# Pro nutrition plans (Phases 4-9: blocks, assign & sign, Fuel tab, PDF, alerts) — decisions log
+
+Ask: "Go now build and finish everything don't ask me again." This
+explicitly overrode the spec's own "stop after each phase" gate - so
+phases 4 through 9 (and 10-11 following this) were built and shipped as
+a continuous run, one commit per phase, without pausing for approval.
+This entry covers all of them since they landed in one sitting.
+
+## Phase 4: the other 7 block types + saved meals
+
+Swaps blocks can't be created blank (they point at a specific meal +
+item), so adding one from the palette opens a two-step picker sheet
+instead. The other 6 non-meal types (note/education/supplement/
+hydration/photo/divider) share one `OtherBlockCard` shell rather than
+each duplicating the move/duplicate/delete toolbar.
+
+## Phase 5: assign & sign
+
+Schedule defaults read the client's *current* training-program week via
+`programModel.js`'s existing `weekDayMap`/`currentProgramWeek` (the
+same source Train's own calendar uses) rather than inventing a second
+schedule concept - when a plan has exactly one training + one rest day,
+those become the default training weekdays. "Edit for this client
+before signing" clones the doc with new ids and switches the *same*
+`PlanBuilder` instance into a `clientSign` state (header swaps to SIGN
+& SEND) rather than a second editor component or a parent-routed
+hand-off - simpler state machine, same UI.
+
+## Phase 6-7: client Fuel tab
+
+Built to the mockups pixel-for-pixel where they specify exact values
+(ring math, meal-card states, the swap/portion/extras sheets). One gap
+the spec doesn't resolve: `NUTRITION_SPEC.md`'s Photo block assumes
+front/side/back *poses* per check-in, but this app's real check-ins
+store one photo per check-in, not three. Left as-is in the builder
+(the field still exists, unused for now) rather than inventing pose
+data that isn't there - same call made for the PDF's "starting point"
+section (see Phase 8 below).
+
+Extras' AI estimate and the coach's plan-builder "AI refine" both got
+their edge-function actions added to `forge-ai/index.ts` in the same
+pass (`nutrition_estimate_food`, `nutrition_refine_meal`) even though
+refine's UI doesn't land until Phase 10 - one redeploy for both rather
+than two.
+
+## Phase 8: PDF export
+
+`pdf-lib` + `StandardFonts`, not `@react-pdf/renderer` and not a
+bundled custom font (per the recon decision) - deliberately sidesteps
+the spec's own "ask Denis to approve a font" gate since no new font
+ships at all. Black background, content flows across as many pages as
+a plan needs (the spec's own note for multi-day plans) rather than
+forcing exactly the mockups' two pages. "Starting point" embeds the
+client's actual latest check-in photo (one photo, not three poses -
+see Phase 6-7 above) or falls back to the spec's own dashed-placeholder
+treatment. Added a vitest smoke test that actually calls
+`buildNutritionPlanPDF` and checks a real PDF comes back, since a
+pdf-lib runtime error doesn't fail a production `vite build` - exactly
+the class of bug the Phase 3 build-exit-code lesson (below) was about.
+
+## Phase 9: alerts, Home ring, and one spec bullet that doesn't apply here
+
+`LOW_NUTRITION_ADHERENCE` / `NO_NUTRITION_LOG` / `HEAVY_EXTRAS` computed
+client-side in `computeNotifications` (no automations Edge Function
+exists in this app to run it server-side - the spec allows either).
+Home's "Fuel · today" ring already had a fixed-4-slot assumption baked
+in from the food_log/macros modes; extended the same fix pattern
+already used once this session for macros-only clients so a prescribed-
+plan client's ring reads their actual day's meal count/ticks instead of
+staying stuck at 0/4.
+
+Skipped: §6.8's "weekly check-in auto-recap" (7-day adherence/avg
+kcal/extras/skipped-meal counts added to a "Your week" summary). This
+app's real weekly check-in is a plain Q&A form - there is no "Your
+week" auto-recap feature anywhere in the codebase for either training
+or nutrition to extend. Building one from scratch was out of scope for
+what this bullet actually asked (add nutrition stats to an existing
+recap), so it's left undone rather than inventing a new UI concept the
+spec didn't intend to introduce.
+
+---
+
 # Pro nutrition plans (Phase 3: plan builder core) — decisions log
 
 Ask: "Go." Per the spec's phase table: template list, days, targets, meal

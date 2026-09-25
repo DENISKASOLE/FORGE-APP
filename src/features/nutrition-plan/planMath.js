@@ -154,6 +154,91 @@ export function suggestSwapAmount(sourceItem, swapFood, matchOn) {
   return { amount: grams, match, diff };
 }
 
+// ---------- §6.1 which plan day applies ----------
+// Shared by the client Fuel tab and the Home ring hookup (§6.8) - both need
+// to resolve "which PlanDay is today" the same way: a log row that already
+// exists pins its dayId/planVersion (never re-derived); otherwise fall back
+// to the active plan's weekly schedule for today's weekday.
+export const DOW_KEY_BY_JS_DAY = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+export function resolveSignedPlan(nutritionPlan, dayLog) {
+  const active = nutritionPlan?.active;
+  if (dayLog?.planVersion && active && active.version !== dayLog.planVersion) {
+    const hist = (nutritionPlan?.history || []).find((h) => h.version === dayLog.planVersion);
+    if (hist) return hist;
+  }
+  return active || null;
+}
+export function resolveDayForDate(signedPlan, dayLog, dateISO) {
+  if (!signedPlan) return null;
+  if (dayLog?.dayId) return signedPlan.doc.days.find((d) => d.id === dayLog.dayId) || null;
+  const dowKey = DOW_KEY_BY_JS_DAY[new Date(`${dateISO}T00:00:00`).getDay()];
+  const dayId = signedPlan.schedule?.[dowKey];
+  return signedPlan.doc.days.find((d) => d.id === dayId) || null;
+}
+
+// ---------- §5.7 coach alerts ----------
+// Computed client-side when the coach app loads (no automations Edge
+// Function exists in this codebase to run it server-side), fed by
+// CoachDashboard's computeNotifications. Thresholds live here, as the
+// spec asks, rather than scattered at each call site.
+export const LOW_ADHERENCE_THRESHOLD = 0.6;
+export const LOW_ADHERENCE_WINDOW_DAYS = 3;
+export const NO_LOG_STREAK_DAYS = 2;
+export const HEAVY_EXTRAS_PCT = 0.15;
+export const HEAVY_EXTRAS_DAYS_OF_7 = 3;
+
+function isoDaysBefore(todayISO, n) {
+  const d = new Date(`${todayISO}T00:00:00`);
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// "Complete" days only - yesterday backwards, never today (still in
+// progress), and never before the plan's own start date.
+function completeDaysBack(todayISO, startDate, n) {
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    const date = isoDaysBefore(todayISO, i);
+    if (date < startDate) break;
+    out.push(date);
+  }
+  return out;
+}
+export function nutritionAlertSignals(nutritionPlan, logs, todayISO) {
+  const active = nutritionPlan?.active;
+  if (!active) return { lowAdherence: false, avgAdherence: null, noLogDays: 0, heavyExtrasDays: 0 };
+
+  const sevenDays = completeDaysBack(todayISO, active.startDate, 7);
+  const threeDays = sevenDays.slice(0, LOW_ADHERENCE_WINDOW_DAYS);
+  const byId = Object.fromEntries(active.doc.days.map((d) => [d.id, d]));
+
+  const adherenceScores = threeDays
+    .map((date) => logs?.[date])
+    .filter((l) => l && l.plannedItemCount)
+    .map((l) => dayAdherence(l.entries || {}, l.plannedItemCount));
+  const avgAdherence = adherenceScores.length ? adherenceScores.reduce((a, b) => a + b, 0) / adherenceScores.length : null;
+  const lowAdherence = avgAdherence !== null && avgAdherence < LOW_ADHERENCE_THRESHOLD;
+
+  let noLogDays = 0;
+  for (const date of sevenDays) {
+    const l = logs?.[date];
+    const hasAnyLog = l && (Object.keys(l.entries || {}).length > 0 || (l.extras || []).length > 0);
+    if (hasAnyLog) break;
+    noLogDays += 1;
+  }
+
+  let heavyExtrasDays = 0;
+  sevenDays.forEach((date) => {
+    const l = logs?.[date];
+    if (!l) return;
+    const targetKcal = byId[l.dayId]?.targets?.kcal;
+    if (!targetKcal) return;
+    const extrasKcal = (l.extras || []).reduce((s, e) => s + extraTotals(e).kcal, 0);
+    if (extrasKcal / targetKcal > HEAVY_EXTRAS_PCT) heavyExtrasDays += 1;
+  });
+
+  return { lowAdherence, avgAdherence, noLogDays, heavyExtrasDays };
+}
+
 // ---------- §4.5 grocery list ----------
 // schedule: { mon: dayId, tue: dayId, ... }. days: PlanDay[]. Rounds up
 // per the spec's display rules; grouping is fixed to 3 columns.

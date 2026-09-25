@@ -3,6 +3,7 @@ import {
   itemMacros, mealTotals, dayTotals, targetStatus, itemScore, dayAdherence,
   suggestSwapAmount, buildGroceryList, macroSanityCheck,
   entryFromEatenItem, entryFromSwap, skippedEntry, loggedDayTotals,
+  nutritionAlertSignals,
 } from "./planMath.js";
 import { isoDate } from "../../lib/dateUtils.js";
 
@@ -225,3 +226,38 @@ describe("Fuel log entries (§6) - eaten/swapped/skipped all produce the same Lo
 });
 
 function newSwapOptionLike(food, amount) { return { id: "swap-1", food, amount }; }
+
+describe("nutritionAlertSignals (§5.7 coach alerts)", () => {
+  const today = "2026-09-25"; // Fri - matches "yesterday" = 09-24, back to 09-18
+  const plan = { active: { startDate: "2026-08-01", doc: { days: [{ id: "d1", targets: { kcal: 2000, protein: 150, carbs: 200, fat: 60 } }] } } };
+
+  it("no active plan -> all-clear, no false alerts", () => {
+    expect(nutritionAlertSignals(null, {}, today)).toEqual({ lowAdherence: false, avgAdherence: null, noLogDays: 0, heavyExtrasDays: 0 });
+  });
+
+  it("flags low adherence when the last 3 complete days average under the threshold", () => {
+    const lowDay = { dayId: "d1", plannedItemCount: 4, entries: { i1: { status: "skipped" }, i2: { status: "skipped" }, i3: { status: "eaten", portion: 1 } }, extras: [] };
+    const logs = { "2026-09-24": lowDay, "2026-09-23": lowDay, "2026-09-22": lowDay };
+    const signals = nutritionAlertSignals(plan, logs, today);
+    expect(signals.avgAdherence).toBeCloseTo(0.25, 2); // 1 of 4 items scored, rest 0
+    expect(signals.lowAdherence).toBe(true);
+  });
+
+  it("does not flag low adherence with no logged days in the window (that's NO_LOG's job, not this one)", () => {
+    expect(nutritionAlertSignals(plan, {}, today).lowAdherence).toBe(false);
+  });
+
+  it("counts a consecutive no-log streak backwards from yesterday, stopping at the first logged day", () => {
+    const logged = { dayId: "d1", plannedItemCount: 2, entries: { i1: { status: "eaten", portion: 1 } }, extras: [] };
+    // yesterday and the day before are empty; 3 days ago has a log - streak should stop there, at 2.
+    const logs = { "2026-09-22": logged };
+    expect(nutritionAlertSignals(plan, logs, today).noLogDays).toBe(2);
+  });
+
+  it("flags heavy extras on the days extras exceed 15% of that day's target kcal", () => {
+    const heavy = { dayId: "d1", plannedItemCount: 1, entries: {}, extras: [{ estimate: { items: [{ kcal: 350, protein: 0, carbs: 0, fat: 0 }] } }] }; // 350/2000 = 17.5%
+    const light = { dayId: "d1", plannedItemCount: 1, entries: {}, extras: [{ estimate: { items: [{ kcal: 100, protein: 0, carbs: 0, fat: 0 }] } }] }; // 5%
+    const logs = { "2026-09-24": heavy, "2026-09-23": heavy, "2026-09-22": heavy, "2026-09-21": light, "2026-09-20": light };
+    expect(nutritionAlertSignals(plan, logs, today).heavyExtrasDays).toBe(3);
+  });
+});

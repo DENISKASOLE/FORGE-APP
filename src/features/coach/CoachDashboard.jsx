@@ -22,6 +22,7 @@ import { GOAL_OPTIONS, CLIENT_TYPES, CLIENT_COLORS } from "../../lib/constants.j
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { MEAL_SLOTS } from "../../lib/nutrition.js";
+import { nutritionAlertSignals, LOW_ADHERENCE_WINDOW_DAYS, NO_LOG_STREAK_DAYS, HEAVY_EXTRAS_DAYS_OF_7 } from "../nutrition-plan/planMath.js";
 import { buildProgramDays, cloneWithNewIds } from "../../lib/programModel.js";
 import { overallAdherence, recentPBsAcrossHistory } from "../progress/ProgressTab.jsx";
 import { ExerciseLibraryScreen, ProgramBuilder } from "../train/TrainScreens.jsx";
@@ -229,10 +230,20 @@ export function computeNotifications(clients) {
       const daysSinceExercise = lastSession ? daysSince(lastSession) : (c.joinDate ? daysSince(c.joinDate) : null);
       if (daysSinceExercise !== null && daysSinceExercise >= 7) items.push({ id: `ex_${c.id}`, type: "exercise", severity: 4, client: c, text: `${c.name} hasn't logged a workout in ${daysSinceExercise} days` });
     }
+
+    // NUTRITION_SPEC.md §5.7 - only meaningful for clients on the coach-
+    // prescribed plan (tracking_mode === "prescribed_plan"); the free-form
+    // food_log/macros modes have their own staleness check above (`food_`).
+    if (c.nutrition?.tracking_mode === "prescribed_plan" && c.nutritionPlan?.active) {
+      const signals = nutritionAlertSignals(c.nutritionPlan, c.nutritionPlanLogs, isoDate());
+      if (signals.lowAdherence) items.push({ id: `nutadh_${c.id}`, type: "nutrition_adherence", severity: 3, client: c, text: `${c.name}'s plan adherence has averaged ${Math.round(signals.avgAdherence * 100)}% over the last ${LOW_ADHERENCE_WINDOW_DAYS} days` });
+      if (signals.noLogDays >= NO_LOG_STREAK_DAYS) items.push({ id: `nutlog_${c.id}`, type: "no_nutrition_log", severity: 4, client: c, text: `${c.name} hasn't logged their plan in ${signals.noLogDays} days` });
+      if (signals.heavyExtrasDays >= HEAVY_EXTRAS_DAYS_OF_7) items.push({ id: `nutextra_${c.id}`, type: "heavy_extras", severity: 4, client: c, text: `${c.name} has logged heavy extras on ${signals.heavyExtrasDays} of the last 7 days` });
+    }
   });
   return items.sort((a, b) => a.severity - b.severity);
 }
-export const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", payment: "\u{1F4B0}", food: "\u{1F37D}️", exercise: "\u{1F4AA}" };
+export const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", payment: "\u{1F4B0}", food: "\u{1F37D}️", exercise: "\u{1F4AA}", nutrition_adherence: "\u{1F4C9}", no_nutrition_log: "\u{1F37D}️", heavy_extras: "\u{26A0}️" };
 // severity 0 = overdue/urgent (red), 1-2 = payment reminder (green), 3 =
 // celebratory (violet), 4 = food (yellow)/exercise (orange) - each type gets
 // its own fixed category color rather than a shared brand accent.
@@ -240,7 +251,7 @@ function notifTone(n) {
   if (n.type === "payment" && n.severity === 0) return { fg: BRAND.red, bg: BRAND.redBg, border: "rgba(220,80,70,0.2)" };
   if (n.type === "birthday") return { fg: BRAND.violet, bg: BRAND.violetBg, border: "rgba(183,156,232,0.18)" };
   if (n.type === "payment") return { fg: BRAND.green, bg: BRAND.greenBg, border: "rgba(102,199,155,0.15)" };
-  if (n.type === "food") return { fg: BRAND.yellow, bg: BRAND.yellowBg, border: "rgba(240,190,60,0.18)" };
+  if (n.type === "food" || n.type === "no_nutrition_log" || n.type === "nutrition_adherence" || n.type === "heavy_extras") return { fg: BRAND.yellow, bg: BRAND.yellowBg, border: "rgba(240,190,60,0.18)" };
   return { fg: BRAND.orange, bg: BRAND.orangeBg, border: "rgba(255,159,69,0.18)" };
 }
 export function NotificationsTab({ notifications, selectClient }) {

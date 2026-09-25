@@ -27,6 +27,8 @@ import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
 import { HabitLogCard } from "../nutrition/HabitLogCard.jsx";
 import { MACRO_SLOTS, macroDayFor } from "../../lib/nutrition.js";
+import { planDayLogFor } from "../../lib/nutritionPlan.js";
+import { resolveSignedPlan, resolveDayForDate } from "../nutrition-plan/planMath.js";
 import { ScreeningGate } from "../screening/ScreeningGate.jsx";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 
@@ -264,18 +266,35 @@ function ClientHome({ client, updateClient, goTo }) {
   const trainStreak = currentStreakWeeks(completedSessionDates);
   const streakRingTotal = Math.max(trainStreak + 1, 4); // always render "near-full", per spec
 
-  // Macros-only clients never write food_log at all (that screen is hidden
-  // from them - see NutritionFlow's tracking_mode routing), so this used to
-  // read as permanently 0/4 for them regardless of how much they'd
-  // actually logged. Read from whichever store the client's mode actually
-  // writes to, using the same four slots either way.
+  // Macros-only and prescribed-plan clients never write food_log at all
+  // (that screen is hidden from them - see NutritionFlow's tracking_mode
+  // routing), so this used to read as permanently 0/4 for them regardless
+  // of how much they'd actually logged. Read from whichever store the
+  // client's mode actually writes to. food_log/macros stay a fixed 4
+  // slots (breakfast/lunch/dinner/snacks); a prescribed plan day can have
+  // any number of meal blocks, so mealNames carries real labels for it
+  // instead of the fixed legend the other two modes share.
   const nutrition = client.nutrition;
   const macrosOnly = nutrition.tracking_mode === "macros";
-  const mealFlags = macrosOnly
-    ? (() => { const d = macroDayFor(nutrition, todayISO); return MACRO_SLOTS.map((s) => !!d[s]?.length); })()
-    : (() => { const d = nutrition.food_log[todayISO]; return [!!d?.breakfast, !!d?.lunch, !!d?.dinner, !!d?.snacks?.length]; })();
+  const prescribedPlan = nutrition.tracking_mode === "prescribed_plan";
+  let mealFlags, mealNames = null;
+  if (prescribedPlan) {
+    const planLogs = client.nutritionPlanLogs || {};
+    const dayLog = planDayLogFor(planLogs, todayISO);
+    const signedPlan = resolveSignedPlan(client.nutritionPlan, dayLog);
+    const planDay = signedPlan ? resolveDayForDate(signedPlan, dayLog, todayISO) : null;
+    const meals = planDay ? (planDay.blocks || []).filter((b) => b.type === "meal") : [];
+    mealFlags = meals.map((m) => m.items.length > 0 && m.items.every((it) => dayLog.entries[it.id]));
+    mealNames = meals.map((m) => m.name);
+  } else if (macrosOnly) {
+    const d = macroDayFor(nutrition, todayISO);
+    mealFlags = MACRO_SLOTS.map((s) => !!d[s]?.length);
+  } else {
+    const d = nutrition.food_log[todayISO];
+    mealFlags = [!!d?.breakfast, !!d?.lunch, !!d?.dinner, !!d?.snacks?.length];
+  }
   const loggedCount = mealFlags.filter(Boolean).length;
-  const mealGoal = 4;
+  const mealGoal = mealFlags.length || 4;
 
   const checkinSubmissions = client.checkIns || [];
   const checkinDue = isCheckInDue(checkinSubmissions);
@@ -398,7 +417,7 @@ function ClientHome({ client, updateClient, goTo }) {
           {mealFlags.map((filled, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: filled ? HOME_ACCENT.orange : HOME_TRACK }} />)}
         </div>
         <div style={{ display: "flex", gap: 14, marginTop: 10, flexWrap: "wrap" }}>
-          {[["Breakfast", HOME_ACCENT.orange], ["Lunch", HOME_ACCENT.blue], ["Dinner", HOME_ACCENT.violet], ["Snacks", HOME_ACCENT.green]].map(([label, color]) => (
+          {(mealNames ? mealNames.map((n, i) => [n, [HOME_ACCENT.orange, HOME_ACCENT.blue, HOME_ACCENT.violet, HOME_ACCENT.green][i % 4]]) : [["Breakfast", HOME_ACCENT.orange], ["Lunch", HOME_ACCENT.blue], ["Dinner", HOME_ACCENT.violet], ["Snacks", HOME_ACCENT.green]]).map(([label, color]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, color, boxShadow: "0 0 7px currentColor" }} />
               <span style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 400, color: BRAND.muted }}>{label}</span>

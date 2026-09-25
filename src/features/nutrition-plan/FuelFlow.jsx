@@ -5,29 +5,13 @@ import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { uid } from "../../lib/uid.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { savePlanLogs, planDayLogFor } from "../../lib/nutritionPlan.js";
-import { allMealItems, loggedDayTotals, entryFromEatenItem, entryFromSwap, skippedEntry, extraTotals } from "./planMath.js";
+import { allMealItems, loggedDayTotals, entryFromEatenItem, entryFromSwap, skippedEntry, extraTotals, resolveSignedPlan, resolveDayForDate } from "./planMath.js";
 import { estimateFoodExtra } from "../../lib/ai.js";
 import { buildNutritionPlanPDF, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
 
 const EDIT_WINDOW_DAYS = 2;
-const DOW_KEY_BY_JS_DAY = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const PORTION_CHIPS = [0.5, 0.75, 1, 1.25, 1.5];
 
-function resolveSignedPlan(nutritionPlan, dayLog) {
-  const active = nutritionPlan?.active;
-  if (dayLog?.planVersion && active && active.version !== dayLog.planVersion) {
-    const hist = (nutritionPlan?.history || []).find((h) => h.version === dayLog.planVersion);
-    if (hist) return hist;
-  }
-  return active || null;
-}
-function resolveDayForDate(signedPlan, dayLog, dateISO) {
-  if (!signedPlan) return null;
-  if (dayLog?.dayId) return signedPlan.doc.days.find((d) => d.id === dayLog.dayId) || null;
-  const dowKey = DOW_KEY_BY_JS_DAY[new Date(`${dateISO}T00:00:00`).getDay()];
-  const dayId = signedPlan.schedule?.[dowKey];
-  return signedPlan.doc.days.find((d) => d.id === dayId) || null;
-}
 function fmtHeaderDate(dateISO) {
   const d = new Date(`${dateISO}T00:00:00`);
   return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }).toUpperCase().replace(",", "");
