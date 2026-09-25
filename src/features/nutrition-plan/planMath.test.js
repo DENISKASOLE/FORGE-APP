@@ -6,6 +6,7 @@ import {
   nutritionAlertSignals,
 } from "./planMath.js";
 import { isoDate } from "../../lib/dateUtils.js";
+import { applyRefineOps } from "./planModel.js";
 
 // Appendix A seed foods (per 100g/ml unless noted), exactly as given in
 // NUTRITION_SPEC.md.
@@ -259,5 +260,37 @@ describe("nutritionAlertSignals (§5.7 coach alerts)", () => {
     const light = { dayId: "d1", plannedItemCount: 1, entries: {}, extras: [{ estimate: { items: [{ kcal: 100, protein: 0, carbs: 0, fat: 0 }] } }] }; // 5%
     const logs = { "2026-09-24": heavy, "2026-09-23": heavy, "2026-09-22": heavy, "2026-09-21": light, "2026-09-20": light };
     expect(nutritionAlertSignals(plan, logs, today).heavyExtrasDays).toBe(3);
+  });
+});
+
+describe("applyRefineOps (§8.2 AI refine - applying an accepted proposal)", () => {
+  const chickenItem = item(F.chicken, 180);
+  const riceItem = item(F.rice, 200);
+  const meal = { id: "m1", type: "meal", name: "LUNCH", time: "13:00", items: [chickenItem, riceItem], showTotals: true, allowSwaps: true };
+  const library = [
+    { id: "lib-fish", name: "White fish (cod)", category: "protein", unit: "g", pieceGrams: null, kcal: 105, protein: 23, carbs: 0, fat: 0.9, fibre: null, groceryName: null, groceryFactor: 1 },
+  ];
+
+  it("set_amount changes only that item's amount", () => {
+    const next = applyRefineOps(meal, [{ op: "set_amount", itemId: chickenItem.id, amount: 220, reason: "more protein" }], library);
+    expect(next.items.find((i) => i.id === chickenItem.id).amount).toBe(220);
+    expect(next.items.find((i) => i.id === riceItem.id).amount).toBe(200);
+  });
+  it("remove drops the item entirely", () => {
+    const next = applyRefineOps(meal, [{ op: "remove", itemId: riceItem.id, reason: "lower carbs" }], library);
+    expect(next.items.map((i) => i.id)).toEqual([chickenItem.id]);
+  });
+  it("replace swaps in a library food by id, keeping the item's own id/amount", () => {
+    const next = applyRefineOps(meal, [{ op: "replace", itemId: chickenItem.id, foodId: "lib-fish", reason: "variety" }], library);
+    const replaced = next.items.find((i) => i.id === chickenItem.id);
+    expect(replaced.food.name).toBe("White fish (cod)");
+    expect(replaced.amount).toBe(180); // amount untouched by a replace op
+  });
+  it("add with a newFood (not in the library) still produces a usable item", () => {
+    const next = applyRefineOps(meal, [{ op: "add", newFood: { name: "Cottage cheese", unit: "g", kcal: 98, protein: 11, carbs: 3.4, fat: 4.3 }, amount: 150, reason: "extra protein" }], library);
+    expect(next.items.length).toBe(3);
+    const added = next.items[2];
+    expect(added.food.name).toBe("Cottage cheese");
+    expect(added.amount).toBe(150);
   });
 });

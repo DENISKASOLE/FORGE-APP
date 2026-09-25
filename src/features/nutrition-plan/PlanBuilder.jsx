@@ -8,11 +8,12 @@ import { loadPlanTemplates, savePlanTemplates, loadFoodLibrary, saveFoodLibrary,
 import { upsertSection } from "../../lib/clientData.js";
 import {
   newPlanDay, newMealBlock, newMealItem, newSwapOption, newSwapsBlock, newNoteBlock, newEducationBlock,
-  newSupplementBlock, newHydrationBlock, newPhotoBlock, newDividerBlock, foodRefFromRow, DAY_TYPES, cloneDocWithNewIds,
+  newSupplementBlock, newHydrationBlock, newPhotoBlock, newDividerBlock, foodRefFromRow, DAY_TYPES, cloneDocWithNewIds, applyRefineOps,
 } from "./planModel.js";
 import { mealTotals, dayTotals, targetStatus, barPct, fmtKcal, roundMacros, suggestSwapAmount } from "./planMath.js";
 import { AssignPlanSheet } from "./AssignPlanSheet.jsx";
 import { buildNutritionPlanPDF, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
+import { refineMealWithAI } from "../../lib/ai.js";
 
 const HISTORY_LIMIT = 50;
 const AUTOSAVE_MS = 1500;
@@ -375,7 +376,7 @@ function DailyTargetsPanel({ day, onChange }) {
 
 function BlockSettingsPanel({ block, onChange }) {
   if (!block) return <div style={{ color: NP.dim, fontSize: 12 }}>Select a block to edit its settings.</div>;
-  if (block.type !== "meal") return <div style={{ color: NP.dim, fontSize: 12 }}>This block type's settings arrive in a later phase.</div>;
+  if (block.type !== "meal") return <div style={{ color: NP.dim, fontSize: 12 }}>This block's settings are edited inline in its card.</div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={npLabel()}>BLOCK SETTINGS · {block.name}</div>
@@ -391,6 +392,84 @@ function BlockSettingsPanel({ block, onChange }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 40, fontSize: 12, letterSpacing: "0.08em", color: NP.text }}>
         <span>CLIENT CAN SWAP FOODS</span><NPToggle checked={block.allowSwaps} onChange={(v) => onChange({ ...block, allowSwaps: v })} label="Client can swap foods" />
       </div>
+    </div>
+  );
+}
+
+// ---------- §5.2/§8.2 AI refine (meal blocks only) ----------
+// Proposes ops on the CURRENT meal block via forge-ai's nutrition_refine_meal
+// action; nothing touches the doc until Accept, which applies the whole
+// proposal as one call to onApply (patchBlock -> applyDoc), i.e. one undo step.
+function AIRefinePanel({ block, day, foods, onApply }) {
+  const [instruction, setInstruction] = useState("");
+  const [proposal, setProposal] = useState(null); // {summary, previewMeal}
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function propose() {
+    if (!instruction.trim()) return;
+    setLoading(true);
+    setError("");
+    try {
+      const result = await refineMealWithAI({ meal: block, dayTargets: day.targets, dayTotals: dayTotals(day), instruction: instruction.trim(), foods });
+      setProposal({ summary: result.summary, previewMeal: applyRefineOps(block, result.ops, foods) });
+    } catch (e) {
+      setError(e.message || "Couldn't get a suggestion.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  function accept() {
+    onApply(proposal.previewMeal);
+    setProposal(null);
+    setInstruction("");
+  }
+
+  const before = roundMacros(mealTotals(block));
+  const after = proposal ? roundMacros(mealTotals(proposal.previewMeal)) : null;
+  const DELTA_LABEL = { kcal: "KCAL", protein: "P", carbs: "C", fat: "F" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={npLabel()}>AI REFINE · {block.name}</div>
+      {!proposal && (
+        <>
+          <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="What should change?" rows={3} style={{ ...npInput({ height: "auto", padding: 10 }), resize: "vertical" }} />
+          <button onClick={propose} disabled={loading || !instruction.trim()} style={npButton("fill", { height: 40 })}>{loading ? "THINKING…" : "PROPOSE CHANGE"}</button>
+          {error && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ color: "#FF6B61", fontSize: 12 }}>{error}</div>
+              <button onClick={propose} style={npButton("outline", { height: 36 })}>RETRY</button>
+            </div>
+          )}
+        </>
+      )}
+      {proposal && (
+        <div style={npCard({ padding: 12, display: "flex", flexDirection: "column", gap: 10 })}>
+          <div style={{ fontSize: 12, color: NP.text, lineHeight: 1.5 }}>{proposal.summary}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {block.items.filter((it) => !proposal.previewMeal.items.some((n) => n.id === it.id)).map((it) => (
+              <div key={it.id} style={{ fontSize: 12, color: NP.dim, textDecoration: "line-through" }}>{it.food.name} {it.amount}{it.food.unit === "piece" ? "" : it.food.unit}</div>
+            ))}
+            {proposal.previewMeal.items.map((it) => {
+              const prev = block.items.find((o) => o.id === it.id);
+              if (prev && prev.food.name === it.food.name && prev.amount === it.amount) return null;
+              return <div key={it.id} style={{ fontSize: 12, color: NP.text }}>{it.food.name} {it.amount}{it.food.unit === "piece" ? "" : it.food.unit}</div>;
+            })}
+          </div>
+          <div style={{ fontSize: 11, letterSpacing: "0.06em", color: NP.muted, borderTop: `1px solid ${NP.line}`, paddingTop: 8, display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {["kcal", "protein", "carbs", "fat"].map((k) => {
+              const d = after[k] - before[k];
+              return <span key={k}>{d === 0 ? `${DELTA_LABEL[k]} UNCHANGED` : `${d > 0 ? "+" : ""}${d} ${DELTA_LABEL[k]}`}</span>;
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setProposal(null)} style={npButton("outline", { flex: 1, height: 40 })}>REJECT</button>
+            <button onClick={accept} style={npButton("fill", { flex: 1, height: 40 })}>ACCEPT</button>
+          </div>
+        </div>
+      )}
+      <div style={{ fontSize: 10, color: NP.dim, lineHeight: 1.5 }}>AI only proposes changes. Nothing changes until you accept.</div>
     </div>
   );
 }
@@ -814,6 +893,7 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate, c
 
           <aside style={{ width: 330, flexShrink: 0, boxSizing: "border-box", padding: "24px 20px", background: NP.panel, borderLeft: `1px solid ${NP.line}`, display: "flex", flexDirection: "column", gap: 28, overflowY: "auto" }}>
             <section><BlockSettingsPanel block={selectedBlock} onChange={(next) => patchBlock(selectedBlock.id, next)} /></section>
+            {selectedBlock?.type === "meal" && <section><AIRefinePanel block={selectedBlock} day={day} foods={foods} onApply={(next) => patchBlock(selectedBlock.id, next)} /></section>}
             <section><PlanSettingsPanel doc={doc} onChange={applyDoc} /></section>
           </aside>
         </div>
@@ -834,6 +914,12 @@ export function PlanBuilder({ trainerId, templateId, onExit, onSelectTemplate, c
       {isCompact && mobileSheet === "settings" && (
         <Sheet onClose={() => setMobileSheet(null)}>
           <BlockSettingsPanel block={selectedBlock} onChange={(next) => patchBlock(selectedBlock.id, next)} />
+          {selectedBlock?.type === "meal" && (
+            <>
+              <div style={{ height: 20 }} />
+              <AIRefinePanel block={selectedBlock} day={day} foods={foods} onApply={(next) => patchBlock(selectedBlock.id, next)} />
+            </>
+          )}
           <div style={{ height: 20 }} />
           <PlanSettingsPanel doc={doc} onChange={applyDoc} />
         </Sheet>

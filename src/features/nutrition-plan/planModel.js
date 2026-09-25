@@ -108,3 +108,42 @@ export function validatePlanDoc(doc) {
   });
   return errors;
 }
+
+// ---------- §8.2 AI refine: applying a coach-accepted proposal ----------
+// forge-nutrition-refine (see lib/ai.js's refineMealWithAI) never touches
+// the doc itself - it only proposes `ops`. This is the one place those ops
+// become a real MealBlock, called exactly once, at the moment the coach
+// clicks Accept, so it lands as a single undo step like any other edit.
+function refDrivenFood(op, foods) {
+  if (op.foodId) {
+    const row = foods.find((f) => f.id === op.foodId);
+    if (row) return foodRefFromRow(row);
+  }
+  if (op.newFood) {
+    return {
+      foodId: null, name: op.newFood.name || "Unnamed food", category: "other", unit: op.newFood.unit || "g", pieceGrams: null,
+      per100: { kcal: op.newFood.kcal || 0, protein: op.newFood.protein || 0, carbs: op.newFood.carbs || 0, fat: op.newFood.fat || 0, fibre: op.newFood.fibre ?? null },
+      groceryName: null, groceryFactor: 1,
+    };
+  }
+  return null;
+}
+export function applyRefineOps(meal, ops, foods) {
+  let items = [...meal.items];
+  for (const op of ops || []) {
+    if (op.op === "remove") {
+      items = items.filter((it) => it.id !== op.itemId);
+    } else if (op.op === "set_amount") {
+      items = items.map((it) => (it.id === op.itemId ? { ...it, amount: Number(op.amount) || it.amount } : it));
+    } else if (op.op === "replace") {
+      const food = refDrivenFood(op, foods);
+      if (!food) continue;
+      items = items.map((it) => (it.id === op.itemId ? { ...it, food, swaps: [] } : it));
+    } else if (op.op === "add") {
+      const food = refDrivenFood(op, foods);
+      if (!food) continue;
+      items = [...items, newMealItem(food, op.amount || (food.unit === "piece" ? 1 : 100))];
+    }
+  }
+  return { ...meal, items };
+}
