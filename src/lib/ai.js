@@ -273,6 +273,28 @@ export async function getDailyNutritionFeedback(client, day, totals, targets) {
   return data.feedback;
 }
 
+// ==================== Nutrition-plan (prescribed_plan mode) AI actions ====================
+// NUTRITION_SPEC.md §8.1/§8.2, ported from Anthropic tool-use to this app's
+// shared Gemini forge-ai function per the recon decision - see
+// docs/nutrition-recon.md.
+
+// Client's Fuel > Extras sheet: free text -> estimated food items.
+export async function estimateFoodExtra(text) {
+  const data = await callForgeAI("nutrition_estimate_food", { text });
+  return data; // { items, not_food, warning }
+}
+
+// Coach's plan-builder "AI refine" panel: proposes ops on one meal block,
+// never applies them - PlanBuilder's Accept/Reject flow owns that.
+export async function refineMealWithAI({ meal, dayTargets, dayTotals, instruction, foods }) {
+  const data = await callForgeAI("nutrition_refine_meal", {
+    meal, dayTargets, dayTotals, instruction,
+    foods: (foods || []).slice(0, 150).map((f) => ({ id: f.id, name: f.name, unit: f.unit, per100: { kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat } })),
+  });
+  if (!data?.ops) throw new Error("AI refine request returned nothing usable");
+  return data; // { summary, ops }
+}
+
 // ==================== Training trend insight ====================
 
 // Groups logged sets by exercise, one line per session showing that

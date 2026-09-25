@@ -591,6 +591,95 @@ TASK: Recommend the next-session progression as JSON matching the schema.
 - Be concrete and specific ("+2.5kg", not "a bit more weight"), and give one short, specific reason grounded in this exercise's actual demands (joint stress, typical load jumps for this movement pattern, etc.), not a generic platitude.`;
 }
 
+// ---------- action: nutrition_estimate_food (NUTRITION_SPEC.md §8.1) ----------
+// Client types free text into Fuel's Extras sheet ("2 dates and a handful
+// of almonds"); this splits it into estimated items. Ported from the
+// spec's Anthropic tool-use design to Gemini's responseSchema per the
+// recon decision - same job, same shape, different model.
+
+const ESTIMATE_FOOD_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      maxItems: 12,
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          amount: { type: "NUMBER" },
+          unit: { type: "STRING", enum: ["g", "ml", "piece"] },
+          grams: { type: "NUMBER", description: "Total weight in grams (or ml) this item resolves to." },
+          kcal: { type: "NUMBER" }, protein: { type: "NUMBER" }, carbs: { type: "NUMBER" }, fat: { type: "NUMBER" },
+          confidence: { type: "STRING", enum: ["high", "medium", "low"] },
+        },
+        required: ["name", "amount", "unit", "grams", "kcal", "protein", "carbs", "fat", "confidence"],
+      },
+    },
+    not_food: { type: "BOOLEAN" },
+  },
+  required: ["items", "not_food"],
+};
+
+function estimateFoodPrompt(text: string): string {
+  return `You estimate calories and macros for food a coaching client typed in free text. Split the text into separate foods/drinks. Assume typical portions when none are given ("a handful of almonds" ~= 20g, "medium latte" ~= 350ml). Use standard nutrition database values. Name items clearly with the portion you assumed. If the text is not food or drink, return no items and not_food = true. Use UAE/UK/US common foods. Never give advice - only the estimate.
+
+TEXT: "${text}"
+
+Respond as JSON matching the schema.`;
+}
+
+// ---------- action: nutrition_refine_meal (NUTRITION_SPEC.md §8.2) ----------
+// Coach-facing "AI refine" panel on a meal block in the plan builder -
+// proposes edits, never applies them (PlanBuilder's Accept/Reject flow
+// owns that, same "propose, human decides" pattern as coach_program_edit_suggest).
+
+const REFINE_MEAL_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    summary: { type: "STRING" },
+    ops: {
+      type: "ARRAY",
+      maxItems: 8,
+      items: {
+        type: "OBJECT",
+        properties: {
+          op: { type: "STRING", enum: ["replace", "add", "remove", "set_amount"] },
+          itemId: { type: "STRING" },
+          foodId: { type: "STRING" },
+          newFood: {
+            type: "OBJECT",
+            properties: {
+              name: { type: "STRING" }, unit: { type: "STRING", enum: ["g", "ml", "piece"] },
+              kcal: { type: "NUMBER" }, protein: { type: "NUMBER" }, carbs: { type: "NUMBER" }, fat: { type: "NUMBER" }, fibre: { type: "NUMBER" },
+            },
+          },
+          amount: { type: "NUMBER" },
+          reason: { type: "STRING" },
+        },
+        required: ["op", "reason"],
+      },
+    },
+  },
+  required: ["summary", "ops"],
+};
+
+function refineMealPrompt(input: any): string {
+  const { meal, dayTargets, dayTotals, instruction, foods } = input;
+  const foodList = (foods || []).slice(0, 150).map((f: any) => `${f.id}: ${f.name} (${f.unit}, per100 ${f.per100?.kcal}kcal/${f.per100?.protein}p/${f.per100?.carbs}c/${f.per100?.fat}f)`).join("\n");
+  return `You help a strength & nutrition coach refine one meal in a client nutrition plan. Follow the coach's instruction. Prefer foods from the provided library (use their foodId). Only use newFood when nothing in the library fits; give per-100g values. Keep the day's macros within 5% of targets unless the instruction says otherwise. Propose at most 8 ops. Never apply changes yourself - only propose them with a clear reason each.
+
+MEAL: ${JSON.stringify(meal)}
+DAY TARGETS: ${JSON.stringify(dayTargets)}
+DAY TOTALS SO FAR: ${JSON.stringify(dayTotals)}
+COACH'S INSTRUCTION: "${instruction}"
+
+COACH'S FOOD LIBRARY (id: name (unit, per100 macros)):
+${foodList || "(empty library)"}
+
+Respond as JSON matching the schema - a one-sentence summary and the list of ops.`;
+}
+
 // ---------- router ----------
 
 Deno.serve(async (req) => {
@@ -648,6 +737,27 @@ Deno.serve(async (req) => {
         { role: "user", parts: [{ text: message }] },
       ];
       const result = await callGeminiChat(clientChatSystemPrompt(ctx), contents, CLIENT_CHAT_SCHEMA);
+      return json(result);
+    }
+
+    if (action === "nutrition_estimate_food") {
+      const text = String(body.text || "").slice(0, 300);
+      if (!text.trim()) return json({ error: "No text was sent to estimate." }, 400);
+      const result = await callGemini(estimateFoodPrompt(text), ESTIMATE_FOOD_SCHEMA);
+      // Server validation per §8.1: clamp negatives (a model slip, not
+      // something the client should have to defend against), flag (never
+      // reject) a large total so the UI can ask "is this right?".
+      const items = (result.items || []).map((it: any) => ({
+        ...it,
+        amount: Math.max(0, it.amount || 0), grams: Math.max(0, it.grams || 0),
+        kcal: Math.max(0, it.kcal || 0), protein: Math.max(0, it.protein || 0), carbs: Math.max(0, it.carbs || 0), fat: Math.max(0, it.fat || 0),
+      }));
+      const totalKcal = items.reduce((s: number, i: any) => s + i.kcal, 0);
+      return json({ items, not_food: !!result.not_food, warning: totalKcal > 3000 ? "large" : null });
+    }
+
+    if (action === "nutrition_refine_meal") {
+      const result = await callGemini(refineMealPrompt(body), REFINE_MEAL_SCHEMA);
       return json(result);
     }
 

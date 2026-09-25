@@ -9,7 +9,7 @@ const DOW_LABELS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 // from its CURRENT week's workouts (dayOfWeek, 1=Mon..7=Sun, see
 // weekDayMap in programModel.js) - the same source the Train tab itself
 // uses to lay out the week, so this stays in sync without new state.
-export function defaultSchedule(doc, client) {
+function defaultSchedule(doc, client) {
   const days = doc.days;
   const sched = {};
   if (days.length === 1) {

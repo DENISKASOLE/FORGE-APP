@@ -35,6 +35,46 @@ export function roundMacros(m) {
 }
 export function fmtKcal(kcal) { return Math.round(kcal).toLocaleString("en-US"); }
 
+// ---------- §6 Fuel log entries ----------
+// One LogEntry shape (lib/nutritionPlan.js's DayLog.entries[itemId]) covers
+// eaten/swapped/skipped so the day-total and adherence math never needs to
+// know which action produced it - only the entry's own status/portion/macros.
+export function allMealItems(day) {
+  return (day.blocks || []).filter((b) => b.type === "meal").flatMap((b) => b.items.map((it) => ({ ...it, mealId: b.id })));
+}
+export function entryFromEatenItem(item, portion = 1) {
+  const m = itemMacros(item);
+  return {
+    status: "eaten", portion, swapOptionId: null, name: item.food.name, amount: item.amount, unit: item.food.unit,
+    kcal: m.kcal * portion, protein: m.protein * portion, carbs: m.carbs * portion, fat: m.fat * portion,
+    loggedAt: new Date().toISOString(),
+  };
+}
+export function entryFromSwap(swapOption) {
+  const factor = (swapOption.food.unit === "piece" ? swapOption.amount * (swapOption.food.pieceGrams || 0) : swapOption.amount) / 100;
+  const per100 = swapOption.food.per100;
+  return {
+    status: "swapped", portion: 1, swapOptionId: swapOption.id, name: swapOption.food.name, amount: swapOption.amount, unit: swapOption.food.unit,
+    kcal: per100.kcal * factor, protein: per100.protein * factor, carbs: per100.carbs * factor, fat: per100.fat * factor,
+    loggedAt: new Date().toISOString(),
+  };
+}
+export function skippedEntry() {
+  return { status: "skipped", portion: 0, swapOptionId: null, name: "", amount: 0, unit: "g", kcal: 0, protein: 0, carbs: 0, fat: 0, loggedAt: new Date().toISOString() };
+}
+export function extraTotals(extra) {
+  if (!extra?.estimate?.items) return { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  return sumMacros(extra.estimate.items.map((i) => ({ kcal: i.kcal || 0, protein: i.protein || 0, carbs: i.carbs || 0, fat: i.fat || 0 })));
+}
+export function loggedDayTotals(day, dayLog) {
+  const itemTotal = sumMacros(allMealItems(day).map((it) => {
+    const entry = dayLog.entries[it.id];
+    return entry && entry.status !== "skipped" ? entry : { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  }));
+  const extrasTotal = sumMacros((dayLog.extras || []).map(extraTotals));
+  return sumMacros([itemTotal, extrasTotal]);
+}
+
 // ---------- §5.4 food-form macro sanity check ----------
 // Warns (never blocks) when a food's stated kcal doesn't roughly match
 // 4*protein + 4*carbs + 9*fat - catches typos (a decimal in the wrong

@@ -15,6 +15,7 @@ import { FoodDiary } from "./FoodDiary.jsx";
 import { MacroTracker } from "./MacroTracker.jsx";
 import { Report } from "./Report.jsx";
 import { CoachPlanView } from "../nutrition-plan/CoachPlanView.jsx";
+import { FuelFlow } from "../nutrition-plan/FuelFlow.jsx";
 
 const PHASE_LABELS = { baseline: "Baseline", report: "Report", adjustment: "Adjustment", maintenance: "Maintenance" };
 const MODE_LABELS = { food_log: "Food log + macros", macros: "Macros only", prescribed_plan: "Coach-prescribed plan" };
@@ -233,25 +234,6 @@ function CoachModeOnlyControls({ nutrition, onPersist }) {
   );
 }
 
-// Client-side placeholder until the full Fuel tracking screen (day rings,
-// tick/swap, Extras) ships - keeps this mode from being a dead end for a
-// client whose coach has already switched them onto it.
-function ClientPlanPlaceholder({ plan }) {
-  const active = plan?.active;
-  return (
-    <Card style={{ padding: 16, display: "grid", gap: 8 }}>
-      {active ? (
-        <>
-          <div style={{ fontWeight: 600, fontSize: 16 }}>{active.doc.name}</div>
-          <div style={{ color: T.muted, fontSize: 13 }}>Your coach has signed your plan (V{active.version}), starting {active.startDate}. Daily tracking is on its way — check back soon.</div>
-        </>
-      ) : (
-        <div style={{ color: T.muted, fontSize: 13 }}>Your coach hasn't assigned a nutrition plan yet.</div>
-      )}
-    </Card>
-  );
-}
-
 export function NutritionFlow({ client, updateClient, isCoach }) {
   const nutrition = client.nutrition;
 
@@ -273,7 +255,7 @@ export function NutritionFlow({ client, updateClient, isCoach }) {
 
   let body;
   if (prescribedPlan) {
-    body = isCoach ? <CoachPlanView client={client} /> : <ClientPlanPlaceholder plan={client.nutritionPlan} />;
+    body = isCoach ? <CoachPlanView client={client} /> : <FuelFlow client={client} updateClient={updateClient} />;
   } else if (macrosOnly) {
     // Straight to the numbers - no supplement-stack onboarding, no phase
     // routing, no diary. This is the whole tab for these clients, so it

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, targetStatus, itemScore, dayAdherence,
   suggestSwapAmount, buildGroceryList, macroSanityCheck,
+  entryFromEatenItem, entryFromSwap, skippedEntry, loggedDayTotals,
 } from "./planMath.js";
 import { isoDate } from "../../lib/dateUtils.js";
 
@@ -180,3 +181,47 @@ describe("localDateKey (via the app's existing isoDate helper, not a new one)", 
     expect(isoDate(early)).toBe("2026-09-25");
   });
 });
+
+describe("Fuel log entries (§6) - eaten/swapped/skipped all produce the same LogEntry shape", () => {
+  const salmonItem = item(F.salmon, 150); // 208kcal/100g * 1.5 = 312 kcal
+  const sweetPotatoItem = item(F.sweetPotato, 200); // 86*2 = 172 kcal
+  const broccoliItem = item(F.broccoli, 150); // 34*1.5 = 51 kcal
+  const dinner = { id: "dinner", type: "meal", name: "DINNER", time: "20:00", items: [salmonItem, sweetPotatoItem, broccoliItem], showTotals: true, allowSwaps: true };
+  const day = { id: "d1", name: "DAY 1", type: "training", targets: { kcal: 1850, protein: 160, carbs: 200, fat: 45 }, blocks: [dinner] };
+
+  it("entryFromEatenItem at full portion matches the item's own macros", () => {
+    const e = entryFromEatenItem(salmonItem);
+    expect(e.status).toBe("eaten");
+    expect(e.kcal).toBeCloseTo(312, 0);
+  });
+  it("entryFromEatenItem at a partial portion scales linearly", () => {
+    const e = entryFromEatenItem(salmonItem, 0.5);
+    expect(e.kcal).toBeCloseTo(156, 0);
+    expect(e.portion).toBe(0.5);
+  });
+  it("entryFromSwap uses the swap food's own macros, not the original item's", () => {
+    const potatoesSwap = newSwapOptionLike(F.potatoes, 235);
+    const e = entryFromSwap(potatoesSwap);
+    expect(e.status).toBe("swapped");
+    // 87 kcal/100g * 2.35 ~= 204
+    expect(e.kcal).toBeCloseTo(87 * 2.35, 0);
+  });
+  it("skippedEntry contributes zero macros", () => {
+    expect(skippedEntry()).toMatchObject({ status: "skipped", kcal: 0, protein: 0, carbs: 0, fat: 0 });
+  });
+  it("loggedDayTotals sums only non-skipped entries plus extras, ignoring un-entered items", () => {
+    const dayLog = {
+      entries: {
+        [salmonItem.id]: entryFromEatenItem(salmonItem),
+        [sweetPotatoItem.id]: skippedEntry(),
+        // broccoli has no entry at all yet
+      },
+      extras: [{ estimate: { items: [{ kcal: 130, protein: 4, carbs: 12, fat: 6 }] } }],
+    };
+    const totals = loggedDayTotals(day, dayLog);
+    // salmon 312 + extra 130 = 442; sweet potato skipped, broccoli not logged
+    expect(totals.kcal).toBeCloseTo(442, 0);
+  });
+});
+
+function newSwapOptionLike(food, amount) { return { id: "swap-1", food, amount }; }
