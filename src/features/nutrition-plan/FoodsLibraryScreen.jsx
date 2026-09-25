@@ -33,7 +33,7 @@ function foodToForm(food) {
 // Add/edit sheet. Archive is the default "remove" action per spec §5.4
 // ("archive instead of delete when used in a template"); hard delete only
 // offered when nothing in the library actually references this food.
-function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDelete, canHardDelete }) {
+export function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDelete, canHardDelete }) {
   const [form, setForm] = useState(() => (initial ? foodToForm(initial) : emptyFoodForm()));
   const isEditing = !!initial?.id;
   const kcal = Number(form.kcal) || 0;

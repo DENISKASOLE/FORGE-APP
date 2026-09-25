@@ -41,8 +41,11 @@ export async function loadPlanTemplates(trainerId) {
   const data = await loadTrainerSection(trainerId, "plan_templates", { items: [] });
   return data.items || [];
 }
+// Returns {queued, error} from upsertTrainerData - the builder's autosave
+// status pill (DRAFT/SAVING/SAVED/OFFLINE) needs to know whether this
+// actually reached Supabase or just got queued for retry.
 export async function savePlanTemplates(trainerId, templates) {
-  await upsertTrainerData(trainerId, "plan_templates", { items: templates });
+  return await upsertTrainerData(trainerId, "plan_templates", { items: templates });
 }
 
 export function emptyStudioSettings() { return { guidelines: [] }; }

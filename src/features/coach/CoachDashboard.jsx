@@ -30,6 +30,8 @@ import { INTAKE_FORM } from "../profile/IntakeForm.jsx";
 import { ClientCard } from "../client-shell/ClientShellUI.jsx";
 import { FoodsLibraryScreen } from "../nutrition-plan/FoodsLibraryScreen.jsx";
 import { NutritionGuidelinesScreen } from "../nutrition-plan/NutritionGuidelinesScreen.jsx";
+import { NutritionPlansScreen } from "../nutrition-plan/NutritionPlansScreen.jsx";
+import { PlanBuilder } from "../nutrition-plan/PlanBuilder.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
 import { BuddyPairsScreen } from "./BuddyPairs.jsx";
@@ -436,10 +438,8 @@ export function CoachToolsTab({ onOpen }) {
     { key: "forms", name: "Intake Forms", meta: "Onboarding & health", icon: "forms", color: BRAND.yellow },
     { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
     { key: "automations", name: "Automations", meta: "Reminders & nudges", icon: "automations", color: BRAND.orange },
-    // "Nutrition Plans" (the plan builder) intentionally isn't added here
-    // yet - it doesn't exist until Phase 3, and a tile that opens to
-    // nothing would be a dead link. Foods is real now (Phase 2).
     { key: "foods", name: "Foods", meta: "Food library for nutrition plans", icon: "foods", color: BRAND.green },
+    { key: "nutrition_plans", name: "Nutrition Plans", meta: "Build & assign meal plans", icon: "nutrition_plans", color: BRAND.gold },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
@@ -848,6 +848,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   const screen = screenProp !== undefined ? screenProp : screenState;
   const setScreen = setScreenProp || setScreenState;
   const [toolOrigin, setToolOrigin] = useState("tools");
+  const [planBuilderId, setPlanBuilderId] = useState(null);
   const [query, setQuery] = useState("");
   const [templatesCount, setTemplatesCount] = useState(0);
   const [trialsCount, setTrialsCount] = useState(0);
@@ -911,9 +912,11 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     await refresh();
     return data.id;
   }
-  function goHome() { setScreen(null); setTab(toolOrigin); }
+  function goHome() { setScreen(null); setTab(toolOrigin); setPlanBuilderId(null); }
   let body;
   if (screen === "templates") body = <CoachTemplates user={user} clients={clients} refresh={refresh} onBack={goHome} />;
+  else if (screen === "nutrition_plans") body = <NutritionPlansScreen trainerId={user.id} onBack={goHome} onOpenBuilder={(id) => { setPlanBuilderId(id); setScreen("plan_builder"); }} />;
+  else if (screen === "plan_builder") body = <PlanBuilder trainerId={user.id} templateId={planBuilderId} onExit={goHome} onSelectTemplate={(id) => setPlanBuilderId(id)} />;
   else if (screen === "calendar") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Calendar clients={clients} refresh={refresh} user={user} /></>;
   else if (screen === "analytics") body = <CoachAnalytics clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "trials") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Trials user={user} onConvert={convertTrialToClient} /></>;

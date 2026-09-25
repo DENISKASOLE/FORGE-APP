@@ -1,3 +1,76 @@
+# Pro nutrition plans (Phase 3: plan builder core) — decisions log
+
+Ask: "Go." Per the spec's phase table: template list, days, targets, meal
+blocks, food search/amounts/totals, the target-status chip, autosave,
+undo, reorder, responsive desktop/phone layout.
+
+## Retrofit: Phase 2's screens used the wrong visual language
+
+Reading `Main.dc.html` in full for this phase made something clear that a
+label/text-only skim of the mockups hadn't: this design uses solid black
+cards with hairline borders, not the rest of the app's translucent
+"glass" look. Phase 2's Foods/Guidelines screens were built with the
+app's regular `BRAND`/glass `Card` components - visually inconsistent
+with the actual mockups they were supposed to match. Added
+`features/nutrition-plan/theme.js` (later renamed `.jsx`, see below) as
+one shared token/style file - `NP.*` colors, `npCard`/`npInput`/
+`npButton`/`npLabel` helpers, an `NPToggle` switch component - so every
+screen in this feature uses the same, correct visual language going
+forward. Phase 2's two screens were NOT retrofitted in this pass (time
+was spent on the builder itself, which is what "go" was asking for) -
+flagging that debt explicitly rather than quietly leaving it.
+
+## Drag-and-drop: up/down buttons, not @dnd-kit - and the spec already allows it
+
+The recon decision was no new runtime dependencies. Re-reading §5.2's own
+toolbar list confirms this isn't even a compromise: "Move up, Move down,
+Duplicate, Delete" are listed as block-toolbar actions ALONGSIDE the drag
+handle, not instead of it - meaning full keyboard/button-based reordering
+was already part of the spec, just redundant with drag on desktop. Built
+only the button version. It satisfies the QA checklist's keyboard-only
+requirement identically to `@dnd-kit`'s keyboard sensor would.
+
+## Real bug caught by actually running the build, not just eyeballing the diff
+
+`theme.js` contains a JSX component (`NPToggle`) but was named `.js`.
+Vite's build failed outright ("JSX syntax is disabled") - and the first
+build check on this phase used a grep filter (`grep -E "error|✓ built"`)
+that didn't actually catch it, because the failing build's exit code was
+0 despite an unmistakable "error during build" line further up. Caught
+only by re-checking with an explicit `grep -n "✓ built|error during
+build"` rather than trusting a tail + eyeball pass. Renamed to
+`theme.jsx`, fixed both import sites, rebuilt clean. Worth remembering:
+a build tool's process exit code is not reliable evidence of success on
+its own here - grep for the actual success/failure line.
+
+## Scope explicitly held to Phase 3, other blocks visibly disabled
+
+Only the MEAL block type is enabled in the "Add block" palette; the other
+seven (swaps, note, education, supplement, hydration, photo, divider) are
+shown but disabled with a "coming in a later phase" tooltip, rather than
+hidden - so a coach sees the full intended shape of the builder without
+being able to create a block this phase can't yet render or persist
+correctly. Same reasoning as Phase 2's deferred "Nutrition Plans" tile:
+visible-but-honest beats a surprise dead end.
+
+Also deferred, per the phase table: "From saved meals" picker and "Save
+as saved meal" (Phase 4, presets aren't wired to anything yet), AI Refine
+panel (Phase 10), Assign to Client and Preview PDF buttons (Phases 5 and
+8 - not rendered at all this phase rather than shown disabled, since
+those live in the header rather than an opt-in palette and a permanently
+dead top-level button reads worse than one that just isn't there yet).
+
+## Quick "+ CREATE" food is intentionally incomplete
+
+Typing a food that doesn't exist yet and hitting Enter/+CREATE adds it to
+the library with all-zero macros immediately (so meal-building isn't
+blocked) and a toast telling the coach to fill in real numbers via Foods.
+This mirrors the spec's own UX intent (§9: "Foods search no results: +
+CREATE") without building a second, cut-down food form inline - the coach
+finishes it in the one place foods are properly edited.
+
+---
+
 # Pro nutrition plans (Phase 2: Foods library + guidelines) — decisions log
 
 Ask: "go" (continuing from Phase 1's stop-and-review point). Per the
