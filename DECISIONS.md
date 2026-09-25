@@ -1,3 +1,76 @@
+# Pro nutrition plans (Phase 11: QA pass + README) — decisions log, and the feature is now feature-complete
+
+This closes out the "go build and finish everything" run: phases 1-10
+are built, tested, and shipped (11 commits on `main`). This phase is
+the spec's own §12 QA checklist, run the only way available in this
+environment - reading the code, tracing the actual write paths, and
+adding a couple of tests that were checklist items but weren't yet
+exercised - **not** a live browser/device pass, since none is
+available here. Results, one line per checklist item:
+
+- Coach/client data isolation - inherited, not newly verified: every
+  nutrition-plan write goes through the app's existing `client_data`/
+  `trainer_data` tables and their existing RLS policies; no new table,
+  no new RLS surface introduced by this feature.
+- Dubai 23:59 vs 00:01 dates - PASS, unit-tested (`isoDate()`, local
+  not UTC; see planMath.test.js's "localDateKey" describe block).
+- Re-signing mid-day keeps today on the old version - PASS by code
+  trace: `resolveSignedPlan` pins to `dayLog.planVersion` once a day
+  has any entries, only follows `active` before that.
+- Archiving a food doesn't touch signed plans/logs - PASS by design:
+  `foodRefFromRow` denormalises macros into the plan at build time: no
+  live reference to the food-library row ever survives into a signed
+  doc or a log entry.
+- Double-tap "Ate as planned" / undo - PASS by construction: entries
+  are upserted by itemId (an object, not an array push), so a repeat
+  tap overwrites, never duplicates; undo restores an exact pre-tap
+  snapshot of `dayLog.entries`.
+- Offline tick+extra, reopen online, syncs once - inherited from the
+  app's existing `upsertSection` offline queue (`lib/cache.js`),
+  unmodified by this feature; same guarantee level as habits/macro_log.
+- Swap sheet shows only coach options - PASS by code trace (no food
+  search in the swap sheet, only `item.swaps`).
+- Portion ¾→adherence 1, ½→adherence 0.5 - PASS, already covered by
+  Phase 1's `itemScore` tests (0.75-1.25 band scores 1, else 0.5).
+- Rings/totals include extras, adherence excludes them - PASS by code
+  trace: `loggedDayTotals` sums entries + extras; `dayAdherence`/
+  `itemScore` only ever see `entriesByItemId`, never `extras`.
+- PDF combinations - added two more vitest smoke tests this phase
+  (3-day plan, no swaps, grocery off) alongside Phase 8's original
+  (1-day, with swaps, grocery on) so every branch in
+  `buildNutritionPlanPDF` the checklist calls out has actually run at
+  least once, not just been read (40/40 tests passing).
+- 390px + 44px touch targets - PARTIALLY verified: `useIsMobile(1024)`
+  drives the same single-column/bottom-sheet layout pattern already
+  proven responsive by earlier milestones in this app, and `npButton`'s
+  base height is 44px. NOT individually audited: several small
+  in-list controls (28px tick checkboxes, 32px status icons in
+  FuelFlow) are below 44px - flagging rather than claiming full
+  compliance with no way to measure it live.
+- Keyboard-only build/reorder/sheets - PASS for reorder (real `<button>`
+  move-up/down, no drag-only path) and food search (explicit ↑/↓/Enter
+  handling). Sheets close on backdrop click but NOT on Escape - checked
+  first whether this app has an existing Esc-to-close convention to
+  match (`ConfirmDialog.jsx` and every other modal in the app): it
+  doesn't, anywhere. Left unset rather than inventing a new,
+  feature-only accessibility pattern the rest of the app doesn't share.
+- AI auth/rate-limits/key-never-in-browser - key: PASS (Edge Function
+  secret only, calls go through `supabase.functions.invoke`). Auth:
+  relies on Supabase's platform-level JWT verification (the default for
+  `functions deploy`, not custom code) - same posture as every other
+  forge-ai action, not something unique to add here. Rate limiting: NOT
+  implemented (no per-user call counter for any forge-ai action, old or
+  new) - the existing 429/503 retry+backoff protects against Gemini's
+  own quota, not one user calling too often.
+
+README got a new "Deploying the forge-ai Edge Function" section (there
+was no deploy documentation anywhere in the repo before this) -
+`GEMINI_API_KEY`/`GEMINI_MODEL` secrets + `supabase functions deploy
+forge-ai`, one shared function for every AI action past and future,
+not the spec's two-function-per-feature assumption.
+
+---
+
 # Pro nutrition plans (Phases 4-9: blocks, assign & sign, Fuel tab, PDF, alerts) — decisions log
 
 Ask: "Go now build and finish everything don't ask me again." This

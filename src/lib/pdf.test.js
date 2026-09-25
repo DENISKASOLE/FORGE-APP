@@ -35,4 +35,24 @@ describe("buildNutritionPlanPDF (smoke)", () => {
     expect(blob.size).toBeGreaterThan(1000);
     expect(blob.type).toBe("application/pdf");
   });
+
+  it("builds a 3-day plan with no swaps and grocery list off (spec §12's other PDF combination)", async () => {
+    const doc = newPlanDoc("Maintenance");
+    doc.days = [0, 1, 2].map((i) => {
+      const d = newPlanDoc(`Day ${i + 1}`).days[0];
+      d.name = `DAY ${i + 1}`;
+      d.type = i === 2 ? "rest" : "training";
+      d.blocks[0].items = [newMealItem(foodRefFromRow(food()), 150)]; // breakfast only, no swaps
+      return d;
+    });
+    doc.settings.showGuidelines = false;
+    doc.settings.showGrocery = false;
+
+    const signedPlan = { version: 2, doc, schedule: { mon: doc.days[0].id, tue: doc.days[1].id, wed: doc.days[2].id, thu: doc.days[0].id, fri: doc.days[1].id, sat: doc.days[2].id, sun: doc.days[0].id }, startDate: "2026-09-01", coachNote: "" };
+    const client = { name: "No Photo Client", transformPhotos: [] };
+
+    const blob = await buildNutritionPlanPDF(client, signedPlan);
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.size).toBeGreaterThan(1000);
+  });
 });
