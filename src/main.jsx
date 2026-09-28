@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { registerSW } from "virtual:pwa-register";
 import "./styles/global.css";
 import App from "./App.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
@@ -16,7 +17,8 @@ createRoot(document.getElementById("root")).render(
 );
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
+  // The only service worker is the one vite-plugin-pwa generates (sw.js).
+  registerSW({ immediate: true });
   // The generated service worker takes over active tabs on every deploy
   // (skipWaiting + clientsClaim), which otherwise leaves an already-open
   // tab running old JS against a new worker - a real source of the "app

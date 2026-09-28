@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // Registered from src/main.jsx via `virtual:pwa-register`; this
+      // plugin's generated sw.js is the app's only service worker.
+      injectRegister: false,
       includeAssets: ["favicon.svg", "icons/icon-192.png", "icons/icon-512.png"],
       manifest: {
         name: "Forge Coach",
@@ -32,7 +35,22 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
+        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        cleanupOutdatedCaches: true,
+        // Take over open tabs on deploy; src/main.jsx reloads once on
+        // `controllerchange` so a tab never mixes old JS with a new worker.
+        skipWaiting: true,
+        clientsClaim: true,
+        // SPA navigations fall back to the precached index.html, except the
+        // Worker API, which must always reach the network.
+        navigateFallbackDenylist: [/^\/api\//],
+        // Never cache any /api/* response (auth, data, payments, AI).
+        runtimeCaching: [
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/api/"),
+            handler: "NetworkOnly"
+          }
+        ]
       }
     })
   ]

@@ -11,13 +11,16 @@ import { markBuddyPairPaid } from "../coach/BuddyPairs.jsx";
 
 const PAYPAL_CLIENT_ID = "BAAZplCHKuyy27Zt231EShn67OIL9PM4OxNA_3m53HMV06ZrFkwT0YJFYOMA2XcMaqAIAH3_beCDJporPI"; // live
 
-async function createPayPalOrder(amount, description) {
-  const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "create", amount: String(amount), currency: "USD", description } });
+// clientId lets the server check the caller may pay for this client and
+// record the order; the server's `payments` table (not the profile write in
+// markClientPaidAfterCheckout) is the source of truth for a payment.
+async function createPayPalOrder(clientId, amount, description) {
+  const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "create", clientId, amount: String(amount), currency: "USD", description } });
   if (error || !data || !data.id) throw new Error("create failed");
   return data.id;
 }
-async function capturePayPalOrder(orderId) {
-  const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "capture", orderId } });
+async function capturePayPalOrder(clientId, orderId) {
+  const { data, error } = await supabase.functions.invoke("forge-paypal", { body: { action: "capture", clientId, orderId } });
   if (error || !data || data.status !== "COMPLETED") throw new Error("capture failed");
   return data;
 }
@@ -64,10 +67,10 @@ function ApplePayButton({ client, amount, onPaid, onError }) {
     session.onpaymentauthorized = async (event) => {
       setPaying(true);
       try {
-        const orderId = await createPayPalOrder(amount, `Coaching - ${client.name}`);
+        const orderId = await createPayPalOrder(client.id, amount, `Coaching - ${client.name}`);
         const confirmed = await applepay.confirmOrder({ orderId, token: event.payment.token, billingContact: event.payment.billingContact });
         if (!confirmed?.approveApplePayPayment) throw new Error("not approved");
-        const captured = await capturePayPalOrder(orderId);
+        const captured = await capturePayPalOrder(client.id, orderId);
         session.completePayment(window.ApplePaySession.STATUS_SUCCESS);
         onPaid(captured);
       } catch {
@@ -162,9 +165,9 @@ function GooglePayButton({ client, amount, onPaid, onError }) {
           totalPrice: String(amount),
         },
       });
-      const orderId = await createPayPalOrder(amount, `Coaching - ${client.name}`);
+      const orderId = await createPayPalOrder(client.id, amount, `Coaching - ${client.name}`);
       await window.paypal.Googlepay().confirmOrder({ orderId, paymentMethodData: paymentData.paymentMethodData });
-      const captured = await capturePayPalOrder(orderId);
+      const captured = await capturePayPalOrder(client.id, orderId);
       onPaid(captured);
     } catch (e) {
       if (e?.statusCode !== "CANCELED") onError?.(); // the user closing the Google Pay sheet isn't an error
@@ -195,11 +198,11 @@ export function PayPalCheckout({ client, amount, onPaid }) {
       try {
         window.paypal.Buttons({
           style: { layout: "vertical", color: "black", shape: "pill", label: "pay" },
-          createOrder: () => createPayPalOrder(amount, `Coaching - ${client.name}`),
+          createOrder: () => createPayPalOrder(client.id, amount, `Coaching - ${client.name}`),
           onApprove: async (d) => {
             setStatus("paying");
             try {
-              const data = await capturePayPalOrder(d.orderID);
+              const data = await capturePayPalOrder(client.id, d.orderID);
               setStatus("done");
               onPaid?.(data);
             } catch {
