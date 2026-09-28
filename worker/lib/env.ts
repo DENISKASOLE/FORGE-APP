@@ -16,6 +16,8 @@ export interface Env {
   SUPABASE_URL: string;
   MAX_UPLOAD_BYTES: string;
   R2_SOFT_CAP_BYTES: string;
+  FILE_USER_DAILY_UPLOADS?: string;
+  FILE_GLOBAL_DAILY_UPLOADS?: string;
 
   GEMINI_API_KEY?: string;
   FATSECRET_CLIENT_ID?: string;
