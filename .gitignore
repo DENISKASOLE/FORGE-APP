@@ -27,3 +27,9 @@ dist-ssr
 # Ad-hoc smoke-test screenshots
 smoke_screenshot.png
 __test-*.mjs
+
+# Wrangler local secrets (never commit)
+.dev.vars
+.dev.vars.*
+supabase/.temp/
+.wrangler/

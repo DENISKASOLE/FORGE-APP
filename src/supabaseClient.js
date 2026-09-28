@@ -1,7 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+// Forge v2: a drop-in, supabase-js-shaped client backed by the Cloudflare
+// Worker API (/api/*). Every feature file keeps importing `supabase` from
+// here unchanged; see docs/cloudflare/CONTRACTS.md.
+import { from, rpc } from "./lib/forge/db.js";
+import { auth } from "./lib/forge/auth.js";
+import { storage } from "./lib/forge/storage.js";
+import { functions } from "./lib/forge/functions.js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = { from, rpc, auth, storage, functions };
 export default supabase;

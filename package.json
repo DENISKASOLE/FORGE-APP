@@ -8,11 +8,16 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cf:dev": "vite build && wrangler dev",
+    "cf:deploy": "vite build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply forge-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply forge-db --remote"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.108.1",
+    "hono": "^4.13.10",
     "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.6",
@@ -22,6 +27,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260928.1",
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -31,7 +37,9 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "supabase": "^2.113.0",
+    "typescript": "^7.0.2",
     "vite": "^8.0.12",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "wrangler": "^4.142.0"
   }
 }
