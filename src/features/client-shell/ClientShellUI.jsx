@@ -232,7 +232,7 @@ export function ClientSettingsModal({ client, onClose }) {
             <div style={{ padding: "12px 14px", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
               <div style={{ fontFamily: BRAND.sans, fontSize: 12, fontWeight: 500, color: BRAND.text, marginBottom: 8 }}>Change password</div>
               <div style={{ display: "flex", gap: 8 }}>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" style={{ flex: 1, minWidth: 0, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "10px 12px", color: BRAND.text, fontFamily: BRAND.sans, fontSize: 13, outline: "none" }} />
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" style={{ flex: 1, minWidth: 0, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "10px 12px", color: BRAND.text, fontFamily: BRAND.sans, fontSize: 13, outline: "none" }} />
                 <Button disabled={changing} onClick={updatePassword} style={{ flexShrink: 0 }}>{changing ? "..." : "Update"}</Button>
               </div>
               {message && <div style={{ fontFamily: BRAND.sans, color: message.includes("updated") ? BRAND.green : BRAND.red, fontWeight: 500, marginTop: 8, fontSize: 12 }}>{message}</div>}

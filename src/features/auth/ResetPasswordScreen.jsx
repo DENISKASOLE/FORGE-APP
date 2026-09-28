@@ -25,7 +25,7 @@ export function ResetPasswordScreen({ onDone }) {
         <div style={{ fontFamily: BRAND.display, color: BRAND.text, fontSize: 26, fontWeight: 500, letterSpacing: "0.06em", textAlign: "center" }}>FORGE</div>
         <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginTop: 12, textAlign: "center" }}>Set a new password</div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, fontWeight: 400, lineHeight: 1.6, marginTop: 6, marginBottom: 20, textAlign: "center" }}>Choose a new password for your account.</div>
-        <Field label="New password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" />
+        <Field label="New password" type="password" value={password} onChange={setPassword} placeholder="At least 8 characters" />
         <div style={{ height: 10 }} />
         <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm} />
         {msg && <div style={{ fontFamily: BRAND.sans, color: msg.includes("updated") ? BRAND.green : BRAND.yellow, fontWeight: 500, marginTop: 10, fontSize: 13, lineHeight: 1.5 }}>{msg}</div>}
