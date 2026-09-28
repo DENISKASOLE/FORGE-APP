@@ -26,6 +26,8 @@ export interface Env {
   FILE_URL_SECRET?: string;
   MIGRATION_ADMIN_TOKEN?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  // auth: PBKDF2-SHA256 iteration count for new password hashes (default and max 100000).
+  PBKDF2_ITERATIONS?: string;
 }
 
 // The authenticated caller. Shape mirrors the parts of a Supabase `User`

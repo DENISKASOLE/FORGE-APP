@@ -31,6 +31,7 @@
     { "name": "API_LIMITER", "namespace_id": "1003", "simple": { "limit": 300, "period": 60 } }
   ],
   "vars": {
+    "PBKDF2_ITERATIONS": "100000",
     "APP_ENV": "production",
     "PAYPAL_ENV": "sandbox",
     "GEMINI_MODEL": "gemini-3.6-flash",
