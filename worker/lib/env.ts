@@ -30,6 +30,10 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY?: string;
   // auth: PBKDF2-SHA256 iteration count for new password hashes (default and max 100000).
   PBKDF2_ITERATIONS?: string;
+
+  // Cutover route (migrate agent). Max password-setup emails per UTC day;
+  // defaults to 90 to stay under Resend's free 100/day.
+  MIGRATION_EMAIL_DAILY_MAX?: string;
 }
 
 // The authenticated caller. Shape mirrors the parts of a Supabase `User`
