@@ -32,7 +32,7 @@
   ],
   "vars": {
     "APP_ENV": "production",
-    "PAYPAL_ENV": "sandbox",
+    "PAYPAL_ENV": "live",
     "GEMINI_MODEL": "gemini-3.6-flash",
     "RESEND_FROM": "Forge <no-reply@send.forgeperformance.online>",
     "COACH_EMAIL": "kendenisdubai@gmail.com",
