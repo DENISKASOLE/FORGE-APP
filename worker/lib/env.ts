@@ -26,6 +26,10 @@ export interface Env {
   FILE_URL_SECRET?: string;
   MIGRATION_ADMIN_TOKEN?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+
+  // Cutover route (migrate agent). Max password-setup emails per UTC day;
+  // defaults to 90 to stay under Resend's free 100/day.
+  MIGRATION_EMAIL_DAILY_MAX?: string;
 }
 
 // The authenticated caller. Shape mirrors the parts of a Supabase `User`
