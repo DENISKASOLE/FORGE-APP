@@ -56,8 +56,8 @@ describe("access matrix (mirrors v1 storage policies)", () => {
     for (const action of ALL) expect(await can(uid, "client-photos", "clients/c1/progress/x.jpg", action)).toBe(expected);
   });
 
-  it("client-photos: v1 also lets any signed-in user touch a client with no trainer", async () => {
-    for (const action of ALL) expect(await can("stranger", "client-photos", "clients/c3/x.jpg", action)).toBe(true);
+  it("client-photos: a client with no trainer is NOT open to other signed-in users (v1 loophole closed)", async () => {
+    for (const action of ALL) expect(await can("stranger", "client-photos", "clients/c3/x.jpg", action)).toBe(false);
   });
 
   it("client-photos/trainers/{id}: only that trainer reads or writes", async () => {

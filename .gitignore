@@ -33,3 +33,4 @@ __test-*.mjs
 .dev.vars.*
 supabase/.temp/
 .wrangler/
+.claude/

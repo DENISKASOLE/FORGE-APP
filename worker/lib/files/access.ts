@@ -32,8 +32,11 @@ export async function findClientOwnership(db: D1Database, clientId: string): Pro
 }
 
 function clientPhotosRule(c: ClientOwnership, uid: string): boolean {
-  // v1 also granted access when the client has no trainer assigned.
-  return c.trainer_id === uid || c.client_user_id === uid || c.trainer_id === null;
+  // v1 also let ANY signed-in user in when the client had no trainer
+  // assigned. Deliberately not carried over: unassigned clients are claimed
+  // by the coach on login (App.jsx loadCoach), so only the client and their
+  // coach ever need access.
+  return c.trainer_id === uid || c.client_user_id === uid;
 }
 
 function screeningRule(c: ClientOwnership, uid: string, action: FileAction): boolean {
