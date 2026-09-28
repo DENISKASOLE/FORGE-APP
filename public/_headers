@@ -1,0 +1,29 @@
+# Cloudflare Workers Static Assets headers (copied into dist/ by Vite).
+# Only static assets use these; /api/* responses come from the Worker.
+
+# camera stays allowed for this origin: check-in/meal photo capture and
+# barcode scanning. payment/fullscreen/autoplay are left at browser
+# defaults for PayPal, Apple Pay, Google Pay and the YouTube player.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), usb=(), serial=(), hid=()
+
+# The app shell and service-worker files must always revalidate so a deploy
+# is picked up on the next load. SPA deep links are served index.html with
+# the Static Assets default (max-age=0, must-revalidate).
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/registerSW.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Vite's content-hashed build output never changes under the same URL.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
