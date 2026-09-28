@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // Agent worktrees live under .claude/ - never collect their test copies.
+  test: { exclude: ["**/node_modules/**", "**/dist/**", ".claude/**"] },
   plugins: [
     react(),
     VitePWA({
