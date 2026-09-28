@@ -203,7 +203,7 @@ export function ClientSettingsModal({ client, onClose }) {
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   async function updatePassword() {
-    if (!newPassword || newPassword.length < 6) { setMessage("Password must be at least 6 characters."); return; }
+    if (!newPassword || newPassword.length < 8) { setMessage("Password must be at least 8 characters."); return; }
     setChanging(true); setMessage("");
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setMessage(error ? error.message : "Password updated.");

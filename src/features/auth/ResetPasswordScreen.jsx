@@ -11,7 +11,7 @@ export function ResetPasswordScreen({ onDone }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   async function save() {
-    if (password.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+    if (password.length < 8) { setMsg("Password must be at least 8 characters."); return; }
     if (password !== confirm) { setMsg("Passwords don't match."); return; }
     setSaving(true); setMsg("");
     const { error } = await supabase.auth.updateUser({ password });
