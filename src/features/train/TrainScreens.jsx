@@ -23,7 +23,7 @@ import { GOAL_OPTIONS } from "../../lib/constants.js";
 import {
   fmtLoad, fmtSetTarget, fmtExerciseSummary, blockTitle, exerciseTag, parseSeconds, fmtClock,
   emptyTrainingLogs, startSession, sessionForWorkout, upsertSessionInLogs, setScoreV2, fmtLoggedSet,
-  suggestProgression, suggestPlateauBump, lastSessionSetsFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
+  suggestProgression, suggestPlateauBump, lastSessionSetsFor, bestSetFor, exerciseHistoryV2, sessionStatsV2, detectSessionPBs, groupSessionSteps,
 } from "../../lib/trainingLogs.js";
 import {
   newSet, newExercise, newBlock, newWorkout, newProgWeek, newProgram, cloneWithNewIds,
@@ -587,6 +587,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const effectiveName = entry ? (entry.substitutedName || entry.name) : "";
   const timed = isTimedExercise(effectiveName);
   const lastSets = entry ? lastSessionSetsFor(logsBefore, effectiveName) : [];
+  const best = entry ? bestSetFor(logsBefore, effectiveName) : null;
   const exMeta = entry ? getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises }) : null;
   const thumb = getVideoThumb(ex.videoUrl);
   const subbing = entry ? subFor === entry.id : false;
@@ -664,7 +665,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
       {ex.note && <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 500 }}>Coach: </span>{ex.note}</div>}
-      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
+      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} best={best} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
       <div>
         <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
         {subbing && <div style={{ marginTop: 8 }}>

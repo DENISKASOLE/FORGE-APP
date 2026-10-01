@@ -168,6 +168,29 @@ export function suggestPlateauBump(logs, exerciseName) {
   if (w1 == null || w2 == null || w1 !== w2) return null;
   return { bump: 2.5, weight: w2, reason: "plateau" };
 }
+// The best set ever logged for this exercise, across ALL history - not
+// just the last session. lastSessionSetsFor only looks at the most recent
+// session, so if an exercise was skipped last time (swapped out, superset
+// reordering, a missed week), its grey "recent" placeholder goes empty with
+// nothing to reference. This fills that gap: a client/coach can always see
+// their best weight on the exercise even when last time has nothing to show.
+export function bestSetFor(logs, exerciseName) {
+  const name = String(exerciseName || "").toLowerCase();
+  const timed = isTimedExercise(exerciseName);
+  let best = null;
+  for (const s of logs?.sessions || []) {
+    if (s.status !== "completed" && s.status !== "in_progress") continue;
+    for (const e of s.entries || []) {
+      const effective = String(e.substitutedName || e.name || "").toLowerCase();
+      if (effective !== name) continue;
+      for (const set of e.sets || []) {
+        const score = setScoreV2(set, timed);
+        if (score > 0 && (!best || score > best.score)) best = { set, date: s.date, score };
+      }
+    }
+  }
+  return best;
+}
 export function exerciseHistoryV2(logs, exerciseName) {
   const name = String(exerciseName || "").toLowerCase();
   const timed = isTimedExercise(exerciseName);
