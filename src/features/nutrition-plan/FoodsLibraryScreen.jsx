@@ -24,10 +24,18 @@ const LABEL_STYLE = { fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, 
 const KCAL_COLOR = "#22D3EE";
 
 function emptyFoodForm() {
-  return { id: null, name: "", brand: "", state: "", category: "protein", unit: "g", pieceGrams: "", kcal: "", protein: "", carbs: "", fat: "", fibre: "", groceryName: "", groceryFactor: "1", archived: false };
+  return { id: null, name: "", brand: "", state: "", category: "protein", unit: "g", pieceGrams: "", kcal: "", protein: "", carbs: "", fat: "", fibre: "", groceryName: "", groceryFactor: "1", archived: false, servings: [] };
 }
 function foodToForm(food) {
-  return { ...emptyFoodForm(), ...food, state: food.state || "", pieceGrams: food.pieceGrams ?? "", fibre: food.fibre ?? "", groceryName: food.groceryName || "", groceryFactor: String(food.groceryFactor ?? 1) };
+  // `servings` beyond the primary unit/pieceGrams are the nutrition
+  // redesign's multi-serving upgrade (DECISIONS.md) - a food can have a
+  // "scoop"/"container"/"tbsp" a client logs by, in addition to its
+  // primary unit. Always per the existing 100g/ml basis (never changed),
+  // so this stays fully readable by the old nutrition-plan code that's
+  // still live until that feature is retired - it only ever sees
+  // unit/pieceGrams, exactly as before.
+  const extraServings = (food.servings || []).filter((s) => s.label !== "g" && s.label !== "ml" && !(food.unit === "piece" && s.grams === food.pieceGrams)).map((s) => ({ label: s.label, grams: String(s.grams) }));
+  return { ...emptyFoodForm(), ...food, state: food.state || "", pieceGrams: food.pieceGrams ?? "", fibre: food.fibre ?? "", groceryName: food.groceryName || "", groceryFactor: String(food.groceryFactor ?? 1), servings: extraServings };
 }
 
 // Add/edit sheet. Archive is the default "remove" action per spec §5.4
@@ -41,9 +49,15 @@ export function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDel
   const showSanityWarning = kcal > 0 && !sanity.ok;
 
   function set(patch) { setForm((f) => ({ ...f, ...patch })); }
+  function addServingRow() { set({ servings: [...form.servings, { label: "", grams: "" }] }); }
+  function updateServingRow(i, patch) { set({ servings: form.servings.map((s, si) => (si === i ? { ...s, ...patch } : s)) }); }
+  function removeServingRow(i) { set({ servings: form.servings.filter((_, si) => si !== i) }); }
   function save() {
     if (!form.name.trim()) { showToast("Name is required.", "warn"); return; }
     if (form.unit === "piece" && !(Number(form.pieceGrams) > 0)) { showToast("Piece foods need a gram weight.", "warn"); return; }
+    const extras = form.servings.filter((s) => s.label.trim() && Number(s.grams) > 0);
+    if (form.servings.length !== extras.length) { showToast("Every extra serving needs a name and a gram weight.", "warn"); return; }
+    const primary = form.unit === "piece" ? [{ label: "piece", grams: Number(form.pieceGrams) }] : [{ label: form.unit, grams: 1 }];
     onSave({
       id: form.id || uid(), name: form.name.trim(), brand: form.brand.trim(), state: form.state || null,
       category: form.category, unit: form.unit, pieceGrams: form.unit === "piece" ? Number(form.pieceGrams) : null,
@@ -51,6 +65,8 @@ export function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDel
       fibre: form.fibre === "" ? null : Number(form.fibre),
       groceryName: form.groceryName.trim() || null, groceryFactor: Number(form.groceryFactor) || 1,
       archived: !!form.archived,
+      basisGrams: 100,
+      servings: [...primary, ...extras.map((s) => ({ label: s.label.trim(), grams: Number(s.grams) }))],
     });
   }
   return (
@@ -84,6 +100,18 @@ export function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDel
               Kcal doesn't quite match 4P + 4C + 9F (~{sanity.expectedKcal} kcal expected from those macros) — worth double-checking, but you can still save.
             </div>
           )}
+          <SectionLabel color={BRAND.muted} style={{ marginTop: 4 }}>Other servings clients can log by (optional)</SectionLabel>
+          <div style={{ display: "grid", gap: 8 }}>
+            {form.servings.map((s, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 110px 32px", gap: 8, alignItems: "center" }}>
+                <Field label="" value={s.label} onChange={(v) => updateServingRow(i, { label: v })} placeholder="e.g. scoop, egg, container" />
+                <Field label="" type="number" value={s.grams} onChange={(v) => updateServingRow(i, { grams: v })} placeholder={form.unit === "ml" ? "ml" : "g"} />
+                <Button variant="red" onClick={() => removeServingRow(i)} style={{ padding: "8px 10px" }}>×</Button>
+              </div>
+            ))}
+            <Button variant="dark" onClick={addServingRow} style={{ justifySelf: "start" }}>+ Add a serving</Button>
+          </div>
+          <div style={{ color: BRAND.dim, fontSize: 11, lineHeight: 1.5 }}>e.g. "scoop" = 31g lets a client log "1 scoop" instead of typing grams. Macros above still stay per 100{form.unit === "ml" ? "ml" : "g"}.</div>
           <SectionLabel color={BRAND.muted} style={{ marginTop: 4 }}>Grocery list</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
             <Field label="Grocery name" value={form.groceryName} onChange={(v) => set({ groceryName: v })} placeholder={form.name || "defaults to food name"} />
