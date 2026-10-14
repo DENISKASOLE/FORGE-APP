@@ -102,8 +102,9 @@ function buildTrainingSummary(client, days) {
 
 // Nutrition redesign (DECISIONS.md): reads the new unified
 // nutrition_v2_logs shape, with the same read-time legacy-merge
-// mergeLegacyMacroLog already uses elsewhere (lib/weeklyReport.js,
-// NutritionV2Flow.jsx) so a client's older food_log/macro_log days still
+// mergeLegacyMacroLog already uses elsewhere (NutritionV2Flow.jsx,
+// features/progress-report/progressReportMath.js) so a client's older
+// food_log/macro_log days still
 // count here too, rather than this summary silently going quiet for
 // anyone active before the cutover.
 function buildNutritionSummary(client, days) {

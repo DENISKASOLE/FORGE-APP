@@ -1,3 +1,99 @@
+# Progress Report (full replacement of the old Weekly Report) — decisions log
+
+Built from `Forge Progress Report.dc.html`, the second prototype in the
+same claude.ai/design project used for the nutrition redesign - deferred
+during that epic's planning ("out of scope for now"), now built. Read in
+full (871 lines of markup + the prototype's own `renderVals()` logic and
+sample data) via the same DesignSync-read + scratchpad-extraction
+approach used for the nutrition prototype.
+
+**What it is**: a coach-only report builder - client is implicit (opened
+from that client's own Progress tab, not a separate client-picker, since
+Forge has no standalone report-building screen outside a client's own
+shell), period + comparison-period pickers (7 days / 4 weeks / 12 weeks /
+custom range, compared against the previous period or the client's
+tracking baseline), a data-coverage checklist, a sections on/off
+checklist, an editable coach-notes panel (summary, up to 3 data-sourced
+"wins" with per-win reset-to-data, main challenge, up to 3 priorities,
+up to 3 goals, an optional client-reflection quote), a live preview of
+up to 7 report pages, and a real PDF export (share/download, with an
+optional save to the client's progress history).
+
+Confirmed with Denis (AskUserQuestion) before building:
+- **Full replacement** of the existing Weekly Report
+  (`ProgressTab.jsx`'s button → `WeeklyReportModal` →
+  `buildWeeklyReport`/`buildWeeklyReportPDF`), not a second tool living
+  alongside it.
+- **PDF via pdf-lib**, matching this app's existing convention - not the
+  prototype's own `window.print()` over styled HTML.
+- **Body measurements get dated history going forward.** Recon found
+  `client.measurements` was a single overwritten snapshot with **no
+  editor anywhere in the app** (not merely "no trend data" - nothing
+  had ever written to it except manual DB access). Built
+  `MeasurementsEditor.jsx` as the first real screen for it, additive:
+  it keeps the existing `progress.measurements` snapshot in sync so
+  `ProgressTab.jsx`'s two existing read-only displays needed no changes.
+- **All 7 pages built now**, not a reduced first cut. Pages/sections
+  with no data for a given client simply don't render - ported directly
+  from the prototype's own `avail`/`inc` gating logic, not reinvented.
+
+**Real data vs. the prototype's fictional wearable data** (recon before
+building, so scope decisions were based on what Forge actually has, not
+assumptions): body weight comes from check-in answers regex-matched for
+"weight" (existing, moved from `ProgressTab.jsx` into
+`lib/clientMetrics.js` so the report's math could reuse it without
+duplicating); training volume/planned-vs-completed/PBs are real
+(`programModel.js`'s `buildProgramDays`, `trainingLogs.js`); resting
+heart rate has **no data source in this app at all** (no wearable
+integration exists) and workout heart rate/calories are optional manual
+per-session fields; sleep/steps are manual daily self-report, not
+wearable, but real; weekly check-ins use a coach-configurable generic
+question template (choice/scale/text), not a fixed 1-5 energy/soreness/
+stress scale - matched by fuzzy label against **scale**-type answers
+only, gracefully omitted when none are configured, same as the
+prototype's own missing-data handling.
+
+**New, not in the prototype**: `estimateOneRepMax` (Epley,
+`trainingLogs.js`) and `pbsInDateRange` (date-ranged PB detection,
+same file) - neither existed anywhere before; the prototype's own
+`detectSessionPBs`/`recentPBsAcrossHistory` precedent (`trainingLogs.js`/
+`ProgressTab.jsx`) was all-time/last-N only.
+
+**Known simplifications** (disclosed, not hidden): "planned volume"
+(tonnage) vs. completed volume is dropped - a program's `targetLoad` is
+a free-text string that may be `%1RM`/`RPE`/`BW`, not reliably numeric
+kg, so only completed-volume charts are shown, not a planned-vs-
+completed tonnage comparison. The prototype's `rescheduled` session
+status doesn't exist in this app's program model (only
+`missed`/`completed`/etc.) - simplified to missed/completed. Exercise
+category bucketing (Squat & hinge / Push / Pull / Accessory) uses the
+static `exerciseTaxonomy.js` fallback only, not the DB-override/custom-
+exercise path (`getExerciseMeta`) - would have required threading an
+async DB lookup through otherwise-pure report math for a "nice to have"
+breakdown; an unmatched exercise just falls into "Accessory" instead.
+
+**One chart-rendering path for both surfaces**: `reportCharts.js`'s
+chart PNGs are shown as-is in the live preview (`ReportPreview.jsx`,
+plain `<img>`) AND embedded in the exported PDF
+(`progressReportPdf.js`, pdf-lib's `embedPng`) - the same
+`buildReportModel()` object drives both, so the numbers and the charts
+can never visually diverge between what a coach previews and what gets
+exported. Colors: the live preview uses the app's own `BRAND`/`T`
+tokens (dark/light-aware), same "match our app, not the mockup" rule as
+the nutrition redesign; the exported PDF uses fixed light-theme hex
+(`REPORT_COLORS` in `progressReportModel.js`, sourced from
+`src/styles/theme.css`'s light palette) since a printed page is always
+light regardless of the coach's current app theme - matching
+`buildWeeklyReportPDF`'s own prior convention.
+
+**Deleted** (old Weekly Report, once the new system was wired in and
+verified): `src/features/progress/WeeklyReport.jsx` (modal + its inline
+`BarChart`/`LineChart`), `src/lib/weeklyReport.js` (+ its test file),
+and `buildWeeklyReportPDF` out of `src/lib/pdf.js` (`buildPdfDoc`/
+`downloadBlob`/`sharePdfBlob`/`safeFilename` kept - still used
+elsewhere). No client data was ever deleted - this was always a
+read/presentation-layer feature with nothing of its own to preserve.
+
 # Nutrition redesign (Phase 6: cutover + deletion) — decisions log
 
 The final phase of replacing food_log/macros/prescribed_plan with the

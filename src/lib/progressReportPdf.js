@@ -1,9 +1,9 @@
 // PDF export for the Progress Report (DECISIONS.md), built with pdf-lib -
-// same convention as buildPdfDoc/buildWeeklyReportPDF, not the prototype's
-// own window.print() approach (confirmed with Denis). A separate builder
-// from both of those, for the same reason buildWeeklyReportPDF is already
-// separate from buildPdfDoc: one page per report section, with grids and
-// tables neither existing builder was written to share.
+// same convention as every other PDF in this app (buildPdfDoc), not the
+// prototype's own window.print() approach (confirmed with Denis). A
+// separate builder from buildPdfDoc, which is text/table-only and backs
+// the Program PDF: one page per report section here, with grids/tables
+// and embedded chart images buildPdfDoc was never written to share.
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { renderBarChartPNG, renderSeriesChartPNG, dataUrlToBytes } from "./reportCharts.js";
 import { REPORT_COLORS, REPORT_SECTION_LABELS } from "../features/progress-report/progressReportModel.js";

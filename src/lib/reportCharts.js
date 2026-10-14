@@ -1,10 +1,10 @@
-// Plain Canvas 2D bar/line chart rendering, used only to rasterize a PNG
-// for the exported PDF - pdf-lib has no native charting, and this app
-// already hand-draws its on-screen charts as SVG rather than pulling in a
-// charting library, so a small canvas equivalent keeps that same
-// dependency-free approach rather than introducing one just for PDFs.
-// The on-screen report renders its own SVG version of the same data; this
-// file exists purely for the export path.
+// Plain Canvas 2D chart rendering - pdf-lib has no native charting, and
+// this app otherwise hand-draws its on-screen charts as SVG rather than
+// pulling in a charting library, so this keeps that same dependency-free
+// approach. The Progress Report (DECISIONS.md) goes further and shows
+// these same PNGs on screen too (ReportPreview.jsx), not just in the
+// exported PDF, so its live preview and its PDF can never visually
+// diverge - one rendering path for both surfaces.
 
 function makeCanvas(width, height) {
   const canvas = document.createElement("canvas");
@@ -38,10 +38,12 @@ function niceTicks(min, max, count = 4) {
 // General-purpose multi-series chart for the Progress Report: any mix of
 // bars/line/dots/triangles sharing one x (day-index) / y axis, e.g. a
 // weight scatter with a rolling-mean line overlay, or two bar series for
-// planned-vs-completed sessions per week. The report's PNGs are shown
-// as-is in the live preview AND embedded in the exported PDF, so this is
-// the one place its chart visuals are drawn - renderBarChartPNG and
-// renderLineChartPNG above stay as they are for buildWeeklyReportPDF.
+// planned-vs-completed sessions per week. renderBarChartPNG/
+// renderLineChartPNG above are also reused as-is by the Progress Report
+// for its simpler single-series charts. The report's PNGs are shown
+// as-is in the live preview (ReportPreview.jsx) AND embedded in the
+// exported PDF (progressReportPdf.js), so this is the one place its
+// chart visuals are drawn.
 export function renderSeriesChartPNG({
   width = 520, height = 220, padTop = 20, padBottom = 30, padLeft = 40, padRight = 12,
   xCount, xLabels = [], yMin = 0, yMax = 1, yCount = 4, zero = false, yFmt, series = [], aria = "",
