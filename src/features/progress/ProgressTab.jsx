@@ -12,6 +12,7 @@ import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
 import { BodyAnalysisCard } from "./BodyAnalysis.jsx";
 import { WeeklyReportModal } from "./WeeklyReport.jsx";
+import { MeasurementsEditor } from "../progress-report/MeasurementsEditor.jsx";
 
 function AITrainingInsightCard({ client }) {
   const [insight, setInsight] = useState(null);
@@ -308,6 +309,7 @@ function buildProgressInsight(streak, volumeTrend, pbs) {
 export function ProgressTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [showWeeklyReport, setShowWeeklyReport] = useState(false);
+  const [showMeasurements, setShowMeasurements] = useState(false);
   const logs = client.trainingLogs;
   const streak = currentStreakWeeks(logs);
   const volumeTrend = weeklyVolumeTrend(logs, 4);
@@ -329,7 +331,12 @@ export function ProgressTab({ client, updateClient, isCoach }) {
         <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 400, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>PROGRESS</div>
         <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Progress</div>
       </div>
-      {isCoach && <Button variant="dark" onClick={() => setShowWeeklyReport(true)} style={{ flexShrink: 0 }}>Weekly Report</Button>}
+      {isCoach && (
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <Button variant="ghost" onClick={() => setShowMeasurements(true)} style={{ flexShrink: 0 }}>Measurements</Button>
+          <Button variant="dark" onClick={() => setShowWeeklyReport(true)} style={{ flexShrink: 0 }}>Weekly Report</Button>
+        </div>
+      )}
     </div>
 
     {isCoach && <AIClientSummaryCard client={client} />}
@@ -428,6 +435,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
     <AITrainingInsightCard client={client} />
 
     {showWeeklyReport && <WeeklyReportModal client={client} onClose={() => setShowWeeklyReport(false)} />}
+    {showMeasurements && <MeasurementsEditor client={client} updateClient={updateClient} onClose={() => setShowMeasurements(false)} />}
   </div>;
 }
 
