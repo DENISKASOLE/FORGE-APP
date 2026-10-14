@@ -249,6 +249,30 @@ export function sessionEntriesV2(logs) {
   });
   return entries;
 }
+// Epley estimate from a single working set - the same formula setScoreV2
+// already uses internally for PB ranking, surfaced here as an actual
+// estimated-1RM figure. Capped at <=10 reps since the formula is known to
+// degrade badly above that (matches the Progress Report's own caveat text).
+export function estimateOneRepMax(load, reps) {
+  const l = Number(load) || 0, r = Number(reps) || 0;
+  if (!l || !r || r > 10) return null;
+  return l * (1 + r / 30);
+}
+// Same replay approach as ProgressTab.jsx's recentPBsAcrossHistory (walk
+// completed sessions chronologically, comparing each to everything before
+// it), but filtered to a specific date range instead of "last N" - for the
+// Progress Report, which needs "PBs set within this reporting period,"
+// not "most recent PBs regardless of when the report starts."
+export function pbsInDateRange(logs, fromISO, toISO) {
+  const completed = [...(logs?.sessions || [])].filter((s) => s.status === "completed" && s.date).sort((a, b) => a.date.localeCompare(b.date));
+  const found = [];
+  completed.forEach((session, i) => {
+    if (session.date < fromISO || session.date > toISO) return;
+    const before = { sessions: completed.slice(0, i) };
+    detectSessionPBs(session, before).forEach((pb) => { if (!pb.detail.includes("first log")) found.push({ ...pb, date: session.date }); });
+  });
+  return found;
+}
 export function detectSessionPBs(session, logsBefore) {
   const pbs = []; const seen = new Set();
   for (const e of session?.entries || []) {

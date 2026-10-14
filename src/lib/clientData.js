@@ -179,6 +179,14 @@ export function mapClient(row, dataRows = [], index = 0) {
     nutritionV2Logs: sections.nutrition_v2_logs || {},
     nutritionV2Marks: sections.nutrition_v2_marks || {},
     nutritionV2Notes: sections.nutrition_v2_notes || null,
+    // Progress Report (DECISIONS.md) - dated measurement snapshots (the
+    // single `measurements` field above only ever holds the latest one),
+    // a per-client draft of coach notes for the next report, and a list
+    // of previously exported reports. Raw here; normalize through
+    // lib/progressReports.js, same convention as the nutrition sections.
+    measurementsHistory: sections.measurements_history?.entries || [],
+    progressReportNotes: sections.progress_report_notes || null,
+    progressReportHistory: sections.progress_report_history?.entries || [],
     notes: profile.notes || row.notes || "",
   };
 }

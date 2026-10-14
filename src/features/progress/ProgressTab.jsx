@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/Button.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { sessionForWorkout, sessionStatsV2, detectSessionPBs, sessionEntriesV2 } from "../../lib/trainingLogs.js";
+import { weightHistoryFromCheckins } from "../../lib/clientMetrics.js";
 import { MEASUREMENT_FIELDS } from "../../lib/constants.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { generateClientSummary, getTrainingInsight } from "../../lib/ai.js";
@@ -196,15 +197,6 @@ function currentStreakWeeks(logs) {
     else break;
   }
   return streak;
-}
-function weightHistoryFromCheckins(checkIns) {
-  const points = [];
-  (checkIns || []).forEach((c) => {
-    const ans = (c.answers || []).find((a) => /weight/i.test(a.question));
-    const val = ans ? parseFloat(String(ans.answer).replace(/[^0-9.]/g, "")) : NaN;
-    if (!isNaN(val) && val > 0) points.push({ date: c.date, value: val });
-  });
-  return points.sort((a, b) => a.date.localeCompare(b.date));
 }
 function VolumeTrendChart({ volumes, color = BRAND.gold }) {
   const w = 300, h = 84, pad = 8;
