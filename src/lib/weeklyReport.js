@@ -4,7 +4,9 @@
 // hand a client on paper can never quietly drift apart.
 import { isoDate, addDays } from "./dateUtils.js";
 import { sessionStatsV2, detectSessionPBs } from "./trainingLogs.js";
-import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals, MEAL_SLOTS } from "./nutrition.js";
+import { habitLogFor } from "./nutrition.js";
+import { normalizeLogs } from "./nutritionV2.js";
+import { loggedDayTotals, mergeLegacyMacroLog } from "../features/nutrition-v2/nutritionV2Math.js";
 
 function weekBuckets(weeksBack) {
   const todayEnd = new Date(`${isoDate()}T00:00:00`);
@@ -24,7 +26,7 @@ export function buildWeeklyReport(client, weeksBack = 4) {
   const buckets = weekBuckets(weeksBack);
   const logs = client.trainingLogs;
   const nutrition = client.nutrition || {};
-  const macrosOnly = nutrition.tracking_mode === "macros";
+  const v2Logs = normalizeLogs(client.nutritionV2Logs);
   const windowStart = buckets[0].start;
 
   const completedSessions = (logs?.sessions || []).filter((s) => s.status === "completed" && s.date);
@@ -39,11 +41,14 @@ export function buildWeeklyReport(client, weeksBack = 4) {
     const calDays = [], proteinDays = [], carbDays = [], fatDays = [];
     const stepDays = [], sleepDays = [];
     days.forEach((date) => {
-      const macroTotals = macroDayTotals(macroDayFor(nutrition, date));
-      const foodLog = dayLogFor(nutrition, date);
-      const loggedFood = MEAL_SLOTS.some((s) => foodLog[s]?.description) || foodLog.snacks?.length;
-      if (macroTotals.kcal > 0) { calDays.push(macroTotals.kcal); proteinDays.push(macroTotals.protein); carbDays.push(macroTotals.carbs); fatDays.push(macroTotals.fats); }
-      if (macroTotals.kcal > 0 || loggedFood) nutritionDaysLogged += 1;
+      // Nutrition redesign (DECISIONS.md): one unified log per date now.
+      // A date never opened in the new UI still has its old macro_log
+      // entries, merged the same read-time way the new UI itself does -
+      // old weeks don't go blank in a report generated after the cutover.
+      const entries = v2Logs[date]?.length ? v2Logs[date] : (nutrition.macro_log?.[date] ? mergeLegacyMacroLog(nutrition.macro_log[date], date) : []);
+      const dayTotals = loggedDayTotals(entries);
+      if (dayTotals.kcal > 0) { calDays.push(dayTotals.kcal); proteinDays.push(dayTotals.protein); carbDays.push(dayTotals.carbs); fatDays.push(dayTotals.fat); }
+      if (entries.length > 0) nutritionDaysLogged += 1;
       const habits = habitLogFor(nutrition, date);
       if (habits.steps) stepDays.push(Number(habits.steps));
       if (habits.sleep) sleepDays.push(Number(habits.sleep));
@@ -89,6 +94,9 @@ export function buildWeeklyReport(client, weeksBack = 4) {
 
   return {
     generatedAt: isoDate(), windowStart, windowEnd: buckets[buckets.length - 1].end, weeksBack,
-    macrosOnly, weeks, weightPoints, weightChange, pbs, totalVolume, totalSessions, volumeTrendPct,
+    // tracking_mode is retired (nutrition redesign) - always the unified
+    // label now; kept as a field (rather than removed) so WeeklyReport.jsx's
+    // existing ternary needs no change.
+    macrosOnly: false, weeks, weightPoints, weightChange, pbs, totalVolume, totalSessions, volumeTrendPct,
   };
 }

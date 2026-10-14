@@ -11,16 +11,13 @@ import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { loadFoodLibrary, saveFoodLibrary, loadPlanTemplates, loadMealPresets } from "../../lib/nutritionPlan.js";
-import { FOOD_CATEGORIES, FOOD_UNITS } from "./planModel.js";
-import { macroSanityCheck } from "./planMath.js";
+import { FOOD_CATEGORIES, FOOD_UNITS } from "./nutritionV2Model.js";
+import { macroSanityCheck } from "./nutritionV2Math.js";
 import { seedFoods } from "./seedData.js";
 
 const CATEGORY_LABELS = { protein: "Protein", carb: "Carb", fat: "Fat", veg: "Veg", fruit: "Fruit", dairy: "Dairy", drink: "Drink", snack: "Snack", other: "Other" };
 const STATE_OPTIONS = [["", "—"], ["raw", "Raw"], ["cooked", "Cooked"], ["dry", "Dry"]];
 const LABEL_STYLE = { fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" };
-// Spec's macro colour tokens (NUTRITION_SPEC.md §0.2) - not yet reconciled
-// into theme.css/tokens.js (a deliberate separate pass, see
-// docs/nutrition-recon.md), so used as literals here for now.
 const KCAL_COLOR = "#22D3EE";
 
 function emptyFoodForm() {
@@ -30,17 +27,13 @@ function foodToForm(food) {
   // `servings` beyond the primary unit/pieceGrams are the nutrition
   // redesign's multi-serving upgrade (DECISIONS.md) - a food can have a
   // "scoop"/"container"/"tbsp" a client logs by, in addition to its
-  // primary unit. Always per the existing 100g/ml basis (never changed),
-  // so this stays fully readable by the old nutrition-plan code that's
-  // still live until that feature is retired - it only ever sees
-  // unit/pieceGrams, exactly as before.
+  // primary unit. Always per the existing 100g/ml basis.
   const extraServings = (food.servings || []).filter((s) => s.label !== "g" && s.label !== "ml" && !(food.unit === "piece" && s.grams === food.pieceGrams)).map((s) => ({ label: s.label, grams: String(s.grams) }));
   return { ...emptyFoodForm(), ...food, state: food.state || "", pieceGrams: food.pieceGrams ?? "", fibre: food.fibre ?? "", groceryName: food.groceryName || "", groceryFactor: String(food.groceryFactor ?? 1), servings: extraServings };
 }
 
-// Add/edit sheet. Archive is the default "remove" action per spec §5.4
-// ("archive instead of delete when used in a template"); hard delete only
-// offered when nothing in the library actually references this food.
+// Add/edit sheet. Archive is the default "remove" action; hard delete
+// only offered when nothing in the library actually references this food.
 export function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDelete, canHardDelete }) {
   const [form, setForm] = useState(() => (initial ? foodToForm(initial) : emptyFoodForm()));
   const isEditing = !!initial?.id;
@@ -129,6 +122,14 @@ export function FoodFormModal({ initial, onClose, onSave, onArchiveToggle, onDel
   );
 }
 
+// Trainer-wide food library (DECISIONS.md "Nutrition redesign" keeps and
+// extends this screen rather than rebuilding it - see
+// mellow-wandering-grove.md). usedFoodIds only sees trainer-wide usage
+// (old leftover plan_templates + the still-live meal_presets) - plans
+// are now per-client documents the Foods screen has no visibility into,
+// so hard-delete safety for a food live inside some client's assigned
+// plan is a disclosed, accepted gap; archive (the default action) is
+// unaffected.
 export function FoodsLibraryScreen({ trainerId, onBack }) {
   const isMobile = useIsMobile(520);
   const [foods, setFoods] = useState([]);

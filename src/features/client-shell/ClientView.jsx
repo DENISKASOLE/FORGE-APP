@@ -26,9 +26,9 @@ import { TransformPhotos } from "../progress/TransformPhotos.jsx";
 import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
 import { HabitLogCard } from "../nutrition/HabitLogCard.jsx";
-import { MACRO_SLOTS, macroDayFor } from "../../lib/nutrition.js";
-import { planDayLogFor } from "../../lib/nutritionPlan.js";
-import { resolveSignedPlan, resolveDayForDate } from "../nutrition-plan/planMath.js";
+import { normalizePlans, normalizeLogs, normalizeMarks } from "../../lib/nutritionV2.js";
+import { MEAL_KEYS } from "../nutrition-v2/nutritionV2Model.js";
+import { planForDate, mealStatus, mergeLegacyMacroLog } from "../nutrition-v2/nutritionV2Math.js";
 import { ScreeningGate } from "../screening/ScreeningGate.jsx";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 
@@ -266,32 +266,28 @@ function ClientHome({ client, updateClient, goTo }) {
   const trainStreak = currentStreakWeeks(completedSessionDates);
   const streakRingTotal = Math.max(trainStreak + 1, 4); // always render "near-full", per spec
 
-  // Macros-only and prescribed-plan clients never write food_log at all
-  // (that screen is hidden from them - see NutritionFlow's tracking_mode
-  // routing), so this used to read as permanently 0/4 for them regardless
-  // of how much they'd actually logged. Read from whichever store the
-  // client's mode actually writes to. food_log/macros stay a fixed 4
-  // slots (breakfast/lunch/dinner/snacks); a prescribed plan day can have
-  // any number of meal blocks, so mealNames carries real labels for it
-  // instead of the fixed legend the other two modes share.
+  // Nutrition redesign (DECISIONS.md) - one unified log/plan shape for
+  // every client now, no more tracking_mode branching. When a plan is
+  // live for today, the ring tracks real plan-meal progress (any logged
+  // outcome - eaten/partial/substituted/skipped - counts as "done", a
+  // plan day can have any number of meals so mealNames carries the real
+  // labels); with no plan yet, it falls back to the 4 generic meal slots
+  // and whether anything was logged against each, same shape the old
+  // food_log fallback used.
   const nutrition = client.nutrition;
-  const macrosOnly = nutrition.tracking_mode === "macros";
-  const prescribedPlan = nutrition.tracking_mode === "prescribed_plan";
+  const v2Plans = normalizePlans(client.nutritionV2Plans);
+  const v2Logs = normalizeLogs(client.nutritionV2Logs);
+  const v2Marks = normalizeMarks(client.nutritionV2Marks);
+  const todaySignedPlan = planForDate(v2Plans, todayISO);
+  const legacyMacroDay = nutrition?.macro_log?.[todayISO];
+  const todayEntries = (v2Logs[todayISO]?.length ? v2Logs[todayISO] : null) || (legacyMacroDay ? mergeLegacyMacroLog(legacyMacroDay, todayISO) : []);
+  const todayMarks = v2Marks[todayISO] || {};
   let mealFlags, mealNames = null;
-  if (prescribedPlan) {
-    const planLogs = client.nutritionPlanLogs || {};
-    const dayLog = planDayLogFor(planLogs, todayISO);
-    const signedPlan = resolveSignedPlan(client.nutritionPlan, dayLog);
-    const planDay = signedPlan ? resolveDayForDate(signedPlan, dayLog, todayISO) : null;
-    const meals = planDay ? (planDay.blocks || []).filter((b) => b.type === "meal") : [];
-    mealFlags = meals.map((m) => m.items.length > 0 && m.items.every((it) => dayLog.entries[it.id]));
-    mealNames = meals.map((m) => m.name);
-  } else if (macrosOnly) {
-    const d = macroDayFor(nutrition, todayISO);
-    mealFlags = MACRO_SLOTS.map((s) => !!d[s]?.length);
+  if (todaySignedPlan) {
+    mealFlags = todaySignedPlan.meals.map((m) => !["open", "future"].includes(mealStatus(todayISO, todayISO, m, todayEntries, todayMarks)));
+    mealNames = todaySignedPlan.meals.map((m) => m.name);
   } else {
-    const d = nutrition.food_log[todayISO];
-    mealFlags = [!!d?.breakfast, !!d?.lunch, !!d?.dinner, !!d?.snacks?.length];
+    mealFlags = MEAL_KEYS.map((k) => todayEntries.some((e) => e.meal === k));
   }
   const loggedCount = mealFlags.filter(Boolean).length;
   const mealGoal = mealFlags.length || 4;

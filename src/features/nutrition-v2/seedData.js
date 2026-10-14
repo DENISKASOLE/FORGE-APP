@@ -1,10 +1,10 @@
-// Appendix A seed data from NUTRITION_SPEC.md - the coach's food library
-// is seeded from this on first open (only when empty, never overwriting
-// real data), and Settings -> Nutrition guidelines the same way.
+// Appendix A seed data (ported from the retired nutrition-plan feature's
+// seedData.js) - the coach's food library is seeded from this on first
+// open, only when empty, never overwriting real data.
 import { uid } from "../../lib/uid.js";
 
 // One row per Appendix A table entry, per 100g/ml unless noted. `state`
-// is shown in the food name in the plan/PDF ("Salmon fillet, raw").
+// is shown in the food name ("Salmon fillet, raw").
 const RAW_FOODS = [
   ["Greek yogurt 0%", "dairy", "g", null, 54, 10.4, 3.6, 0, 0, null, null],
   ["Rolled oats", "carb", "g", "dry", 380, 13, 66, 6.5, 10, null, null],
@@ -39,14 +39,4 @@ export function seedFoods() {
     groceryName, groceryFactor: groceryFactor || 1,
     archived: false,
   }));
-}
-
-export function seedGuidelines() {
-  return [
-    "Weights are cooked unless marked raw.",
-    "Protein first at every meal.",
-    "Swap only within the same row.",
-    "One flexible meal a week. Keep the protein.",
-    "Message me before changing anything else.",
-  ];
 }

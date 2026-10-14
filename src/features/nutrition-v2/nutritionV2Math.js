@@ -18,6 +18,18 @@ export function addDaysISO(dateISO, n) {
   return isoDate(d);
 }
 
+// ---------- food-form macro sanity check ----------
+// Ported from the retired nutrition-plan feature's planMath.js (same
+// Foods screen, just relocated here). Warns, never blocks - catches a
+// typo (a decimal in the wrong place, protein/fat swapped) without
+// stopping a coach entering a real food whose label genuinely rounds oddly.
+export function macroSanityCheck({ kcal, protein, carbs, fat }) {
+  const expected = 4 * (protein || 0) + 4 * (carbs || 0) + 9 * (fat || 0);
+  if (expected <= 0) return { ok: true, expectedKcal: 0, pct: 0 };
+  const pct = Math.abs((kcal || 0) - expected) / expected;
+  return { ok: pct <= 0.15, expectedKcal: Math.round(expected), pct };
+}
+
 // ---------- item / meal / day macros (plan items only - log entries store their macros directly) ----------
 export function itemGrams(item) { return (Number(item.qty) || 0) * (item.unitGrams || 1); }
 export function itemMacros(item) {
@@ -155,6 +167,52 @@ export function weeklyInsights(result) {
   Object.entries(result.subCounts || {}).forEach(([name, n]) => { if (n >= 2) insights.push(`${name} was substituted ${n} times this period.`); });
   if (result.loggedCount) insights.push(`Calories were within ±10% of target on ${result.kcalWithinTarget} of ${result.loggedCount} logged days.`);
   return insights;
+}
+
+// ---------- coach alerts: rolling adherence / no-log streak / heavy extras ----------
+// Ports the same three rules the old prescribed_plan-only alerts used
+// (nutrition-plan/planMath.js's nutritionAlertSignals, now retired along
+// with that feature), generalized to run for every client - a no-log
+// streak is just as real for someone with no plan at all, so this is the
+// single check that replaces BOTH the old food_log-only staleness alert
+// and the old prescribed_plan-only no-log alert.
+export const LOW_ADHERENCE_THRESHOLD = 0.6;
+export const LOW_ADHERENCE_WINDOW_DAYS = 3;
+export const NO_LOG_STREAK_DAYS_WITH_PLAN = 2;
+export const NO_LOG_STREAK_DAYS_NO_PLAN = 7;
+export const HEAVY_EXTRAS_PCT = 0.15;
+export const HEAVY_EXTRAS_DAYS_OF_7 = 3;
+
+function completeDaysBack(todayISO, n) {
+  return Array.from({ length: n }, (_, i) => addDaysISO(todayISO, -(i + 1)));
+}
+export function recentAlertSignals(plans, logs, marks, todayISO) {
+  const sevenDays = completeDaysBack(todayISO, 7);
+  const threeDays = sevenDays.slice(0, LOW_ADHERENCE_WINDOW_DAYS);
+
+  const adherenceScores = threeDays
+    .map((d) => { const plan = planForDate(plans, d); return plan ? dayAdherence(plan, d, todayISO, logs?.[d] || [], marks?.[d] || {}) : null; })
+    .filter((a) => a != null);
+  const avgAdherence = adherenceScores.length ? adherenceScores.reduce((a, b) => a + b, 0) / adherenceScores.length : null;
+  const lowAdherence = avgAdherence !== null && avgAdherence < LOW_ADHERENCE_THRESHOLD;
+
+  let noLogDays = 0;
+  for (const d of sevenDays) {
+    if ((logs?.[d] || []).length > 0) break;
+    noLogDays += 1;
+  }
+  const hasCurrentPlan = !!planForDate(plans, todayISO);
+  const noLogThreshold = hasCurrentPlan ? NO_LOG_STREAK_DAYS_WITH_PLAN : NO_LOG_STREAK_DAYS_NO_PLAN;
+
+  let heavyExtrasDays = 0;
+  sevenDays.forEach((d) => {
+    const plan = planForDate(plans, d);
+    if (!plan?.targets.kcal) return;
+    const extrasKcal = unplannedEntries(logs?.[d] || []).reduce((s, e) => s + e.macros.kcal, 0);
+    if (extrasKcal / plan.targets.kcal > HEAVY_EXTRAS_PCT) heavyExtrasDays += 1;
+  });
+
+  return { lowAdherence, avgAdherence, noLogDays, noLogThreshold, hasCurrentPlan, heavyExtrasDays };
 }
 
 // ---------- legacy macro_log -> nutrition_v2_logs, read-time promote-on-first-touch ----------

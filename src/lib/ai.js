@@ -1,6 +1,8 @@
 import { supabase } from "../supabaseClient.js";
 import { addDays, isoDate } from "./dateUtils.js";
-import { dayLogFor, habitLogFor, macroDayFor, macroDayTotals, MACRO_SLOTS } from "./nutrition.js";
+import { habitLogFor } from "./nutrition.js";
+import { normalizeLogs } from "./nutritionV2.js";
+import { loggedDayTotals, mergeLegacyMacroLog } from "../features/nutrition-v2/nutritionV2Math.js";
 import { sessionStatsV2, sessionEntriesV2 } from "./trainingLogs.js";
 import { hydrateAIProgram, summarizeProgramForAI } from "./programModel.js";
 
@@ -81,88 +83,6 @@ function buildBodyAnalysisSummary(client) {
   return parts.join("\n");
 }
 
-// ==================== Nutrition report drafting ====================
-
-const MEAL_SLOT_LABELS = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
-
-// Walks the 7 days starting at nutrition.week_of, computing real numeric
-// macro averages from macro_log (when the client used the food-search
-// tracker) and a plain-text summary of the photo/description diary +
-// habits, for the AI to read as context. Never asks the model to do the
-// arithmetic itself.
-function buildWeekSummary(nutrition) {
-  const start = nutrition.week_of;
-  if (!start) return { averages: null, hasNumericData: false, summaryText: "" };
-
-  const days = Array.from({ length: 7 }, (_, i) => isoDate(addDays(new Date(`${start}T00:00:00`), i)));
-
-  const numericDays = [];
-  const lines = [];
-  for (const date of days) {
-    const foodLog = dayLogFor(nutrition, date);
-    const habits = habitLogFor(nutrition, date);
-    const macroDay = macroDayFor(nutrition, date);
-    const macroTotals = macroDayTotals(macroDay);
-    const loggedAnyMacro = macroTotals.kcal > 0;
-    if (loggedAnyMacro) numericDays.push(macroTotals);
-
-    const mealParts = [];
-    for (const slot of ["breakfast", "lunch", "dinner"]) {
-      const entry = foodLog[slot];
-      if (entry?.description) mealParts.push(`${MEAL_SLOT_LABELS[slot]}: ${entry.description}`);
-    }
-    if (foodLog.snacks?.length) mealParts.push(`Snacks: ${foodLog.snacks.map((s) => s.description).filter(Boolean).join("; ") || `${foodLog.snacks.length} logged`}`);
-    const habitParts = [];
-    if (habits.steps) habitParts.push(`${habits.steps} steps`);
-    if (habits.sleep) habitParts.push(`${habits.sleep}h sleep`);
-    if (habits.water) habitParts.push(`${habits.water}L water`);
-
-    if (mealParts.length || habitParts.length || loggedAnyMacro) {
-      lines.push(`${date}: ${mealParts.join(" | ") || "no meals described"}${loggedAnyMacro ? ` [tracked: ${macroTotals.kcal}kcal, ${macroTotals.protein}p/${macroTotals.carbs}c/${macroTotals.fats}f]` : ""}${habitParts.length ? ` (${habitParts.join(", ")})` : ""}`);
-    }
-  }
-
-  const hasNumericData = numericDays.length > 0;
-  const averages = hasNumericData ? {
-    calories: Math.round(numericDays.reduce((s, d) => s + d.kcal, 0) / numericDays.length),
-    protein: Math.round(numericDays.reduce((s, d) => s + d.protein, 0) / numericDays.length),
-    carbs: Math.round(numericDays.reduce((s, d) => s + d.carbs, 0) / numericDays.length),
-    fats: Math.round(numericDays.reduce((s, d) => s + d.fats, 0) / numericDays.length),
-  } : null;
-
-  return { averages, hasNumericData, summaryText: lines.join("\n") || "Nothing logged this week." };
-}
-
-// Drafts the qualitative parts of a nutrition report, merges in the
-// deterministically-computed numeric averages. Returns a full ReportData
-// object ready to review/edit in the existing "Set report" JSON textarea -
-// this never saves anything itself, the coach still reviews and clicks
-// Save.
-export async function draftNutritionReport(client, nutrition) {
-  const { averages, hasNumericData, summaryText } = buildWeekSummary(nutrition);
-  const supplementStack = (nutrition.supplement_stack || []).map((s) => `${s.name} (${s.dose}${s.timing ? `, ${s.timing}` : ""})`).join("; ");
-
-  const data = await callForgeAI("nutrition_report", {
-    goal: client.goals?.join(", ") || client.goal || "",
-    weightKg: client.weight || null,
-    phase: nutrition.phase,
-    weekSummary: summaryText,
-    hasNumericData,
-    supplementStack,
-    bodyAnalysis: buildBodyAnalysisSummary(client),
-    // Macros-only clients have no food diary to describe meals in, so the
-    // report shouldn't coach them on something they can't see.
-    macrosOnly: nutrition.tracking_mode === "macros",
-  });
-  if (!data?.draft) throw new Error("AI report request returned nothing usable");
-
-  // Only ever the real computed average from logged macro data - never a
-  // stand-in value (e.g. falling back to the proposed targets would make
-  // the report's progress bars falsely show the client already hitting
-  // targets they haven't even started yet).
-  return { ...data.draft, averages: averages || {} };
-}
-
 // ==================== 4-week client summary ====================
 
 function buildTrainingSummary(client, days) {
@@ -180,8 +100,16 @@ function buildTrainingSummary(client, days) {
   return `${recent.length} completed sessions:\n${lines.join("\n")}`;
 }
 
-function buildNutritionSummary(nutrition, days) {
+// Nutrition redesign (DECISIONS.md): reads the new unified
+// nutrition_v2_logs shape, with the same read-time legacy-merge
+// mergeLegacyMacroLog already uses elsewhere (lib/weeklyReport.js,
+// NutritionV2Flow.jsx) so a client's older food_log/macro_log days still
+// count here too, rather than this summary silently going quiet for
+// anyone active before the cutover.
+function buildNutritionSummary(client, days) {
+  const nutrition = client?.nutrition;
   if (!nutrition) return "No nutrition data available.";
+  const v2Logs = normalizeLogs(client.nutritionV2Logs);
   const today = new Date();
   const numericDays = [];
   const foodLines = [];
@@ -189,22 +117,20 @@ function buildNutritionSummary(nutrition, days) {
 
   for (let i = days - 1; i >= 0; i--) {
     const date = isoDate(addDays(today, -i));
-    const foodLog = dayLogFor(nutrition, date);
+    const entries = v2Logs[date]?.length ? v2Logs[date] : (nutrition.macro_log?.[date] ? mergeLegacyMacroLog(nutrition.macro_log[date], date) : []);
+    const macroTotals = loggedDayTotals(entries);
     const habits = habitLogFor(nutrition, date);
-    const macroTotals = macroDayTotals(macroDayFor(nutrition, date));
     if (macroTotals.kcal > 0) numericDays.push(macroTotals);
     if (habits.steps) habitVals.steps.push(Number(habits.steps));
     if (habits.sleep) habitVals.sleep.push(Number(habits.sleep));
     if (habits.water) habitVals.water.push(Number(habits.water));
-
-    const loggedMeal = ["breakfast", "lunch", "dinner"].some((s) => foodLog[s]?.description) || foodLog.snacks?.length || macroTotals.kcal > 0;
-    if (loggedMeal) foodLines.push(date);
+    if (entries.length > 0) foodLines.push(date);
   }
 
   const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
   const parts = [`Logged food on ${foodLines.length}/${days} days.`];
   if (numericDays.length) {
-    parts.push(`Avg on tracked days (${numericDays.length}): ${avg(numericDays.map((d) => d.kcal))}kcal, ${avg(numericDays.map((d) => d.protein))}p/${avg(numericDays.map((d) => d.carbs))}c/${avg(numericDays.map((d) => d.fats))}f.`);
+    parts.push(`Avg on tracked days (${numericDays.length}): ${avg(numericDays.map((d) => d.kcal))}kcal, ${avg(numericDays.map((d) => d.protein))}p/${avg(numericDays.map((d) => d.carbs))}c/${avg(numericDays.map((d) => d.fat))}f.`);
   }
   if (habitVals.steps.length) parts.push(`Avg steps: ${avg(habitVals.steps)} (${habitVals.steps.length} days logged).`);
   if (habitVals.sleep.length) parts.push(`Avg sleep: ${avg(habitVals.sleep)}h (${habitVals.sleep.length} days logged).`);
@@ -232,7 +158,7 @@ function weightTrendFromCheckins(checkIns, days) {
 // analysis - generates nothing that gets saved or shown to the client.
 export async function generateClientSummary(client, days = 28) {
   const trainingSummary = buildTrainingSummary(client, days);
-  const nutritionSummary = buildNutritionSummary(client.nutrition, days) + weightTrendFromCheckins(client.checkIns, days);
+  const nutritionSummary = buildNutritionSummary(client, days) + weightTrendFromCheckins(client.checkIns, days);
 
   const data = await callForgeAI("client_summary", {
     clientName: client.name?.split(" ")[0] || "",
@@ -244,55 +170,6 @@ export async function generateClientSummary(client, days = 28) {
   });
   if (!data?.summary) throw new Error("AI summary request returned nothing usable");
   return data.summary;
-}
-
-// ==================== Daily nutrition feedback ====================
-
-// Names of what's actually been eaten today, for the model to reference
-// specifically and to base meal suggestions on similar foods.
-function buildLoggedTodayText(day) {
-  const parts = [];
-  for (const slot of MACRO_SLOTS) {
-    const items = day[slot] || [];
-    if (items.length) parts.push(`${slot}: ${items.map((i) => i.name).filter(Boolean).join(", ")}`);
-  }
-  return parts.join(" | ");
-}
-
-// On-demand, client-facing feedback on today's eating so far vs targets.
-// totals/targets are passed in already computed (MacroTracker.jsx already
-// has this data on screen) rather than recomputed here.
-export async function getDailyNutritionFeedback(client, day, totals, targets) {
-  const data = await callForgeAI("daily_nutrition_feedback", {
-    goal: client.goals?.join(", ") || client.goal || "",
-    targets: targets ? { calories: targets.calories, protein: targets.protein, carbs: targets.carbs, fats: targets.fats } : null,
-    totals: { kcal: Math.round(totals.kcal), protein: Math.round(totals.protein), carbs: Math.round(totals.carbs), fats: Math.round(totals.fats) },
-    loggedToday: buildLoggedTodayText(day) || "nothing logged yet",
-  });
-  if (!data?.feedback) throw new Error("AI feedback request returned nothing usable");
-  return data.feedback;
-}
-
-// ==================== Nutrition-plan (prescribed_plan mode) AI actions ====================
-// NUTRITION_SPEC.md §8.1/§8.2, ported from Anthropic tool-use to this app's
-// shared Gemini forge-ai function per the recon decision - see
-// docs/nutrition-recon.md.
-
-// Client's Fuel > Extras sheet: free text -> estimated food items.
-export async function estimateFoodExtra(text) {
-  const data = await callForgeAI("nutrition_estimate_food", { text });
-  return data; // { items, not_food, warning }
-}
-
-// Coach's plan-builder "AI refine" panel: proposes ops on one meal block,
-// never applies them - PlanBuilder's Accept/Reject flow owns that.
-export async function refineMealWithAI({ meal, dayTargets, dayTotals, instruction, foods }) {
-  const data = await callForgeAI("nutrition_refine_meal", {
-    meal, dayTargets, dayTotals, instruction,
-    foods: (foods || []).slice(0, 150).map((f) => ({ id: f.id, name: f.name, unit: f.unit, per100: { kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat } })),
-  });
-  if (!data?.ops) throw new Error("AI refine request returned nothing usable");
-  return data; // { summary, ops }
 }
 
 // ==================== Training trend insight ====================
@@ -417,7 +294,7 @@ export function applyProgramSwaps(program, acceptedSwaps) {
 function buildChatGroundingContext(client) {
   return {
     trainingSummary: buildTrainingSummary(client, 28),
-    nutritionSummary: client.nutrition ? buildNutritionSummary(client.nutrition, 7) : "No nutrition data logged.",
+    nutritionSummary: client.nutrition ? buildNutritionSummary(client, 7) : "No nutrition data logged.",
     programOverview: summarizeProgramForAI(client.program),
     bodyAnalysis: buildBodyAnalysisSummary(client),
   };

@@ -1,3 +1,107 @@
+# Nutrition redesign (Phase 6: cutover + deletion) — decisions log
+
+The final phase of replacing food_log/macros/prescribed_plan with the
+unified design read from Denis's claude.ai/design project ("Forge
+Nutrition coaching tab" → `Forge Nutrition.dc.html`, an interactive
+prototype read directly via the `DesignSync` tool, not a static mockup).
+Phases 1-5 built the new system (`src/features/nutrition-v2/`) without
+touching any live screen, verified each phase with a module-load smoke
+test since nothing wired it into the app's module graph yet - see
+`CoachPlanBuilderV2.test.js`'s comment for why that mattered. This phase
+is the actual cutover: wire it in, fix what breaks, delete the old code.
+
+## What actually flipped
+
+- `NutritionFlow.jsx`'s body replaced with `NutritionV2Flow`. Every
+  `tracking_mode` branch, the phase cycle, the AI-drafted report, and
+  Supplement Stack are gone - every client gets the same experience now.
+  `CoachHabitsCard` (steps/sleep/water) stayed, unmoved: unrelated to
+  this redesign, still backed by `lib/nutrition.js`'s `habits` section.
+- Three rewires explicitly deferred across Phases 4-5 (flipping them
+  before the new system was live would have read `nutrition_v2_*` data
+  that didn't exist yet, regressing every client's numbers to zero) now
+  happen together, at the one moment that's actually safe for all three:
+  - `ClientView.jsx`'s Home ring + "Nutrition today" card: real plan
+    progress when a plan is live, else a 4-generic-slot fallback keyed
+    off the unified log instead of `food_log`.
+  - `lib/weeklyReport.js`: `nutritionDaysLogged`/`avgCalories` etc. now
+    read `nutrition_v2_logs`, merging in `macro_log` days that were
+    never opened in the new UI (same `mergeLegacyMacroLog` the UI itself
+    uses) - added `weeklyReport.test.js` since this file had zero
+    coverage before and is load-bearing.
+  - `CoachDashboard.jsx`'s alerts: the old food_log-only staleness check
+    and the old prescribed_plan-only no-log/adherence/heavy-extras
+    checks merge into ONE check that runs for every client
+    (`nutritionV2Math.js`'s new `recentAlertSignals`) - a no-log streak
+    matters with no plan too, just on a longer (7-day, matching the old
+    food_log cadence) threshold instead of the 2-day one that applies
+    once a plan is actually live.
+- **Judgment call beyond the original plan**: `lib/ai.js`'s
+  `buildNutritionSummary` (backs the coach's 4-week AI client summary
+  and the client AI chat's grounding context - a different feature from
+  the three above, never itemized in the plan) also read the old
+  `food_log`/`macro_log` shape directly. Left unfixed, it would have
+  gone quietly stale for every client active after the cutover. Fixed it
+  the same way as `weeklyReport.js` rather than leave a known regression
+  the plan simply hadn't named.
+
+## Dead code removed, not just unwired
+
+- Entire `src/features/nutrition-plan/` folder (the prior session's
+  11-phase epic) - except `FoodsLibraryScreen.jsx`, moved into
+  `nutrition-v2/` and re-pointed at new homes for what it needed:
+  `FOOD_CATEGORIES`/`FOOD_UNITS` → `nutritionV2Model.js`,
+  `macroSanityCheck` → `nutritionV2Math.js`, `seedFoods` → a copied
+  `seedData.js`. Its multi-serving upgrade (added this session, before
+  the cutover) is untouched by the move.
+- `src/features/nutrition/FoodDiary.jsx`, `MacroTracker.jsx`,
+  `Report.jsx`, `SupplementStack.jsx`, `FoodSearchScreen.jsx`,
+  `MealSheet.jsx`, and `lib/nutritionExport.js` (its only caller was the
+  "Export week" button inside the now-removed coach phase controls).
+- `lib/ai.js`: `draftNutritionReport`, `getDailyNutritionFeedback`,
+  `estimateFoodExtra`, `refineMealWithAI` - all four had zero remaining
+  callers once their one screen each was deleted. (`estimateFoodExtra`
+  turned out not to have a real home in the new design after all: the
+  mockup's own "Quick add" is manual by design - text-based AI
+  estimation was really serving the old Fuel tab's Extras flow, not
+  anything in the new Food log. The new design's only AI-estimation
+  moment is "scan a meal photo", which needs a vision action anyway and
+  was already deferred as a fast-follow.)
+- `lib/pdf.js`'s `buildNutritionPlanPDF` (+ `pdf.test.js`, deleted
+  outright - it only ever tested that one function) - no caller left
+  once `CoachPlanView`/`FuelFlow`/`PlanBuilder` were gone, and the new
+  design has no PDF-export screen to replace it with.
+- `lib/nutritionPlan.js` trimmed to just what's still live
+  (`loadFoodLibrary`/`saveFoodLibrary`/`loadMealPresets`/
+  `saveMealPresets`/`loadPlanTemplates`, the last kept read-only purely
+  for `FoodsLibraryScreen.jsx`'s hard-delete safety check against old
+  templates) - `signClientPlan` and everything client-plan-shaped in it
+  were dead the moment this import broke, which is what forced the
+  trim rather than leaving it as planned, harmless-but-untouched debt.
+- The `forge-ai` edge function itself (`nutrition_report`,
+  `daily_nutrition_feedback`, `nutrition_estimate_food`,
+  `nutrition_refine_meal` action branches) is deliberately **not**
+  touched - stays deployed, unused, zero redeploy risk, as the approved
+  plan called for. Only the app-side callers were dead code worth
+  removing.
+
+## Verified
+
+Every phase's build was checked with the explicit `grep -nE "✓
+built|error during build"` pattern (never trusting exit code alone -
+the lesson from the earlier nutrition-plan epic). This phase additionally
+confirmed the deletions were real cleanup, not newly-broken code: module
+count and bundle size were already down (4867 modules, was 4880; ~1.49MB,
+was ~1.70MB) the moment `NutritionFlow.jsx` stopped importing the old
+screens, *before* any file was deleted - the deletions themselves changed
+nothing about the build, confirming nothing live still depended on them.
+A full-repo `npx eslint src` pass afterward found 74 problems, all
+pre-existing in files this phase never touched (Trials.jsx,
+useProgressionSuggestion.js, lib/cache.js, etc.) - zero new errors from
+this cutover.
+
+---
+
 # Pro nutrition plans (Phase 11: QA pass + README) — decisions log, and the feature is now feature-complete
 
 This closes out the "go build and finish everything" run: phases 1-10

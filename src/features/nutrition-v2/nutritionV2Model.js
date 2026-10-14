@@ -17,6 +17,11 @@ export const MEAL_NAMES = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Din
 export const LOG_SOURCES = ["confirm", "search", "quick", "photo", "sub"];
 export const PLAN_STATUSES = ["draft", "published", "archived"];
 const DEFAULT_TIME = { breakfast: "07:30", lunch: "12:30", dinner: "19:00", snack: "16:00" };
+// Ported from the retired nutrition-plan feature's planModel.js (same
+// Foods screen, FoodsLibraryScreen.jsx, just relocated here) rather than
+// left behind on a file that's being deleted.
+export const FOOD_CATEGORIES = ["protein", "carb", "fat", "veg", "fruit", "dairy", "drink", "snack", "other"];
+export const FOOD_UNITS = ["g", "ml", "piece"];
 
 export function emptyMacros() { return { kcal: 0, protein: 0, carbs: 0, fat: 0 }; }
 

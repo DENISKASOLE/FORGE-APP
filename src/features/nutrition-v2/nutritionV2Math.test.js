@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
-  weekDatesEnding, weeklyProgress, weeklyInsights,
+  weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals,
 } from "./nutritionV2Math.js";
 import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow } from "./nutritionV2Model.js";
 
@@ -240,6 +240,38 @@ describe("weeklyProgress - shared by the client and coach Progress tabs", () => 
     const insights = weeklyInsights(result);
     expect(insights.some((i) => i.startsWith("Protein has been below target"))).toBe(true);
     expect(insights).toContain("Lunch was substituted 2 times this period.");
+  });
+});
+
+describe("recentAlertSignals - coach alerts, generalized to every client (not just a plan)", () => {
+  const plan = { ...newPlanVersion({ version: 1, from: "2026-08-01", targets: { kcal: 2000, protein: 150, carbs: 200, fat: 60 } }), status: "published" };
+  plan.meals = [newPlanMeal("breakfast")];
+  plan.meals[0].items = [newPlanItem(foodRefFromRow(eggRow), 3, "piece")];
+  const today = "2026-10-14";
+  const eaten = (date) => ({ id: `e-${date}`, date, meal: "breakfast", name: "x", foodId: null, qty: 3, unit: "piece", macros: { kcal: 500, protein: 40, carbs: 5, fat: 30 }, source: "confirm", time: "08:00", planItemId: plan.meals[0].items[0].id, estimate: false, replaces: null, reason: null });
+
+  it("a client with no plan uses the longer (7-day) no-log threshold", () => {
+    expect(recentAlertSignals([], {}, {}, today).noLogThreshold).toBe(7);
+  });
+  it("a client with an active plan uses the shorter (2-day) no-log threshold", () => {
+    expect(recentAlertSignals([plan], {}, {}, today).noLogThreshold).toBe(2);
+  });
+  it("counts the no-log streak backwards from yesterday regardless of whether a plan exists", () => {
+    const logs = { "2026-10-11": [eaten("2026-10-11")] }; // logged 3 days ago; 10-12 and 10-13 empty
+    expect(recentAlertSignals([], logs, {}, today).noLogDays).toBe(2);
+  });
+  it("flags low adherence from the last 3 complete days only (not the full week)", () => {
+    const logs = {};
+    ["2026-10-11", "2026-10-12", "2026-10-13"].forEach((d) => { logs[d] = []; }); // open every day -> no outcome -> no adherence score at all
+    const result = recentAlertSignals([plan], logs, {}, today);
+    expect(result.avgAdherence).toBeNull();
+    expect(result.lowAdherence).toBe(false);
+  });
+  it("flags heavy extras on days unplanned entries exceed 15% of that day's target", () => {
+    const heavyExtra = (date) => ({ id: `x-${date}`, date, meal: "other", name: "Latte", foodId: null, qty: 1, unit: "drink", macros: { kcal: 350, protein: 2, carbs: 40, fat: 15 }, source: "search", time: "10:00", planItemId: null, estimate: false, replaces: null, reason: null });
+    const logs = {};
+    ["2026-10-11", "2026-10-12", "2026-10-13"].forEach((d) => { logs[d] = [heavyExtra(d)]; }); // 350/2000 = 17.5%
+    expect(recentAlertSignals([plan], logs, {}, today).heavyExtrasDays).toBe(3);
   });
 });
 
