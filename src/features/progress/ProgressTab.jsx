@@ -11,8 +11,8 @@ import { generateClientSummary, getTrainingInsight } from "../../lib/ai.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
 import { BodyAnalysisCard } from "./BodyAnalysis.jsx";
-import { WeeklyReportModal } from "./WeeklyReport.jsx";
 import { MeasurementsEditor } from "../progress-report/MeasurementsEditor.jsx";
+import { ProgressReportBuilder } from "../progress-report/ProgressReportBuilder.jsx";
 
 function AITrainingInsightCard({ client }) {
   const [insight, setInsight] = useState(null);
@@ -308,7 +308,7 @@ function buildProgressInsight(streak, volumeTrend, pbs) {
 }
 export function ProgressTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
-  const [showWeeklyReport, setShowWeeklyReport] = useState(false);
+  const [showProgressReport, setShowProgressReport] = useState(false);
   const [showMeasurements, setShowMeasurements] = useState(false);
   const logs = client.trainingLogs;
   const streak = currentStreakWeeks(logs);
@@ -334,7 +334,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
       {isCoach && (
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <Button variant="ghost" onClick={() => setShowMeasurements(true)} style={{ flexShrink: 0 }}>Measurements</Button>
-          <Button variant="dark" onClick={() => setShowWeeklyReport(true)} style={{ flexShrink: 0 }}>Weekly Report</Button>
+          <Button variant="dark" onClick={() => setShowProgressReport(true)} style={{ flexShrink: 0 }}>Progress Report</Button>
         </div>
       )}
     </div>
@@ -434,7 +434,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
 
     <AITrainingInsightCard client={client} />
 
-    {showWeeklyReport && <WeeklyReportModal client={client} onClose={() => setShowWeeklyReport(false)} />}
+    {showProgressReport && <ProgressReportBuilder client={client} updateClient={updateClient} onClose={() => setShowProgressReport(false)} />}
     {showMeasurements && <MeasurementsEditor client={client} updateClient={updateClient} onClose={() => setShowMeasurements(false)} />}
   </div>;
 }

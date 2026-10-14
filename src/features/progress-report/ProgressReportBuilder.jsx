@@ -8,7 +8,10 @@ import { Chip } from "../../components/ui/Chip.jsx";
 import { inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
-import { normalizeReportNotes, saveReportNotes, normalizeReportHistory } from "../../lib/progressReports.js";
+import { normalizeReportNotes, saveReportNotes, normalizeReportHistory, saveReportHistory, newReportHistoryEntry } from "../../lib/progressReports.js";
+import { uploadClientFile } from "../../lib/storage.js";
+import { sharePdfBlob, safeFilename } from "../../lib/pdf.js";
+import { buildProgressReportPDF } from "../../lib/progressReportPdf.js";
 import { REPORT_PERIODS, COMPARISON_OPTIONS } from "./progressReportModel.js";
 import { buildReportModel } from "./progressReportMath.js";
 import { ReportPreview } from "./ReportPreview.jsx";
@@ -37,6 +40,8 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
   const [trainerName, setTrainerName] = useState("Coach");
   const [notes, setNotes] = useState(() => normalizeReportNotes(client.progressReportNotes));
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [saveToHistory, setSaveToHistory] = useState(true);
   const history = normalizeReportHistory(client.progressReportHistory);
 
   useEffect(() => {
@@ -66,6 +71,27 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
       showToast("Report notes saved.", "success");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function exportPdf() {
+    setExporting(true);
+    try {
+      const blob = await buildProgressReportPDF(model, notes);
+      const filename = `${safeFilename(client.name)}_progress-report_${model.period.from}_${model.period.to}.pdf`;
+      const result = await sharePdfBlob(blob, filename, `${client.name}'s Progress Report`);
+      if (saveToHistory) {
+        const storagePath = await uploadClientFile(client.id, "progress-reports", blob, "pdf");
+        const entry = newReportHistoryEntry({ periodLabel: `${model.period.from} - ${model.period.to}`, from: model.period.from, to: model.period.to, filename, storagePath });
+        const nextHistory = [...history, entry];
+        await saveReportHistory(client.id, nextHistory);
+        updateClient({ ...client, progressReportHistory: nextHistory });
+      }
+      showToast(result === "shared" ? `Report shared${saveToHistory ? " and saved to history" : ""}.` : `Report exported${saveToHistory ? " and saved to history" : ""}.`, "success");
+    } catch (e) {
+      showToast(e.message || "Couldn't export the report.", "error");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -179,8 +205,15 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <Card style={{ marginBottom: 12 }}>
-            <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>{model.includedSections.length} pages · Preview below</div>
+          <Card style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 1 }}>
+            <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>{model.includedSections.length} pages · {safeFilename(client.name)}_progress-report_{model.period.from}_{model.period.to}.pdf</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.muted }}>
+                <input type="checkbox" checked={saveToHistory} onChange={() => setSaveToHistory((v) => !v)} />
+                Save to client's progress history
+              </label>
+              <Button onClick={exportPdf} disabled={exporting}>{exporting ? "Preparing PDF..." : "Export PDF"}</Button>
+            </div>
           </Card>
           <ReportPreview model={model} notes={notes} />
         </div>
