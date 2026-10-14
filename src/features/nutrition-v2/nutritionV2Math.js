@@ -92,6 +92,71 @@ export function dayAdherence(planVersion, dateISO, todayISO, dateLogEntries, dat
   return outcome ? eaten / outcome : null;
 }
 
+// ---------- Progress tab: one week's chart/adherence/insight data, shared by client + coach ----------
+export function weekDatesEnding(endDateISO) {
+  return Array.from({ length: 7 }, (_, i) => addDaysISO(endDateISO, i - 6));
+}
+// endDateISO: the last day of the 7-day window being viewed (today, or
+// today-7 for "previous week"). todayISO: the REAL today, always - needed
+// separately so mealStatus still correctly calls a day "future" when
+// looking at an upcoming window, rather than treating every day in a
+// past window as "today".
+export function weeklyProgress(plans, logs, marks, endDateISO, todayISO) {
+  const days = weekDatesEnding(endDateISO);
+  const counts = { eaten: 0, partial: 0, substituted: 0, skipped: 0, open: 0 };
+  let loggedCount = 0, unplannedCount = 0, kcalWithinTarget = 0;
+  let actualSum = emptyMacros(), targetSum = emptyMacros();
+  const subCounts = {};
+  const rows = days.map((d) => {
+    const plan = planForDate(plans, d);
+    const entries = logs?.[d] || [];
+    const dayMarks = marks?.[d] || {};
+    const has = entries.length > 0;
+    const totals = loggedDayTotals(entries);
+    if (plan) {
+      plan.meals.forEach((m) => {
+        const st = mealStatus(d, todayISO, m, entries, dayMarks);
+        counts[st === "future" ? "open" : st] = (counts[st === "future" ? "open" : st] || 0) + 1;
+      });
+      entries.filter((e) => e.source === "sub").forEach((e) => {
+        const m = plan.meals.find((x) => x.key === e.replaces);
+        if (m) subCounts[m.name] = (subCounts[m.name] || 0) + 1;
+      });
+    }
+    unplannedCount += unplannedEntries(entries).length;
+    if (has && plan) {
+      loggedCount += 1;
+      actualSum = { kcal: actualSum.kcal + totals.kcal, protein: actualSum.protein + totals.protein, carbs: actualSum.carbs + totals.carbs, fat: actualSum.fat + totals.fat };
+      targetSum = { kcal: targetSum.kcal + (plan.targets.kcal || 0), protein: targetSum.protein + (plan.targets.protein || 0), carbs: targetSum.carbs + (plan.targets.carbs || 0), fat: targetSum.fat + (plan.targets.fat || 0) };
+      if (plan.targets.kcal && Math.abs(totals.kcal - plan.targets.kcal) / plan.targets.kcal <= 0.1) kcalWithinTarget += 1;
+    }
+    return { date: d, has, totals, target: plan ? plan.targets : null };
+  });
+  const outcome = counts.eaten + counts.partial + counts.substituted + counts.skipped;
+  const avg = (sum) => (loggedCount ? { kcal: sum.kcal / loggedCount, protein: sum.protein / loggedCount, carbs: sum.carbs / loggedCount, fat: sum.fat / loggedCount } : emptyMacros());
+  return {
+    days: rows, loggedCount, avg: avg(actualSum), avgTarget: avg(targetSum),
+    counts, outcome, adherencePct: outcome ? counts.eaten / outcome : null, unplannedCount,
+    kcalWithinTarget, subCounts,
+  };
+}
+// Rule-based, not AI - the prototype's own stated framing ("Review
+// prompts - Rule-based, not medical advice"). Takes weeklyProgress()'s
+// result directly so it stays trivially testable without its own data
+// plumbing.
+export function weeklyInsights(result) {
+  const insights = [];
+  if (result.loggedCount && result.avgTarget.protein && result.avg.protein < 0.9 * result.avgTarget.protein) {
+    const below = result.days.filter((d) => d.has && d.target?.protein && d.totals.protein < 0.9 * d.target.protein).length;
+    insights.push(`Protein has been below target on ${below} of ${result.loggedCount} logged days (avg ${Math.round(result.avg.protein)}g vs ${Math.round(result.avgTarget.protein)}g).`);
+  }
+  const notLogged = result.days.filter((d) => !d.has);
+  if (notLogged.length) insights.push(`Nothing was logged on ${notLogged.length} of the last 7 days.`);
+  Object.entries(result.subCounts || {}).forEach(([name, n]) => { if (n >= 2) insights.push(`${name} was substituted ${n} times this period.`); });
+  if (result.loggedCount) insights.push(`Calories were within ±10% of target on ${result.kcalWithinTarget} of ${result.loggedCount} logged days.`);
+  return insights;
+}
+
 // ---------- legacy macro_log -> nutrition_v2_logs, read-time promote-on-first-touch ----------
 // macroDay = one date's entry from the OLD nutrition.js macro_log shape:
 // { breakfast: MacroEntry[], lunch: [], dinner: [], snacks: [] }, where

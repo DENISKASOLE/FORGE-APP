@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
+  weekDatesEnding, weeklyProgress, weeklyInsights,
 } from "./nutritionV2Math.js";
 import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow } from "./nutritionV2Model.js";
 
@@ -177,6 +178,68 @@ describe("addDaysISO - local-safe date arithmetic", () => {
     expect(addDaysISO("2026-10-14", 1)).toBe("2026-10-15");
     expect(addDaysISO("2026-10-14", -1)).toBe("2026-10-13");
     expect(addDaysISO("2026-01-31", 1)).toBe("2026-02-01");
+  });
+});
+
+describe("weeklyProgress - shared by the client and coach Progress tabs", () => {
+  const plan = { ...newPlanVersion({ version: 1, from: "2026-10-01", targets: { kcal: 2000, protein: 150, carbs: 200, fat: 60 } }), status: "published" };
+  plan.meals = [newPlanMeal("breakfast"), newPlanMeal("lunch")];
+  plan.meals[0].items = [newPlanItem(foodRefFromRow(eggRow), 3, "piece")];
+  plan.meals[1].items = [newPlanItem(foodRefFromRow(chickenRow), 180, "g")];
+  const today = "2026-10-14";
+
+  function entryFor(date, mealKey, item, macros) {
+    // qty must meet-or-exceed the plan item's own qty for mealStatus to
+    // resolve this as a full "eaten" (not "partial") - see mealStatus().
+    return { id: `e-${date}-${mealKey}`, date, meal: mealKey, name: "x", foodId: null, qty: item.qty, unit: item.unit, macros, source: "confirm", time: "12:00", planItemId: item.id, estimate: false, replaces: null, reason: null };
+  }
+
+  it("weekDatesEnding returns the 7 days ending on the given date, oldest first", () => {
+    expect(weekDatesEnding("2026-10-14")).toEqual(["2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14"]);
+  });
+
+  it("averages only over days that were actually logged, and counts adherence across the whole week", () => {
+    const logs = {
+      "2026-10-13": [entryFor("2026-10-13", "breakfast", plan.meals[0].items[0], { kcal: 1000, protein: 80, carbs: 100, fat: 30 })], // breakfast eaten, lunch not logged
+      "2026-10-14": [
+        entryFor("2026-10-14", "breakfast", plan.meals[0].items[0], { kcal: 1000, protein: 80, carbs: 100, fat: 30 }),
+        entryFor("2026-10-14", "lunch", plan.meals[1].items[0], { kcal: 1000, protein: 80, carbs: 100, fat: 30 }),
+      ],
+    };
+    const marks = {};
+    const plans = [plan];
+    const result = weeklyProgress(plans, logs, marks, today, today);
+    expect(result.loggedCount).toBe(2); // only the 2 days with any entries
+    expect(result.avg.kcal).toBe(1500); // (1000 + 2000) / 2
+    expect(result.avgTarget.kcal).toBe(2000); // the plan's own target, averaged over the same 2 days
+    // breakfast eaten both days (2), lunch eaten only on the 14th (1), lunch "open" on the 13th (1)
+    expect(result.counts.eaten).toBe(3);
+    expect(result.counts.open).toBeGreaterThanOrEqual(1);
+  });
+
+  it("an entirely unlogged week has no average and no adherence figure, not a divide-by-zero NaN", () => {
+    const result = weeklyProgress([plan], {}, {}, today, today);
+    expect(result.loggedCount).toBe(0);
+    expect(result.avg).toEqual({ kcal: 0, protein: 0, carbs: 0, fat: 0 });
+    expect(result.adherencePct).toBeNull();
+  });
+  it("weeklyInsights flags a not-logged week without crashing (no logged days to divide by)", () => {
+    const result = weeklyProgress([plan], {}, {}, today, today);
+    const insights = weeklyInsights(result);
+    expect(insights).toContain("Nothing was logged on 7 of the last 7 days.");
+    expect(insights.join(" ")).not.toContain("NaN");
+  });
+  it("weeklyInsights flags low protein and a repeated substitution when the data shows it", () => {
+    const lowProteinEntry = (date, mealKey, item) => ({ id: `lp-${date}-${mealKey}`, date, meal: mealKey, name: "x", foodId: null, qty: item.qty, unit: item.unit, macros: { kcal: 400, protein: 5, carbs: 50, fat: 10 }, source: "confirm", time: "12:00", planItemId: item.id, estimate: false, replaces: null, reason: null });
+    const subEntry = (date) => ({ id: `sub-${date}`, date, meal: "lunch", name: "Burrito bowl", foodId: null, qty: 1, unit: "bowl", macros: { kcal: 600, protein: 40, carbs: 70, fat: 18 }, source: "sub", time: "13:00", planItemId: null, estimate: false, replaces: "lunch", reason: "Eating out" });
+    const logs = {};
+    weekDatesEnding(today).forEach((d) => { logs[d] = [lowProteinEntry(d, "breakfast", plan.meals[0].items[0])]; });
+    logs["2026-10-12"] = [...logs["2026-10-12"], subEntry("2026-10-12")];
+    logs["2026-10-13"] = [...logs["2026-10-13"], subEntry("2026-10-13")];
+    const result = weeklyProgress([plan], logs, {}, today, today);
+    const insights = weeklyInsights(result);
+    expect(insights.some((i) => i.startsWith("Protein has been below target"))).toBe(true);
+    expect(insights).toContain("Lunch was substituted 2 times this period.");
   });
 });
 

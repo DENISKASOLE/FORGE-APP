@@ -15,6 +15,7 @@ import { foodRefFromRow, normalizeFoodRow, unitGramsFor } from "./nutritionV2Mod
 import { itemMacros, mealTotals, planForDate, mealStatus, unplannedEntries, loggedDayTotals, mergeLegacyMacroLog, addDaysISO } from "./nutritionV2Math.js";
 import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
 import { ClientFoodLogTab } from "./ClientFoodLogTab.jsx";
+import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
 
 const MAC_COLOR = { kcal: T.gold, protein: T.good, carbs: T.blue, fat: T.violet };
 const PORTION_CHIPS = [["None", 0], ["Half", 0.5], ["Three quarters", 0.75], ["All", 1]];
@@ -310,7 +311,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
           <Chip selected={coachTab === "builder"} onClick={() => setCoachTab("builder")}>Plan builder</Chip>
           <Chip selected={coachTab === "review"} onClick={() => setCoachTab("review")}>Weekly review</Chip>
         </div>
-        {coachTab === "builder" ? <CoachPlanBuilderV2 client={client} updateClient={updateClient} /> : <Card style={{ padding: 16, color: T.muted }}>Weekly review is coming in the next phase.</Card>}
+        {coachTab === "builder" ? <CoachPlanBuilderV2 client={client} updateClient={updateClient} /> : <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach plans={plans} logs={logs} marks={marks} />}
       </div>
     );
   }
@@ -330,7 +331,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
       {tab === "overview" && <OverviewTab dateISO={dateISO} today={today} signedPlan={signedPlan} dateEntries={dateEntries} dateMarks={dateMarks} foods={foods} onWrite={writeDay} />}
       {tab === "plan" && <MealPlanTab signedPlan={signedPlan} />}
       {tab === "log" && <ClientFoodLogTab dateEntries={dateEntries} foods={foods} editable={dateISO <= today} onWrite={writeDay} />}
-      {tab === "progress" && <Card style={{ padding: 16, color: T.muted }}>Progress is coming in the next phase.</Card>}
+      {tab === "progress" && <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach={false} plans={plans} logs={logs} marks={marks} />}
     </div>
   );
 }
