@@ -171,6 +171,14 @@ export function mapClient(row, dataRows = [], index = 0) {
     // normalizeNutritionState() pattern.
     nutritionPlan: sections.nutrition_plan || null,
     nutritionPlanLogs: sections.nutrition_plan_logs || {},
+    // Nutrition redesign (DECISIONS.md) - the unified replacement for
+    // food_log/macros/prescribed_plan above. Raw here; normalize through
+    // lib/nutritionV2.js's normalizePlans/normalizeLogs/normalizeMarks/
+    // normalizeNotes, same convention as the two nutrition sections above.
+    nutritionV2Plans: sections.nutrition_v2_plans || [],
+    nutritionV2Logs: sections.nutrition_v2_logs || {},
+    nutritionV2Marks: sections.nutrition_v2_marks || {},
+    nutritionV2Notes: sections.nutrition_v2_notes || null,
     notes: profile.notes || row.notes || "",
   };
 }
