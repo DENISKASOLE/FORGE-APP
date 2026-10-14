@@ -14,6 +14,7 @@ import { normalizePlans, normalizeLogs, normalizeMarks, logsForDate, marksForDat
 import { foodRefFromRow, normalizeFoodRow, unitGramsFor } from "./nutritionV2Model.js";
 import { itemMacros, mealTotals, planForDate, mealStatus, unplannedEntries, loggedDayTotals, mergeLegacyMacroLog, addDaysISO } from "./nutritionV2Math.js";
 import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
+import { ClientFoodLogTab } from "./ClientFoodLogTab.jsx";
 
 const MAC_COLOR = { kcal: T.gold, protein: T.good, carbs: T.blue, fat: T.violet };
 const PORTION_CHIPS = [["None", 0], ["Half", 0.5], ["Three quarters", 0.75], ["All", 1]];
@@ -293,7 +294,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
     return legacyDay ? mergeLegacyMacroLog(legacyDay, dateISO) : existing;
   }, [logs, dateISO, isCoach, client.nutrition]);
 
-  async function writeDay(nextEntries, nextMarksForDate) {
+  async function writeDay(nextEntries, nextMarksForDate = dateMarks) {
     const nextLogs = { ...logs, [dateISO]: nextEntries };
     const nextMarks = { ...marks, [dateISO]: nextMarksForDate };
     setLogs(nextLogs);
@@ -328,7 +329,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
       </div>
       {tab === "overview" && <OverviewTab dateISO={dateISO} today={today} signedPlan={signedPlan} dateEntries={dateEntries} dateMarks={dateMarks} foods={foods} onWrite={writeDay} />}
       {tab === "plan" && <MealPlanTab signedPlan={signedPlan} />}
-      {tab === "log" && <Card style={{ padding: 16, color: T.muted }}>Food log is coming in the next phase.</Card>}
+      {tab === "log" && <ClientFoodLogTab dateEntries={dateEntries} foods={foods} editable={dateISO <= today} onWrite={writeDay} />}
       {tab === "progress" && <Card style={{ padding: 16, color: T.muted }}>Progress is coming in the next phase.</Card>}
     </div>
   );
