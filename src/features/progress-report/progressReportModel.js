@@ -34,3 +34,14 @@ export function categoryForExercise(name, taxonomy) {
   const pattern = taxonomy?.[name]?.movementPattern;
   return MOVEMENT_PATTERN_TO_CATEGORY[pattern] || "Accessory";
 }
+// Fixed light-theme hex (src/styles/theme.css's light palette, not the
+// live app theme) - a printed report is always a light page regardless
+// of the coach's current app theme, matching buildWeeklyReportPDF's own
+// convention. The chart PNGs below use these same hex values so the
+// live preview and the exported PDF can never visually diverge - one
+// chart-rendering code path for both surfaces (DECISIONS.md).
+export const REPORT_COLORS = {
+  ink: "#000000", ink2: "#5C5C5C", muted: "#8A8A8A",
+  kcal: "#C06B1F", protein: "#2E9B68", carbs: "#4472C4", fat: "#7C5CD9",
+  red: "#C3392F", yellow: "#B8860B", line: "#E2D8C8", card: "#F2EBDF",
+};
