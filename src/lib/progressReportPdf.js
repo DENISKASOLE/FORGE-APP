@@ -18,6 +18,23 @@ const INK = hexToRgb(REPORT_COLORS.ink), MUTED = hexToRgb(REPORT_COLORS.muted);
 
 function short(iso) { return iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""; }
 
+// pdf-lib's StandardFonts use WinAnsi encoding, which can't represent a
+// lot of ordinary-looking Unicode - the arrow in a data-sourced win like
+// "8kg x 12 -> 10kg x 12" (originally "→"), smart quotes, em dashes,
+// bullets. Coach-typed notes can contain any of this too. Replace the
+// common cases with readable ASCII, then strip anything still outside
+// WinAnsi's range as a last resort so a draw call can never throw.
+const PDF_TEXT_REPLACEMENTS = [
+  [/[→⇒]/g, "->"], [/[←⇐]/g, "<-"], [/×/g, "x"],
+  [/[‘’]/g, "'"], [/[“”]/g, '"'],
+  [/[–—]/g, "-"], [/…/g, "..."], [/•/g, "-"],
+];
+function safe(str) {
+  let s = String(str ?? "");
+  for (const [re, repl] of PDF_TEXT_REPLACEMENTS) s = s.replace(re, repl);
+  return Array.from(s).map((ch) => (ch.codePointAt(0) <= 0xff ? ch : "?")).join("");
+}
+
 async function makeDrawer(pdfDoc, font, bold) {
   const { width, height, margin } = PAGE;
   const maxWidth = width - margin * 2;
@@ -27,13 +44,14 @@ async function makeDrawer(pdfDoc, font, bold) {
     page = pdfDoc.addPage([width, height]);
     y = height - margin;
     page.drawText("FORGE", { x: margin, y, size: 9, font: bold, color: MUTED });
-    page.drawText(label, { x: width - margin - font.widthOfTextAtSize(label, 9), y, size: 9, font, color: MUTED });
+    const safeLabel = safe(label);
+    page.drawText(safeLabel, { x: width - margin - font.widthOfTextAtSize(safeLabel, 9), y, size: 9, font, color: MUTED });
     y -= 20;
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: MUTED });
     y -= 18;
   }
   function wrap(text, f, size, w = maxWidth) {
-    const words = String(text ?? "").split(" ");
+    const words = safe(text).split(" ");
     const lines = []; let line = "";
     for (const word of words) {
       const test = line ? `${line} ${word}` : word;
@@ -58,9 +76,9 @@ async function makeDrawer(pdfDoc, font, bold) {
       const col = i % cols, row = Math.floor(i / cols);
       const x = margin + col * (w + gap), ty = y - row * (h + 8);
       page.drawRectangle({ x, y: ty - h, width: w, height: h, color: rgb(0.949, 0.922, 0.875) });
-      page.drawText(String(t.label), { x: x + 8, y: ty - 14, size: 8, font: bold, color: MUTED });
-      page.drawText(String(t.value), { x: x + 8, y: ty - 32, size: 15, font: bold, color: INK });
-      if (t.sub) page.drawText(String(t.sub).slice(0, 40), { x: x + 8, y: ty - 44, size: 7.5, font, color: MUTED });
+      page.drawText(safe(t.label), { x: x + 8, y: ty - 14, size: 8, font: bold, color: MUTED });
+      page.drawText(safe(t.value), { x: x + 8, y: ty - 32, size: 15, font: bold, color: INK });
+      if (t.sub) page.drawText(safe(t.sub).slice(0, 40), { x: x + 8, y: ty - 44, size: 7.5, font, color: MUTED });
     });
     const rows = Math.ceil(tiles.length / cols);
     y -= rows * (h + 8) + 6;
@@ -68,14 +86,14 @@ async function makeDrawer(pdfDoc, font, bold) {
   function table(columns, rows) {
     const colW = columns.map((c) => c.width || maxWidth / columns.length);
     let x = margin;
-    columns.forEach((c, i) => { page.drawText(c.label, { x, y, size: 8, font: bold, color: MUTED }); x += colW[i]; });
+    columns.forEach((c, i) => { page.drawText(safe(c.label), { x, y, size: 8, font: bold, color: MUTED }); x += colW[i]; });
     y -= 6;
     page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: MUTED });
     y -= 12;
     for (const row of rows) {
       if (y < margin + 14) { text(`+ ${rows.length - rows.indexOf(row)} more rows not shown`, { size: 8.5, color: MUTED }); break; }
       x = margin;
-      columns.forEach((c, i) => { page.drawText(String(row[c.key] ?? ""), { x, y, size: 9, font, color: INK }); x += colW[i]; });
+      columns.forEach((c, i) => { page.drawText(safe(row[c.key] ?? ""), { x, y, size: 9, font, color: INK }); x += colW[i]; });
       y -= 14;
     }
     y -= 8;
