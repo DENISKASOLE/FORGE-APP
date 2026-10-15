@@ -57,7 +57,7 @@ function MacroAttainment({ avg, avgTarget }) {
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(a / scale) * 100}%`, background: MAC_COLOR[k], borderRadius: 3 }} />
                 <div style={{ position: "absolute", top: -2, bottom: -2, width: 2, left: `${(t / scale) * 100}%`, background: T.text }} />
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, marginTop: 4 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", fontSize: 11, color: T.muted, marginTop: 4, gap: 4 }}>
                 <span>{Math.round(a)} / {Math.round(t)}{k !== "kcal" ? "g" : ""} avg</span><span>{verdict}</span>
               </div>
             </div>
@@ -80,7 +80,7 @@ function AdherenceCard({ result }) {
       <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", gap: 2 }}>
         {breakdown.map((b) => <div key={b.key} style={{ flex: `${b.n} 0 0`, display: b.n ? "block" : "none", background: b.key === "open" ? "transparent" : b[1], border: b.key === "open" ? `1px dashed ${T.line}` : "none" }} />)}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 6, fontSize: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
         {breakdown.map((b) => <div key={b.key} style={{ display: "flex", justifyContent: "space-between", color: T.muted }}><span>{b[0]}</span><span>{b.n}</span></div>)}
       </div>
       <span style={{ fontSize: 11, color: T.dim, lineHeight: 1.5 }}>Adherence rule: meals logged exactly as planned ÷ prescribed meals with a logged outcome. Not-logged meals are excluded — never counted as missed.{result.unplannedCount ? ` ${result.unplannedCount} unplanned entr${result.unplannedCount === 1 ? "y" : "ies"} logged this period.` : ""}</span>
@@ -129,8 +129,8 @@ export function NutritionV2Progress({ client, updateClient, isCoach, plans, logs
         </div>
       </div>
 
-      <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
           <SectionLabel color={T.muted}>Daily calories vs target</SectionLabel>
           <span style={{ fontSize: 12, color: T.muted }}>Avg {Math.round(result.avg.kcal)} / {Math.round(result.avgTarget.kcal)} kcal on logged days</span>
         </div>
@@ -148,7 +148,7 @@ export function NutritionV2Progress({ client, updateClient, isCoach, plans, logs
         <>
           {insights.length > 0 && (
             <Card style={{ padding: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 6, marginBottom: 10 }}>
                 <SectionLabel color={T.muted}>Review prompts</SectionLabel>
                 <span style={{ fontSize: 11, color: T.dim }}>Rule-based · not medical advice</span>
               </div>

@@ -323,7 +323,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
         <div style={{ flex: 1, textAlign: "center", fontFamily: T.sans, fontSize: 13, color: T.muted }}>{fmtHeaderDate(dateISO)}{dateISO === today && <span style={{ color: T.gold }}> · Today</span>}</div>
         <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ background: "none", border: "none", color: T.dim, fontSize: 18, cursor: "pointer" }}>›</button>
       </div>
-      <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {[["overview", "Overview"], ["plan", "Meal plan"], ["log", "Food log"], ["progress", "Progress"]].map(([k, l]) => (
           <Chip key={k} selected={tab === k} onClick={() => setTab(k)}>{l}</Chip>
         ))}
