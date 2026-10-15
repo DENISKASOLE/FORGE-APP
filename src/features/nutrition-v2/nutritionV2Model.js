@@ -57,6 +57,25 @@ export function unitGramsFor(food, unitLabel) {
   const s = (food.servings || []).find((x) => x.label === unitLabel);
   return s ? s.grams : 1;
 }
+// A FatSecret search result, picked with one specific serving (see
+// lib/fatsecret.js's getFoodServings), reshaped into the same "raw food
+// row" input normalizeFoodRow()/foodRefFromRow() already expect from the
+// coach's own food library - so every call site that adds a food (plan
+// items, log entries) can treat a FatSecret pick exactly like a local
+// library pick, with no separate code path. basisGrams/servings are set
+// directly (skipping normalizeFoodRow's unit-guessing default) so the
+// macros stay exactly what FatSecret reported for that serving: qty (how
+// many of that serving) * unitGrams (that serving's own gram weight) /
+// basisGrams (the same gram weight) reduces to exactly qty either way.
+export function fatSecretFoodRow(fsFood, serving) {
+  const grams = Number(serving.amount) || 1;
+  const label = serving.desc || "serving";
+  return {
+    id: `fs:${fsFood.id}`, name: fsFood.name, brand: fsFood.brand || "", unit: label,
+    kcal: serving.kcal, protein: serving.protein, carbs: serving.carbs, fat: serving.fats,
+    basisGrams: grams, servings: [{ label, grams }],
+  };
+}
 
 // ---------- plan items / meals / versions ----------
 // A plan item snapshots both the macros AND the grams-per-unit at the

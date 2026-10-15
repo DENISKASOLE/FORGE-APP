@@ -9,8 +9,10 @@ import { modalBackdrop } from "../../components/ui/modal.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { uid } from "../../lib/uid.js";
-import { normalizeFoodRow, unitGramsFor } from "./nutritionV2Model.js";
+import { normalizeFoodRow, unitGramsFor, fatSecretFoodRow } from "./nutritionV2Model.js";
 import { loggedDayTotals } from "./nutritionV2Math.js";
+import { useFatSecretResults } from "../../lib/fatsecret.js";
+import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 
 const LOG_MEALS = ["breakfast", "lunch", "dinner", "snack", "other"];
 const MEAL_GROUP_NAMES = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", other: "Other" };
@@ -26,8 +28,10 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
   const [query, setQuery] = useState("");
   const [meal, setMeal] = useState(defaultMeal);
   const [quick, setQuick] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "" });
+  const [fsPick, setFsPick] = useState(null);
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => (q ? foods.filter((f) => !f.archived && (f.name.toLowerCase().includes(q) || (f.brand || "").toLowerCase().includes(q))).slice(0, 8) : []), [foods, q]);
+  const { results: fsResults, loading: fsLoading } = useFatSecretResults(query);
 
   function pickFood(foodRow) {
     const food = normalizeFoodRow(foodRow);
@@ -39,6 +43,19 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
       macros: { kcal: food.kcal * factor, protein: food.protein * factor, carbs: food.carbs * factor, fat: food.fat * factor },
       source: "search", time: nowHHMM(), planItemId: null, estimate: false, replaces: null, reason: null,
     });
+  }
+  // Doesn't delegate to pickFood() - that assumes the default-amount
+  // convention for a local-library pick (100g, or 1 of a "piece" food).
+  // A FatSecret add already carries its own real serving + quantity.
+  function pickFatSecret(serving, multiplier) {
+    const food = normalizeFoodRow(fatSecretFoodRow(fsPick, serving));
+    const factor = (multiplier * unitGramsFor(food, food.unit)) / (food.basisGrams || 100);
+    onAdd({
+      id: uid(), meal, name: food.name, foodId: food.id, qty: multiplier, unit: food.unit,
+      macros: { kcal: food.kcal * factor, protein: food.protein * factor, carbs: food.carbs * factor, fat: food.fat * factor },
+      source: "search", time: nowHHMM(), planItemId: null, estimate: false, replaces: null, reason: null,
+    });
+    setFsPick(null);
   }
   function saveQuick() {
     if (!quick.name.trim() || quick.kcal === "") { showToast("Add a description and calories to save.", "warn"); return; }
@@ -70,7 +87,14 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
                   <span>{f.name}{f.brand ? ` · ${f.brand}` : ""}</span><span style={{ color: T.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
                 </button>
               ))}
-              {q && matches.length === 0 && <div style={{ color: T.muted, fontSize: 12, padding: "6px 2px" }}>No foods match "{query.trim()}".</div>}
+              {q && matches.length === 0 && fsResults.length === 0 && !fsLoading && <div style={{ color: T.muted, fontSize: 12, padding: "6px 2px" }}>No foods match "{query.trim()}" yet.</div>}
+              {fsResults.length > 0 && (
+                <>
+                  {matches.length > 0 && <FatSecretGroupLabel />}
+                  {fsResults.map((f) => <FatSecretResultRow key={f.id} food={f} onClick={() => setFsPick(f)} />)}
+                </>
+              )}
+              {fsLoading && <div style={{ color: T.dim, fontSize: 11, padding: "6px 2px" }}>Searching FatSecret...</div>}
             </div>
           </>
         ) : (
@@ -87,6 +111,7 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
         )}
         <Button variant="ghost" onClick={onClose} style={{ marginTop: 14, width: "100%" }}>Cancel</Button>
       </Card>
+      {fsPick && <FatSecretServingSheet food={fsPick} onClose={() => setFsPick(null)} onAdd={pickFatSecret} />}
     </div>
   );
 }

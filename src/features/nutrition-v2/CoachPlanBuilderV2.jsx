@@ -11,8 +11,10 @@ import { isoDate } from "../../lib/dateUtils.js";
 import { uid } from "../../lib/uid.js";
 import { loadFoodLibrary, loadMealPresets, saveMealPresets } from "../../lib/nutritionPlan.js";
 import { normalizePlans, savePlans } from "../../lib/nutritionV2.js";
-import { MEAL_KEYS, MEAL_NAMES, foodRefFromRow, normalizeFoodRow, unitGramsFor, newPlanItem, newPlanVersion, validatePlanVersion } from "./nutritionV2Model.js";
+import { MEAL_KEYS, MEAL_NAMES, foodRefFromRow, normalizeFoodRow, unitGramsFor, newPlanItem, newPlanVersion, validatePlanVersion, fatSecretFoodRow } from "./nutritionV2Model.js";
 import { mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom } from "./nutritionV2Math.js";
+import { useFatSecretResults } from "../../lib/fatsecret.js";
+import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 
 const MAC_COLOR = { kcal: T.gold, protein: T.good, carbs: T.blue, fat: T.violet };
 const MAC_LABEL = { kcal: "Calories", protein: "Protein", carbs: "Carbs", fat: "Fat" };
@@ -23,34 +25,59 @@ function fmtDate(iso) {
   return isNaN(d.getTime()) ? "—" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-// Food search + add, used inside a meal card. Adds with a sensible
-// default amount (100g/ml, or 1 of the food's primary unit) - the coach
-// adjusts the amount/unit inline afterward, same convention as every
-// other food-adding screen in this app.
+// Food search + add, used inside a meal card. Local library matches are
+// instant and listed first; FatSecret results stream in underneath after
+// a short debounce (DECISIONS.md) - the coach's own library was never
+// going to cover every food a client might eat, so "no foods match" used
+// to be a dead end. Local matches add with a sensible default amount
+// (100g/ml, or 1 of the food's primary unit); a FatSecret pick opens a
+// sheet to choose the real serving + quantity, since search only returns
+// one summary serving's macros.
+//
+// The dropdown uses an explicitly opaque background, not the app's usual
+// translucent Card glass - it's position:absolute (out of document flow),
+// so the meal-note textarea right after it in flow ends up directly
+// underneath; a see-through dropdown let that textarea's placeholder
+// bleed through and read as doubled/overlapping text.
 function FoodSearchRow({ foods, onAdd }) {
   const [query, setQuery] = useState("");
+  const [fsPick, setFsPick] = useState(null);
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return [];
     return foods.filter((f) => !f.archived && (f.name.toLowerCase().includes(q) || (f.brand || "").toLowerCase().includes(q))).slice(0, 8);
   }, [foods, q]);
+  const { results: fsResults, loading: fsLoading } = useFatSecretResults(query);
   function pick(food) {
     onAdd(food, food.unit === "piece" ? 1 : 100, food.unit === "piece" ? "piece" : food.unit);
+    setQuery("");
+  }
+  function addFatSecret(serving, multiplier) {
+    onAdd(fatSecretFoodRow(fsPick, serving), multiplier, serving.desc || "serving");
+    setFsPick(null);
     setQuery("");
   }
   return (
     <div style={{ position: "relative" }}>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Add a food..." style={inputStyle()} />
       {q && (
-        <Card style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 10, padding: 6, maxHeight: 240, overflow: "auto" }}>
-          {matches.length === 0 && <div style={{ color: T.muted, fontSize: 12, padding: "8px 6px" }}>No foods match "{query.trim()}". Add it in Tools → Foods first.</div>}
+        <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 10, padding: 6, maxHeight: 280, overflow: "auto", background: "var(--page)", border: `${T.hairline} solid ${T.line}`, borderRadius: 14, boxShadow: "var(--shadow-md, 0 8px 24px rgba(0,0,0,.3))" }}>
+          {matches.length === 0 && fsResults.length === 0 && !fsLoading && <div style={{ color: T.muted, fontSize: 12, padding: "8px 6px" }}>No foods match "{query.trim()}" yet.</div>}
           {matches.map((f) => (
             <button key={f.id} onClick={() => pick(f)} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", background: "transparent", border: "none", color: T.text, fontFamily: T.sans, fontSize: 13, padding: "8px 8px", borderRadius: 8, cursor: "pointer" }}>
               <span>{f.name}{f.brand ? ` · ${f.brand}` : ""}</span><span style={{ color: T.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
             </button>
           ))}
-        </Card>
+          {fsResults.length > 0 && (
+            <>
+              {matches.length > 0 && <FatSecretGroupLabel />}
+              {fsResults.map((f) => <FatSecretResultRow key={f.id} food={f} onClick={() => setFsPick(f)} />)}
+            </>
+          )}
+          {fsLoading && <div style={{ color: T.dim, fontSize: 11, padding: "6px 8px" }}>Searching FatSecret...</div>}
+        </div>
       )}
+      {fsPick && <FatSecretServingSheet food={fsPick} onClose={() => setFsPick(null)} onAdd={addFatSecret} />}
     </div>
   );
 }
@@ -264,7 +291,7 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
               <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11, color: T.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: MAC_COLOR[k] }} />{MAC_LABEL[k]}{k !== "kcal" ? " (g)" : ""}
               </span>
-              <input type="number" value={draft.targets[k] ?? ""} onChange={(e) => patchTarget(k, e.target.value)} style={inputStyle({ fontSize: 16, fontWeight: 600 })} />
+              <input type="number" value={draft.targets[k] || ""} onChange={(e) => patchTarget(k, e.target.value)} onFocus={(e) => e.target.select()} style={inputStyle({ fontSize: 16, fontWeight: 600 })} />
               <span style={{ color: T.dim, fontSize: 11 }}>Planned: {Math.round(totals[k])}</span>
             </div>
           ))}
