@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseClient.js";
 import { BRAND } from "../../theme/tokens.js";
 import { Sheet } from "../../components/ui/Sheet.jsx";
-import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { Chip } from "../../components/ui/Chip.jsx";
 import { inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
 import { normalizeReportNotes, saveReportNotes, normalizeReportHistory, saveReportHistory, newReportHistoryEntry } from "../../lib/progressReports.js";
-import { uploadClientFile } from "../../lib/storage.js";
+import { uploadClientFile, getSignedPhotoUrl } from "../../lib/storage.js";
 import { sharePdfBlob, safeFilename } from "../../lib/pdf.js";
 import { buildProgressReportPDF } from "../../lib/progressReportPdf.js";
 import { REPORT_PERIODS, COMPARISON_OPTIONS } from "./progressReportModel.js";
@@ -31,6 +30,26 @@ function coverageRows(model) {
   ];
 }
 
+function HistoryRow({ entry }) {
+  const [opening, setOpening] = useState(false);
+  async function open() {
+    setOpening(true);
+    try {
+      const url = await getSignedPhotoUrl(entry.storagePath);
+      if (url) window.open(url, "_blank", "noopener");
+      else showToast("Couldn't open that saved report.", "error");
+    } finally {
+      setOpening(false);
+    }
+  }
+  return (
+    <button type="button" onClick={open} disabled={opening} style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: "8px 0", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+      <div style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{entry.periodLabel}</div>
+      <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>{entry.filename} · {opening ? "Opening..." : "Tap to open"}</div>
+    </button>
+  );
+}
+
 export function ProgressReportBuilder({ client, updateClient, onClose }) {
   const [period, setPeriod] = useState("4w");
   const [customA, setCustomA] = useState("");
@@ -42,6 +61,7 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [saveToHistory, setSaveToHistory] = useState(true);
+  const [tab, setTab] = useState("preview");
   const history = normalizeReportHistory(client.progressReportHistory);
 
   useEffect(() => {
@@ -96,126 +116,126 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
   }
 
   return (
-    <Sheet title={`Progress Report · ${client.name}`} onClose={onClose} maxWidth={1100}>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)", gap: 20 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
-          <div>
-            <div style={label}>1 · Period</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {REPORT_PERIODS.map((p) => <Chip key={p.key} selected={period === p.key} onClick={() => setPeriod(p.key)}>{p.label}</Chip>)}
-            </div>
-            {period === "custom" && (
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <input type="date" value={customA} max={isoDate()} onChange={(e) => setCustomA(e.target.value)} style={inputStyle()} />
-                <input type="date" value={customB} max={isoDate()} onChange={(e) => setCustomB(e.target.value)} style={inputStyle()} />
-              </div>
-            )}
-            {model.period.err && <div style={{ fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.red, marginTop: 6 }}>{model.period.err} Showing the last 4 weeks until the dates are valid.</div>}
-            <div style={{ fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.muted, marginTop: 6 }}>{model.period.from} – {model.period.to} · {model.period.days} days</div>
+    <Sheet title={`Progress Report · ${client.name}`} onClose={onClose} maxWidth={720}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "72vh" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {REPORT_PERIODS.map((p) => <Chip key={p.key} selected={period === p.key} onClick={() => setPeriod(p.key)}>{p.label}</Chip>)}
+            <span style={{ width: 1, background: BRAND.lineSoft, margin: "4px 2px" }} />
+            {COMPARISON_OPTIONS.map((c) => <Chip key={c.key} selected={cmp === c.key} onClick={() => setCmp(c.key)}>vs {c.label}</Chip>)}
           </div>
-
-          <div>
-            <div style={label}>Compare with</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {COMPARISON_OPTIONS.map((c) => <Chip key={c.key} selected={cmp === c.key} onClick={() => setCmp(c.key)}>{c.label}</Chip>)}
+          {period === "custom" && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <input type="date" value={customA} max={isoDate()} onChange={(e) => setCustomA(e.target.value)} style={inputStyle()} />
+              <input type="date" value={customB} max={isoDate()} onChange={(e) => setCustomB(e.target.value)} style={inputStyle()} />
             </div>
-            <div style={{ fontFamily: BRAND.sans, fontSize: 11.5, color: model.comparison.window ? BRAND.muted : BRAND.yellow, marginTop: 6 }}>
-              {model.comparison.window ? `${model.comparison.window.a} – ${model.comparison.window.b}` : model.comparison.reason}
-            </div>
-          </div>
-
-          <div>
-            <div style={label}>2 · Data coverage</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {coverageRows(model).map((r) => (
-                <div key={r.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  <span style={{ color: r.ok ? BRAND.green : BRAND.muted, fontFamily: BRAND.sans, fontSize: 13 }}>{r.ok ? "●" : "○"}</span>
-                  <div>
-                    <div style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{r.label}</div>
-                    <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>{r.detail}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div style={label}>3 · Sections</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {model.sections.map((s) => (
-                <label key={s.key} style={{ display: "flex", gap: 8, alignItems: "center", opacity: s.available ? 1 : 0.5, cursor: s.fixed || !s.available ? "default" : "pointer" }}>
-                  <input type="checkbox" checked={s.included} disabled={s.fixed || !s.available} onChange={() => setOffMap((m) => ({ ...m, [s.key]: !m[s.key] }))} />
-                  <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{s.label}</span>
-                  {!s.available && <span style={{ fontFamily: BRAND.sans, fontSize: 10.5, color: BRAND.muted }}>no data</span>}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div style={label}>4 · Coach notes</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <label>
-                <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Coach summary</div>
-                <textarea value={notes.summary} onChange={(e) => setNotes((n) => ({ ...n, summary: e.target.value }))} placeholder="Written for the executive summary and coach review pages..." style={textareaStyle({ minHeight: 70 })} />
-              </label>
-              {[0, 1, 2].map((i) => (
-                <label key={i}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                    <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>Win {i + 1}{notes.wins[i] == null ? " (from data)" : " (edited)"}</span>
-                    {notes.wins[i] != null && <button type="button" onClick={() => setWin(i, null)} style={{ background: "none", border: "none", color: BRAND.gold, fontSize: 10.5, cursor: "pointer" }}>Reset to data</button>}
-                  </div>
-                  <textarea value={notes.wins[i] ?? model.wins[i]?.text ?? ""} onChange={(e) => setWin(i, e.target.value)} style={textareaStyle({ minHeight: 44 })} />
-                </label>
-              ))}
-              <label>
-                <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Main challenge</div>
-                <textarea value={notes.challenge || model.challenge} onChange={(e) => setNotes((n) => ({ ...n, challenge: e.target.value }))} style={textareaStyle({ minHeight: 60 })} />
-              </label>
-              {[0, 1, 2].map((i) => (
-                <label key={i}>
-                  <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Priority {i + 1}</div>
-                  <input value={notes.prios[i] || ""} onChange={(e) => setPrio(i, e.target.value)} style={inputStyle()} />
-                </label>
-              ))}
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ display: "flex", gap: 6 }}>
-                  <input placeholder="Goal" value={notes.goals[i]?.[0] || ""} onChange={(e) => setGoal(i, 0, e.target.value)} style={inputStyle()} />
-                  <input placeholder="Measure and target" value={notes.goals[i]?.[1] || ""} onChange={(e) => setGoal(i, 1, e.target.value)} style={inputStyle()} />
-                </div>
-              ))}
-              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="checkbox" checked={notes.reflOn} onChange={() => setNotes((n) => ({ ...n, reflOn: !n.reflOn }))} />
-                <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>Include client reflection</span>
-              </label>
-              {notes.reflOn && <textarea value={notes.refl} onChange={(e) => setNotes((n) => ({ ...n, refl: e.target.value }))} placeholder="Quote from the client..." style={textareaStyle({ minHeight: 50 })} />}
-              <Button onClick={saveNotes} disabled={saving} variant="dark">{saving ? "Saving..." : "Save notes"}</Button>
-            </div>
-          </div>
-
-          <div>
-            <div style={label}>Saved reports</div>
-            {history.length === 0 && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>No reports exported yet.</div>}
-            {[...history].reverse().map((h) => (
-              <div key={h.id} style={{ fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.muted, padding: "6px 0", borderBottom: `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
-                {h.periodLabel} · {h.filename}
-              </div>
-            ))}
+          )}
+          {model.period.err && <div style={{ fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.red }}>{model.period.err} Showing the last 4 weeks until the dates are valid.</div>}
+          <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>
+            {model.period.from} – {model.period.to} · {model.period.days} days
+            {" · "}{model.comparison.window ? `vs ${model.comparison.window.a} – ${model.comparison.window.b}` : model.comparison.reason}
           </div>
         </div>
 
-        <div style={{ minWidth: 0 }}>
-          <Card style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 1 }}>
-            <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>{model.includedSections.length} pages · {safeFilename(client.name)}_progress-report_{model.period.from}_{model.period.to}.pdf</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.muted }}>
-                <input type="checkbox" checked={saveToHistory} onChange={() => setSaveToHistory((v) => !v)} />
-                Save to client's progress history
-              </label>
-              <Button onClick={exportPdf} disabled={exporting}>{exporting ? "Preparing PDF..." : "Export PDF"}</Button>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <Chip selected={tab === "preview"} onClick={() => setTab("preview")}>Preview</Chip>
+          <Chip selected={tab === "edit"} onClick={() => setTab("edit")}>Report details</Chip>
+        </div>
+
+        <div style={{ overflowY: "auto", minHeight: 0, flex: 1 }}>
+          {tab === "preview" ? (
+            <ReportPreview model={model} notes={notes} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <div style={label}>Data coverage</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {coverageRows(model).map((r) => (
+                    <div key={r.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <span style={{ color: r.ok ? BRAND.green : BRAND.muted, fontFamily: BRAND.sans, fontSize: 13 }}>{r.ok ? "●" : "○"}</span>
+                      <div>
+                        <div style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{r.label}</div>
+                        <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>{r.detail}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={label}>Sections in this report</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {model.sections.map((s) => (
+                    <label key={s.key} style={{ display: "flex", gap: 8, alignItems: "center", opacity: s.available ? 1 : 0.5, cursor: s.fixed || !s.available ? "default" : "pointer" }}>
+                      <input type="checkbox" checked={s.included} disabled={s.fixed || !s.available} onChange={() => setOffMap((m) => ({ ...m, [s.key]: !m[s.key] }))} />
+                      <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{s.label}</span>
+                      {!s.available && <span style={{ fontFamily: BRAND.sans, fontSize: 10.5, color: BRAND.muted }}>no data</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={label}>Coach notes</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <label>
+                    <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Coach summary</div>
+                    <textarea value={notes.summary} onChange={(e) => setNotes((n) => ({ ...n, summary: e.target.value }))} placeholder="Shown at the top of the report and on the review page..." style={textareaStyle({ minHeight: 70 })} />
+                  </label>
+                  {[0, 1, 2].map((i) => (
+                    <label key={i}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>Win {i + 1}{notes.wins[i] == null ? " (from data)" : " (edited)"}</span>
+                        {notes.wins[i] != null && <button type="button" onClick={() => setWin(i, null)} style={{ background: "none", border: "none", color: BRAND.gold, fontSize: 10.5, cursor: "pointer" }}>Reset to data</button>}
+                      </div>
+                      <textarea value={notes.wins[i] ?? model.wins[i]?.text ?? ""} onChange={(e) => setWin(i, e.target.value)} style={textareaStyle({ minHeight: 44 })} />
+                    </label>
+                  ))}
+                  <label>
+                    <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Main challenge</div>
+                    <textarea value={notes.challenge || model.challenge} onChange={(e) => setNotes((n) => ({ ...n, challenge: e.target.value }))} style={textareaStyle({ minHeight: 60 })} />
+                  </label>
+                  {[0, 1, 2].map((i) => (
+                    <label key={i}>
+                      <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Priority {i + 1}</div>
+                      <input value={notes.prios[i] || ""} onChange={(e) => setPrio(i, e.target.value)} style={inputStyle()} />
+                    </label>
+                  ))}
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} style={{ display: "flex", gap: 6 }}>
+                      <input placeholder="Goal" value={notes.goals[i]?.[0] || ""} onChange={(e) => setGoal(i, 0, e.target.value)} style={inputStyle()} />
+                      <input placeholder="Measure and target" value={notes.goals[i]?.[1] || ""} onChange={(e) => setGoal(i, 1, e.target.value)} style={inputStyle()} />
+                    </div>
+                  ))}
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="checkbox" checked={notes.reflOn} onChange={() => setNotes((n) => ({ ...n, reflOn: !n.reflOn }))} />
+                    <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>Include client reflection</span>
+                  </label>
+                  {notes.reflOn && <textarea value={notes.refl} onChange={(e) => setNotes((n) => ({ ...n, refl: e.target.value }))} placeholder="Quote from the client..." style={textareaStyle({ minHeight: 50 })} />}
+                  <Button onClick={saveNotes} disabled={saving} variant="dark">{saving ? "Saving..." : "Save notes"}</Button>
+                </div>
+              </div>
+
+              <div>
+                <div style={label}>Saved reports</div>
+                {history.length === 0 && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>No reports exported yet.</div>}
+                {[...history].reverse().map((h) => <HistoryRow key={h.id} entry={h} />)}
+              </div>
             </div>
-          </Card>
-          <ReportPreview model={model} notes={notes} />
+          )}
+        </div>
+
+        <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: `${BRAND.hairline} solid ${BRAND.line}` }}>
+          <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {model.includedSections.length} sections · {safeFilename(client.name)}_progress-report_{model.period.from}_{model.period.to}.pdf
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.muted }}>
+              <input type="checkbox" checked={saveToHistory} onChange={() => setSaveToHistory((v) => !v)} />
+              Save to progress history
+            </label>
+            <Button onClick={exportPdf} disabled={exporting} style={{ flex: 1, minWidth: 140 }}>{exporting ? "Preparing PDF..." : "Export PDF"}</Button>
+          </div>
         </div>
       </div>
     </Sheet>

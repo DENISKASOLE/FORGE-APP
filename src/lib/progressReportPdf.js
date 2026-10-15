@@ -112,9 +112,9 @@ async function makeDrawer(pdfDoc, font, bold) {
   return { newPage, text, heading, label, statTiles, table, chartImage, footer, get y() { return y; } };
 }
 
-function summaryPage(d, model, notes) {
-  d.heading("Client Progress Report");
-  d.text(`${model.client.name} · ${short(model.period.from)} - ${short(model.period.to)}`, { color: MUTED, gap: 14 });
+async function summaryPage(d, model, notes) {
+  d.heading(model.client.name);
+  d.text(`${short(model.period.from)} - ${short(model.period.to)} · ${model.period.days} days${model.comparison.window ? ` · vs ${short(model.comparison.window.a)} - ${short(model.comparison.window.b)}` : ""}`, { color: MUTED, gap: 14 });
   const tiles = [];
   const { body, training, nutrition } = model;
   if (body.weight.length) { const ch = body.weight[body.weight.length - 1].value - body.weight[0].value; tiles.push({ label: "Weight change", value: `${ch > 0 ? "+" : ""}${ch.toFixed(1)} kg`, sub: `${body.weight.length} readings` }); }
@@ -122,10 +122,27 @@ function summaryPage(d, model, notes) {
   if (training.planned) tiles.push({ label: "Training volume", value: `${(training.totalVolume / 1000).toFixed(1)} t`, sub: `${training.sessions.length} workouts` });
   if (nutrition.totalDays) tiles.push({ label: "Nutrition logging", value: `${nutrition.loggedCount}/${nutrition.totalDays}`, sub: "days logged" });
   d.statTiles(tiles);
-  d.label("PERIOD HIGHLIGHTS");
-  model.wins.forEach((w, i) => d.text(`${i + 1}. ${notes.wins[i] ?? w.text}`, { size: 10, gap: 8 }));
-  d.label("FROM YOUR COACH");
-  d.text(notes.summary || "No summary written yet.", { size: 10.5, gap: 6 });
+  if (body.weight.length >= 2) {
+    const all = [...body.weight.map((p) => p.value), ...body.weightRoll.map((p) => p.value)];
+    const dates = [...new Set([...body.weight.map((p) => p.date), ...body.weightRoll.map((p) => p.date)])].sort();
+    const idx = Object.fromEntries(dates.map((dt, i) => [dt, i]));
+    d.label("BODY WEIGHT");
+    await d.chartImage(renderSeriesChartPNG({
+      width: 520, height: 110, yMin: Math.min(...all) - 0.3, yMax: Math.max(...all) + 0.3, yCount: 3, xCount: dates.length,
+      series: [
+        { type: "line", points: body.weightRoll.map((p) => ({ i: idx[p.date], v: p.value })), color: REPORT_COLORS.ink, width: 1.6 },
+        { type: "dots", points: body.weight.map((p) => ({ i: idx[p.date], v: p.value })), color: REPORT_COLORS.kcal, r: 2.6 },
+      ],
+    }), 90);
+  }
+  if (model.wins.length) {
+    d.label("PERIOD HIGHLIGHTS");
+    model.wins.forEach((w, i) => d.text(`${i + 1}. ${notes.wins[i] ?? w.text}`, { size: 10, gap: 8 }));
+  }
+  if (notes.summary?.trim()) {
+    d.label("FROM YOUR COACH");
+    d.text(notes.summary, { size: 10.5, gap: 6 });
+  }
 }
 async function bodyPage(d, model) {
   d.heading("Body metrics");
@@ -212,16 +229,21 @@ async function recoveryPage(d, model) {
 }
 function reviewPage(d, model, notes) {
   d.heading("Coach review & next period");
-  d.text(notes.summary || "No summary written yet.", { size: 10.5, gap: 10 });
-  d.label("TOP WINS");
-  model.wins.forEach((w, i) => d.text(`${i + 1}. ${notes.wins[i] ?? w.text}`, { size: 10, gap: 7 }));
-  d.label("MAIN CHALLENGE");
-  d.text(notes.challenge || model.challenge, { size: 10, gap: 10 });
-  d.label("PRIORITIES");
-  notes.prios.filter((p) => p && p.trim()).forEach((p, i) => d.text(`${i + 1}. ${p}`, { size: 10.5, gap: 7 }));
+  if (notes.summary?.trim()) d.text(notes.summary, { size: 10.5, gap: 10 });
+  if (model.wins.length) {
+    d.label("TOP WINS");
+    model.wins.forEach((w, i) => d.text(`${i + 1}. ${notes.wins[i] ?? w.text}`, { size: 10, gap: 7 }));
+  }
+  const challenge = notes.challenge || model.challenge;
+  if (challenge?.trim()) { d.label("MAIN CHALLENGE"); d.text(challenge, { size: 10, gap: 10 }); }
+  const prios = notes.prios.filter((p) => p && p.trim());
+  if (prios.length) { d.label("PRIORITIES"); prios.forEach((p, i) => d.text(`${i + 1}. ${p}`, { size: 10.5, gap: 7 })); }
   const goals = notes.goals.filter((g) => g[0] || g[1]);
   if (goals.length) { d.label("GOALS"); d.table([{ key: "g", label: "Goal", width: 220 }, { key: "m", label: "Measure and target", width: 280 }], goals.map((g) => ({ g: g[0] || "-", m: g[1] || "-" }))); }
   if (notes.reflOn && notes.refl?.trim()) { d.label("CLIENT REFLECTION"); d.text(`"${notes.refl}"`, { size: 10.5 }); }
+  if (!notes.summary?.trim() && !model.wins.length && !challenge?.trim() && !prios.length && !goals.length) {
+    d.text("Add coach notes in the report builder to fill out this page.", { color: MUTED });
+  }
 }
 
 const PAGE_BUILDERS = { summary: summaryPage, body: bodyPage, training: trainingPage, nutrition: nutritionPage, heart: heartPage, recovery: recoveryPage, review: reviewPage };
