@@ -295,6 +295,20 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
     return legacyDay ? mergeLegacyMacroLog(legacyDay, dateISO) : existing;
   }, [logs, dateISO, isCoach, client.nutrition]);
 
+  // Every date's entries, new-shape and legacy alike, merged read-only for
+  // the "Your meals" suggestion engine (ClientFoodLogTab.jsx) - a client's
+  // repeated quick-adds from before nutrition-v2 existed need to be found
+  // too, not just today's. Never written back; same promote-on-first-
+  // touch principle as dateEntries above, just across every date at once.
+  const allEntriesForHistory = useMemo(() => {
+    const merged = { ...logs };
+    const macroLog = client.nutrition?.macro_log || {};
+    Object.keys(macroLog).forEach((date) => {
+      if (!merged[date]?.length) merged[date] = mergeLegacyMacroLog(macroLog[date], date);
+    });
+    return merged;
+  }, [logs, client.nutrition]);
+
   async function writeDay(nextEntries, nextMarksForDate = dateMarks) {
     const nextLogs = { ...logs, [dateISO]: nextEntries };
     const nextMarks = { ...marks, [dateISO]: nextMarksForDate };
@@ -330,7 +344,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
       </div>
       {tab === "overview" && <OverviewTab dateISO={dateISO} today={today} signedPlan={signedPlan} dateEntries={dateEntries} dateMarks={dateMarks} foods={foods} onWrite={writeDay} />}
       {tab === "plan" && <MealPlanTab signedPlan={signedPlan} />}
-      {tab === "log" && <ClientFoodLogTab dateEntries={dateEntries} foods={foods} editable={dateISO <= today} onWrite={writeDay} />}
+      {tab === "log" && <ClientFoodLogTab client={client} updateClient={updateClient} logs={allEntriesForHistory} dateEntries={dateEntries} foods={foods} editable={dateISO <= today} onWrite={writeDay} />}
       {tab === "progress" && <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach={false} plans={plans} logs={logs} marks={marks} />}
     </div>
   );

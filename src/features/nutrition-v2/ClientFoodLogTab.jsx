@@ -1,27 +1,35 @@
 import { useMemo, useState } from "react";
-import { T } from "../../theme/tokens.js";
-import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
-import { Chip } from "../../components/ui/Chip.jsx";
-import { Field, inputStyle } from "../../components/ui/Field.jsx";
+import { Field } from "../../components/ui/Field.jsx";
 import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { T } from "../../theme/tokens.js";
 import { uid } from "../../lib/uid.js";
-import { normalizeFoodRow, unitGramsFor, fatSecretFoodRow } from "./nutritionV2Model.js";
-import { loggedDayTotals } from "./nutritionV2Math.js";
+import { isoDate } from "../../lib/dateUtils.js";
+import { normalizeFoodRow, unitGramsFor, fatSecretFoodRow, newSavedMeal, newMealItem } from "./nutritionV2Model.js";
+import { loggedDayTotals, suggestSavedMealsFromHistory } from "./nutritionV2Math.js";
+import { normalizeMeals, saveMeals } from "../../lib/nutritionV2.js";
 import { useFatSecretResults } from "../../lib/fatsecret.js";
 import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
+import { CreateMealSheet } from "./CreateMealSheet.jsx";
+import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
 
 const LOG_MEALS = ["breakfast", "lunch", "dinner", "snack", "other"];
 const MEAL_GROUP_NAMES = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", other: "Other" };
+const BADGE_COLORS = [[MACRO_COLORS.kcal, "rgba(227,164,92,.14)"], [MACRO_COLORS.protein, "rgba(143,185,150,.14)"], [MACRO_COLORS.carbs, "rgba(127,166,201,.14)"], [MACRO_COLORS.fat, "rgba(180,155,208,.14)"]];
 
 function nowHHMM() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 function macroLine(m) { return `P ${Math.round(m.protein)} · C ${Math.round(m.carbs)} · F ${Math.round(m.fat)}`; }
+function badgeColorFor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % BADGE_COLORS.length;
+  return BADGE_COLORS[h];
+}
 
 function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
   const [mode, setMode] = useState("search"); // 'search' | 'quick'
@@ -68,33 +76,37 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
 
   return (
     <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto" }}>
+      <div style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto", background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <Chip selected={mode === "search"} onClick={() => setMode("search")}>Search</Chip>
-          <Chip selected={mode === "quick"} onClick={() => setMode("quick")}>Quick add</Chip>
+          {[["search", "Search"], ["quick", "Quick add"]].map(([k, l]) => (
+            <button key={k} onClick={() => setMode(k)} style={{ border: `1px solid ${mode === k ? "transparent" : "rgba(255,255,255,.1)"}`, background: mode === k ? NT.accent : "transparent", color: mode === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" }}>{l}</button>
+          ))}
         </div>
-        <SectionLabel color={T.muted} style={{ marginBottom: 8 }}>Meal</SectionLabel>
+        <div style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.dim, marginBottom: 8 }}>Meal</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-          {LOG_MEALS.map((k) => <Chip key={k} selected={meal === k} onClick={() => setMeal(k)}>{MEAL_GROUP_NAMES[k]}</Chip>)}
+          {LOG_MEALS.map((k) => (
+            <button key={k} onClick={() => setMeal(k)} style={{ border: `1px solid ${meal === k ? "transparent" : "rgba(255,255,255,.1)"}`, background: meal === k ? NT.accent : "transparent", color: meal === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "8px 13px", borderRadius: 999, cursor: "pointer" }}>{MEAL_GROUP_NAMES[k]}</button>
+          ))}
         </div>
 
         {mode === "search" ? (
           <>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search foods..." style={inputStyle({ marginBottom: 8 })} autoFocus />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search foods..." autoFocus
+              style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${NT.lineSoft}`, background: NT.card2, color: NT.text, fontFamily: NT.sans, fontSize: 13.5, padding: "11px 14px", borderRadius: 14, outline: "none", marginBottom: 8 }} />
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflow: "auto" }}>
               {matches.map((f) => (
-                <button key={f.id} onClick={() => pickFood(f)} style={{ display: "flex", justifyContent: "space-between", textAlign: "left", background: T.card2, border: "none", borderRadius: 10, padding: "10px 12px", color: T.text, fontFamily: T.sans, fontSize: 13, cursor: "pointer" }}>
-                  <span>{f.name}{f.brand ? ` · ${f.brand}` : ""}</span><span style={{ color: T.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
+                <button key={f.id} onClick={() => pickFood(f)} style={{ display: "flex", justifyContent: "space-between", textAlign: "left", background: NT.card2, border: "none", borderRadius: 10, padding: "10px 12px", color: NT.text, fontFamily: NT.sans, fontSize: 13, cursor: "pointer" }}>
+                  <span>{f.name}{f.brand ? ` · ${f.brand}` : ""}</span><span style={{ color: NT.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
                 </button>
               ))}
-              {q && matches.length === 0 && fsResults.length === 0 && !fsLoading && <div style={{ color: T.muted, fontSize: 12, padding: "6px 2px" }}>No foods match "{query.trim()}" yet.</div>}
+              {q && matches.length === 0 && fsResults.length === 0 && !fsLoading && <div style={{ color: NT.muted, fontSize: 12, padding: "6px 2px" }}>No foods match "{query.trim()}" yet.</div>}
               {fsResults.length > 0 && (
                 <>
                   {matches.length > 0 && <FatSecretGroupLabel />}
                   {fsResults.map((f) => <FatSecretResultRow key={f.id} food={f} onClick={() => setFsPick(f)} />)}
                 </>
               )}
-              {fsLoading && <div style={{ color: T.dim, fontSize: 11, padding: "6px 2px" }}>Searching FatSecret...</div>}
+              {fsLoading && <div style={{ color: NT.dim, fontSize: 11, padding: "6px 2px" }}>Searching FatSecret...</div>}
             </div>
           </>
         ) : (
@@ -110,7 +122,7 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
           </div>
         )}
         <Button variant="ghost" onClick={onClose} style={{ marginTop: 14, width: "100%" }}>Cancel</Button>
-      </Card>
+      </div>
       {fsPick && <FatSecretServingSheet food={fsPick} onClose={() => setFsPick(null)} onAdd={pickFatSecret} />}
     </div>
   );
@@ -131,7 +143,7 @@ function EditEntrySheet({ entry, foods, onClose, onSave }) {
   }
   return (
     <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 400 }}>
+      <div style={{ width: "100%", maxWidth: 400, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
         <SectionLabel color={T.muted} style={{ marginBottom: 10 }}>{entry.name}</SectionLabel>
         {food ? (
           <Field label={`Amount (${entry.unit})`} type="number" value={qty} onChange={setQty} />
@@ -147,19 +159,111 @@ function EditEntrySheet({ entry, foods, onClose, onSave }) {
           <Button variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
           <Button onClick={save} style={{ flex: 1 }}>Save</Button>
         </div>
-      </Card>
+      </div>
+    </div>
+  );
+}
+
+function MealBadge({ name }) {
+  const [color, bg] = badgeColorFor(name);
+  return <div aria-hidden="true" style={{ width: 36, height: 36, borderRadius: 11, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: NT.display, fontSize: 14, fontWeight: 600, flexShrink: 0 }}>{name[0]?.toUpperCase()}</div>;
+}
+
+// "Your meals": real saved meals (nutrition_v2_meals) first, then meals
+// suggested from the client's own repeated quick-add history
+// (suggestSavedMealsFromHistory) that haven't been saved yet - how a
+// client's meals from before the builder existed carry forward. Tapping
+// either logs it to today; tapping a suggestion also saves it for real,
+// in one action, so it only has to be "discovered" once.
+function YourMealsRow({ savedMeals, suggestions, onUseSaved, onUseSuggested, onBuild }) {
+  if (savedMeals.length === 0 && suggestions.length === 0) {
+    return (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 2px 10px" }}>
+          <h2 style={{ margin: 0, fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted }}>Your meals</h2>
+        </div>
+        <button onClick={onBuild} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px dashed rgba(255,255,255,.16)`, borderRadius: 16, padding: "16px 14px", background: "transparent", color: NT.muted, cursor: "pointer" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          <span style={{ fontFamily: NT.sans, fontSize: 12.5, fontWeight: 500 }}>Build your first meal</span>
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 2px 10px" }}>
+        <h2 style={{ margin: 0, fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted }}>Your meals</h2>
+        <button onClick={onBuild} style={{ background: "none", border: "none", color: NT.accent, fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Build a meal</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "1px 1px 4px", margin: "-1px" }}>
+        {savedMeals.map((m) => (
+          <button key={m.id} onClick={() => onUseSaved(m)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, width: 136, background: NT.card, border: `1px solid ${NT.lineSoft}`, borderRadius: 16, padding: "12px 14px", cursor: "pointer", textAlign: "left" }}>
+            <MealBadge name={m.name} />
+            <span style={{ fontFamily: NT.sans, fontSize: 12.5, fontWeight: 500, color: NT.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{m.name}</span>
+            <span style={{ fontFamily: NT.sans, fontSize: 11, color: NT.dim }}>{Math.round(m.macros.kcal)} kcal</span>
+          </button>
+        ))}
+        {suggestions.map((s) => (
+          <button key={s.name} onClick={() => onUseSuggested(s)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, width: 136, background: NT.card, border: `1px dashed ${NT.lineSoft}`, borderRadius: 16, padding: "12px 14px", cursor: "pointer", textAlign: "left" }}>
+            <MealBadge name={s.name} />
+            <span style={{ fontFamily: NT.sans, fontSize: 12.5, fontWeight: 500, color: NT.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{s.name}</span>
+            <span style={{ fontFamily: NT.sans, fontSize: 10.5, color: NT.accent }}>You've made this {s.occurrences}x</span>
+          </button>
+        ))}
+        <button onClick={onBuild} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, width: 92, border: "1px dashed rgba(255,255,255,.16)", borderRadius: 16, padding: "12px 10px", background: "transparent", color: NT.muted, cursor: "pointer" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          <span style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 500, textAlign: "center" }}>New meal</span>
+        </button>
+      </div>
     </div>
   );
 }
 
 // Grouped-by-meal log of every entry for the viewed date, regardless of
-// source (confirmed/substituted/search/quick) - add via search or a
-// manual quick-add, edit or delete any entry. Photo-scan is a deferred
-// fast-follow (see mellow-wandering-grove.md), not part of this tab yet.
-export function ClientFoodLogTab({ dateEntries, foods, editable, onWrite }) {
+// source (confirmed/substituted/search/quick) - add via search, a manual
+// quick-add, or one tap from "Your meals". Edit or delete any entry.
+// Photo-scan is a deferred fast-follow, not part of this tab yet.
+export function ClientFoodLogTab({ client, updateClient, logs, dateEntries, foods, editable, onWrite }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [building, setBuilding] = useState(false);
   const totals = loggedDayTotals(dateEntries);
+
+  const savedMeals = useMemo(() => normalizeMeals(client.nutritionV2Meals), [client.nutritionV2Meals]);
+  const suggestions = useMemo(
+    () => suggestSavedMealsFromHistory(logs, savedMeals.map((m) => m.name)),
+    [logs, savedMeals]
+  );
+
+  async function persistMeals(next) {
+    await saveMeals(client.id, next);
+    updateClient({ ...client, nutritionV2Meals: next });
+  }
+  async function logMealItems(meal) {
+    const slot = meal.mealType && meal.mealType !== "any" ? meal.mealType : "other";
+    const added = meal.items.map((it) => ({
+      id: uid(), meal: slot, name: it.name, foodId: it.foodId, qty: it.qty, unit: it.unit, macros: it.macros,
+      source: "search", time: nowHHMM(), planItemId: null, estimate: false, replaces: null, reason: null,
+    }));
+    await onWrite([...dateEntries, ...added]);
+  }
+  async function useSavedMeal(meal) {
+    await logMealItems(meal);
+    await persistMeals(savedMeals.map((m) => (m.id === meal.id ? { ...m, useCount: (m.useCount || 0) + 1, lastUsedAt: isoDate() } : m)));
+    showToast(`${meal.name} logged.`, "success");
+  }
+  async function useSuggestedMeal(sugg) {
+    const meal = newSavedMeal({ name: sugg.name, mealType: sugg.mealType, items: sugg.items.map((it) => newMealItem(it)) });
+    await logMealItems(meal);
+    await persistMeals([...savedMeals, { ...meal, useCount: 1, lastUsedAt: isoDate() }]);
+    showToast(`${sugg.name} logged, and saved to Your meals.`, "success");
+  }
+  async function saveNewMeal(name, mealType, items) {
+    const meal = newSavedMeal({ name, mealType, items });
+    await persistMeals([...savedMeals, meal]);
+    setBuilding(false);
+    showToast(`${name} saved to Your meals.`, "success");
+  }
 
   async function addEntry(entry) {
     await onWrite([...dateEntries, entry]);
@@ -180,46 +284,63 @@ export function ClientFoodLogTab({ dateEntries, foods, editable, onWrite }) {
   const groups = LOG_MEALS.map((key) => ({ key, name: MEAL_GROUP_NAMES[key], entries: dateEntries.filter((e) => e.meal === key) })).filter((g) => g.entries.length);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Card style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ color: T.muted, fontSize: 12 }}>Logged today</div>
-          <div style={{ fontFamily: T.sans, fontSize: 20, fontWeight: 600, color: T.text }}>{Math.round(totals.kcal)} <span style={{ fontSize: 13, color: T.muted, fontWeight: 400 }}>kcal</span></div>
+          <div style={{ fontFamily: NT.sans, fontSize: 11, color: NT.dim }}>Logged so far</div>
+          <div style={{ marginTop: 3, fontFamily: NT.display, fontSize: 21, fontWeight: 600, color: NT.text }}>{Math.round(totals.kcal)} <span style={{ fontFamily: NT.sans, fontSize: 12, fontWeight: 500, color: NT.dim }}>kcal</span></div>
         </div>
-        <div style={{ fontSize: 13, color: T.muted }}>{macroLine(totals)}</div>
-      </Card>
+        <div style={{ display: "flex", gap: 14 }}>
+          {[["Protein", totals.protein, MACRO_COLORS.protein], ["Carbs", totals.carbs, MACRO_COLORS.carbs], ["Fat", totals.fat, MACRO_COLORS.fat]].map(([label, value, color]) => (
+            <div key={label} style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, color }}>{Math.round(value)}g</div>
+              <div style={{ fontFamily: NT.sans, fontSize: 9.5, color: NT.dim, marginTop: 1 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {groups.length === 0 && <Card style={{ padding: 16, color: T.muted, fontSize: 13 }}>Nothing logged yet.</Card>}
+      {editable && <YourMealsRow savedMeals={savedMeals} suggestions={suggestions} onUseSaved={useSavedMeal} onUseSuggested={useSuggestedMeal} onBuild={() => setBuilding(true)} />}
+
+      {groups.length === 0 && <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16, color: NT.muted, fontFamily: NT.sans, fontSize: 13 }}>Nothing logged yet.</div>}
 
       {groups.map((g) => (
-        <Card key={g.key} style={{ padding: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <SectionLabel color={T.muted}>{g.name}</SectionLabel>
-            <span style={{ color: T.dim, fontSize: 11 }}>{Math.round(loggedDayTotals(g.entries).kcal)} kcal</span>
+        <div key={g.key}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 2px 10px" }}>
+            <h2 style={{ margin: 0, fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted }}>{g.name}</h2>
+            <span style={{ fontFamily: NT.sans, fontSize: 11.5, color: NT.dim }}>{Math.round(loggedDayTotals(g.entries).kcal)} kcal</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {g.entries.map((e) => (
-              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 8, borderTop: `${T.hairline} solid ${T.line}` }}>
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 16, padding: "12px 14px" }}>
+                <MealBadge name={e.name} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{e.name}</div>
-                  <div style={{ color: T.dim, fontSize: 11, marginTop: 2 }}>{e.qty ? `${e.qty}${e.unit === "piece" ? "" : e.unit} · ` : ""}{macroLine(e.macros)} · {e.time}</div>
+                  <div style={{ fontFamily: NT.sans, fontSize: 13.5, fontWeight: 500, color: NT.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</div>
+                  <div style={{ fontFamily: NT.sans, fontSize: 11, color: NT.dim, marginTop: 2 }}>{e.qty ? `${e.qty}${e.unit === "piece" ? "" : ` ${e.unit}`} · ` : ""}{macroLine(e.macros)} · {e.time}</div>
                 </div>
-                <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text, flexShrink: 0 }}>{Math.round(e.macros.kcal)}</div>
+                <div style={{ fontFamily: NT.sans, fontSize: 13, fontWeight: 600, color: NT.text, flexShrink: 0 }}>{Math.round(e.macros.kcal)}</div>
                 {editable && (
                   <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                    <button onClick={() => setEditing(e)} aria-label={`Edit ${e.name}`} style={{ width: 32, height: 32, background: "none", border: "none", color: T.dim, cursor: "pointer" }}>✎</button>
-                    <button onClick={() => deleteEntry(e)} aria-label={`Delete ${e.name}`} style={{ width: 32, height: 32, background: "none", border: "none", color: T.dim, cursor: "pointer" }}>×</button>
+                    <button onClick={() => setEditing(e)} aria-label={`Edit ${e.name}`} style={{ width: 28, height: 28, background: "none", border: "none", color: NT.faint, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                    <button onClick={() => deleteEntry(e)} aria-label={`Delete ${e.name}`} style={{ width: 28, height: 28, background: "none", border: "none", color: NT.faint, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                    </button>
                   </div>
                 )}
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       ))}
 
-      {editable && <Button onClick={() => setAdding(true)} style={{ width: "100%" }}>+ Add food</Button>}
+      {editable && (
+        <button onClick={() => setAdding(true)} style={{ width: "100%", background: NT.accent, color: NT.bg, fontFamily: NT.sans, fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 14, border: "none", cursor: "pointer" }}>+ Add food</button>
+      )}
       {adding && <AddLogSheet foods={foods} defaultMeal="other" onClose={() => setAdding(false)} onAdd={addEntry} />}
       {editing && <EditEntrySheet entry={editing} foods={foods} onClose={() => setEditing(null)} onSave={saveEdit} />}
+      {building && <CreateMealSheet foods={foods} onClose={() => setBuilding(false)} onSave={saveNewMeal} />}
     </div>
   );
 }
