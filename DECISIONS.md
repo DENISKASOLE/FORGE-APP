@@ -1,3 +1,63 @@
+# Nutrition redesign v2 (warm palette + client meal builder) — decisions log
+
+Denis didn't like how the nutrition-v2 feature (built earlier this
+project) turned out visually and asked for a genuine redesign - not a
+restyle of the mockup-matching rule used last time, since this time he
+explicitly reviewed and approved a new look (a design canvas, built with
+the Artifact tool's Design type: https://claude.ai/artifact/VHBGywgetUqSjdWt5Agrp9)
+before any code changed, then asked to "bring it to life." Scope grew
+across that review to include a client meal-builder (clients can
+compose and save their own reusable meals, not just log individual
+foods) and a new coach-facing nutrition dashboard, both added to the
+canvas and approved before building.
+
+**The one hard constraint going in**: a real client (Arun) already has
+logged nutrition history and had been typing named, custom entries via
+Quick Add (the only way to "make your own meal" before this). Nothing
+in this build was allowed to touch nutrition_v2_logs except the
+existing, already-reviewed append-only write path.
+
+**Data model** (all purely additive, `client_data` section
+`nutrition_v2_meals`): `newSavedMeal`/`newMealItem`
+(nutritionV2Model.js), `normalizeMeals`/`saveMeals`
+(lib/nutritionV2.js). A client's past repeated Quick Add entries carry
+forward via `suggestSavedMealsFromHistory` (nutritionV2Math.js, pure/
+read-only) - scans "quick"-sourced log entries (the one source that's
+always the client's own typed name + macros, never a library lookup or
+a coach's prescription) for names recurring on 2+ distinct dates, and
+surfaces them in "Your meals" tagged "You've made this Nx". Tapping a
+suggestion logs it today AND saves it for real in one action; nothing
+is migrated or rewritten - the suggestion engine reads
+`nutrition_v2_logs` (merged with legacy `macro_log` history, same
+promote-on-first-touch principle as the rest of this feature) but never
+writes to it.
+
+**Visual redesign** (nutritionV2Theme.js: warm near-black palette,
+amber/sage/dusty-blue/lavender macro colors, Fraunces serif display +
+Inter body - scoped entirely to the Nutrition feature's own files, the
+app's global BRAND/T tokens are untouched) rolled out across all of:
+client Overview (one big calorie ring + macro bars, replacing 4 equal
+rings), Meal plan, Food log (+ "Your meals" row + the new
+CreateMealSheet.jsx builder), Progress/Weekly review (shared by client
+and coach), the coach Plan builder, and a new CoachNutritionDashboard.jsx
+- a triage view across every client's nutrition at once (reached from
+a new "Nutrition" tile in the coach Tools grid), which didn't exist in
+any form before. Its "needs attention" flags (`attentionFlagFor`, new)
+reuse `recentAlertSignals` unchanged - no new alert logic, just a
+plain-language reason surfaced per client instead of a bell icon.
+
+Also fixed along the way, all pre-existing bugs rather than part of the
+redesign itself: FatSecret search was built (lib/fatsecret.js, an edge
+function already deployed) but never actually wired into the live food-
+search UI anywhere - "no foods match" was a dead end regardless of
+query. Daily-target number inputs used `value={x ?? ""}` instead of the
+`|| ""` convention every other numeric field in this app uses, so a `0`
+target rendered as a literal unselected "0" and typing prepended digits
+onto it. The plan builder's food-search dropdown was `position:absolute`
+with a translucent background, so the meal-note textarea sitting
+directly underneath in document flow bled through and read as
+overlapping text.
+
 # Progress Report (full replacement of the old Weekly Report) — decisions log
 
 Built from `Forge Progress Report.dc.html`, the second prototype in the
