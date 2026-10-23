@@ -240,3 +240,37 @@ export function mergeLegacyMacroLog(macroDay, dateISO) {
   });
   return out;
 }
+
+// ---------- §saved-meal suggestions: surface a client's own repeated quick-adds as reusable meals ----------
+// Read-only - never touches nutrition_v2_logs. "quick" is the one log
+// source that's always a client's own typed name + macros, not a food-
+// library lookup or a coach's prescription, so a name that recurs is
+// unambiguously something the client made themselves and would plausibly
+// want to log again in one tap - exactly what the meal-builder feature
+// adds a deliberate way to do going forward. `existingNames` (already-
+// saved meal names, lowercased) is excluded so a client's real saved
+// meals are never duplicated as a "suggestion" of themselves.
+export function suggestSavedMealsFromHistory(logs, existingNames = [], { minOccurrences = 2, limit = 8 } = {}) {
+  const excluded = new Set(existingNames.map((n) => n.trim().toLowerCase()));
+  const byName = {};
+  Object.entries(logs || {}).forEach(([date, entries]) => {
+    (entries || []).forEach((e) => {
+      if (e.source !== "quick" || !e.name?.trim()) return;
+      const key = e.name.trim().toLowerCase();
+      if (excluded.has(key)) return;
+      const rec = byName[key] || { count: 0, lastDate: null, entry: null };
+      rec.count += 1;
+      if (!rec.lastDate || date > rec.lastDate) { rec.lastDate = date; rec.entry = e; }
+      byName[key] = rec;
+    });
+  });
+  return Object.values(byName)
+    .filter((r) => r.count >= minOccurrences)
+    .sort((a, b) => b.count - a.count || b.lastDate.localeCompare(a.lastDate))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.entry.name, mealType: r.entry.meal || "any", occurrences: r.count,
+      items: [{ foodId: r.entry.foodId || null, name: r.entry.name, qty: r.entry.qty, unit: r.entry.unit, macros: r.entry.macros }],
+      macros: r.entry.macros,
+    }));
+}

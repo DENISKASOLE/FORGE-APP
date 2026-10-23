@@ -19,3 +19,10 @@ export async function saveMarks(clientId, marks) { return await upsertSection(cl
 export function emptyNotes() { return { draft: "", shared: "", sharedDate: "" }; }
 export function normalizeNotes(raw) { return { ...emptyNotes(), ...(raw && typeof raw === "object" ? raw : {}) }; }
 export async function saveNotes(clientId, notes) { return await upsertSection(clientId, "nutrition_v2_notes", notes); }
+
+// Client-built reusable meals (DECISIONS.md "Nutrition redesign v2 - warm
+// redesign + client meal builder"). A brand-new section - purely additive,
+// never read from or written into nutrition_v2_logs, so building this
+// feature can never touch a client's existing logged history.
+export function normalizeMeals(raw) { return Array.isArray(raw) ? raw : []; }
+export async function saveMeals(clientId, meals) { return await upsertSection(clientId, "nutrition_v2_meals", meals); }

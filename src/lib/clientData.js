@@ -179,6 +179,10 @@ export function mapClient(row, dataRows = [], index = 0) {
     nutritionV2Logs: sections.nutrition_v2_logs || {},
     nutritionV2Marks: sections.nutrition_v2_marks || {},
     nutritionV2Notes: sections.nutrition_v2_notes || null,
+    // Client-built reusable meals - a new section, additive only, never
+    // touches nutrition_v2_logs above (no client's logged history is ever
+    // read, rewritten or deleted by this feature).
+    nutritionV2Meals: sections.nutrition_v2_meals || [],
     // Progress Report (DECISIONS.md) - dated measurement snapshots (the
     // single `measurements` field above only ever holds the latest one),
     // a per-client draft of coach notes for the next report, and a list

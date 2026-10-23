@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
-  weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals,
+  weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals, suggestSavedMealsFromHistory,
 } from "./nutritionV2Math.js";
 import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow } from "./nutritionV2Model.js";
 
@@ -278,5 +278,62 @@ describe("recentAlertSignals - coach alerts, generalized to every client (not ju
 describe("newLogEntry validation", () => {
   it("rejects an invalid source", () => {
     expect(() => newLogEntry({ date: "2026-10-14", meal: "lunch", name: "x", macros: {}, source: "bogus", time: "" })).toThrow();
+  });
+});
+
+describe("suggestSavedMealsFromHistory", () => {
+  const quick = (date, name, meal = "snack") => ({
+    id: `${date}-${name}`, date, meal, name, foodId: null, qty: 1, unit: "serving",
+    macros: { kcal: 380, protein: 32, carbs: 14, fat: 16 }, source: "quick", time: "16:00",
+    planItemId: null, estimate: false, replaces: null, reason: null,
+  });
+  const searched = (date, name) => ({ ...quick(date, name), source: "search" });
+
+  it("a client's own logged history never gets touched - this is a pure read", () => {
+    const logs = { "2026-10-10": [quick("2026-10-10", "Post-workout shake")] };
+    const before = JSON.stringify(logs);
+    suggestSavedMealsFromHistory(logs);
+    expect(JSON.stringify(logs)).toBe(before);
+  });
+
+  it("surfaces a quick-add name that recurs on 2+ distinct dates", () => {
+    const logs = {
+      "2026-10-10": [quick("2026-10-10", "Post-workout shake")],
+      "2026-10-12": [quick("2026-10-12", "Post-workout shake")],
+      "2026-10-14": [quick("2026-10-14", "Post-workout shake")],
+    };
+    const [sugg] = suggestSavedMealsFromHistory(logs);
+    expect(sugg.name).toBe("Post-workout shake");
+    expect(sugg.occurrences).toBe(3);
+    expect(sugg.macros.kcal).toBe(380);
+  });
+
+  it("does not surface a name logged only once", () => {
+    const logs = { "2026-10-10": [quick("2026-10-10", "One-off snack")] };
+    expect(suggestSavedMealsFromHistory(logs)).toEqual([]);
+  });
+
+  it("ignores search/confirm/sub entries - only a client's own typed quick-adds count", () => {
+    const logs = {
+      "2026-10-10": [searched("2026-10-10", "Chicken and rice")],
+      "2026-10-12": [searched("2026-10-12", "Chicken and rice")],
+    };
+    expect(suggestSavedMealsFromHistory(logs)).toEqual([]);
+  });
+
+  it("excludes a name already saved as a real meal", () => {
+    const logs = {
+      "2026-10-10": [quick("2026-10-10", "Post-workout shake")],
+      "2026-10-12": [quick("2026-10-12", "Post-workout shake")],
+    };
+    expect(suggestSavedMealsFromHistory(logs, ["Post-workout Shake"])).toEqual([]);
+  });
+
+  it("ranks by frequency, then recency, and respects the limit", () => {
+    const logs = {};
+    ["2026-10-01", "2026-10-02"].forEach((d) => { logs[d] = [quick(d, "B")]; });
+    ["2026-10-01", "2026-10-03", "2026-10-05"].forEach((d) => { logs[d] = [...(logs[d] || []), quick(d, "A")]; });
+    const names = suggestSavedMealsFromHistory(logs, [], { limit: 1 }).map((s) => s.name);
+    expect(names).toEqual(["A"]); // A occurs 3x vs B's 2x
   });
 });

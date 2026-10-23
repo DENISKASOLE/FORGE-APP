@@ -128,3 +128,27 @@ export function newLogEntry({ date, meal, name, foodId = null, qty = null, unit 
   if (!LOG_SOURCES.includes(source)) throw new Error(`Invalid log source: ${source}`);
   return { id: uid(), date, meal, name, foodId, qty, unit, macros: { ...emptyMacros(), ...macros }, source, time, planItemId, estimate, replaces, reason };
 }
+
+// ---------- saved meals (client-built, DECISIONS.md "warm redesign") ----------
+// A reusable combo of items a client has built themselves (via the meal
+// builder, or promoted from a repeated quick-add - see
+// nutritionV2Math.js's suggestSavedMealsFromHistory), so logging it again
+// is one tap instead of re-adding every ingredient. `items` are shaped
+// like log-entry ingredients (own qty/unit/macros each, not a plan-item
+// snapshot) since a saved meal is replayed straight into the log, never
+// through a plan. Entirely independent of nutrition_v2_logs - saving,
+// editing or deleting a meal here never reads or writes a client's
+// logged history.
+export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack", "any"];
+function sumItemMacros(items) {
+  return (items || []).reduce((t, it) => ({
+    kcal: t.kcal + (it.macros?.kcal || 0), protein: t.protein + (it.macros?.protein || 0),
+    carbs: t.carbs + (it.macros?.carbs || 0), fat: t.fat + (it.macros?.fat || 0),
+  }), emptyMacros());
+}
+export function newSavedMeal({ name, mealType = "any", items = [] }) {
+  return { id: uid(), name, mealType, items, macros: sumItemMacros(items), useCount: 0, lastUsedAt: null, createdAt: new Date().toISOString() };
+}
+export function newMealItem({ foodId = null, name, qty, unit, macros }) {
+  return { id: uid(), foodId, name, qty, unit, macros: { ...emptyMacros(), ...macros } };
+}
