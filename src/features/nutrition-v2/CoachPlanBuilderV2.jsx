@@ -1,10 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { T } from "../../theme/tokens.js";
-import { Card } from "../../components/ui/Card.jsx";
-import { Button } from "../../components/ui/Button.jsx";
-import { inputStyle } from "../../components/ui/Field.jsx";
-import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
-import { modalBackdrop } from "../../components/ui/modal.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
@@ -15,14 +9,17 @@ import { MEAL_KEYS, MEAL_NAMES, foodRefFromRow, normalizeFoodRow, unitGramsFor, 
 import { mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom } from "./nutritionV2Math.js";
 import { useFatSecretResults } from "../../lib/fatsecret.js";
 import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
+import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
 
-const MAC_COLOR = { kcal: T.gold, protein: T.good, carbs: T.blue, fat: T.violet };
 const MAC_LABEL = { kcal: "Calories", protein: "Protein", carbs: "Carbs", fat: "Fat" };
 
 function fmtDate(iso) {
   if (!iso) return "—";
   const d = new Date(`${iso}T00:00:00`);
   return isNaN(d.getTime()) ? "—" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function fieldInput(extra = {}) {
+  return { width: "100%", boxSizing: "border-box", border: `1px solid ${NT.lineSoft}`, background: NT.card2, color: NT.text, fontFamily: NT.sans, fontSize: 13, padding: "11px 12px", borderRadius: 12, outline: "none", ...extra };
 }
 
 // Food search + add, used inside a meal card. Local library matches are
@@ -34,11 +31,11 @@ function fmtDate(iso) {
 // sheet to choose the real serving + quantity, since search only returns
 // one summary serving's macros.
 //
-// The dropdown uses an explicitly opaque background, not the app's usual
-// translucent Card glass - it's position:absolute (out of document flow),
-// so the meal-note textarea right after it in flow ends up directly
-// underneath; a see-through dropdown let that textarea's placeholder
-// bleed through and read as doubled/overlapping text.
+// The dropdown uses an explicitly opaque background, not a translucent
+// one - it's position:absolute (out of document flow), so the meal-note
+// textarea right after it in flow ends up directly underneath; a see-
+// through dropdown let that textarea's placeholder bleed through and
+// read as doubled/overlapping text.
 function FoodSearchRow({ foods, onAdd }) {
   const [query, setQuery] = useState("");
   const [fsPick, setFsPick] = useState(null);
@@ -59,13 +56,13 @@ function FoodSearchRow({ foods, onAdd }) {
   }
   return (
     <div style={{ position: "relative" }}>
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Add a food..." style={inputStyle()} />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Add a food..." style={fieldInput()} />
       {q && (
-        <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 10, padding: 6, maxHeight: 280, overflow: "auto", background: "var(--page)", border: `${T.hairline} solid ${T.line}`, borderRadius: 14, boxShadow: "var(--shadow-md, 0 8px 24px rgba(0,0,0,.3))" }}>
-          {matches.length === 0 && fsResults.length === 0 && !fsLoading && <div style={{ color: T.muted, fontSize: 12, padding: "8px 6px" }}>No foods match "{query.trim()}" yet.</div>}
+        <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 10, padding: 6, maxHeight: 280, overflow: "auto", background: NT.bg, border: `1px solid ${NT.line}`, borderRadius: 14, boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+          {matches.length === 0 && fsResults.length === 0 && !fsLoading && <div style={{ color: NT.muted, fontFamily: NT.sans, fontSize: 12, padding: "8px 6px" }}>No foods match "{query.trim()}" yet.</div>}
           {matches.map((f) => (
-            <button key={f.id} onClick={() => pick(f)} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", background: "transparent", border: "none", color: T.text, fontFamily: T.sans, fontSize: 13, padding: "8px 8px", borderRadius: 8, cursor: "pointer" }}>
-              <span>{f.name}{f.brand ? ` · ${f.brand}` : ""}</span><span style={{ color: T.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
+            <button key={f.id} onClick={() => pick(f)} style={{ display: "flex", justifyContent: "space-between", width: "100%", textAlign: "left", background: "transparent", border: "none", color: NT.text, fontFamily: NT.sans, fontSize: 13, padding: "8px 8px", borderRadius: 8, cursor: "pointer" }}>
+              <span>{f.name}{f.brand ? ` · ${f.brand}` : ""}</span><span style={{ color: NT.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
             </button>
           ))}
           {fsResults.length > 0 && (
@@ -74,7 +71,7 @@ function FoodSearchRow({ foods, onAdd }) {
               {fsResults.map((f) => <FatSecretResultRow key={f.id} food={f} onClick={() => setFsPick(f)} />)}
             </>
           )}
-          {fsLoading && <div style={{ color: T.dim, fontSize: 11, padding: "6px 8px" }}>Searching FatSecret...</div>}
+          {fsLoading && <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 11, padding: "6px 8px" }}>Searching FatSecret...</div>}
         </div>
       )}
       {fsPick && <FatSecretServingSheet food={fsPick} onClose={() => setFsPick(null)} onAdd={addFatSecret} />}
@@ -87,81 +84,85 @@ function MealCard({ meal, foods, templates, onChangeTime, onChangeNote, onAddIte
   const [menuOpen, setMenuOpen] = useState(false);
   const totals = mealTotals(meal);
   return (
-    <Card style={{ padding: 0, overflow: "hidden" }}>
-      <div onClick={() => setOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer", borderBottom: open ? `${T.hairline} solid ${T.line}` : "none" }}>
-        <input value={meal.time} onClick={(e) => e.stopPropagation()} onChange={(e) => onChangeTime(e.target.value)} style={{ width: 52, background: "transparent", border: "none", color: T.muted, fontFamily: T.sans, fontWeight: 600, fontSize: 12, outline: "none" }} />
-        <div style={{ flex: 1, fontFamily: T.sans, fontWeight: 600, fontSize: 14, color: T.text }}>{meal.name}</div>
-        <div style={{ fontFamily: T.sans, fontSize: 12, color: T.muted }}>{Math.round(totals.kcal)} kcal</div>
-        <button onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }} aria-label={`${meal.name} options`} style={{ background: "none", border: "none", color: T.dim, fontSize: 16, cursor: "pointer", padding: "0 4px", position: "relative" }}>
-          ⋯
+    <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, overflow: "hidden" }}>
+      <div onClick={() => setOpen((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", cursor: "pointer", borderBottom: open ? `1px solid ${NT.line}` : "none" }}>
+        <input value={meal.time} onClick={(e) => e.stopPropagation()} onChange={(e) => onChangeTime(e.target.value)} style={{ width: 48, background: "transparent", border: "none", color: NT.dim, fontFamily: NT.sans, fontWeight: 600, fontSize: 11.5, outline: "none" }} />
+        <div style={{ flex: 1, fontFamily: NT.sans, fontWeight: 600, fontSize: 14, color: NT.text }}>{meal.name}</div>
+        <div style={{ fontFamily: NT.sans, fontSize: 12, color: NT.muted }}>{Math.round(totals.kcal)} kcal</div>
+        <button onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }} aria-label={`${meal.name} options`} style={{ background: "none", border: "none", color: NT.dim, fontSize: 16, cursor: "pointer", padding: "0 4px", position: "relative" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /><circle cx="19" cy="12" r="1.6" fill="currentColor" /></svg>
           {menuOpen && (
-            <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: 0, zIndex: 20, background: T.card2, border: `${T.hairline} solid ${T.line}`, borderRadius: 10, padding: 6, minWidth: 190, textAlign: "left" }}>
-              {otherMeals.map((m) => <button key={m.key} onClick={() => { onCopyTo(m.key); setMenuOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: T.text, fontFamily: T.sans, fontSize: 12, padding: "7px 8px", cursor: "pointer" }}>Copy into {m.name}</button>)}
-              <button onClick={() => { onSaveAsTemplate(); setMenuOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: T.text, fontFamily: T.sans, fontSize: 12, padding: "7px 8px", cursor: "pointer" }}>Save as template</button>
+            <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: 0, zIndex: 20, background: NT.bg, border: `1px solid ${NT.line}`, borderRadius: 12, padding: 6, minWidth: 190, textAlign: "left" }}>
+              {otherMeals.map((m) => <button key={m.key} onClick={() => { onCopyTo(m.key); setMenuOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: NT.text, fontFamily: NT.sans, fontSize: 12, padding: "8px", cursor: "pointer" }}>Copy into {m.name}</button>)}
+              <button onClick={() => { onSaveAsTemplate(); setMenuOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: NT.text, fontFamily: NT.sans, fontSize: 12, padding: "8px", cursor: "pointer" }}>Save as template</button>
             </div>
           )}
         </button>
       </div>
       {open && (
-        <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-          {meal.items.length === 0 && <div style={{ color: T.dim, fontSize: 12, padding: "4px 0" }}>No foods yet.</div>}
+        <div style={{ padding: "12px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {meal.items.length === 0 && <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 12, padding: "4px 0" }}>No foods yet.</div>}
           {meal.items.map((it) => {
             const food = normalizeFoodRow(foods.find((f) => f.id === it.foodId) || { id: it.foodId, name: it.name, kcal: 0, protein: 0, carbs: 0, fat: 0, unit: "g" });
             return (
-              <div key={it.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 64px 84px 32px", gap: 8, alignItems: "center" }}>
-                <span style={{ fontFamily: T.sans, fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                <input value={it.qty} onChange={(e) => onUpdateQty(it.id, e.target.value)} inputMode="decimal" style={{ ...inputStyle({ padding: "6px 8px", fontSize: 13 }) }} />
-                <select value={it.unit} onChange={(e) => onUpdateUnit(it.id, e.target.value)} style={{ ...inputStyle({ padding: "6px 6px", fontSize: 12 }) }}>
+              <div key={it.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 60px 80px 28px", gap: 8, alignItems: "center" }}>
+                <span style={{ fontFamily: NT.sans, fontSize: 13, color: NT.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+                <input value={it.qty} onChange={(e) => onUpdateQty(it.id, e.target.value)} inputMode="decimal" style={fieldInput({ padding: "6px 8px", fontSize: 13 })} />
+                <select value={it.unit} onChange={(e) => onUpdateUnit(it.id, e.target.value)} style={fieldInput({ padding: "6px 6px", fontSize: 12 })}>
                   {food.servings.map((s) => <option key={s.label} value={s.label}>{s.label}</option>)}
                 </select>
-                <button onClick={() => onRemoveItem(it.id)} aria-label={`Remove ${it.name}`} style={{ background: "none", border: "none", color: T.dim, cursor: "pointer", fontSize: 16 }}>×</button>
+                <button onClick={() => onRemoveItem(it.id)} aria-label={`Remove ${it.name}`} style={{ background: "none", border: "none", color: NT.dim, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                </button>
               </div>
             );
           })}
           <FoodSearchRow foods={foods} onAdd={onAddItem} />
           {templates.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {templates.map((t) => <button key={t.id} onClick={() => onApplyTemplate(t)} style={{ height: 30, padding: "0 10px", borderRadius: 999, background: T.card2, border: `${T.hairline} solid ${T.line}`, color: T.muted, fontFamily: T.sans, fontSize: 11, cursor: "pointer" }}>+ {t.name}</button>)}
+              {templates.map((t) => <button key={t.id} onClick={() => onApplyTemplate(t)} style={{ height: 30, padding: "0 10px", borderRadius: 999, background: NT.card2, border: `1px solid ${NT.lineSoft}`, color: NT.muted, fontFamily: NT.sans, fontSize: 11, cursor: "pointer" }}>+ {t.name}</button>)}
             </div>
           )}
-          <textarea value={meal.note || ""} onChange={(e) => onChangeNote(e.target.value)} placeholder="Note for this meal (optional)" rows={2} style={{ ...inputStyle({ minHeight: 50, resize: "vertical" }) }} />
+          <textarea value={meal.note || ""} onChange={(e) => onChangeNote(e.target.value)} placeholder="Note for this meal (optional)" rows={2} style={fieldInput({ minHeight: 50, resize: "vertical" })} />
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
 function PublishSheet({ draft, warnings, onClose, onConfirm }) {
   const [from, setFrom] = useState(draft.from || isoDate());
   return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 440 }}>
-        <div style={{ fontFamily: T.display, fontSize: 20, fontWeight: 600, color: T.text, marginBottom: 10 }}>Publish plan v{draft.version}</div>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 440, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
+        <div style={{ fontFamily: NT.display, fontSize: 20, fontWeight: 600, color: NT.text, marginBottom: 10 }}>Publish plan v{draft.version}</div>
         <label style={{ display: "block", marginBottom: 12 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Effective from</div>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle()} />
+          <div style={{ fontFamily: NT.sans, fontSize: 11, color: NT.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Effective from</div>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={fieldInput()} />
         </label>
         {warnings.length > 0 && (
-          <div style={{ background: T.yellowBg, border: `${T.hairline} solid ${T.yellow}`, borderRadius: 10, padding: 10, marginBottom: 12, color: T.yellow, fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ background: "rgba(227,164,92,.1)", border: `1px solid ${NT.accentBg}`, borderRadius: 12, padding: 10, marginBottom: 12, color: NT.accent, fontFamily: NT.sans, fontSize: 12, lineHeight: 1.5 }}>
             {warnings.map((w, i) => <div key={i}>{w}</div>)}
           </div>
         )}
-        <div style={{ color: T.muted, fontSize: 12, marginBottom: 14, lineHeight: 1.5 }}>Your client will see this from {fmtDate(from)}. Earlier dates keep whatever version was live then — past days are never rewritten.</div>
+        <div style={{ color: NT.muted, fontFamily: NT.sans, fontSize: 12, marginBottom: 14, lineHeight: 1.5 }}>Your client will see this from {fmtDate(from)}. Earlier dates keep whatever version was live then — past days are never rewritten.</div>
         <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
-          <Button onClick={() => onConfirm(from)} style={{ flex: 1 }}>{warnings.length ? "Publish anyway" : `Publish v${draft.version}`}</Button>
+          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1px solid ${NT.lineSoft}`, color: NT.muted, fontFamily: NT.sans, fontSize: 13, fontWeight: 600, padding: 13, borderRadius: 14, cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => onConfirm(from)} style={{ flex: 1, background: NT.accent, border: "none", color: NT.bg, fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: 13, borderRadius: 14, cursor: "pointer" }}>{warnings.length ? "Publish anyway" : `Publish v${draft.version}`}</button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
 
 // Coach-facing plan builder for ONE client - the unified replacement for
 // the old template-library + "assign to client" flow (DECISIONS.md
-// "Nutrition redesign"): there's no separate template document anymore,
-// the coach edits this client's own plan directly and publishes it for
-// them, versioned by effective date (see nutritionV2Math.js's
-// planForDate/publishPlan for the exact versioning rules this builds on).
+// "Nutrition redesign"), restyled with the warm look (DECISIONS.md
+// "Nutrition redesign v2"). There's no separate template document
+// anymore, the coach edits this client's own plan directly and
+// publishes it for them, versioned by effective date (see
+// nutritionV2Math.js's planForDate/publishPlan for the exact
+// versioning rules this builds on).
 export function CoachPlanBuilderV2({ client, updateClient }) {
   const [plans, setPlans] = useState(() => normalizePlans(client.nutritionV2Plans));
   const [foods, setFoods] = useState([]);
@@ -263,40 +264,40 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
     showToast(`Published v${finalDraft.version} · live from ${fmtDate(fromDateISO)}`, "success");
   }
 
-  if (loading) return <Card><div style={{ color: T.muted }}>Loading the plan…</div></Card>;
+  if (loading) return <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18, color: NT.muted, fontFamily: NT.sans }}>Loading the plan…</div>;
 
   const totals = dayTotals(draft);
   const emptyMeals = draft.meals.filter((m) => !m.items.length).map((m) => m.name);
   const targetWarnings = ["kcal", "protein", "carbs", "fat"].filter((k) => draft.targets[k] && Math.abs(totals[k] - draft.targets[k]) / draft.targets[k] > 0.05)
     .map((k) => `${MAC_LABEL[k]}: planned foods are ${Math.round(totals[k])} vs a ${draft.targets[k]} target.`);
   const warnings = [...emptyMeals.map((n) => `${n} has no foods.`), ...targetWarnings];
-  const statusPill = { draft: ["Unsaved changes", T.muted], saving: ["Saving…", T.muted], saved: ["Saved", T.good], offline: ["Offline — not saved", T.bad] }[saveStatus];
+  const statusPill = { draft: ["Unsaved changes", NT.muted], saving: ["Saving…", NT.muted], saved: ["Saved", NT.protein], offline: ["Offline — not saved", NT.bad] }[saveStatus];
   const history = plans.filter((p) => p.status !== "draft").slice().sort((a, b) => b.version - a.version);
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "grid", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontFamily: T.display, fontSize: 20, fontWeight: 600, color: T.text }}>Nutrition plan {persistedDraft ? `v${draft.version} (draft)` : livePlan ? `v${draft.version} draft` : "— new"}</div>
-          <div style={{ color: statusPill[1], fontSize: 12, marginTop: 2 }}>{statusPill[0]}{livePlan && livePlan.version !== draft.version ? ` · live: v${livePlan.version}` : ""}</div>
+          <div style={{ fontFamily: NT.display, fontSize: 20, fontWeight: 600, color: NT.text }}>Nutrition plan {persistedDraft ? `v${draft.version} (draft)` : livePlan ? `v${draft.version} draft` : "— new"}</div>
+          <div style={{ color: statusPill[1], fontFamily: NT.sans, fontSize: 12, marginTop: 2 }}>{statusPill[0]}{livePlan && livePlan.version !== draft.version ? ` · live: v${livePlan.version}` : ""}</div>
         </div>
-        <Button onClick={() => setPublishOpen(true)}>Publish</Button>
+        <button onClick={() => setPublishOpen(true)} style={{ background: NT.accent, color: NT.bg, border: "none", fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: "11px 20px", borderRadius: 999, cursor: "pointer" }}>Publish</button>
       </div>
 
-      <Card style={{ padding: 14 }}>
-        <SectionLabel color={T.muted} style={{ marginBottom: 10 }}>Daily targets</SectionLabel>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
+      <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
+        <div style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: NT.muted, marginBottom: 14 }}>Daily targets</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 14 }}>
           {["kcal", "protein", "carbs", "fat"].map((k) => (
-            <div key={k} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: T.sans, fontSize: 11, color: T.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: MAC_COLOR[k] }} />{MAC_LABEL[k]}{k !== "kcal" ? " (g)" : ""}
-              </span>
-              <input type="number" value={draft.targets[k] || ""} onChange={(e) => patchTarget(k, e.target.value)} onFocus={(e) => e.target.select()} style={inputStyle({ fontSize: 16, fontWeight: 600 })} />
-              <span style={{ color: T.dim, fontSize: 11 }}>Planned: {Math.round(totals[k])}</span>
+            <div key={k}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: NT.sans, fontSize: 10.5, color: NT.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 2, background: MACRO_COLORS[k] }} />{MAC_LABEL[k]}{k !== "kcal" ? " (g)" : ""}
+              </div>
+              <input type="number" value={draft.targets[k] || ""} onChange={(e) => patchTarget(k, e.target.value)} onFocus={(e) => e.target.select()} style={fieldInput({ fontFamily: NT.display, fontSize: 19, fontWeight: 600, padding: "10px 12px" })} />
+              <div style={{ color: NT.faint, fontFamily: NT.sans, fontSize: 10.5, marginTop: 5 }}>Planned: {Math.round(totals[k])}</div>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
 
       {MEAL_KEYS.map((key) => {
         const meal = draft.meals.find((m) => m.key === key);
@@ -318,17 +319,17 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
       })}
 
       {history.length > 0 && (
-        <Card style={{ padding: 14 }}>
-          <SectionLabel color={T.muted} style={{ marginBottom: 10 }}>Plan history</SectionLabel>
+        <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
+          <div style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: NT.muted, marginBottom: 10 }}>Plan history</div>
           <div style={{ display: "grid", gap: 8 }}>
             {history.map((p) => (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: T.text, padding: "6px 0", borderTop: `${T.hairline} solid ${T.line}` }}>
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: NT.sans, fontSize: 13, color: NT.text, padding: "8px 0", borderTop: `1px solid ${NT.line}` }}>
                 <span>v{p.version} · {fmtDate(p.from)} – {p.to ? fmtDate(p.to) : "ongoing"}</span>
-                <span style={{ color: p.status === "archived" ? T.dim : T.good, fontSize: 11 }}>{p.status === "archived" ? "Superseded before it started" : p === history.find((x) => x.version === livePlan?.version) ? "Live" : "Past"}</span>
+                <span style={{ color: p.status === "archived" ? NT.dim : NT.protein, fontSize: 11 }}>{p.status === "archived" ? "Superseded before it started" : p === history.find((x) => x.version === livePlan?.version) ? "Live" : "Past"}</span>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {publishOpen && (
