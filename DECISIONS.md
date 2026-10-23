@@ -1,3 +1,34 @@
+# Nutrition redesign v2 follow-up: app-native colors — decisions log
+
+Immediately after the warm-palette rollout below, Denis reviewed it live
+and asked for a different direction: app-native monochrome, no separate
+nutrition identity. Offered 4 concrete palette directions (with hex
+swatches) before touching anything, since the first palette miss was
+expensive (6 phases of real code); he picked "matches the rest of Forge
+exactly."
+
+Because every nutrition screen already read its colors through one file
+(`nutritionV2Theme.js`), this was a single-file change: every value now
+derives from `BRAND` (src/theme/tokens.js) instead of hardcoded hex -
+true black/white base, the app's own gold/green/blue/violet macro
+colors, `var(--display)` instead of a separate Fraunces font. None of
+the structural work from the warm-palette phases (hero ring, meal
+timeline, meal builder, coach dashboard) needed to change, only what
+colors back them.
+
+Found and fixed while sweeping for stray colors the theme-file swap
+wouldn't have caught on its own: a few places had hardcoded hex instead
+of going through the theme file (a leftover amber warning background, a
+badge-color array, light-pink insight text - these would've looked
+wrong or low-contrast once the palette changed out from under them),
+and several `rgba(255,255,255,.1)` borders that only read correctly in
+dark mode (this app supports both) - replaced with the theme's
+adaptive line token. Also dropped the now-pointless background-color
+wrapper divs each screen had (painting a nested div the exact color of
+the page behind it, so the old custom palette could "look like its own
+region" - meaningless once there's no separate palette) and removed
+the Fraunces Google Font link, unused everywhere now.
+
 # Nutrition redesign v2 (warm palette + client meal builder) — decisions log
 
 Denis didn't like how the nutrition-v2 feature (built earlier this
