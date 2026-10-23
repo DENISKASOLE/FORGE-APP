@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { T } from "../../theme/tokens.js";
-import { Card } from "../../components/ui/Card.jsx";
-import { Button } from "../../components/ui/Button.jsx";
 import { Chip } from "../../components/ui/Chip.jsx";
-import { inputStyle } from "../../components/ui/Field.jsx";
-import { SectionLabel } from "../../components/ui/SectionLabel.jsx";
-import { modalBackdrop } from "../../components/ui/modal.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
 import { uid } from "../../lib/uid.js";
@@ -16,9 +10,14 @@ import { itemMacros, mealTotals, planForDate, mealStatus, unplannedEntries, logg
 import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
 import { ClientFoodLogTab } from "./ClientFoodLogTab.jsx";
 import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
+import { Ring, MacroBarRow } from "./NutritionRing.jsx";
+import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
 
-const MAC_COLOR = { kcal: T.gold, protein: T.good, carbs: T.blue, fat: T.violet };
 const PORTION_CHIPS = [["None", 0], ["Half", 0.5], ["Three quarters", 0.75], ["All", 1]];
+const STATUS_META = {
+  eaten: ["As planned", NT.protein], partial: ["Partly eaten", NT.accent], substituted: ["Substituted", NT.fat],
+  skipped: ["Skipped", NT.dim], open: ["Not logged", NT.dim], future: ["Upcoming", NT.dim],
+};
 
 function nowHHMM() {
   const d = new Date();
@@ -29,38 +28,24 @@ function fmtHeaderDate(dateISO) {
   return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 }
 function itemLine(it) { return `${it.name} ${it.qty}${it.unit === "piece" ? "" : it.unit}`; }
-
-function Ring({ value, target, color, unitLabel }) {
-  const pct = target ? Math.min(1, value / target) : 0;
-  const C = 2 * Math.PI * 26;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-      <div style={{ position: "relative", width: 60, height: 60 }}>
-        <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true">
-          <circle cx="30" cy="30" r="24" fill="none" stroke={T.card2} strokeWidth="6" />
-          <circle cx="30" cy="30" r="24" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${pct * C} ${C}`} transform="rotate(-90 30 30)" />
-        </svg>
-        <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.sans, fontSize: 12, fontWeight: 600, color: T.text }}>{Math.round(value)}</span>
-      </div>
-      <span style={{ fontFamily: T.sans, fontSize: 10, color: T.muted }}>/ {Math.round(target || 0)} {unitLabel}</span>
-    </div>
-  );
+function pillBtnStyle(selected) {
+  return { border: `1px solid ${selected ? "transparent" : "rgba(255,255,255,.1)"}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
 }
 
 function PortionSheet({ meal, onClose, onApply }) {
   const [pct, setPct] = useState(1);
   return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 420 }}>
-        <SectionLabel color={T.muted} style={{ marginBottom: 10 }}>How much of {meal.name} did you eat?</SectionLabel>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 420, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
+        <div style={{ fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted, marginBottom: 10 }}>How much of {meal.name} did you eat?</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-          {PORTION_CHIPS.map(([label, v]) => <Chip key={v} selected={pct === v} onClick={() => setPct(v)}>{label}</Chip>)}
+          {PORTION_CHIPS.map(([label, v]) => <button key={v} onClick={() => setPct(v)} style={pillBtnStyle(pct === v)}>{label}</button>)}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="ghost" onClick={onClose} style={{ flex: 1 }}>Cancel</Button>
-          <Button onClick={() => onApply(pct)} style={{ flex: 1 }}>Apply</Button>
+          <button onClick={onClose} style={{ flex: 1, background: "transparent", border: `1px solid ${NT.lineSoft}`, color: NT.muted, fontFamily: NT.sans, fontSize: 13, fontWeight: 600, padding: 13, borderRadius: 14, cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => onApply(pct)} style={{ flex: 1, background: NT.accent, border: "none", color: NT.bg, fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: 13, borderRadius: 14, cursor: "pointer" }}>Apply</button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -72,65 +57,72 @@ function SubstituteSheet({ meal, foods, onClose, onApply }) {
   const matches = useMemo(() => (q ? foods.filter((f) => !f.archived && f.name.toLowerCase().includes(q)).slice(0, 8) : []), [foods, q]);
   const reasons = ["Schedule", "Eating out", "Preference", "Not available", "Not hungry"];
   return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 440 }}>
-        <SectionLabel color={T.muted} style={{ marginBottom: 4 }}>Log a substitution for {meal.name}</SectionLabel>
-        <div style={{ color: T.dim, fontSize: 12, marginBottom: 12 }}>The prescription stays as-is — your coach sees both.</div>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 440, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
+        <div style={{ fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted, marginBottom: 4 }}>Log a substitution for {meal.name}</div>
+        <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 12, marginBottom: 12 }}>The prescription stays as-is — your coach sees both.</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-          {reasons.map((r) => <Chip key={r} selected={reason === r} onClick={() => setReason(reason === r ? null : r)}>{r}</Chip>)}
+          {reasons.map((r) => <button key={r} onClick={() => setReason(reason === r ? null : r)} style={pillBtnStyle(reason === r)}>{r}</button>)}
         </div>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What did you have instead?" style={inputStyle({ marginBottom: 8 })} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What did you have instead?"
+          style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${NT.lineSoft}`, background: NT.card2, color: NT.text, fontFamily: NT.sans, fontSize: 13.5, padding: "11px 14px", borderRadius: 14, outline: "none", marginBottom: 8 }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflow: "auto" }}>
           {matches.map((f) => (
-            <button key={f.id} onClick={() => onApply(f, f.unit === "piece" ? 1 : 100, f.unit === "piece" ? "piece" : f.unit, reason)} style={{ display: "flex", justifyContent: "space-between", textAlign: "left", background: T.card2, border: "none", borderRadius: 10, padding: "10px 12px", color: T.text, fontFamily: T.sans, fontSize: 13, cursor: "pointer" }}>
-              <span>{f.name}</span><span style={{ color: T.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
+            <button key={f.id} onClick={() => onApply(f, f.unit === "piece" ? 1 : 100, f.unit === "piece" ? "piece" : f.unit, reason)} style={{ display: "flex", justifyContent: "space-between", textAlign: "left", background: NT.card2, border: "none", borderRadius: 10, padding: "10px 12px", color: NT.text, fontFamily: NT.sans, fontSize: 13, cursor: "pointer" }}>
+              <span>{f.name}</span><span style={{ color: NT.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
             </button>
           ))}
         </div>
-        <Button variant="ghost" onClick={onClose} style={{ marginTop: 14, width: "100%" }}>Cancel</Button>
-      </Card>
+        <button onClick={onClose} style={{ marginTop: 14, width: "100%", background: "transparent", border: `1px solid ${NT.lineSoft}`, color: NT.muted, fontFamily: NT.sans, fontSize: 13, fontWeight: 600, padding: 13, borderRadius: 14, cursor: "pointer" }}>Cancel</button>
+      </div>
     </div>
   );
 }
 
-function ClientMealCard({ meal, status, dateEntries, editable, onConfirm, onOpenEdit, onOpenSub, onSkip, onUnskip }) {
+// One row of the meals timeline: a status dot + connecting line on the
+// left, a warm card on the right with the prescription, actual-eaten
+// note, and action buttons - replaces the old plain stacked meal cards.
+function ClientMealCard({ meal, status, dateEntries, editable, showLine, onConfirm, onOpenEdit, onOpenSub, onSkip, onUnskip }) {
   const totals = mealTotals(meal);
   const confirmedEntries = dateEntries.filter((e) => e.source === "confirm" && e.meal === meal.key);
   const subEntries = dateEntries.filter((e) => e.source === "sub" && e.replaces === meal.key);
-  const meta = {
-    eaten: ["As planned", T.good], partial: ["Partly eaten", T.warn], substituted: ["Substituted", T.violet],
-    skipped: ["Skipped", T.dim], open: ["Not logged yet", T.dim], future: ["Upcoming", T.dim],
-  }[status];
+  const [label, color] = STATUS_META[status] || STATUS_META.open;
   return (
-    <Card style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10, opacity: status === "skipped" ? 0.6 : 1 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <div>
-          <div style={{ fontFamily: T.sans, fontWeight: 600, fontSize: 15, color: T.text }}>{meal.name} <span style={{ color: T.dim, fontSize: 12, fontWeight: 400 }}>{meal.time}</span></div>
-          <div style={{ color: T.muted, fontSize: 12, marginTop: 2 }}>{meal.items.map(itemLine).join(", ") || "No foods prescribed"}</div>
-        </div>
-        <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.text }}>{Math.round(totals.kcal)} kcal</div>
-          <div style={{ fontSize: 11, color: meta[1] }}>{meta[0]}</div>
-        </div>
+    <div style={{ display: "flex", gap: 14 }}>
+      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", width: 10 }}>
+        <div aria-hidden="true" style={{ width: 9, height: 9, borderRadius: "50%", marginTop: 6, background: status === "open" ? "transparent" : color, border: status === "open" ? `1px solid ${NT.faint}` : "none" }} />
+        {showLine && <div style={{ width: 1, flex: 1, background: NT.line, marginTop: 6 }} />}
       </div>
-      {status === "substituted" && subEntries.length > 0 && (
-        <div style={{ background: T.card2, borderRadius: 10, padding: 10, fontSize: 12, color: T.text }}>
-          Actually eaten: {subEntries.map((e) => `${e.name} ${e.qty}${e.unit === "piece" ? "" : e.unit}${e.reason ? ` · ${e.reason}` : ""}`).join(", ")}
+      <div style={{ flex: 1, minWidth: 0, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: "14px 16px", marginBottom: 14, opacity: status === "skipped" ? 0.6 : 1, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: NT.sans, fontWeight: 600, fontSize: 14.5, color: NT.text }}>{meal.name} <span style={{ color: NT.dim, fontSize: 12, fontWeight: 400 }}>{meal.time}</span></div>
+            <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 11.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{meal.items.map(itemLine).join(", ") || "No foods prescribed"}</div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontFamily: NT.sans, fontSize: 13.5, fontWeight: 600, color: NT.text }}>{Math.round(totals.kcal)} kcal</div>
+            <span style={{ fontSize: 10, fontWeight: 600, color, background: status === "open" ? "transparent" : `${color}22`, padding: status === "open" ? 0 : "2px 8px", borderRadius: 999, display: "inline-block", marginTop: 4 }}>{label}</span>
+          </div>
         </div>
-      )}
-      {(status === "eaten" || status === "partial") && confirmedEntries.length > 0 && (
-        <div style={{ color: T.dim, fontSize: 11 }}>Logged at {confirmedEntries[0].time}</div>
-      )}
-      {editable && (status === "open" || status === "eaten" || status === "partial") && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}>
-          <Button onClick={onConfirm} style={{ fontSize: 12 }}>Ate as planned</Button>
-          <Button variant="dark" onClick={onOpenEdit} style={{ fontSize: 12 }}>Edit portion</Button>
-          <Button variant="dark" onClick={onOpenSub} style={{ fontSize: 12 }}>Substitute</Button>
-        </div>
-      )}
-      {editable && status === "open" && <Button variant="ghost" onClick={onSkip} style={{ fontSize: 12, justifySelf: "start" }}>Skip meal</Button>}
-      {editable && status === "skipped" && <Button variant="ghost" onClick={onUnskip} style={{ fontSize: 12, justifySelf: "start" }}>Undo skip</Button>}
-    </Card>
+        {status === "substituted" && subEntries.length > 0 && (
+          <div style={{ background: NT.card2, borderRadius: 10, padding: 10, fontFamily: NT.sans, fontSize: 12, color: NT.text }}>
+            Actually eaten: {subEntries.map((e) => `${e.name} ${e.qty}${e.unit === "piece" ? "" : e.unit}${e.reason ? ` · ${e.reason}` : ""}`).join(", ")}
+          </div>
+        )}
+        {(status === "eaten" || status === "partial") && confirmedEntries.length > 0 && (
+          <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 11 }}>Logged at {confirmedEntries[0].time}</div>
+        )}
+        {editable && (status === "open" || status === "eaten" || status === "partial") && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}>
+            <button onClick={onConfirm} style={{ background: NT.accent, color: NT.bg, border: "none", fontFamily: NT.sans, fontSize: 11.5, fontWeight: 700, padding: "10px 6px", borderRadius: 11, cursor: "pointer" }}>Ate as planned</button>
+            <button onClick={onOpenEdit} style={{ background: NT.card2, color: NT.text, border: "none", fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, padding: "10px 6px", borderRadius: 11, cursor: "pointer" }}>Edit portion</button>
+            <button onClick={onOpenSub} style={{ background: NT.card2, color: NT.text, border: "none", fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, padding: "10px 6px", borderRadius: 11, cursor: "pointer" }}>Substitute</button>
+          </div>
+        )}
+        {editable && status === "open" && <button onClick={onSkip} style={{ alignSelf: "flex-start", background: "none", border: "none", color: NT.dim, fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>Skip meal</button>}
+        {editable && status === "skipped" && <button onClick={onUnskip} style={{ alignSelf: "flex-start", background: "none", border: "none", color: NT.dim, fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}>Undo skip</button>}
+      </div>
+    </div>
   );
 }
 
@@ -138,6 +130,8 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
   const [editingMeal, setEditingMeal] = useState(null); // {mode:'portion'|'sub', meal}
   const totals = loggedDayTotals(dateEntries);
   const unplanned = unplannedEntries(dateEntries);
+  const target = signedPlan?.targets || {};
+  const maxMacro = Math.max(target.protein || 0, target.carbs || 0, target.fat || 0, totals.protein, totals.carbs, totals.fat, 1);
 
   async function confirmMeal(meal) {
     const st = mealStatus(dateISO, today, meal, dateEntries, dateMarks);
@@ -177,41 +171,54 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Card style={{ padding: 14, display: "flex", justifyContent: "space-around" }}>
-        <Ring value={totals.kcal} target={signedPlan?.targets.kcal} color={MAC_COLOR.kcal} unitLabel="KCAL" />
-        <Ring value={totals.protein} target={signedPlan?.targets.protein} color={MAC_COLOR.protein} unitLabel="G P" />
-        <Ring value={totals.carbs} target={signedPlan?.targets.carbs} color={MAC_COLOR.carbs} unitLabel="G C" />
-        <Ring value={totals.fat} target={signedPlan?.targets.fat} color={MAC_COLOR.fat} unitLabel="G F" />
-      </Card>
+    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 28, padding: "28px 24px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+        <Ring value={totals.kcal} max={target.kcal || totals.kcal || 1} size={188} stroke={14} color={MACRO_COLORS.kcal}>
+          <span style={{ fontFamily: NT.display, fontSize: 40, fontWeight: 620, lineHeight: 1, color: NT.text }}>{Math.round(totals.kcal)}</span>
+          <span style={{ fontFamily: NT.sans, fontSize: 11, color: NT.dim }}>of {Math.round(target.kcal || 0) || "—"} kcal</span>
+          {target.kcal > 0 && (
+            <span style={{ marginTop: 6, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, color: NT.accent, background: NT.accentBg, padding: "3px 10px", borderRadius: 999 }}>
+              {target.kcal - totals.kcal >= 0 ? `${Math.round(target.kcal - totals.kcal)} left` : `${Math.round(totals.kcal - target.kcal)} over`}
+            </span>
+          )}
+        </Ring>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          <MacroBarRow label="Protein" color={MACRO_COLORS.protein} pct={(totals.protein / maxMacro) * 100} value={`${Math.round(totals.protein)} / ${Math.round(target.protein || 0)}g`} />
+          <MacroBarRow label="Carbs" color={MACRO_COLORS.carbs} pct={(totals.carbs / maxMacro) * 100} value={`${Math.round(totals.carbs)} / ${Math.round(target.carbs || 0)}g`} />
+          <MacroBarRow label="Fat" color={MACRO_COLORS.fat} pct={(totals.fat / maxMacro) * 100} value={`${Math.round(totals.fat)} / ${Math.round(target.fat || 0)}g`} />
+        </div>
+      </div>
 
       {!signedPlan ? (
-        <Card style={{ padding: 16, color: T.muted, fontSize: 13 }}>No meals prescribed for this date. You can still log what you eat below.</Card>
+        <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16, color: NT.muted, fontFamily: NT.sans, fontSize: 13 }}>No meals prescribed for this date. You can still log what you eat in Food log.</div>
       ) : (
-        signedPlan.meals.map((meal) => (
-          <ClientMealCard
-            key={meal.key} meal={meal} status={mealStatus(dateISO, today, meal, dateEntries, dateMarks)} dateEntries={dateEntries}
-            editable={dateISO <= today}
-            onConfirm={() => confirmMeal(meal)}
-            onOpenEdit={() => setEditingMeal({ mode: "portion", meal })}
-            onOpenSub={() => setEditingMeal({ mode: "sub", meal })}
-            onSkip={() => skipMeal(meal)}
-            onUnskip={() => unskipMeal(meal)}
-          />
-        ))
+        <div>
+          <div style={{ padding: "0 2px 4px", fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted }}>Today's meals</div>
+          {signedPlan.meals.map((meal, i) => (
+            <ClientMealCard
+              key={meal.key} meal={meal} status={mealStatus(dateISO, today, meal, dateEntries, dateMarks)} dateEntries={dateEntries}
+              editable={dateISO <= today} showLine={i < signedPlan.meals.length - 1}
+              onConfirm={() => confirmMeal(meal)}
+              onOpenEdit={() => setEditingMeal({ mode: "portion", meal })}
+              onOpenSub={() => setEditingMeal({ mode: "sub", meal })}
+              onSkip={() => skipMeal(meal)}
+              onUnskip={() => unskipMeal(meal)}
+            />
+          ))}
+        </div>
       )}
 
       {unplanned.length > 0 && (
-        <Card style={{ padding: 14 }}>
-          <SectionLabel color={T.muted} style={{ marginBottom: 8 }}>Also logged</SectionLabel>
+        <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 14 }}>
+          <div style={{ fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted, marginBottom: 8 }}>Also logged</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {unplanned.map((e) => (
-              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.text }}>
-                <span>{e.name} <span style={{ color: T.dim, fontSize: 11 }}>· {e.time}</span></span><span>{Math.round(e.macros.kcal)} kcal</span>
+              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontFamily: NT.sans, fontSize: 13, color: NT.text }}>
+                <span>{e.name} <span style={{ color: NT.dim, fontSize: 11 }}>· {e.time}</span></span><span>{Math.round(e.macros.kcal)} kcal</span>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {editingMeal?.mode === "portion" && <PortionSheet meal={editingMeal.meal} onClose={() => setEditingMeal(null)} onApply={(pct) => applyPortion(editingMeal.meal, pct)} />}
@@ -221,43 +228,42 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
 }
 
 function MealPlanTab({ signedPlan }) {
-  if (!signedPlan) return <Card style={{ padding: 16, color: T.muted, fontSize: 13 }}>No meals prescribed for this date.</Card>;
+  if (!signedPlan) return <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16, color: NT.muted, fontFamily: NT.sans, fontSize: 13 }}>No meals prescribed for this date.</div>;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Card style={{ padding: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-          <div style={{ fontFamily: T.sans, fontWeight: 600, fontSize: 15, color: T.text }}>Plan v{signedPlan.version}</div>
-          <div style={{ color: T.dim, fontSize: 11 }}>Effective {signedPlan.from}{signedPlan.to ? ` – ${signedPlan.to}` : ""}</div>
+    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+          <div style={{ fontFamily: NT.display, fontWeight: 600, fontSize: 16, color: NT.text }}>Plan v{signedPlan.version}</div>
+          <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 11 }}>Effective {signedPlan.from}{signedPlan.to ? ` – ${signedPlan.to}` : ""}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
           {["kcal", "protein", "carbs", "fat"].map((k) => (
             <div key={k} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: T.muted, textTransform: "uppercase" }}><span style={{ width: 7, height: 7, borderRadius: 2, background: MAC_COLOR[k] }} />{k}</span>
-              <span style={{ fontSize: 15, fontWeight: 600, color: T.text }}>{signedPlan.targets[k] || 0}{k !== "kcal" ? "g" : ""}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: NT.sans, fontSize: 10, color: NT.muted, textTransform: "uppercase" }}><span style={{ width: 7, height: 7, borderRadius: 2, background: MACRO_COLORS[k] }} />{k}</span>
+              <span style={{ fontFamily: NT.sans, fontSize: 15, fontWeight: 600, color: NT.text }}>{signedPlan.targets[k] || 0}{k !== "kcal" ? "g" : ""}</span>
             </div>
           ))}
         </div>
-      </Card>
+      </div>
       {signedPlan.meals.map((m) => (
-        <Card key={m.key} style={{ padding: 14 }}>
+        <div key={m.key} style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <div style={{ fontFamily: T.sans, fontWeight: 600, fontSize: 14, color: T.text }}>{m.name} <span style={{ color: T.dim, fontSize: 12, fontWeight: 400 }}>{m.time}</span></div>
-            <div style={{ fontSize: 13, color: T.muted }}>{Math.round(mealTotals(m).kcal)} kcal</div>
+            <div style={{ fontFamily: NT.sans, fontWeight: 600, fontSize: 14, color: NT.text }}>{m.name} <span style={{ color: NT.dim, fontSize: 12, fontWeight: 400 }}>{m.time}</span></div>
+            <div style={{ fontFamily: NT.sans, fontSize: 13, color: NT.muted }}>{Math.round(mealTotals(m).kcal)} kcal</div>
           </div>
-          <div style={{ color: T.muted, fontSize: 13 }}>{m.items.map(itemLine).join(" · ") || "No foods yet"}</div>
-          {m.note && <div style={{ color: T.dim, fontSize: 12, marginTop: 6, fontStyle: "italic" }}>{m.note}</div>}
-        </Card>
+          <div style={{ color: NT.muted, fontFamily: NT.sans, fontSize: 13 }}>{m.items.map(itemLine).join(" · ") || "No foods yet"}</div>
+          {m.note && <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 12, marginTop: 6, fontStyle: "italic" }}>{m.note}</div>}
+        </div>
       ))}
     </div>
   );
 }
 
 // Unified replacement for food_log/macros/prescribed_plan (DECISIONS.md
-// "Nutrition redesign"), built against the interactive prototype read
-// from Forge Nutrition.dc.html. Not wired into live routing yet - see
-// mellow-wandering-grove.md's plan; every client still gets the OLD
-// NutritionFlow.jsx until this is feature-complete (Progress tab +
-// Food log still to come).
+// "Nutrition redesign"), restyled with the warm look (DECISIONS.md
+// "Nutrition redesign v2") approved in the design canvas. The coach side
+// keeps the app's standard look (CoachPlanBuilderV2/NutritionV2Progress
+// get their own pass); this file is the client-facing shell.
 export function NutritionV2Flow({ client, updateClient, isCoach }) {
   const [coachTab, setCoachTab] = useState("builder");
   const [tab, setTab] = useState("overview");
@@ -333,13 +339,13 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={() => setDateISO(addDaysISO(dateISO, -1))} aria-label="Previous day" style={{ background: "none", border: "none", color: T.dim, fontSize: 18, cursor: "pointer" }}>‹</button>
-        <div style={{ flex: 1, textAlign: "center", fontFamily: T.sans, fontSize: 13, color: T.muted }}>{fmtHeaderDate(dateISO)}{dateISO === today && <span style={{ color: T.gold }}> · Today</span>}</div>
-        <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ background: "none", border: "none", color: T.dim, fontSize: 18, cursor: "pointer" }}>›</button>
+        <button onClick={() => setDateISO(addDaysISO(dateISO, -1))} aria-label="Previous day" style={{ background: "none", border: "none", color: NT.dim, fontSize: 18, cursor: "pointer" }}>‹</button>
+        <div style={{ flex: 1, textAlign: "center", fontFamily: NT.sans, fontSize: 13, color: NT.muted }}>{fmtHeaderDate(dateISO)}{dateISO === today && <span style={{ color: NT.accent }}> · Today</span>}</div>
+        <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ background: "none", border: "none", color: NT.dim, fontSize: 18, cursor: "pointer" }}>›</button>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {[["overview", "Overview"], ["plan", "Meal plan"], ["log", "Food log"], ["progress", "Progress"]].map(([k, l]) => (
-          <Chip key={k} selected={tab === k} onClick={() => setTab(k)}>{l}</Chip>
+          <button key={k} onClick={() => setTab(k)} style={pillBtnStyle(tab === k)}>{l}</button>
         ))}
       </div>
       {tab === "overview" && <OverviewTab dateISO={dateISO} today={today} signedPlan={signedPlan} dateEntries={dateEntries} dateMarks={dateMarks} foods={foods} onWrite={writeDay} />}
