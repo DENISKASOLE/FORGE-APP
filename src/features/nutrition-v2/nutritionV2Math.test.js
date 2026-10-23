@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
-  weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals, suggestSavedMealsFromHistory,
+  weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals, suggestSavedMealsFromHistory, attentionFlagFor,
 } from "./nutritionV2Math.js";
 import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow } from "./nutritionV2Model.js";
 
@@ -278,6 +278,24 @@ describe("recentAlertSignals - coach alerts, generalized to every client (not ju
 describe("newLogEntry validation", () => {
   it("rejects an invalid source", () => {
     expect(() => newLogEntry({ date: "2026-10-14", meal: "lunch", name: "x", macros: {}, source: "bogus", time: "" })).toThrow();
+  });
+});
+
+describe("attentionFlagFor", () => {
+  it("returns null when nothing is wrong", () => {
+    expect(attentionFlagFor({ noLogDays: 0, noLogThreshold: 2, lowAdherence: false, avgAdherence: 0.9, heavyExtrasDays: 0 })).toBeNull();
+  });
+  it("flags a no-log streak first, even if other signals are also bad", () => {
+    const flag = attentionFlagFor({ noLogDays: 3, noLogThreshold: 2, lowAdherence: true, avgAdherence: 0.1, heavyExtrasDays: 5 });
+    expect(flag).toMatch(/No food logged in 3 days/);
+  });
+  it("flags low adherence with the actual percentage when logging is otherwise fine", () => {
+    const flag = attentionFlagFor({ noLogDays: 0, noLogThreshold: 2, lowAdherence: true, avgAdherence: 0.42, heavyExtrasDays: 0 });
+    expect(flag).toMatch(/42%/);
+  });
+  it("flags heavy unplanned extras when logging and adherence are both fine", () => {
+    const flag = attentionFlagFor({ noLogDays: 0, noLogThreshold: 2, lowAdherence: false, avgAdherence: 0.9, heavyExtrasDays: 4 });
+    expect(flag).toMatch(/4 of the last 7 days/);
   });
 });
 

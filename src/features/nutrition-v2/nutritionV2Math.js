@@ -214,6 +214,18 @@ export function recentAlertSignals(plans, logs, marks, todayISO) {
 
   return { lowAdherence, avgAdherence, noLogDays, noLogThreshold, hasCurrentPlan, heavyExtrasDays };
 }
+// Turns recentAlertSignals()'s numbers into the one plain-language reason
+// a coach dashboard shows for a client that needs attention (DECISIONS.md
+// "Nutrition redesign v2" - the coach Nutrition dashboard). Checked in
+// priority order (a silent client is worth flagging before a noisy one);
+// null means nothing's wrong - same thresholds recentAlertSignals already
+// uses, nothing re-derived here.
+export function attentionFlagFor(signals) {
+  if (signals.noLogDays >= signals.noLogThreshold) return `No food logged in ${signals.noLogDays} days`;
+  if (signals.lowAdherence) return `Meal adherence low (${Math.round((signals.avgAdherence || 0) * 100)}% over the last ${LOW_ADHERENCE_WINDOW_DAYS} days)`;
+  if (signals.heavyExtrasDays >= HEAVY_EXTRAS_DAYS_OF_7) return `Unplanned extras heavy on ${signals.heavyExtrasDays} of the last 7 days`;
+  return null;
+}
 
 // ---------- legacy macro_log -> nutrition_v2_logs, read-time promote-on-first-touch ----------
 // macroDay = one date's entry from the OLD nutrition.js macro_log shape:

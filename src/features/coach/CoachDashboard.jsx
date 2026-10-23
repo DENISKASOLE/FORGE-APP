@@ -30,6 +30,7 @@ import { CoachContentScreen } from "../learn/LearnTab.jsx";
 import { INTAKE_FORM } from "../profile/IntakeForm.jsx";
 import { ClientCard } from "../client-shell/ClientShellUI.jsx";
 import { FoodsLibraryScreen } from "../nutrition-v2/FoodsLibraryScreen.jsx";
+import { CoachNutritionDashboard } from "./CoachNutritionDashboard.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
 import { BuddyPairsScreen } from "./BuddyPairs.jsx";
@@ -446,6 +447,7 @@ export function CoachToolsTab({ onOpen }) {
     { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
     { key: "automations", name: "Automations", meta: "Reminders & nudges", icon: "automations", color: BRAND.orange },
     { key: "foods", name: "Foods", meta: "Food library for nutrition plans", icon: "foods", color: BRAND.green },
+    { key: "nutrition_dashboard", name: "Nutrition", meta: "Who needs attention today", icon: "foods", color: BRAND.red },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
@@ -929,6 +931,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "foods") body = <FoodsLibraryScreen trainerId={user.id} onBack={goHome} />;
+  else if (screen === "nutrition_dashboard") body = <CoachNutritionDashboard clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}
