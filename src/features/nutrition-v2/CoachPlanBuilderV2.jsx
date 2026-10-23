@@ -141,7 +141,7 @@ function PublishSheet({ draft, warnings, onClose, onConfirm }) {
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={fieldInput()} />
         </label>
         {warnings.length > 0 && (
-          <div style={{ background: "rgba(227,164,92,.1)", border: `1px solid ${NT.accentBg}`, borderRadius: 12, padding: 10, marginBottom: 12, color: NT.accent, fontFamily: NT.sans, fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ background: NT.accentBg, border: `1px solid ${NT.accentBg}`, borderRadius: 12, padding: 10, marginBottom: 12, color: NT.accent, fontFamily: NT.sans, fontSize: 12, lineHeight: 1.5 }}>
             {warnings.map((w, i) => <div key={i}>{w}</div>)}
           </div>
         )}
@@ -275,7 +275,7 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
   const history = plans.filter((p) => p.status !== "draft").slice().sort((a, b) => b.version - a.version);
 
   return (
-    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: NT.display, fontSize: 20, fontWeight: 600, color: NT.text }}>Nutrition plan {persistedDraft ? `v${draft.version} (draft)` : livePlan ? `v${draft.version} draft` : "— new"}</div>

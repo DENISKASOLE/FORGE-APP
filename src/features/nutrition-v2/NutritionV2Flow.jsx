@@ -29,7 +29,7 @@ function fmtHeaderDate(dateISO) {
 }
 function itemLine(it) { return `${it.name} ${it.qty}${it.unit === "piece" ? "" : it.unit}`; }
 function pillBtnStyle(selected) {
-  return { border: `1px solid ${selected ? "transparent" : "rgba(255,255,255,.1)"}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
+  return { border: `1px solid ${selected ? "transparent" : NT.lineSoft}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
 }
 
 function PortionSheet({ meal, onClose, onApply }) {
@@ -171,7 +171,7 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
   }
 
   return (
-    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 28, padding: "28px 24px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
         <Ring value={totals.kcal} max={target.kcal || totals.kcal || 1} size={188} stroke={14} color={MACRO_COLORS.kcal}>
           <span style={{ fontFamily: NT.display, fontSize: 40, fontWeight: 620, lineHeight: 1, color: NT.text }}>{Math.round(totals.kcal)}</span>
@@ -230,7 +230,7 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
 function MealPlanTab({ signedPlan }) {
   if (!signedPlan) return <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16, color: NT.muted, fontFamily: NT.sans, fontSize: 13 }}>No meals prescribed for this date.</div>;
   return (
-    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
           <div style={{ fontFamily: NT.display, fontWeight: 600, fontSize: 16, color: NT.text }}>Plan v{signedPlan.version}</div>

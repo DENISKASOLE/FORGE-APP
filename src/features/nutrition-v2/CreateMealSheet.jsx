@@ -79,7 +79,7 @@ export function CreateMealSheet({ foods, onClose, onSave }) {
           <span style={{ display: "block", fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: NT.dim, marginBottom: 8 }}>Usually eaten at</span>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {MEAL_TYPES.map((mt) => (
-              <button key={mt} onClick={() => setMealType(mt)} style={{ border: `1px solid ${mealType === mt ? "transparent" : "rgba(255,255,255,.1)"}`, background: mealType === mt ? NT.accent : "transparent", color: mealType === mt ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, padding: "8px 14px", borderRadius: 999, cursor: "pointer" }}>
+              <button key={mt} onClick={() => setMealType(mt)} style={{ border: `1px solid ${mealType === mt ? "transparent" : NT.lineSoft}`, background: mealType === mt ? NT.accent : "transparent", color: mealType === mt ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11.5, fontWeight: 600, padding: "8px 14px", borderRadius: 999, cursor: "pointer" }}>
                 {MEAL_TYPE_LABELS[mt]}
               </button>
             ))}

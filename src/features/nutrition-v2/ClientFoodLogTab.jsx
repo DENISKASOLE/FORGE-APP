@@ -14,11 +14,11 @@ import { normalizeMeals, saveMeals } from "../../lib/nutritionV2.js";
 import { useFatSecretResults } from "../../lib/fatsecret.js";
 import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 import { CreateMealSheet } from "./CreateMealSheet.jsx";
-import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
+import { NT, MACRO_COLORS, MACRO_BG } from "./nutritionV2Theme.js";
 
 const LOG_MEALS = ["breakfast", "lunch", "dinner", "snack", "other"];
 const MEAL_GROUP_NAMES = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", other: "Other" };
-const BADGE_COLORS = [[MACRO_COLORS.kcal, "rgba(227,164,92,.14)"], [MACRO_COLORS.protein, "rgba(143,185,150,.14)"], [MACRO_COLORS.carbs, "rgba(127,166,201,.14)"], [MACRO_COLORS.fat, "rgba(180,155,208,.14)"]];
+const BADGE_COLORS = [[MACRO_COLORS.kcal, MACRO_BG.kcal], [MACRO_COLORS.protein, MACRO_BG.protein], [MACRO_COLORS.carbs, MACRO_BG.carbs], [MACRO_COLORS.fat, MACRO_BG.fat]];
 
 function nowHHMM() {
   const d = new Date();
@@ -79,13 +79,13 @@ function AddLogSheet({ foods, defaultMeal, onClose, onAdd }) {
       <div style={{ width: "100%", maxWidth: 460, maxHeight: "88vh", overflow: "auto", background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           {[["search", "Search"], ["quick", "Quick add"]].map(([k, l]) => (
-            <button key={k} onClick={() => setMode(k)} style={{ border: `1px solid ${mode === k ? "transparent" : "rgba(255,255,255,.1)"}`, background: mode === k ? NT.accent : "transparent", color: mode === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" }}>{l}</button>
+            <button key={k} onClick={() => setMode(k)} style={{ border: `1px solid ${mode === k ? "transparent" : NT.lineSoft}`, background: mode === k ? NT.accent : "transparent", color: mode === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" }}>{l}</button>
           ))}
         </div>
         <div style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.dim, marginBottom: 8 }}>Meal</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
           {LOG_MEALS.map((k) => (
-            <button key={k} onClick={() => setMeal(k)} style={{ border: `1px solid ${meal === k ? "transparent" : "rgba(255,255,255,.1)"}`, background: meal === k ? NT.accent : "transparent", color: meal === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "8px 13px", borderRadius: 999, cursor: "pointer" }}>{MEAL_GROUP_NAMES[k]}</button>
+            <button key={k} onClick={() => setMeal(k)} style={{ border: `1px solid ${meal === k ? "transparent" : NT.lineSoft}`, background: meal === k ? NT.accent : "transparent", color: meal === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "8px 13px", borderRadius: 999, cursor: "pointer" }}>{MEAL_GROUP_NAMES[k]}</button>
           ))}
         </div>
 
@@ -182,7 +182,7 @@ function YourMealsRow({ savedMeals, suggestions, onUseSaved, onUseSuggested, onB
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "0 2px 10px" }}>
           <h2 style={{ margin: 0, fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted }}>Your meals</h2>
         </div>
-        <button onClick={onBuild} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px dashed rgba(255,255,255,.16)`, borderRadius: 16, padding: "16px 14px", background: "transparent", color: NT.muted, cursor: "pointer" }}>
+        <button onClick={onBuild} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px dashed ${NT.lineSoft}`, borderRadius: 16, padding: "16px 14px", background: "transparent", color: NT.muted, cursor: "pointer" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           <span style={{ fontFamily: NT.sans, fontSize: 12.5, fontWeight: 500 }}>Build your first meal</span>
         </button>
@@ -210,7 +210,7 @@ function YourMealsRow({ savedMeals, suggestions, onUseSaved, onUseSuggested, onB
             <span style={{ fontFamily: NT.sans, fontSize: 10.5, color: NT.accent }}>You've made this {s.occurrences}x</span>
           </button>
         ))}
-        <button onClick={onBuild} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, width: 92, border: "1px dashed rgba(255,255,255,.16)", borderRadius: 16, padding: "12px 10px", background: "transparent", color: NT.muted, cursor: "pointer" }}>
+        <button onClick={onBuild} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, width: 92, border: `1px dashed ${NT.lineSoft}`, borderRadius: 16, padding: "12px 10px", background: "transparent", color: NT.muted, cursor: "pointer" }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           <span style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 500, textAlign: "center" }}>New meal</span>
         </button>
@@ -284,7 +284,7 @@ export function ClientFoodLogTab({ client, updateClient, logs, dateEntries, food
   const groups = LOG_MEALS.map((key) => ({ key, name: MEAL_GROUP_NAMES[key], entries: dateEntries.filter((e) => e.meal === key) })).filter((g) => g.entries.length);
 
   return (
-    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 18, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontFamily: NT.sans, fontSize: 11, color: NT.dim }}>Logged so far</div>

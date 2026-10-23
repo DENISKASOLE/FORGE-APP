@@ -12,7 +12,7 @@ const OUTCOME_META = {
   skipped: ["Skipped", NT.dim], open: ["Not logged", NT.faint],
 };
 function pillBtnStyle(selected) {
-  return { border: `1px solid ${selected ? "transparent" : "rgba(255,255,255,.1)"}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
+  return { border: `1px solid ${selected ? "transparent" : NT.lineSoft}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
 }
 function dayLabel(dateISO) {
   const d = new Date(`${dateISO}T00:00:00`);
@@ -120,7 +120,7 @@ export function NutritionV2Progress({ client, updateClient, isCoach, plans, logs
   }
 
   return (
-    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: NT.muted }}>{result.days[0].date} – {result.days[6].date} · {result.loggedCount} of 7 days logged</span>
         <div style={{ display: "flex", gap: 6 }}>
@@ -154,7 +154,7 @@ export function NutritionV2Progress({ client, updateClient, isCoach, plans, logs
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {insights.map((text, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, fontFamily: NT.sans, fontSize: 12.5, color: "#F0DAD8", lineHeight: 1.5 }}>
+                  <div key={i} style={{ display: "flex", gap: 8, fontFamily: NT.sans, fontSize: 12.5, color: NT.text, lineHeight: 1.5 }}>
                     <span aria-hidden="true" style={{ flexShrink: 0, marginTop: 5, width: 4, height: 4, borderRadius: "50%", background: NT.bad }} />
                     <span>{text}</span>
                   </div>

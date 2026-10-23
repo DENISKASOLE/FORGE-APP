@@ -15,7 +15,7 @@ function initials(name = "") {
   return name.split(" ").filter(Boolean).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "??";
 }
 function pillBtnStyle(selected) {
-  return { border: `1px solid ${selected ? "transparent" : "rgba(255,255,255,.1)"}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
+  return { border: `1px solid ${selected ? "transparent" : NT.lineSoft}`, background: selected ? NT.accent : "transparent", color: selected ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" };
 }
 
 // One client's nutrition health, computed from data already on the
@@ -68,7 +68,7 @@ export function CoachNutritionDashboard({ clients, selectClient, onBack }) {
   const filters = [["all", "All clients"], ["attention", "Needs attention"], ["track", "On track"]];
 
   return (
-    <div style={{ background: NT.bg, margin: "-14px", padding: 14, borderRadius: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <button onClick={onBack} style={{ background: "none", border: "none", color: NT.muted, fontFamily: NT.sans, fontSize: 12.5, fontWeight: 500, cursor: "pointer", padding: 0, marginBottom: 14, display: "flex", alignItems: "center", gap: 4 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
