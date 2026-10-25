@@ -34,3 +34,6 @@ __test-*.mjs
 supabase/.temp/
 .wrangler/
 .claude/
+
+# graphify knowledge graph output
+graphify-out/
