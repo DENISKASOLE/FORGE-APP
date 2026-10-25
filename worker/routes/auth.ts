@@ -20,6 +20,7 @@ import {
   revokeTokens,
   setPassword,
   storedHash,
+  toAuthUser,
   toPublicUser,
   updateUserFields,
   type UserRow,
@@ -109,7 +110,7 @@ app.post("/signup", async (c) => {
   if (!existing) {
     try {
       const user = await createUser(c.env.DB, { email, password: await hashPassword(password, iterations(c)), metadata });
-      inBackground(c, "verify email", () => sendVerifyEmail(c.env, { ...user, user_metadata: metadata }, origin));
+      inBackground(c, "verify email", () => sendVerifyEmail(c.env, toAuthUser(user), origin));
       return c.json({ data: { user: toPublicUser(user), session: null } });
     } catch (err) {
       if (!isUniqueViolation(err)) throw err;
@@ -121,11 +122,10 @@ app.post("/signup", async (c) => {
   }
 
   const known = existing;
-  const knownMeta = parseMetadata(known.user_metadata);
   if (!known.password_hash) {
-    inBackground(c, "setup email", () => sendSelfServiceSetupEmail(c.env, { ...known, user_metadata: knownMeta }, `${origin}/`));
+    inBackground(c, "setup email", () => sendSelfServiceSetupEmail(c.env, toAuthUser(known), `${origin}/`));
   } else if (!known.email_verified_at) {
-    inBackground(c, "verify email", () => sendVerifyEmail(c.env, { ...known, user_metadata: knownMeta }, origin));
+    inBackground(c, "verify email", () => sendVerifyEmail(c.env, toAuthUser(known), origin));
   }
   return c.json({ data: { user: decoyUser(email, metadata), session: null } });
 });
@@ -145,9 +145,7 @@ app.post("/login", async (c) => {
   if (!user || !ok) throw new HttpError(400, INVALID_LOGIN, "invalid_credentials");
 
   if (!user.email_verified_at) {
-    inBackground(c, "verify email", () =>
-      sendVerifyEmail(c.env, { ...user, user_metadata: parseMetadata(user.user_metadata) }, requestOrigin(c)),
-    );
+    inBackground(c, "verify email", () => sendVerifyEmail(c.env, toAuthUser(user), requestOrigin(c)));
     throw new HttpError(400, EMAIL_NOT_CONFIRMED, "email_not_confirmed");
   }
 
@@ -214,7 +212,7 @@ app.post("/recover", async (c) => {
   const user = await findUserByEmail(c.env.DB, email);
   if (user) {
     const base = safeRedirectBase(body.redirectTo, requestOrigin(c));
-    const target = { ...user, user_metadata: parseMetadata(user.user_metadata) };
+    const target = toAuthUser(user);
     inBackground(c, "recovery email", () =>
       user.password_hash ? sendRecoveryEmail(c.env, target, base) : sendSelfServiceSetupEmail(c.env, target, base),
     );
@@ -247,7 +245,7 @@ app.put("/user", requireUser, async (c) => {
       const taken = await findUserByEmail(c.env.DB, email);
       // Same response either way; a taken address simply gets no link.
       if (!taken) {
-        const target = { ...user, user_metadata: parseMetadata(user.user_metadata) };
+        const target = toAuthUser(user);
         inBackground(c, "email change", () => sendEmailChangeEmail(c.env, target, email, requestOrigin(c)));
       }
     }
