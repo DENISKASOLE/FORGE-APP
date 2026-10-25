@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
 import { isTimedExercise } from "../../lib/browser.js";
 import { getVideoThumb } from "../../lib/exerciseVideos.js";
-import { fmtExerciseSummary, lastSessionSetsFor, suggestProgression, suggestPlateauBump } from "../../lib/trainingLogs.js";
+import { fmtExerciseSummary, lastSessionSetsFor, bestSetFor, suggestProgression, suggestPlateauBump } from "../../lib/trainingLogs.js";
 import { inputStyle } from "../../components/ui/Field.jsx";
 import { getExerciseMeta } from "../../lib/exerciseMeta.js";
 import { MuscleGroupTag } from "./ExerciseTag.jsx";
@@ -28,6 +28,7 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
   const effectiveName = entry.substitutedName || entry.name;
   const timed = isTimedExercise(effectiveName);
   const lastSets = lastSessionSetsFor(logsBefore, effectiveName);
+  const best = bestSetFor(logsBefore, effectiveName);
   const prog = suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets);
   const exMeta = getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises });
   const aiProg = useProgressionSuggestion(effectiveName, prog, exMeta, lastSets, timed);
@@ -93,7 +94,7 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
         })}
       </div>
 
-      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={BRAND.green} />
+      <SetLogRows entry={entry} timed={timed} lastSets={lastSets} best={best} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={BRAND.green} />
 
       <div>
         <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>

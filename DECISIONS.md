@@ -1,3 +1,294 @@
+# Nutrition redesign v2 follow-up: app-native colors — decisions log
+
+Immediately after the warm-palette rollout below, Denis reviewed it live
+and asked for a different direction: app-native monochrome, no separate
+nutrition identity. Offered 4 concrete palette directions (with hex
+swatches) before touching anything, since the first palette miss was
+expensive (6 phases of real code); he picked "matches the rest of Forge
+exactly."
+
+Because every nutrition screen already read its colors through one file
+(`nutritionV2Theme.js`), this was a single-file change: every value now
+derives from `BRAND` (src/theme/tokens.js) instead of hardcoded hex -
+true black/white base, the app's own gold/green/blue/violet macro
+colors, `var(--display)` instead of a separate Fraunces font. None of
+the structural work from the warm-palette phases (hero ring, meal
+timeline, meal builder, coach dashboard) needed to change, only what
+colors back them.
+
+Found and fixed while sweeping for stray colors the theme-file swap
+wouldn't have caught on its own: a few places had hardcoded hex instead
+of going through the theme file (a leftover amber warning background, a
+badge-color array, light-pink insight text - these would've looked
+wrong or low-contrast once the palette changed out from under them),
+and several `rgba(255,255,255,.1)` borders that only read correctly in
+dark mode (this app supports both) - replaced with the theme's
+adaptive line token. Also dropped the now-pointless background-color
+wrapper divs each screen had (painting a nested div the exact color of
+the page behind it, so the old custom palette could "look like its own
+region" - meaningless once there's no separate palette) and removed
+the Fraunces Google Font link, unused everywhere now.
+
+# Nutrition redesign v2 (warm palette + client meal builder) — decisions log
+
+Denis didn't like how the nutrition-v2 feature (built earlier this
+project) turned out visually and asked for a genuine redesign - not a
+restyle of the mockup-matching rule used last time, since this time he
+explicitly reviewed and approved a new look (a design canvas, built with
+the Artifact tool's Design type: https://claude.ai/artifact/VHBGywgetUqSjdWt5Agrp9)
+before any code changed, then asked to "bring it to life." Scope grew
+across that review to include a client meal-builder (clients can
+compose and save their own reusable meals, not just log individual
+foods) and a new coach-facing nutrition dashboard, both added to the
+canvas and approved before building.
+
+**The one hard constraint going in**: a real client (Arun) already has
+logged nutrition history and had been typing named, custom entries via
+Quick Add (the only way to "make your own meal" before this). Nothing
+in this build was allowed to touch nutrition_v2_logs except the
+existing, already-reviewed append-only write path.
+
+**Data model** (all purely additive, `client_data` section
+`nutrition_v2_meals`): `newSavedMeal`/`newMealItem`
+(nutritionV2Model.js), `normalizeMeals`/`saveMeals`
+(lib/nutritionV2.js). A client's past repeated Quick Add entries carry
+forward via `suggestSavedMealsFromHistory` (nutritionV2Math.js, pure/
+read-only) - scans "quick"-sourced log entries (the one source that's
+always the client's own typed name + macros, never a library lookup or
+a coach's prescription) for names recurring on 2+ distinct dates, and
+surfaces them in "Your meals" tagged "You've made this Nx". Tapping a
+suggestion logs it today AND saves it for real in one action; nothing
+is migrated or rewritten - the suggestion engine reads
+`nutrition_v2_logs` (merged with legacy `macro_log` history, same
+promote-on-first-touch principle as the rest of this feature) but never
+writes to it.
+
+**Visual redesign** (nutritionV2Theme.js: warm near-black palette,
+amber/sage/dusty-blue/lavender macro colors, Fraunces serif display +
+Inter body - scoped entirely to the Nutrition feature's own files, the
+app's global BRAND/T tokens are untouched) rolled out across all of:
+client Overview (one big calorie ring + macro bars, replacing 4 equal
+rings), Meal plan, Food log (+ "Your meals" row + the new
+CreateMealSheet.jsx builder), Progress/Weekly review (shared by client
+and coach), the coach Plan builder, and a new CoachNutritionDashboard.jsx
+- a triage view across every client's nutrition at once (reached from
+a new "Nutrition" tile in the coach Tools grid), which didn't exist in
+any form before. Its "needs attention" flags (`attentionFlagFor`, new)
+reuse `recentAlertSignals` unchanged - no new alert logic, just a
+plain-language reason surfaced per client instead of a bell icon.
+
+Also fixed along the way, all pre-existing bugs rather than part of the
+redesign itself: FatSecret search was built (lib/fatsecret.js, an edge
+function already deployed) but never actually wired into the live food-
+search UI anywhere - "no foods match" was a dead end regardless of
+query. Daily-target number inputs used `value={x ?? ""}` instead of the
+`|| ""` convention every other numeric field in this app uses, so a `0`
+target rendered as a literal unselected "0" and typing prepended digits
+onto it. The plan builder's food-search dropdown was `position:absolute`
+with a translucent background, so the meal-note textarea sitting
+directly underneath in document flow bled through and read as
+overlapping text.
+
+# Progress Report (full replacement of the old Weekly Report) — decisions log
+
+Built from `Forge Progress Report.dc.html`, the second prototype in the
+same claude.ai/design project used for the nutrition redesign - deferred
+during that epic's planning ("out of scope for now"), now built. Read in
+full (871 lines of markup + the prototype's own `renderVals()` logic and
+sample data) via the same DesignSync-read + scratchpad-extraction
+approach used for the nutrition prototype.
+
+**What it is**: a coach-only report builder - client is implicit (opened
+from that client's own Progress tab, not a separate client-picker, since
+Forge has no standalone report-building screen outside a client's own
+shell), period + comparison-period pickers (7 days / 4 weeks / 12 weeks /
+custom range, compared against the previous period or the client's
+tracking baseline), a data-coverage checklist, a sections on/off
+checklist, an editable coach-notes panel (summary, up to 3 data-sourced
+"wins" with per-win reset-to-data, main challenge, up to 3 priorities,
+up to 3 goals, an optional client-reflection quote), a live preview of
+up to 7 report pages, and a real PDF export (share/download, with an
+optional save to the client's progress history).
+
+Confirmed with Denis (AskUserQuestion) before building:
+- **Full replacement** of the existing Weekly Report
+  (`ProgressTab.jsx`'s button → `WeeklyReportModal` →
+  `buildWeeklyReport`/`buildWeeklyReportPDF`), not a second tool living
+  alongside it.
+- **PDF via pdf-lib**, matching this app's existing convention - not the
+  prototype's own `window.print()` over styled HTML.
+- **Body measurements get dated history going forward.** Recon found
+  `client.measurements` was a single overwritten snapshot with **no
+  editor anywhere in the app** (not merely "no trend data" - nothing
+  had ever written to it except manual DB access). Built
+  `MeasurementsEditor.jsx` as the first real screen for it, additive:
+  it keeps the existing `progress.measurements` snapshot in sync so
+  `ProgressTab.jsx`'s two existing read-only displays needed no changes.
+- **All 7 pages built now**, not a reduced first cut. Pages/sections
+  with no data for a given client simply don't render - ported directly
+  from the prototype's own `avail`/`inc` gating logic, not reinvented.
+
+**Real data vs. the prototype's fictional wearable data** (recon before
+building, so scope decisions were based on what Forge actually has, not
+assumptions): body weight comes from check-in answers regex-matched for
+"weight" (existing, moved from `ProgressTab.jsx` into
+`lib/clientMetrics.js` so the report's math could reuse it without
+duplicating); training volume/planned-vs-completed/PBs are real
+(`programModel.js`'s `buildProgramDays`, `trainingLogs.js`); resting
+heart rate has **no data source in this app at all** (no wearable
+integration exists) and workout heart rate/calories are optional manual
+per-session fields; sleep/steps are manual daily self-report, not
+wearable, but real; weekly check-ins use a coach-configurable generic
+question template (choice/scale/text), not a fixed 1-5 energy/soreness/
+stress scale - matched by fuzzy label against **scale**-type answers
+only, gracefully omitted when none are configured, same as the
+prototype's own missing-data handling.
+
+**New, not in the prototype**: `estimateOneRepMax` (Epley,
+`trainingLogs.js`) and `pbsInDateRange` (date-ranged PB detection,
+same file) - neither existed anywhere before; the prototype's own
+`detectSessionPBs`/`recentPBsAcrossHistory` precedent (`trainingLogs.js`/
+`ProgressTab.jsx`) was all-time/last-N only.
+
+**Known simplifications** (disclosed, not hidden): "planned volume"
+(tonnage) vs. completed volume is dropped - a program's `targetLoad` is
+a free-text string that may be `%1RM`/`RPE`/`BW`, not reliably numeric
+kg, so only completed-volume charts are shown, not a planned-vs-
+completed tonnage comparison. The prototype's `rescheduled` session
+status doesn't exist in this app's program model (only
+`missed`/`completed`/etc.) - simplified to missed/completed. Exercise
+category bucketing (Squat & hinge / Push / Pull / Accessory) uses the
+static `exerciseTaxonomy.js` fallback only, not the DB-override/custom-
+exercise path (`getExerciseMeta`) - would have required threading an
+async DB lookup through otherwise-pure report math for a "nice to have"
+breakdown; an unmatched exercise just falls into "Accessory" instead.
+
+**One chart-rendering path for both surfaces**: `reportCharts.js`'s
+chart PNGs are shown as-is in the live preview (`ReportPreview.jsx`,
+plain `<img>`) AND embedded in the exported PDF
+(`progressReportPdf.js`, pdf-lib's `embedPng`) - the same
+`buildReportModel()` object drives both, so the numbers and the charts
+can never visually diverge between what a coach previews and what gets
+exported. Colors: the live preview uses the app's own `BRAND`/`T`
+tokens (dark/light-aware), same "match our app, not the mockup" rule as
+the nutrition redesign; the exported PDF uses fixed light-theme hex
+(`REPORT_COLORS` in `progressReportModel.js`, sourced from
+`src/styles/theme.css`'s light palette) since a printed page is always
+light regardless of the coach's current app theme - matching
+`buildWeeklyReportPDF`'s own prior convention.
+
+**Deleted** (old Weekly Report, once the new system was wired in and
+verified): `src/features/progress/WeeklyReport.jsx` (modal + its inline
+`BarChart`/`LineChart`), `src/lib/weeklyReport.js` (+ its test file),
+and `buildWeeklyReportPDF` out of `src/lib/pdf.js` (`buildPdfDoc`/
+`downloadBlob`/`sharePdfBlob`/`safeFilename` kept - still used
+elsewhere). No client data was ever deleted - this was always a
+read/presentation-layer feature with nothing of its own to preserve.
+
+# Nutrition redesign (Phase 6: cutover + deletion) — decisions log
+
+The final phase of replacing food_log/macros/prescribed_plan with the
+unified design read from Denis's claude.ai/design project ("Forge
+Nutrition coaching tab" → `Forge Nutrition.dc.html`, an interactive
+prototype read directly via the `DesignSync` tool, not a static mockup).
+Phases 1-5 built the new system (`src/features/nutrition-v2/`) without
+touching any live screen, verified each phase with a module-load smoke
+test since nothing wired it into the app's module graph yet - see
+`CoachPlanBuilderV2.test.js`'s comment for why that mattered. This phase
+is the actual cutover: wire it in, fix what breaks, delete the old code.
+
+## What actually flipped
+
+- `NutritionFlow.jsx`'s body replaced with `NutritionV2Flow`. Every
+  `tracking_mode` branch, the phase cycle, the AI-drafted report, and
+  Supplement Stack are gone - every client gets the same experience now.
+  `CoachHabitsCard` (steps/sleep/water) stayed, unmoved: unrelated to
+  this redesign, still backed by `lib/nutrition.js`'s `habits` section.
+- Three rewires explicitly deferred across Phases 4-5 (flipping them
+  before the new system was live would have read `nutrition_v2_*` data
+  that didn't exist yet, regressing every client's numbers to zero) now
+  happen together, at the one moment that's actually safe for all three:
+  - `ClientView.jsx`'s Home ring + "Nutrition today" card: real plan
+    progress when a plan is live, else a 4-generic-slot fallback keyed
+    off the unified log instead of `food_log`.
+  - `lib/weeklyReport.js`: `nutritionDaysLogged`/`avgCalories` etc. now
+    read `nutrition_v2_logs`, merging in `macro_log` days that were
+    never opened in the new UI (same `mergeLegacyMacroLog` the UI itself
+    uses) - added `weeklyReport.test.js` since this file had zero
+    coverage before and is load-bearing.
+  - `CoachDashboard.jsx`'s alerts: the old food_log-only staleness check
+    and the old prescribed_plan-only no-log/adherence/heavy-extras
+    checks merge into ONE check that runs for every client
+    (`nutritionV2Math.js`'s new `recentAlertSignals`) - a no-log streak
+    matters with no plan too, just on a longer (7-day, matching the old
+    food_log cadence) threshold instead of the 2-day one that applies
+    once a plan is actually live.
+- **Judgment call beyond the original plan**: `lib/ai.js`'s
+  `buildNutritionSummary` (backs the coach's 4-week AI client summary
+  and the client AI chat's grounding context - a different feature from
+  the three above, never itemized in the plan) also read the old
+  `food_log`/`macro_log` shape directly. Left unfixed, it would have
+  gone quietly stale for every client active after the cutover. Fixed it
+  the same way as `weeklyReport.js` rather than leave a known regression
+  the plan simply hadn't named.
+
+## Dead code removed, not just unwired
+
+- Entire `src/features/nutrition-plan/` folder (the prior session's
+  11-phase epic) - except `FoodsLibraryScreen.jsx`, moved into
+  `nutrition-v2/` and re-pointed at new homes for what it needed:
+  `FOOD_CATEGORIES`/`FOOD_UNITS` → `nutritionV2Model.js`,
+  `macroSanityCheck` → `nutritionV2Math.js`, `seedFoods` → a copied
+  `seedData.js`. Its multi-serving upgrade (added this session, before
+  the cutover) is untouched by the move.
+- `src/features/nutrition/FoodDiary.jsx`, `MacroTracker.jsx`,
+  `Report.jsx`, `SupplementStack.jsx`, `FoodSearchScreen.jsx`,
+  `MealSheet.jsx`, and `lib/nutritionExport.js` (its only caller was the
+  "Export week" button inside the now-removed coach phase controls).
+- `lib/ai.js`: `draftNutritionReport`, `getDailyNutritionFeedback`,
+  `estimateFoodExtra`, `refineMealWithAI` - all four had zero remaining
+  callers once their one screen each was deleted. (`estimateFoodExtra`
+  turned out not to have a real home in the new design after all: the
+  mockup's own "Quick add" is manual by design - text-based AI
+  estimation was really serving the old Fuel tab's Extras flow, not
+  anything in the new Food log. The new design's only AI-estimation
+  moment is "scan a meal photo", which needs a vision action anyway and
+  was already deferred as a fast-follow.)
+- `lib/pdf.js`'s `buildNutritionPlanPDF` (+ `pdf.test.js`, deleted
+  outright - it only ever tested that one function) - no caller left
+  once `CoachPlanView`/`FuelFlow`/`PlanBuilder` were gone, and the new
+  design has no PDF-export screen to replace it with.
+- `lib/nutritionPlan.js` trimmed to just what's still live
+  (`loadFoodLibrary`/`saveFoodLibrary`/`loadMealPresets`/
+  `saveMealPresets`/`loadPlanTemplates`, the last kept read-only purely
+  for `FoodsLibraryScreen.jsx`'s hard-delete safety check against old
+  templates) - `signClientPlan` and everything client-plan-shaped in it
+  were dead the moment this import broke, which is what forced the
+  trim rather than leaving it as planned, harmless-but-untouched debt.
+- The `forge-ai` edge function itself (`nutrition_report`,
+  `daily_nutrition_feedback`, `nutrition_estimate_food`,
+  `nutrition_refine_meal` action branches) is deliberately **not**
+  touched - stays deployed, unused, zero redeploy risk, as the approved
+  plan called for. Only the app-side callers were dead code worth
+  removing.
+
+## Verified
+
+Every phase's build was checked with the explicit `grep -nE "✓
+built|error during build"` pattern (never trusting exit code alone -
+the lesson from the earlier nutrition-plan epic). This phase additionally
+confirmed the deletions were real cleanup, not newly-broken code: module
+count and bundle size were already down (4867 modules, was 4880; ~1.49MB,
+was ~1.70MB) the moment `NutritionFlow.jsx` stopped importing the old
+screens, *before* any file was deleted - the deletions themselves changed
+nothing about the build, confirming nothing live still depended on them.
+A full-repo `npx eslint src` pass afterward found 74 problems, all
+pre-existing in files this phase never touched (Trials.jsx,
+useProgressionSuggestion.js, lib/cache.js, etc.) - zero new errors from
+this cutover.
+
+---
+
 # Pro nutrition plans (Phase 11: QA pass + README) — decisions log, and the feature is now feature-complete
 
 This closes out the "go build and finish everything" run: phases 1-10

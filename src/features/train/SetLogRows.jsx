@@ -1,11 +1,17 @@
 import { BRAND } from "../../theme/tokens.js";
+import { fmtLoggedSet } from "../../lib/trainingLogs.js";
 
 // Shared set-logging rows: set #, kg, reps, RPE, done. Used by the normal
 // single-exercise WorkoutSession view and by SupersetLogger so both stay on
 // the exact same fields/behavior instead of drifting into parallel logic.
-export function SetLogRows({ entry, timed, lastSets, prog, rpePickerFor, setRpePickerFor, patchSet, addSet, toggleDone, doneColor = BRAND.green }) {
+export function SetLogRows({ entry, timed, lastSets, best, prog, rpePickerFor, setRpePickerFor, patchSet, addSet, toggleDone, doneColor = BRAND.green }) {
   return (
     <div>
+      {best && (
+        <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", padding: "0 6px 8px" }}>
+          Best · <span style={{ color: BRAND.gold }}>{fmtLoggedSet(best.set, timed)}</span>{best.date ? ` · ${best.date}` : ""}
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, padding: "0 6px 6px" }}>{["Set", "Kg", "Reps", "RPE", ""].map((h, hi) => <div key={hi} style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: hi >= 1 && hi <= 3 ? "center" : "left" }}>{h}</div>)}</div>
       {entry.sets.map((s, si) => {
         const prev = lastSets[si] || {};

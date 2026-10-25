@@ -171,6 +171,26 @@ export function mapClient(row, dataRows = [], index = 0) {
     // normalizeNutritionState() pattern.
     nutritionPlan: sections.nutrition_plan || null,
     nutritionPlanLogs: sections.nutrition_plan_logs || {},
+    // Nutrition redesign (DECISIONS.md) - the unified replacement for
+    // food_log/macros/prescribed_plan above. Raw here; normalize through
+    // lib/nutritionV2.js's normalizePlans/normalizeLogs/normalizeMarks/
+    // normalizeNotes, same convention as the two nutrition sections above.
+    nutritionV2Plans: sections.nutrition_v2_plans || [],
+    nutritionV2Logs: sections.nutrition_v2_logs || {},
+    nutritionV2Marks: sections.nutrition_v2_marks || {},
+    nutritionV2Notes: sections.nutrition_v2_notes || null,
+    // Client-built reusable meals - a new section, additive only, never
+    // touches nutrition_v2_logs above (no client's logged history is ever
+    // read, rewritten or deleted by this feature).
+    nutritionV2Meals: sections.nutrition_v2_meals || [],
+    // Progress Report (DECISIONS.md) - dated measurement snapshots (the
+    // single `measurements` field above only ever holds the latest one),
+    // a per-client draft of coach notes for the next report, and a list
+    // of previously exported reports. Raw here; normalize through
+    // lib/progressReports.js, same convention as the nutrition sections.
+    measurementsHistory: sections.measurements_history?.entries || [],
+    progressReportNotes: sections.progress_report_notes || null,
+    progressReportHistory: sections.progress_report_history?.entries || [],
     notes: profile.notes || row.notes || "",
   };
 }

@@ -21,18 +21,16 @@ import {
 import { GOAL_OPTIONS, CLIENT_TYPES, CLIENT_COLORS } from "../../lib/constants.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
-import { MEAL_SLOTS } from "../../lib/nutrition.js";
-import { nutritionAlertSignals, LOW_ADHERENCE_WINDOW_DAYS, NO_LOG_STREAK_DAYS, HEAVY_EXTRAS_DAYS_OF_7 } from "../nutrition-plan/planMath.js";
+import { recentAlertSignals, LOW_ADHERENCE_WINDOW_DAYS, HEAVY_EXTRAS_DAYS_OF_7 } from "../nutrition-v2/nutritionV2Math.js";
+import { normalizePlans, normalizeLogs, normalizeMarks } from "../../lib/nutritionV2.js";
 import { buildProgramDays, cloneWithNewIds } from "../../lib/programModel.js";
 import { overallAdherence, recentPBsAcrossHistory } from "../progress/ProgressTab.jsx";
 import { ExerciseLibraryScreen, ProgramBuilder } from "../train/TrainScreens.jsx";
 import { CoachContentScreen } from "../learn/LearnTab.jsx";
 import { INTAKE_FORM } from "../profile/IntakeForm.jsx";
 import { ClientCard } from "../client-shell/ClientShellUI.jsx";
-import { FoodsLibraryScreen } from "../nutrition-plan/FoodsLibraryScreen.jsx";
-import { NutritionGuidelinesScreen } from "../nutrition-plan/NutritionGuidelinesScreen.jsx";
-import { NutritionPlansScreen } from "../nutrition-plan/NutritionPlansScreen.jsx";
-import { PlanBuilder } from "../nutrition-plan/PlanBuilder.jsx";
+import { FoodsLibraryScreen } from "../nutrition-v2/FoodsLibraryScreen.jsx";
+import { CoachNutritionDashboard } from "./CoachNutritionDashboard.jsx";
 import { Calendar } from "./Calendar.jsx";
 import { Trials } from "./Trials.jsx";
 import { BuddyPairsScreen } from "./BuddyPairs.jsx";
@@ -219,27 +217,26 @@ export function computeNotifications(clients) {
       }
     }
 
-    const lastFoodDate = Object.entries(c.nutrition?.food_log || {})
-      .filter(([, day]) => MEAL_SLOTS.some((slot) => day?.[slot]) || day?.snacks?.length)
-      .map(([date]) => date).sort().pop();
-    const daysSinceFood = lastFoodDate ? daysSince(lastFoodDate) : (c.joinDate ? daysSince(c.joinDate) : null);
-    if (daysSinceFood !== null && daysSinceFood >= 7) items.push({ id: `food_${c.id}`, type: "food", severity: 4, client: c, text: `${c.name} hasn't logged food in ${daysSinceFood} days` });
-
     if (c.clientType === "Online") {
       const lastSession = (c.trainingLogs?.sessions || []).filter((s) => s.status === "completed").map((s) => s.date).sort().pop();
       const daysSinceExercise = lastSession ? daysSince(lastSession) : (c.joinDate ? daysSince(c.joinDate) : null);
       if (daysSinceExercise !== null && daysSinceExercise >= 7) items.push({ id: `ex_${c.id}`, type: "exercise", severity: 4, client: c, text: `${c.name} hasn't logged a workout in ${daysSinceExercise} days` });
     }
 
-    // NUTRITION_SPEC.md §5.7 - only meaningful for clients on the coach-
-    // prescribed plan (tracking_mode === "prescribed_plan"); the free-form
-    // food_log/macros modes have their own staleness check above (`food_`).
-    if (c.nutrition?.tracking_mode === "prescribed_plan" && c.nutritionPlan?.active) {
-      const signals = nutritionAlertSignals(c.nutritionPlan, c.nutritionPlanLogs, isoDate());
-      if (signals.lowAdherence) items.push({ id: `nutadh_${c.id}`, type: "nutrition_adherence", severity: 3, client: c, text: `${c.name}'s plan adherence has averaged ${Math.round(signals.avgAdherence * 100)}% over the last ${LOW_ADHERENCE_WINDOW_DAYS} days` });
-      if (signals.noLogDays >= NO_LOG_STREAK_DAYS) items.push({ id: `nutlog_${c.id}`, type: "no_nutrition_log", severity: 4, client: c, text: `${c.name} hasn't logged their plan in ${signals.noLogDays} days` });
-      if (signals.heavyExtrasDays >= HEAVY_EXTRAS_DAYS_OF_7) items.push({ id: `nutextra_${c.id}`, type: "heavy_extras", severity: 4, client: c, text: `${c.name} has logged heavy extras on ${signals.heavyExtrasDays} of the last 7 days` });
+    // Nutrition redesign (DECISIONS.md): one unified check for every
+    // client now, not split by the old tracking_mode - a no-log streak
+    // matters just as much with no plan as with one (nutritionV2Math.js's
+    // recentAlertSignals uses a longer, 7-day threshold with no plan,
+    // same cadence the old food_log-only check used; a shorter 2-day
+    // threshold once a plan is actually live, same as the old
+    // prescribed_plan-only check). Low-adherence/heavy-extras only ever
+    // fire when a plan exists, since both are plan-relative.
+    const signals = recentAlertSignals(normalizePlans(c.nutritionV2Plans), normalizeLogs(c.nutritionV2Logs), normalizeMarks(c.nutritionV2Marks), isoDate());
+    if (signals.noLogDays >= signals.noLogThreshold) {
+      items.push({ id: `nutlog_${c.id}`, type: "no_nutrition_log", severity: 4, client: c, text: signals.hasCurrentPlan ? `${c.name} hasn't logged their plan in ${signals.noLogDays} days` : `${c.name} hasn't logged food in ${signals.noLogDays} days` });
     }
+    if (signals.lowAdherence) items.push({ id: `nutadh_${c.id}`, type: "nutrition_adherence", severity: 3, client: c, text: `${c.name}'s plan adherence has averaged ${Math.round(signals.avgAdherence * 100)}% over the last ${LOW_ADHERENCE_WINDOW_DAYS} days` });
+    if (signals.heavyExtrasDays >= HEAVY_EXTRAS_DAYS_OF_7) items.push({ id: `nutextra_${c.id}`, type: "heavy_extras", severity: 4, client: c, text: `${c.name} has logged heavy extras on ${signals.heavyExtrasDays} of the last 7 days` });
   });
   return items.sort((a, b) => a.severity - b.severity);
 }
@@ -450,7 +447,7 @@ export function CoachToolsTab({ onOpen }) {
     { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
     { key: "automations", name: "Automations", meta: "Reminders & nudges", icon: "automations", color: BRAND.orange },
     { key: "foods", name: "Foods", meta: "Food library for nutrition plans", icon: "foods", color: BRAND.green },
-    { key: "nutrition_plans", name: "Nutrition Plans", meta: "Build & assign meal plans", icon: "nutrition_plans", color: BRAND.gold },
+    { key: "nutrition_dashboard", name: "Nutrition", meta: "Who needs attention today", icon: "foods", color: BRAND.red },
   ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
@@ -831,9 +828,6 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
     <SettingsGlassSection label="Notifications">
       <CoachSettingsRow k="Automations & reminders" v="Open ›" onClick={() => onOpenTool?.("automations")} last />
     </SettingsGlassSection>
-    <SettingsGlassSection label="Nutrition">
-      <CoachSettingsRow k="Studio guidelines" v="Open ›" onClick={() => onOpenTool?.("nutrition_guidelines")} last />
-    </SettingsGlassSection>
     <SettingsGlassSection label="Account">
       <CoachSettingsRow k="Active clients" v={String(clientsCount)} />
       <CoachSettingsRow k="Sync" v={syncLabel} last />
@@ -859,7 +853,6 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   const screen = screenProp !== undefined ? screenProp : screenState;
   const setScreen = setScreenProp || setScreenState;
   const [toolOrigin, setToolOrigin] = useState("tools");
-  const [planBuilderId, setPlanBuilderId] = useState(null);
   const [query, setQuery] = useState("");
   const [templatesCount, setTemplatesCount] = useState(0);
   const [trialsCount, setTrialsCount] = useState(0);
@@ -923,11 +916,9 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
     await refresh();
     return data.id;
   }
-  function goHome() { setScreen(null); setTab(toolOrigin); setPlanBuilderId(null); }
+  function goHome() { setScreen(null); setTab(toolOrigin); }
   let body;
   if (screen === "templates") body = <CoachTemplates user={user} clients={clients} refresh={refresh} onBack={goHome} />;
-  else if (screen === "nutrition_plans") body = <NutritionPlansScreen trainerId={user.id} onBack={goHome} onOpenBuilder={(id) => { setPlanBuilderId(id); setScreen("plan_builder"); }} />;
-  else if (screen === "plan_builder") body = <PlanBuilder trainerId={user.id} templateId={planBuilderId} clients={clients} refresh={refresh} onExit={goHome} onSelectTemplate={(id) => setPlanBuilderId(id)} />;
   else if (screen === "calendar") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Calendar clients={clients} refresh={refresh} user={user} /></>;
   else if (screen === "analytics") body = <CoachAnalytics clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "trials") body = <><Button variant="ghost" onClick={goHome} style={{ padding: "8px 14px", marginBottom: 12 }}>‹ Back</Button><Trials user={user} onConvert={convertTrialToClient} /></>;
@@ -940,7 +931,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "foods") body = <FoodsLibraryScreen trainerId={user.id} onBack={goHome} />;
-  else if (screen === "nutrition_guidelines") body = <NutritionGuidelinesScreen trainerId={user.id} onBack={goHome} />;
+  else if (screen === "nutrition_dashboard") body = <CoachNutritionDashboard clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}
