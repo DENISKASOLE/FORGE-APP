@@ -1,3 +1,30 @@
+# Nutrition: fixed the dead-end substitution sheet — decisions log
+
+Denis sent screenshots of the Food log's "Substitute" flow: pick a
+reason, type what was actually eaten instead, and nothing happens - no
+Apply/Save, only Cancel. Root cause: `SubstituteSheet` only ever
+searched the trainer's small local food library (never FatSecret),
+unlike every other food-adding surface in the app (Add food, Build a
+meal both search local + FatSecret). Type anything not in that library
+and there was no match to tap and no other way to submit - a genuine
+dead end, not a display glitch.
+
+Fixed by bringing it to parity with those other two surfaces: local +
+FatSecret search, plus a new "Describe it" fallback for the remaining
+case where a food isn't in either database - type a name and (optional)
+macros and log it directly. That fallback is modeled on HubFit's "Quick
+Log" pattern (researched live - HubFit, a nutrition-coaching
+competitor, ships exactly this: log a meal's macros directly without
+finding it in a database first), which is also just this app's existing
+"Quick add" pattern, already used in the regular Add food sheet,
+extended to substitutions.
+
+Both paths now hand the caller one plain `{name, foodId, qty, unit,
+macros, reason}` object instead of a raw food row, which the Overview
+tab turns into a log entry - simpler than the old food-row-only
+plumbing and the same shape regardless of where the substitution came
+from.
+
 # PAR-Q moved from a Training gate to a soft Profile prompt — decisions log
 
 Denis asked to remove the PAR-Q health screening gate from Training
