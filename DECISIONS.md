@@ -1,3 +1,26 @@
+# Client bottom nav: Progress replaces AI Coach — decisions log
+
+Denis asked to swap the two: Progress (Trends/Photos/Check-ins - the
+`ProgressHub` screen, previously only reachable via Me → Progress) is
+now its own bottom-nav icon, and AI Coach moves into Me as a tile
+instead.
+
+`CLIENT_BOTTOM_NAV` (`ClientShellUI.jsx`) drives which bottom-nav icon
+highlights for a given `tab` value via each entry's `group` array - a
+cosmetic-only list, not a router. Moved `progress_hub`/`progress` out
+of `me_hub`'s group and into a new bottom-nav entry's group, and added
+`ai_coach` to `me_hub`'s group. `photos`/`checkins` stay with Me - they
+were never reached through `ProgressHub` itself (that screen's own
+Trends/Photos/Check-in switcher is internal component state, not the
+outer `tab`), only through other, unrelated entry points (Train hub's
+own direct Photos tile), so moving Progress didn't need to touch them.
+
+`ClientView.jsx`'s `meCards` swapped its "Progress" tile for an
+"AI Coach" one, and `parentHub` (which shows the "Back to Me" link)
+swapped `progress_hub` for `ai_coach` in its membership check for the
+same reason - whichever of the two is nested under Me needs that link,
+not both.
+
 # Nutrition: fixed the dead-end substitution sheet — decisions log
 
 Denis sent screenshots of the Food log's "Substitute" flow: pick a
