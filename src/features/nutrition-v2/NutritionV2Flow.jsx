@@ -407,14 +407,13 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
         <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ background: "none", border: "none", color: NT.dim, fontSize: 18, cursor: "pointer" }}>›</button>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {[["overview", "Overview"], ["plan", "Meal plan"], ["log", "Food log"], ["progress", "Progress"]].map(([k, l]) => (
+        {[["overview", "Overview"], ["plan", "Meal plan"], ["log", "Food log"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={pillBtnStyle(tab === k)}>{l}</button>
         ))}
       </div>
       {tab === "overview" && <OverviewTab dateISO={dateISO} today={today} signedPlan={signedPlan} dateEntries={dateEntries} dateMarks={dateMarks} foods={foods} onWrite={writeDay} />}
       {tab === "plan" && <MealPlanTab signedPlan={signedPlan} />}
       {tab === "log" && <ClientFoodLogTab client={client} updateClient={updateClient} logs={allEntriesForHistory} dateEntries={dateEntries} foods={foods} editable={dateISO <= today} onWrite={writeDay} />}
-      {tab === "progress" && <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach={false} plans={plans} logs={logs} marks={marks} />}
     </div>
   );
 }
