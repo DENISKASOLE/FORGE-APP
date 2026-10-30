@@ -531,6 +531,8 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   useEffect(() => { if (trainerId) loadExerciseLibraryData(trainerId).then(setCustomExercises); }, [trainerId]);
   const [subFor, setSubFor] = useState(null);
   const [subQuery, setSubQuery] = useState("");
+  const [addingExercise, setAddingExercise] = useState(false);
+  const [addQuery, setAddQuery] = useState("");
   const [rest, setRest] = useState(null);
   const [finished, setFinished] = useState(() => (session.status === "completed" ? session : null));
   const [rpePickerFor, setRpePickerFor] = useState(null); // `${entryId}:${si}` of the set currently choosing an RPE, or null
@@ -563,6 +565,22 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     if (restSec > 0) setRest({ until: Date.now() + restSec * 1000, total: restSec });
   }
   function finish() { const completed = { ...session, status: "completed", completedAt: new Date().toISOString() }; setFinished(completed); onUpdate(completed); }
+  // An exercise logged on the fly at the end of a workout - never part of
+  // the program, so exerciseId/blockId stay null (same "no backing plan
+  // item" convention addSet() above already uses for setId) rather than
+  // inventing fake ids that could collide with a real block/exercise.
+  function addAdHocExercise(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const entry = {
+      id: uid(), exerciseId: null, blockId: null, tag: "", name: trimmed, substitutedName: "",
+      sets: [0, 1, 2].map(() => ({ setId: null, reps: "", load: "", duration: "", rpe: "", done: false })),
+    };
+    onUpdate({ ...session, entries: [...session.entries, entry] });
+    setCurrent(total);
+    setAddingExercise(false);
+    setAddQuery("");
+  }
   function handleExit() { if (session.startedAt && session.status !== "completed") { const e = Math.round((Date.now() - new Date(session.startedAt)) / 1000); onUpdate({ ...session, startedAt: null, elapsedSec: e }); } onExit(); }
   function adjustRest(delta) { if (rest && restLeft > 0) { const nl = Math.max(5, restLeft + delta); setRest({ until: Date.now() + nl * 1000, total: Math.max(rest.total, nl) }); } else { const base = Math.max(15, restTotal + delta); setRest({ until: Date.now() + base * 1000, total: base }); } }
   const sessionRef = useRef(session); sessionRef.current = session;
@@ -692,8 +710,28 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       </Card>
       <div style={{ display: "flex", gap: 8 }}>
         {cur > 0 && <Button variant="dark" onClick={() => { setCurrent(cur - 1); setRest(null); }} style={{ flex: 1 }}>Back</Button>}
-        {cur < total - 1 ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise ›</Button> : <Button onClick={finish} style={{ flex: 2 }}>Finish workout</Button>}
+        {cur < total - 1
+          ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise ›</Button>
+          : <>
+              <Button variant="dark" onClick={() => setAddingExercise(true)} style={{ flex: 1 }}>+ Add exercise</Button>
+              <Button onClick={finish} style={{ flex: 1 }}>Finish workout</Button>
+            </>}
       </div>
+      {cur === total - 1 && addingExercise && (
+        <Card style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Add an exercise</div>
+          <input placeholder="Search exercises..." value={addQuery} onChange={(e) => setAddQuery(e.target.value)} style={inputStyle()} autoFocus />
+          {addQuery && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {exerciseLibrary.filter((n) => n.toLowerCase().includes(addQuery.toLowerCase())).slice(0, 10).map((n) => (
+                <button key={n} onClick={() => addAdHocExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>{n}</button>
+              ))}
+              <button onClick={() => addAdHocExercise(addQuery)} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ Add: {addQuery.trim()}</button>
+            </div>
+          )}
+          <Button variant="ghost" onClick={() => { setAddingExercise(false); setAddQuery(""); }}>Cancel</Button>
+        </Card>
+      )}
       <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "center" }}>{total - cur - 1 > 0 ? `${total - cur - 1} exercise${total - cur - 1 === 1 ? "" : "s"} left` : "Last exercise"}</div>
     </div>
     {playingVideo && <VideoPlayerModal videoId={playingVideo.videoId} title={playingVideo.title} onClose={() => setPlayingVideo(null)} />}
