@@ -134,8 +134,8 @@ export const CLIENT_BOTTOM_NAV = [
   { key: "home", label: "Home", icon: "home", group: ["home", "learn"] },
   { key: "program", label: "Train", icon: "train", group: ["program", "train_hub"] },
   { key: "nutrition", label: "Fuel", icon: "food", group: ["nutrition"] },
-  { key: "ai_coach", label: "AI Coach", icon: "msg", group: ["ai_coach"] },
-  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "progress_hub", "progress", "photos", "checkins", "measurements"] },
+  { key: "progress_hub", label: "Progress", icon: "progress", group: ["progress_hub", "progress"] },
+  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "ai_coach", "photos", "checkins", "measurements"] },
 ];
 export function ClientBottomNav({ tab, setTab, unreadMessages }) {
   return (
