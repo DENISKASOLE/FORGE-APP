@@ -13,7 +13,7 @@ import { updateClientRow } from "../../lib/cache.js";
 import { compressImage } from "../../lib/compressImage.js";
 import { uploadClientPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
 import { showToast } from "../../components/ui/Toast.jsx";
-import { SignedScreeningView } from "../screening/SignedScreeningView.jsx";
+import { HealthScreeningSection } from "../screening/HealthScreeningSection.jsx";
 
 const labelStyle = { fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" };
 const sectionHeadStyle = { fontFamily: BRAND.sans, color: BRAND.dim, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 20, marginBottom: 10, borderTop: `${BRAND.hairline} solid ${BRAND.line}`, paddingTop: 16 };
@@ -108,7 +108,7 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
 
   return (
     <Card style={{ padding: isMobile ? 14 : 18 }}>
-      <div style={{ marginBottom: 14 }}><SignedScreeningView client={client} /></div>
+      <div style={{ marginBottom: 14 }}><HealthScreeningSection client={client} isCoach={isCoach} /></div>
 
       {isCoach ? (
         <div style={{ marginBottom: 16, padding: 12, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard }}>

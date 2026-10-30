@@ -29,7 +29,6 @@ import { HabitLogCard } from "../nutrition/HabitLogCard.jsx";
 import { normalizePlans, normalizeLogs, normalizeMarks } from "../../lib/nutritionV2.js";
 import { MEAL_KEYS } from "../nutrition-v2/nutritionV2Model.js";
 import { planForDate, mealStatus, mergeLegacyMacroLog } from "../nutrition-v2/nutritionV2Math.js";
-import { ScreeningGate } from "../screening/ScreeningGate.jsx";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 
 // `tab`/`setTab` are optionally controlled: pass them (e.g. from a router
@@ -65,9 +64,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const content = <>
     {tab === "home" && <ClientHome client={client} updateClient={updateClient} goTo={!isCoach ? setTab : undefined} />}
     {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
-    {tab === "program" && (isCoach
-      ? <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />
-      : <ScreeningGate client={client}><ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} /></ScreeningGate>)}
+    {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "nutrition" && <NutritionFlow client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "progress" && <ProgressTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "progress_hub" && <ProgressHub client={client} updateClient={updateClient} isCoach={isCoach} />}
