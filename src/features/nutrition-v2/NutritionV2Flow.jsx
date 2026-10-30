@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chip } from "../../components/ui/Chip.jsx";
+import { Field } from "../../components/ui/Field.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
 import { uid } from "../../lib/uid.js";
 import { loadFoodLibrary } from "../../lib/nutritionPlan.js";
+import { useFatSecretResults } from "../../lib/fatsecret.js";
 import { normalizePlans, normalizeLogs, normalizeMarks, logsForDate, marksForDate, saveLogs, saveMarks } from "../../lib/nutritionV2.js";
-import { foodRefFromRow, normalizeFoodRow, unitGramsFor } from "./nutritionV2Model.js";
+import { normalizeFoodRow, unitGramsFor, fatSecretFoodRow } from "./nutritionV2Model.js";
 import { itemMacros, mealTotals, planForDate, mealStatus, unplannedEntries, loggedDayTotals, mergeLegacyMacroLog, addDaysISO } from "./nutritionV2Math.js";
 import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
 import { ClientFoodLogTab } from "./ClientFoodLogTab.jsx";
 import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
 import { Ring, MacroBarRow } from "./NutritionRing.jsx";
+import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
 
 const PORTION_CHIPS = [["None", 0], ["Half", 0.5], ["Three quarters", 0.75], ["All", 1]];
@@ -50,31 +53,94 @@ function PortionSheet({ meal, onClose, onApply }) {
   );
 }
 
+// Search (local library + FatSecret, same as the regular food log) finds
+// an exact match to log with real macros. "Describe it" is the fallback
+// for anything that isn't in either database - a HubFit-style Quick Log:
+// type what you had and its macros (roughly, if known) and log it as-is,
+// rather than leaving a client stuck with no way to submit. Either path
+// hands the caller one plain {name, foodId, qty, unit, macros, reason}
+// object - OverviewTab's applySub() just finishes it into a log entry.
 function SubstituteSheet({ meal, foods, onClose, onApply }) {
+  const [mode, setMode] = useState("search"); // 'search' | 'quick'
   const [query, setQuery] = useState("");
   const [reason, setReason] = useState(null);
+  const [fsPick, setFsPick] = useState(null);
+  const [quick, setQuick] = useState({ name: "", kcal: "", protein: "", carbs: "", fat: "" });
   const q = query.trim().toLowerCase();
   const matches = useMemo(() => (q ? foods.filter((f) => !f.archived && f.name.toLowerCase().includes(q)).slice(0, 8) : []), [foods, q]);
+  const { results: fsResults, loading: fsLoading } = useFatSecretResults(query);
   const reasons = ["Schedule", "Eating out", "Preference", "Not available", "Not hungry"];
+
+  function pickLocal(foodRow) {
+    const food = normalizeFoodRow(foodRow);
+    const qty = food.unit === "piece" ? 1 : 100;
+    const unit = food.unit === "piece" ? "piece" : food.unit;
+    const factor = (qty * unitGramsFor(food, unit)) / (food.basisGrams || 100);
+    onApply({ name: food.name, foodId: food.id, qty, unit, macros: { kcal: food.kcal * factor, protein: food.protein * factor, carbs: food.carbs * factor, fat: food.fat * factor }, reason });
+  }
+  function pickFatSecret(serving, multiplier) {
+    const food = normalizeFoodRow(fatSecretFoodRow(fsPick, serving));
+    const factor = (multiplier * unitGramsFor(food, food.unit)) / (food.basisGrams || 100);
+    onApply({ name: food.name, foodId: food.id, qty: multiplier, unit: food.unit, macros: { kcal: food.kcal * factor, protein: food.protein * factor, carbs: food.carbs * factor, fat: food.fat * factor }, reason });
+    setFsPick(null);
+  }
+  function logQuick() {
+    if (!quick.name.trim()) { showToast("Describe what you had.", "warn"); return; }
+    onApply({ name: quick.name.trim(), foodId: null, qty: null, unit: null, macros: { kcal: Number(quick.kcal) || 0, protein: Number(quick.protein) || 0, carbs: Number(quick.carbs) || 0, fat: Number(quick.fat) || 0 }, reason });
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 440, background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
+      <div style={{ width: "100%", maxWidth: 440, maxHeight: "88vh", overflow: "auto", background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
         <div style={{ fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted, marginBottom: 4 }}>Log a substitution for {meal.name}</div>
         <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 12, marginBottom: 12 }}>The prescription stays as-is — your coach sees both.</div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
           {reasons.map((r) => <button key={r} onClick={() => setReason(reason === r ? null : r)} style={pillBtnStyle(reason === r)}>{r}</button>)}
         </div>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What did you have instead?"
-          style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${NT.lineSoft}`, background: NT.card2, color: NT.text, fontFamily: NT.sans, fontSize: 13.5, padding: "11px 14px", borderRadius: 14, outline: "none", marginBottom: 8 }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflow: "auto" }}>
-          {matches.map((f) => (
-            <button key={f.id} onClick={() => onApply(f, f.unit === "piece" ? 1 : 100, f.unit === "piece" ? "piece" : f.unit, reason)} style={{ display: "flex", justifyContent: "space-between", textAlign: "left", background: NT.card2, border: "none", borderRadius: 10, padding: "10px 12px", color: NT.text, fontFamily: NT.sans, fontSize: 13, cursor: "pointer" }}>
-              <span>{f.name}</span><span style={{ color: NT.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
-            </button>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          {[["search", "Search"], ["quick", "Describe it"]].map(([k, l]) => (
+            <button key={k} onClick={() => setMode(k)} style={{ border: `1px solid ${mode === k ? "transparent" : NT.lineSoft}`, background: mode === k ? NT.accent : "transparent", color: mode === k ? NT.bg : NT.muted, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, padding: "9px 14px", borderRadius: 999, cursor: "pointer" }}>{l}</button>
           ))}
         </div>
+
+        {mode === "search" ? (
+          <>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What did you have instead?" autoFocus
+              style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${NT.lineSoft}`, background: NT.card2, color: NT.text, fontFamily: NT.sans, fontSize: 13.5, padding: "11px 14px", borderRadius: 14, outline: "none", marginBottom: 8 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflow: "auto" }}>
+              {matches.map((f) => (
+                <button key={f.id} onClick={() => pickLocal(f)} style={{ display: "flex", justifyContent: "space-between", textAlign: "left", background: NT.card2, border: "none", borderRadius: 10, padding: "10px 12px", color: NT.text, fontFamily: NT.sans, fontSize: 13, cursor: "pointer" }}>
+                  <span>{f.name}</span><span style={{ color: NT.dim, fontSize: 11 }}>{f.kcal} kcal/100{f.unit === "ml" ? "ml" : "g"}</span>
+                </button>
+              ))}
+              {q && matches.length === 0 && fsResults.length === 0 && !fsLoading && (
+                <div style={{ color: NT.muted, fontSize: 12, padding: "6px 2px" }}>No foods match "{query.trim()}" yet — try <button onClick={() => setMode("quick")} style={{ background: "none", border: "none", color: NT.accent, fontFamily: NT.sans, fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>describing it</button> instead.</div>
+              )}
+              {fsResults.length > 0 && (
+                <>
+                  {matches.length > 0 && <FatSecretGroupLabel />}
+                  {fsResults.map((f) => <FatSecretResultRow key={f.id} food={f} onClick={() => setFsPick(f)} />)}
+                </>
+              )}
+              {fsLoading && <div style={{ color: NT.dim, fontSize: 11, padding: "6px 2px" }}>Searching FatSecret...</div>}
+            </div>
+          </>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Field label="What did you have?" value={quick.name} onChange={(v) => setQuick((q2) => ({ ...q2, name: v }))} placeholder="e.g. Oatmeal with berries" />
+            <div style={{ color: NT.dim, fontFamily: NT.sans, fontSize: 11 }}>Macros optional — leave blank if you're not sure.</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+              <Field label="Kcal" type="number" value={quick.kcal} onChange={(v) => setQuick((q2) => ({ ...q2, kcal: v }))} />
+              <Field label="Protein" type="number" value={quick.protein} onChange={(v) => setQuick((q2) => ({ ...q2, protein: v }))} />
+              <Field label="Carbs" type="number" value={quick.carbs} onChange={(v) => setQuick((q2) => ({ ...q2, carbs: v }))} />
+              <Field label="Fat" type="number" value={quick.fat} onChange={(v) => setQuick((q2) => ({ ...q2, fat: v }))} />
+            </div>
+            <button onClick={logQuick} style={{ background: NT.accent, border: "none", color: NT.bg, fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: 13, borderRadius: 14, cursor: "pointer" }}>Log substitution</button>
+          </div>
+        )}
         <button onClick={onClose} style={{ marginTop: 14, width: "100%", background: "transparent", border: `1px solid ${NT.lineSoft}`, color: NT.muted, fontFamily: NT.sans, fontSize: 13, fontWeight: 600, padding: 13, borderRadius: 14, cursor: "pointer" }}>Cancel</button>
       </div>
+      {fsPick && <FatSecretServingSheet food={fsPick} onClose={() => setFsPick(null)} onAdd={pickFatSecret} />}
     </div>
   );
 }
@@ -106,7 +172,7 @@ function ClientMealCard({ meal, status, dateEntries, editable, showLine, onConfi
         </div>
         {status === "substituted" && subEntries.length > 0 && (
           <div style={{ background: NT.card2, borderRadius: 10, padding: 10, fontFamily: NT.sans, fontSize: 12, color: NT.text }}>
-            Actually eaten: {subEntries.map((e) => `${e.name} ${e.qty}${e.unit === "piece" ? "" : e.unit}${e.reason ? ` · ${e.reason}` : ""}`).join(", ")}
+            Actually eaten: {subEntries.map((e) => `${e.name}${e.qty ? ` ${e.qty}${e.unit === "piece" ? "" : e.unit}` : ""}${e.reason ? ` · ${e.reason}` : ""}`).join(", ")}
           </div>
         )}
         {(status === "eaten" || status === "partial") && confirmedEntries.length > 0 && (
@@ -149,12 +215,9 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
     setEditingMeal(null);
     showToast(pct > 0 ? `${meal.name} portion saved.` : `${meal.name}: nothing logged.`, "success");
   }
-  async function applySub(meal, foodRow, qty, unit, reason) {
-    const food = foodRefFromRow(foodRow);
-    const factor = (Number(qty) * unitGramsFor(food, unit)) / (food.basisGrams || 100);
-    const macros = { kcal: food.macros.kcal * factor, protein: food.macros.protein * factor, carbs: food.macros.carbs * factor, fat: food.macros.fat * factor };
+  async function applySub(meal, sub) {
     const kept = dateEntries.filter((e) => !(e.source === "confirm" && e.meal === meal.key));
-    const entry = { id: uid(), date: dateISO, meal: meal.key, name: food.name, foodId: food.foodId, qty, unit, macros, source: "sub", time: nowHHMM(), planItemId: null, estimate: false, replaces: meal.key, reason };
+    const entry = { id: uid(), date: dateISO, meal: meal.key, name: sub.name, foodId: sub.foodId, qty: sub.qty, unit: sub.unit, macros: sub.macros, source: "sub", time: nowHHMM(), planItemId: null, estimate: false, replaces: meal.key, reason: sub.reason };
     await onWrite([...kept, entry], dateMarks);
     setEditingMeal(null);
     showToast(`Logged as a substitution for ${meal.name}.`, "success");
@@ -222,7 +285,7 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
       )}
 
       {editingMeal?.mode === "portion" && <PortionSheet meal={editingMeal.meal} onClose={() => setEditingMeal(null)} onApply={(pct) => applyPortion(editingMeal.meal, pct)} />}
-      {editingMeal?.mode === "sub" && <SubstituteSheet meal={editingMeal.meal} foods={foods} onClose={() => setEditingMeal(null)} onApply={(f, q, u, r) => applySub(editingMeal.meal, f, q, u, r)} />}
+      {editingMeal?.mode === "sub" && <SubstituteSheet meal={editingMeal.meal} foods={foods} onClose={() => setEditingMeal(null)} onApply={(sub) => applySub(editingMeal.meal, sub)} />}
     </div>
   );
 }
