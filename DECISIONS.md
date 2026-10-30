@@ -1,3 +1,29 @@
+# Completed sessions: "Edit logs" replaces "Log again" — decisions log
+
+Denis wanted a completed session to be editable, not just re-loggable
+from scratch - "Log again" used to call the same `startOrContinue()` as
+a fresh workout, which created a brand new session (blank sets again)
+rather than letting a typo or missed set be fixed in place.
+
+`SessionReport`'s button now calls a new `editSession()` (ProgramTab)
+that hands the already-completed session straight to `WorkoutSession`
+unmodified, plus a new `editing` prop on `WorkoutSession` so it opens
+the exercise stepper (pre-filled with the logged values) instead of the
+post-session summary screen.
+
+The one thing this absolutely could not do: touch `status` or
+`completedAt`. `buildProgramDays` keys a day's "completed" calendar
+state purely off `session.status` - flip that to "in_progress" to
+enable editing and a client who opens an old session, makes no changes,
+and taps Exit would silently un-complete a real workout (the existing
+exit/unmount cleanup already clears `startedAt` for any non-completed
+session). So editing leaves status untouched throughout: the final-step
+button becomes "Done editing" (just exits, no `finish()` call), and the
+elapsed-time pill shows a static "Editing" label instead of a clock
+ticking up from the original, possibly days-old `startedAt`. Every edit
+is already persisted live through the same `onUpdate` path first-time
+logging uses, so there's nothing left to "finish" into on exit.
+
 # Workout session: add an exercise at the end — decisions log
 
 Denis asked for a way to log an exercise that wasn't in the program -
