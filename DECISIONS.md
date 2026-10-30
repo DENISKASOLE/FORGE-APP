@@ -1,3 +1,24 @@
+# Workout session: add an exercise at the end — decisions log
+
+Denis asked for a way to log an exercise that wasn't in the program -
+at the end of a workout, the single "Finish workout" button is now
+paired with "+ Add exercise", opening a search (same picker pattern as
+the coach's Program Builder and the session's own "Swap exercise")
+with a "+ Add: <typed name>" fallback for anything not found.
+
+The new log entry carries `exerciseId: null, blockId: null` rather than
+a fake generated id - it was never part of the program, so there's
+nothing to back-reference, same reasoning `addSet()` already applies to
+a manually-added set's `setId`. Checked every consumer of session
+entries (`groupSessionSteps`, `sessionStatsV2`, `detectSessionPBs`,
+`sessionEntriesV2`) before relying on this: all of them key off an
+entry's own `name`/`sets`, never `exerciseId`, so volume, PB detection,
+and progress trends pick up an ad-hoc exercise with no special-casing.
+
+Picking an exercise jumps straight to logging it, and because it's
+appended as the new last entry, that becomes the new "last exercise" -
+the same two buttons reappear, so a client can chain-add more than one.
+
 # Client bottom nav: Progress replaces AI Coach — decisions log
 
 Denis asked to swap the two: Progress (Trends/Photos/Check-ins - the
