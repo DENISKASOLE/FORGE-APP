@@ -522,7 +522,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
 }
 
 // ---------- Client: Live Workout Session ----------
-export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit }) {
+export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit, editing = false }) {
   const isMobile = useIsMobile(520);
   const exerciseLibrary = useExerciseLibrary();
   const taxonomyMap = useExerciseTaxonomyMap();
@@ -534,7 +534,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const [addingExercise, setAddingExercise] = useState(false);
   const [addQuery, setAddQuery] = useState("");
   const [rest, setRest] = useState(null);
-  const [finished, setFinished] = useState(() => (session.status === "completed" ? session : null));
+  const [finished, setFinished] = useState(() => (session.status === "completed" && !editing ? session : null));
   const [rpePickerFor, setRpePickerFor] = useState(null); // `${entryId}:${si}` of the set currently choosing an RPE, or null
   const [playingVideo, setPlayingVideo] = useState(null); // { videoId, title } or null
   const [current, setCurrent] = useState(0);
@@ -564,6 +564,10 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     const restSec = parseSeconds(meta?.ex.rest || "");
     if (restSec > 0) setRest({ until: Date.now() + restSec * 1000, total: restSec });
   }
+  // Only reachable when !editing (the last-step button calls handleExit
+  // instead while editing) - an already-completed session's status and
+  // completedAt stay untouched throughout an edit (see editSession() in
+  // ProgramTab), so there's never a stale completedAt to overwrite here.
   function finish() { const completed = { ...session, status: "completed", completedAt: new Date().toISOString() }; setFinished(completed); onUpdate(completed); }
   // An exercise logged on the fly at the end of a workout - never part of
   // the program, so exerciseId/blockId stay null (same "no backing plan
@@ -647,7 +651,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer", padding: 0 }}>‹ Exit</button>
-        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "5px 11px", fontWeight: 500, color: BRAND.gold, fontSize: 13 }}>{elapsed > 0 ? fmtClock(elapsed) : "0:00"}</div>
+        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "5px 11px", fontWeight: 500, color: BRAND.gold, fontSize: 13 }}>{editing ? "Editing" : (elapsed > 0 ? fmtClock(elapsed) : "0:00")}</div>
       </div>
       {isSuperset ? (
         <SupersetLogger
@@ -714,7 +718,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
           ? <Button onClick={() => { setCurrent(cur + 1); setRest(null); }} style={{ flex: 2 }}>Next exercise ›</Button>
           : <>
               <Button variant="dark" onClick={() => setAddingExercise(true)} style={{ flex: 1 }}>+ Add exercise</Button>
-              <Button onClick={finish} style={{ flex: 1 }}>Finish workout</Button>
+              <Button onClick={editing ? handleExit : finish} style={{ flex: 1 }}>{editing ? "Done editing" : "Finish workout"}</Button>
             </>}
       </div>
       {cur === total - 1 && addingExercise && (
@@ -893,7 +897,7 @@ export function ProgramMonthView({ days, cursor, setCursor, currentWeek, onOpen 
 // ---------- Completed day: the session report ----------
 // A record of what was actually done, not a place to log. Prescribed sits next
 // to actual, because the gap between them is the coaching.
-export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachNote, isCoach }) {
+export function SessionReport({ client, day, logs, onBack, onEdit, onSaveCoachNote, isCoach }) {
   const session = day.session;
   const [note, setNote] = useState(session?.coachNote || "");
   const [saved, setSaved] = useState(false);
@@ -910,7 +914,7 @@ export function SessionReport({ client, day, logs, onBack, onStart, onSaveCoachN
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 4 }}>
           <div style={{ fontSize: 24, fontWeight: 500 }}>{day.workout.name}</div>
-          {onStart && <Button variant="dark" onClick={() => onStart(day)}>Log again</Button>}
+          {onEdit && <Button variant="dark" onClick={() => onEdit(session)}>Edit logs</Button>}
         </div>
         <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>
           Completed{stats.durationSec > 0 ? ` · ${fmtClock(stats.durationSec)}` : ""}{session.sessionRpe ? ` · Session RPE ${session.sessionRpe}` : ""}
@@ -1068,11 +1072,18 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   }
   function updateLive(session) { setLive(session); saveLogs(upsertSessionInLogs(logs, session)); }
   function saveCoachNote(session, coachNote) { saveLogs(upsertSessionInLogs(logs, { ...session, coachNote })); }
+  // Reopens an already-completed session to correct its logged sets,
+  // rather than starting a new one - status/completedAt are left exactly
+  // as they are (never flipped to "in_progress", never touched here), so
+  // a client exiting mid-edit without re-saving anything can't accidentally
+  // un-complete a finished workout (buildProgramDays keys a day's
+  // "completed" state purely off session.status).
+  function editSession(session) { setLive(session); }
   if (live && program) {
     const liveWeek = program.weeks.find((w) => w.id === live.weekId);
     const liveWorkout = liveWeek?.workouts.find((w) => w.id === live.workoutId);
     const logsBefore = { ...logs, sessions: (logs?.sessions || []).filter((s) => s.id !== live.id) };
-    return <WorkoutSession client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} />;
+    return <WorkoutSession client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} editing={live.status === "completed"} />;
   }
   const openDay = openKey ? days.find((d) => d.key === openKey) : null;
   const todayISO = isoDate(new Date());
@@ -1094,7 +1105,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       {!program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
       {program && openDay && (
         openDay.state === "completed"
-          ? <SessionReport client={client} day={openDay} logs={logs} isCoach={isCoach} onBack={() => setOpenKey(null)} onSaveCoachNote={saveCoachNote} onStart={startOrContinue} />
+          ? <SessionReport client={client} day={openDay} logs={logs} isCoach={isCoach} onBack={() => setOpenKey(null)} onSaveCoachNote={saveCoachNote} onEdit={editSession} />
           : <DayDetail day={openDay} onBack={() => setOpenKey(null)} onStart={startOrContinue} canStart={!openDay.isRest && (isCoach || (openDay.dateISO >= isoDate(startOfWeek(new Date())) && openDay.dateISO <= isoDate(addDays(startOfWeek(new Date()), 6))))} />
       )}
       {program && !openDay && (
