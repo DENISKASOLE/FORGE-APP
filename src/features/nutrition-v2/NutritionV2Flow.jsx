@@ -16,6 +16,11 @@ import { Ring, MacroBarRow } from "./NutritionRing.jsx";
 import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
 
+// A one-off light-blue treatment for the Overview hero card, by explicit
+// request - deliberately plain hex, not NT tokens, since this card is
+// meant to stand apart from the rest of the (app-native, theme-adaptive)
+// nutrition screens rather than ride light/dark mode like everything else.
+const HERO_BLUE = { bg: "#D7ECFF", border: "#B9DEFF", ring: "#1C6FD1", ringTrack: "#BFE0FF", pill: "#BFE0FF", text: "#0F2F4D", muted: "#4A6B86" };
 const PORTION_CHIPS = [["None", 0], ["Half", 0.5], ["Three quarters", 0.75], ["All", 1]];
 const STATUS_META = {
   eaten: ["As planned", NT.protein], partial: ["Partly eaten", NT.accent], substituted: ["Substituted", NT.fat],
@@ -235,20 +240,20 @@ function OverviewTab({ dateISO, today, signedPlan, dateEntries, dateMarks, foods
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 28, padding: "28px 24px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-        <Ring value={totals.kcal} max={target.kcal || totals.kcal || 1} size={188} stroke={14} color={MACRO_COLORS.kcal}>
-          <span style={{ fontFamily: NT.display, fontSize: 40, fontWeight: 620, lineHeight: 1, color: NT.text }}>{Math.round(totals.kcal)}</span>
-          <span style={{ fontFamily: NT.sans, fontSize: 11, color: NT.dim }}>of {Math.round(target.kcal || 0) || "—"} kcal</span>
+      <div style={{ background: HERO_BLUE.bg, border: `1px solid ${HERO_BLUE.border}`, borderRadius: 22, padding: "18px 18px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <Ring value={totals.kcal} max={target.kcal || totals.kcal || 1} size={140} stroke={11} color={HERO_BLUE.ring} trackColor={HERO_BLUE.ringTrack}>
+          <span style={{ fontFamily: NT.display, fontSize: 30, fontWeight: 620, lineHeight: 1, color: HERO_BLUE.text }}>{Math.round(totals.kcal)}</span>
+          <span style={{ fontFamily: NT.sans, fontSize: 10, color: HERO_BLUE.muted }}>of {Math.round(target.kcal || 0) || "—"} kcal</span>
           {target.kcal > 0 && (
-            <span style={{ marginTop: 6, fontFamily: NT.sans, fontSize: 11, fontWeight: 600, color: NT.accent, background: NT.accentBg, padding: "3px 10px", borderRadius: 999 }}>
+            <span style={{ marginTop: 5, fontFamily: NT.sans, fontSize: 10, fontWeight: 600, color: HERO_BLUE.text, background: HERO_BLUE.pill, padding: "2px 9px", borderRadius: 999 }}>
               {target.kcal - totals.kcal >= 0 ? `${Math.round(target.kcal - totals.kcal)} left` : `${Math.round(totals.kcal - target.kcal)} over`}
             </span>
           )}
         </Ring>
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-          <MacroBarRow label="Protein" color={MACRO_COLORS.protein} pct={(totals.protein / maxMacro) * 100} value={`${Math.round(totals.protein)} / ${Math.round(target.protein || 0)}g`} />
-          <MacroBarRow label="Carbs" color={MACRO_COLORS.carbs} pct={(totals.carbs / maxMacro) * 100} value={`${Math.round(totals.carbs)} / ${Math.round(target.carbs || 0)}g`} />
-          <MacroBarRow label="Fat" color={MACRO_COLORS.fat} pct={(totals.fat / maxMacro) * 100} value={`${Math.round(totals.fat)} / ${Math.round(target.fat || 0)}g`} />
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 9 }}>
+          <MacroBarRow label="Protein" color={MACRO_COLORS.protein} pct={(totals.protein / maxMacro) * 100} value={`${Math.round(totals.protein)} / ${Math.round(target.protein || 0)}g`} labelColor={HERO_BLUE.text} valueColor={HERO_BLUE.muted} trackColor={HERO_BLUE.ringTrack} />
+          <MacroBarRow label="Carbs" color={MACRO_COLORS.carbs} pct={(totals.carbs / maxMacro) * 100} value={`${Math.round(totals.carbs)} / ${Math.round(target.carbs || 0)}g`} labelColor={HERO_BLUE.text} valueColor={HERO_BLUE.muted} trackColor={HERO_BLUE.ringTrack} />
+          <MacroBarRow label="Fat" color={MACRO_COLORS.fat} pct={(totals.fat / maxMacro) * 100} value={`${Math.round(totals.fat)} / ${Math.round(target.fat || 0)}g`} labelColor={HERO_BLUE.text} valueColor={HERO_BLUE.muted} trackColor={HERO_BLUE.ringTrack} />
         </div>
       </div>
 
