@@ -721,6 +721,13 @@ export function dayBorder(day) {
 export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) {
   const isMobile = useIsMobile(520);
   const week = program.weeks.find((w) => w.weekNum === weekNum) || program.weeks[0];
+  // Keeps the selected week chip in view without a manual scroll - a
+  // 12-week program's chip row overflows the screen, and whichever week
+  // is "current" can land anywhere in it (not necessarily near the start).
+  const selectedChipRef = useRef(null);
+  useEffect(() => {
+    selectedChipRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [weekNum]);
   const weekDaysList = days.filter((d) => d.weekNum === week.weekNum).sort((a, b) => a.dow - b.dow);
   const training = weekDaysList.filter((d) => !d.isRest);
   const done = training.filter((d) => d.state === "completed").length;
@@ -734,7 +741,12 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
         {program.weeks.map((w) => {
           const wd = days.filter((d) => d.weekNum === w.weekNum && !d.isRest);
           const allDone = wd.length > 0 && wd.every((d) => d.state === "completed");
-          return <Button key={w.id} variant={w.weekNum === week.weekNum ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px", flexShrink: 0 }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>;
+          const isSelected = w.weekNum === week.weekNum;
+          return (
+            <div key={w.id} ref={isSelected ? selectedChipRef : null} style={{ flexShrink: 0 }}>
+              <Button variant={isSelected ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px" }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>
+            </div>
+          );
         })}
       </div>
       {(week.label || week.focus || week.targetRpe) && (
