@@ -1,3 +1,32 @@
+# PAR-Q moved from a Training gate to a soft Profile prompt — decisions log
+
+Denis asked to remove the PAR-Q health screening gate from Training
+entirely - Training should just load, no conditions - and move signing
+into Profile instead, with new clients signing there going forward and
+old clients never retroactively prompted.
+
+`ScreeningGate.jsx` previously wrapped the Training/Program tab in
+`ClientView.jsx` and blocked it until a client signed. It's deleted -
+the Program tab now always renders. The sign flow (question set,
+signature canvas, PDF, upload to the `screening-documents` bucket -
+`screeningText.js`/`pdf.js`/`storage.js`, all untouched) moved into a
+new `HealthScreeningSection.jsx` in Profile, replacing the old
+read-only `SignedScreeningView.jsx`. It shows a client's signed record
+if one exists on file (any date, including ones signed under the old
+gated flow); if nothing's on file, it only prompts a client whose
+`joinDate` is on/after 2026-10-30 (today, the cutover date) to sign -
+never a coach viewing the profile, and never an old client. A fetch
+error fails silent (no prompt) rather than risk nagging a client who
+actually already has one on file, since this is now advisory, not a
+gate.
+
+`data.js`'s offline-caching/version-currency helpers
+(`readCachedScreeningOk`/`cacheScreeningOk`/`isCurrentScreening`)
+existed only to support the old gate's fail-open/fail-closed logic and
+re-checking on every Training visit - removed along with their
+`lib/cache.js` import now that this is a one-time, non-blocking signal
+read once in Profile.
+
 # Nutrition redesign v2 follow-up: app-native colors — decisions log
 
 Immediately after the warm-palette rollout below, Denis reviewed it live
