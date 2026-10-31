@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
         issuer: root,
         authorization_endpoint: `${root}/authorize`,
         token_endpoint: `${root}/token`,
+        registration_endpoint: `${root}/register`,
         response_types_supported: ["code"],
         grant_types_supported: ["authorization_code", "refresh_token"],
         code_challenge_methods_supported: ["S256"],
@@ -78,6 +79,27 @@ Deno.serve(async (req) => {
 
     if (path.endsWith("/.well-known/oauth-protected-resource")) {
       return json({ resource: root, authorization_servers: [root] });
+    }
+
+    // Dynamic Client Registration (RFC 7591) - Claude's connector flow
+    // registers itself here before it can even show a login screen.
+    // Stateless and open: nothing is persisted, any client_id this
+    // issues grants no access on its own - the real gate is still the
+    // coach login + isCoach check at /authorize. Registration only lets
+    // a client obtain an id to use in the normal Authorization Code
+    // flow, same security boundary as a hardcoded client_id would be.
+    if (path.endsWith("/register") && req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const client_id = crypto.randomUUID();
+      return json({
+        client_id,
+        client_id_issued_at: Math.floor(Date.now() / 1000),
+        redirect_uris: Array.isArray(body.redirect_uris) ? body.redirect_uris : [],
+        grant_types: ["authorization_code", "refresh_token"],
+        response_types: ["code"],
+        token_endpoint_auth_method: "none",
+        client_name: body.client_name || "Claude",
+      }, 201);
     }
 
     if (path.endsWith("/authorize") && req.method === "GET") {
