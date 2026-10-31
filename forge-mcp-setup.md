@@ -3,12 +3,14 @@
 A remote MCP server exposing your Forge coaching data to Claude (claude.ai → Settings → Connectors). Read-only tools for clients/check-ins/payments, plus two write tools for creating/editing a client's program or nutrition plan. Already deployed and live at:
 
 ```
-https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp
+https://app.forgeperformance.online/mcp
 ```
+
+That's the URL to use as the connector URL in Claude - not the raw `*.supabase.co` one. Supabase only ever routes `/functions/v1/<name>/*` to an Edge Function; nothing can live at a project's bare domain root. Claude's connector OAuth flow needs `/authorize`, `/token`, `/register` and the `.well-known` discovery docs reachable at a true root, so those (plus the MCP endpoint itself, at `/mcp`) are reverse-proxied from the app's own Vercel domain straight through to the same Supabase function - see the `rewrites` added to `vercel.json`. Nothing about the app's actual routes or pages changed, only a handful of proxy rules.
 
 ## How it works (short version)
 
-- Everything lives in one new Edge Function: `supabase/functions/forge-mcp/`. Nothing in the existing app (App.jsx, tables, other functions) was touched.
+- The actual logic lives in one Edge Function: `supabase/functions/forge-mcp/`. Nothing in the existing app (App.jsx, tables, other functions) was touched - `vercel.json` only gained reverse-proxy rewrites for a handful of specific OAuth/MCP paths.
 - Auth is a small, self-built OAuth 2.0 Authorization Code + PKCE layer wrapping Supabase Auth's normal email/password login (`oauth.ts`) - not Supabase's native MCP-OAuth, which would have required switching your whole project's JWT signing algorithm and adding a consent page to the live app. Nothing about your existing Auth settings changed.
 - When you connect, you log in with your real coach email/password on a page this function serves itself. That password goes straight to Supabase Auth - never through Claude, never stored anywhere.
 - The access token Claude ends up holding is literally your own Supabase JWT. Every tool call runs through Supabase using that JWT, so Row Level Security - not this code - is what actually restricts every query to your own clients. The service role key is never used anywhere in this function.
@@ -37,7 +39,7 @@ That's it - `verify_jwt = false` (needed because this function checks auth itsel
 ## Add it to Claude
 
 1. claude.ai → **Settings → Connectors → Add custom connector**
-2. URL: `https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp`
+2. URL: `https://app.forgeperformance.online/mcp`
 3. Click **Connect** - a browser tab opens showing a "Connect Claude to Forge" login page (served by this function, not claude.ai). Sign in with your coach email/password.
 4. You're redirected back and the connector shows as connected.
 5. Try asking Claude something like "list my clients" or "who needs attention right now" in a new chat.

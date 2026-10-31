@@ -26,6 +26,19 @@
 //   POST /token         - exchanges a code (or refresh_token) for a Supabase JWT
 //   *    (anything else) - the MCP streamable HTTP endpoint
 //
+// IMPORTANT: Supabase only ever routes /functions/v1/<name>/* to an Edge
+// Function - nothing can live at a project's bare domain root. Claude's
+// connector flow (confirmed live) wants /authorize, /token, /register
+// and the .well-known docs reachable at a bare root, not a sub-path -
+// so those are additionally reverse-proxied from app.forgeperformance.online
+// (the live app's own Vercel domain, which CAN serve arbitrary root
+// paths - see vercel.json's rewrites) straight through to this same
+// function. All self-referential URLs below (issuer, PUBLIC_RESOURCE,
+// etc.) point at that domain, not at *.supabase.co, for exactly this
+// reason - this function's own code never changes based on which
+// domain actually reached it, since Vercel's proxy forwards the
+// original path/method/body unchanged.
+//
 // See forge-mcp-setup.md for deploy steps and how to add this as a
 // Claude custom connector.
 
@@ -39,6 +52,7 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Expose-Headers": "WWW-Authenticate",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -46,13 +60,14 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const CODE_TTL_MS = 2 * 60 * 1000;
 
 // Deliberately NOT derived from req.url: Supabase's gateway presents the
-// function with a rewritten internal URL (http, no /functions/v1/
-// prefix) that only matches the real public URL a client uses by
-// accident. Built from SUPABASE_URL instead, which is always the real
-// public origin, both locally (supabase functions serve) and in prod.
-function baseUrl(): string {
-  return `${SUPABASE_URL}/functions/v1/forge-mcp`;
-}
+// function with a rewritten internal URL that doesn't match the real
+// public URL a client uses. Also deliberately NOT the *.supabase.co
+// function URL at all (see the big comment above) - this is the bare
+// root of the live app's own domain, proxied to this function by
+// vercel.json. Every OAuth endpoint (authorize/token/register/
+// well-known) is advertised and reached through this domain.
+const PUBLIC_ROOT = "https://app.forgeperformance.online";
+const MCP_RESOURCE = `${PUBLIC_ROOT}/mcp`;
 function json(o: any, status = 200, extraHeaders: Record<string, string> = {}) {
   return new Response(JSON.stringify(o), { status, headers: { ...CORS, ...extraHeaders, "Content-Type": "application/json" } });
 }
@@ -61,10 +76,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const url = new URL(req.url);
   const path = url.pathname;
-  const root = baseUrl();
+  const root = PUBLIC_ROOT;
 
   try {
-    if (path.endsWith("/.well-known/oauth-authorization-server")) {
+    if (path.includes("/.well-known/oauth-authorization-server")) {
       return json({
         issuer: root,
         authorization_endpoint: `${root}/authorize`,
@@ -77,8 +92,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (path.endsWith("/.well-known/oauth-protected-resource")) {
-      return json({ resource: root, authorization_servers: [root] });
+    if (path.includes("/.well-known/oauth-protected-resource")) {
+      return json({ resource: MCP_RESOURCE, authorization_servers: [root] });
     }
 
     // Dynamic Client Registration (RFC 7591) - Claude's connector flow
