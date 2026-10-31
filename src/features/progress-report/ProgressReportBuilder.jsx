@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseClient.js";
+import { useIsMobile } from "../../lib/browser.js";
 import { BRAND } from "../../theme/tokens.js";
 import { Sheet } from "../../components/ui/Sheet.jsx";
 import { Button } from "../../components/ui/Button.jsx";
@@ -51,6 +52,7 @@ function HistoryRow({ entry }) {
 }
 
 export function ProgressReportBuilder({ client, updateClient, onClose }) {
+  const isDesktop = !useIsMobile(1180);
   const [period, setPeriod] = useState("4w");
   const [customA, setCustomA] = useState("");
   const [customB, setCustomB] = useState(isoDate());
@@ -115,9 +117,88 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
     }
   }
 
+  const editPane = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div>
+        <div style={label}>Data coverage</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {coverageRows(model).map((r) => (
+            <div key={r.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <span style={{ color: r.ok ? BRAND.green : BRAND.muted, fontFamily: BRAND.sans, fontSize: 13 }}>{r.ok ? "●" : "○"}</span>
+              <div>
+                <div style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{r.label}</div>
+                <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>{r.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={label}>Sections in this report</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {model.sections.map((s) => (
+            <label key={s.key} style={{ display: "flex", gap: 8, alignItems: "center", opacity: s.available ? 1 : 0.5, cursor: s.fixed || !s.available ? "default" : "pointer" }}>
+              <input type="checkbox" checked={s.included} disabled={s.fixed || !s.available} onChange={() => setOffMap((m) => ({ ...m, [s.key]: !m[s.key] }))} />
+              <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{s.label}</span>
+              {!s.available && <span style={{ fontFamily: BRAND.sans, fontSize: 10.5, color: BRAND.muted }}>no data</span>}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={label}>Coach notes</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label>
+            <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Coach summary</div>
+            <textarea value={notes.summary} onChange={(e) => setNotes((n) => ({ ...n, summary: e.target.value }))} placeholder="Shown at the top of the report and on the review page..." style={textareaStyle({ minHeight: 70 })} />
+          </label>
+          {[0, 1, 2].map((i) => (
+            <label key={i}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>Win {i + 1}{notes.wins[i] == null ? " (from data)" : " (edited)"}</span>
+                {notes.wins[i] != null && <button type="button" onClick={() => setWin(i, null)} style={{ background: "none", border: "none", color: BRAND.gold, fontSize: 10.5, cursor: "pointer" }}>Reset to data</button>}
+              </div>
+              <textarea value={notes.wins[i] ?? model.wins[i]?.text ?? ""} onChange={(e) => setWin(i, e.target.value)} style={textareaStyle({ minHeight: 44 })} />
+            </label>
+          ))}
+          <label>
+            <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Main challenge</div>
+            <textarea value={notes.challenge || model.challenge} onChange={(e) => setNotes((n) => ({ ...n, challenge: e.target.value }))} style={textareaStyle({ minHeight: 60 })} />
+          </label>
+          {[0, 1, 2].map((i) => (
+            <label key={i}>
+              <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Priority {i + 1}</div>
+              <input value={notes.prios[i] || ""} onChange={(e) => setPrio(i, e.target.value)} style={inputStyle()} />
+            </label>
+          ))}
+          {[0, 1, 2].map((i) => (
+            <div key={i} style={{ display: "flex", gap: 6 }}>
+              <input placeholder="Goal" value={notes.goals[i]?.[0] || ""} onChange={(e) => setGoal(i, 0, e.target.value)} style={inputStyle()} />
+              <input placeholder="Measure and target" value={notes.goals[i]?.[1] || ""} onChange={(e) => setGoal(i, 1, e.target.value)} style={inputStyle()} />
+            </div>
+          ))}
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={notes.reflOn} onChange={() => setNotes((n) => ({ ...n, reflOn: !n.reflOn }))} />
+            <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>Include client reflection</span>
+          </label>
+          {notes.reflOn && <textarea value={notes.refl} onChange={(e) => setNotes((n) => ({ ...n, refl: e.target.value }))} placeholder="Quote from the client..." style={textareaStyle({ minHeight: 50 })} />}
+          <Button onClick={saveNotes} disabled={saving} variant="dark">{saving ? "Saving..." : "Save notes"}</Button>
+        </div>
+      </div>
+
+      <div>
+        <div style={label}>Saved reports</div>
+        {history.length === 0 && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>No reports exported yet.</div>}
+        {[...history].reverse().map((h) => <HistoryRow key={h.id} entry={h} />)}
+      </div>
+    </div>
+  );
+
   return (
-    <Sheet title={`Progress Report · ${client.name}`} onClose={onClose} maxWidth={720}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "72vh" }}>
+    <Sheet title={`Progress Report · ${client.name}`} onClose={onClose} maxWidth={isDesktop ? 1200 : 720}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: isDesktop ? "82vh" : "72vh" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {REPORT_PERIODS.map((p) => <Chip key={p.key} selected={period === p.key} onClick={() => setPeriod(p.key)}>{p.label}</Chip>)}
@@ -137,93 +218,29 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          <Chip selected={tab === "preview"} onClick={() => setTab("preview")}>Preview</Chip>
-          <Chip selected={tab === "edit"} onClick={() => setTab("edit")}>Report details</Chip>
-        </div>
+        {!isDesktop && (
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <Chip selected={tab === "preview"} onClick={() => setTab("preview")}>Preview</Chip>
+            <Chip selected={tab === "edit"} onClick={() => setTab("edit")}>Report details</Chip>
+          </div>
+        )}
 
-        <div style={{ overflowY: "auto", minHeight: 0, flex: 1 }}>
-          {tab === "preview" ? (
-            <ReportPreview model={model} notes={notes} />
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <div>
-                <div style={label}>Data coverage</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {coverageRows(model).map((r) => (
-                    <div key={r.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <span style={{ color: r.ok ? BRAND.green : BRAND.muted, fontFamily: BRAND.sans, fontSize: 13 }}>{r.ok ? "●" : "○"}</span>
-                      <div>
-                        <div style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{r.label}</div>
-                        <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>{r.detail}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div style={label}>Sections in this report</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {model.sections.map((s) => (
-                    <label key={s.key} style={{ display: "flex", gap: 8, alignItems: "center", opacity: s.available ? 1 : 0.5, cursor: s.fixed || !s.available ? "default" : "pointer" }}>
-                      <input type="checkbox" checked={s.included} disabled={s.fixed || !s.available} onChange={() => setOffMap((m) => ({ ...m, [s.key]: !m[s.key] }))} />
-                      <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{s.label}</span>
-                      {!s.available && <span style={{ fontFamily: BRAND.sans, fontSize: 10.5, color: BRAND.muted }}>no data</span>}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div style={label}>Coach notes</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <label>
-                    <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Coach summary</div>
-                    <textarea value={notes.summary} onChange={(e) => setNotes((n) => ({ ...n, summary: e.target.value }))} placeholder="Shown at the top of the report and on the review page..." style={textareaStyle({ minHeight: 70 })} />
-                  </label>
-                  {[0, 1, 2].map((i) => (
-                    <label key={i}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>Win {i + 1}{notes.wins[i] == null ? " (from data)" : " (edited)"}</span>
-                        {notes.wins[i] != null && <button type="button" onClick={() => setWin(i, null)} style={{ background: "none", border: "none", color: BRAND.gold, fontSize: 10.5, cursor: "pointer" }}>Reset to data</button>}
-                      </div>
-                      <textarea value={notes.wins[i] ?? model.wins[i]?.text ?? ""} onChange={(e) => setWin(i, e.target.value)} style={textareaStyle({ minHeight: 44 })} />
-                    </label>
-                  ))}
-                  <label>
-                    <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Main challenge</div>
-                    <textarea value={notes.challenge || model.challenge} onChange={(e) => setNotes((n) => ({ ...n, challenge: e.target.value }))} style={textareaStyle({ minHeight: 60 })} />
-                  </label>
-                  {[0, 1, 2].map((i) => (
-                    <label key={i}>
-                      <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Priority {i + 1}</div>
-                      <input value={notes.prios[i] || ""} onChange={(e) => setPrio(i, e.target.value)} style={inputStyle()} />
-                    </label>
-                  ))}
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} style={{ display: "flex", gap: 6 }}>
-                      <input placeholder="Goal" value={notes.goals[i]?.[0] || ""} onChange={(e) => setGoal(i, 0, e.target.value)} style={inputStyle()} />
-                      <input placeholder="Measure and target" value={notes.goals[i]?.[1] || ""} onChange={(e) => setGoal(i, 1, e.target.value)} style={inputStyle()} />
-                    </div>
-                  ))}
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="checkbox" checked={notes.reflOn} onChange={() => setNotes((n) => ({ ...n, reflOn: !n.reflOn }))} />
-                    <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>Include client reflection</span>
-                  </label>
-                  {notes.reflOn && <textarea value={notes.refl} onChange={(e) => setNotes((n) => ({ ...n, refl: e.target.value }))} placeholder="Quote from the client..." style={textareaStyle({ minHeight: 50 })} />}
-                  <Button onClick={saveNotes} disabled={saving} variant="dark">{saving ? "Saving..." : "Save notes"}</Button>
-                </div>
-              </div>
-
-              <div>
-                <div style={label}>Saved reports</div>
-                {history.length === 0 && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted }}>No reports exported yet.</div>}
-                {[...history].reverse().map((h) => <HistoryRow key={h.id} entry={h} />)}
-              </div>
+        {isDesktop ? (
+          // Side by side at desktop width, both always visible - a builder
+          // with a preview is much more useful when you don't have to leave
+          // the controls to see what they did (DECISIONS.md "Coach desktop
+          // web layout"). Independently scrollable panes.
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(340px,420px) 1fr", gap: 20, minHeight: 0, flex: 1 }}>
+            <div style={{ overflowY: "auto", minHeight: 0 }}>{editPane}</div>
+            <div style={{ overflowY: "auto", minHeight: 0, borderLeft: `${BRAND.hairline} solid ${BRAND.line}`, paddingLeft: 20 }}>
+              <ReportPreview model={model} notes={notes} />
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div style={{ overflowY: "auto", minHeight: 0, flex: 1 }}>
+            {tab === "preview" ? <ReportPreview model={model} notes={notes} /> : editPane}
+          </div>
+        )}
 
         <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: `${BRAND.hairline} solid ${BRAND.line}` }}>
           <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

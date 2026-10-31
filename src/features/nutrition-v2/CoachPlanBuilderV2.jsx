@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useIsMobile } from "../../lib/browser.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
@@ -164,6 +165,7 @@ function PublishSheet({ draft, warnings, onClose, onConfirm }) {
 // nutritionV2Math.js's planForDate/publishPlan for the exact
 // versioning rules this builds on).
 export function CoachPlanBuilderV2({ client, updateClient }) {
+  const isDesktop = !useIsMobile(1180);
   const [plans, setPlans] = useState(() => normalizePlans(client.nutritionV2Plans));
   const [foods, setFoods] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -299,6 +301,7 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
         </div>
       </div>
 
+      <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(380px,1fr))" : "minmax(0,1fr)", gap: 16, alignItems: "start" }}>
       {MEAL_KEYS.map((key) => {
         const meal = draft.meals.find((m) => m.key === key);
         return (
@@ -317,6 +320,7 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
           />
         );
       })}
+      </div>
 
       {history.length > 0 && (
         <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>

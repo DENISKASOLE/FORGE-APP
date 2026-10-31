@@ -42,6 +42,8 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const setTab = setTabProp || setTabState;
   const [showSettings, setShowSettings] = useState(false);
   const isMobile = useIsMobile(520);
+  // Matches CoachSidebarShell's own breakpoint exactly (DESKTOP_SIDEBAR_MIN).
+  const isDesktop = !useIsMobile(1180);
   const isOnline = client.clientType === "Online";
   const tabs = isCoach ? [
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"],
@@ -95,11 +97,12 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
           <Button variant="red" onClick={delClient} style={{ padding: isMobile ? "8px 10px" : undefined }}>Delete</Button>
         </header>
         <InjuryBanner client={client} />
-        <main style={{ width: "100%", maxWidth: isMobile ? 430 : 960, margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
+        <main style={{ width: "100%", maxWidth: isMobile ? 430 : isDesktop ? 1180 : 960, margin: "0 auto", padding: isMobile ? "6px 8px 12px" : 16, boxSizing: "border-box", overflowX: "hidden" }}>
           <div style={{
             display: "flex",
             gap: isMobile ? 6 : 8,
-            overflowX: "auto",
+            flexWrap: isDesktop ? "wrap" : "nowrap",
+            overflowX: isDesktop ? "visible" : "auto",
             marginBottom: isMobile ? 8 : 14,
             padding: isMobile ? "2px 0 6px" : "0 0 6px",
             WebkitOverflowScrolling: "touch",
