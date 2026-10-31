@@ -32,7 +32,22 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
+        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        // forge-mcp's OAuth endpoints (DECISIONS.md "forge-mcp") live on
+        // this same origin via vercel.json rewrites. Workbox's generated
+        // service worker otherwise registers an unrestricted
+        // NavigationRoute that serves the cached app shell for ANY
+        // navigation - including /authorize - which is exactly what
+        // broke Claude's sign-in flow: a phone with this worker already
+        // installed from ordinary app use opened /authorize and got the
+        // Forge app's own dashboard instead of the OAuth login page.
+        // navigateFallback must be set explicitly alongside the denylist -
+        // generateSW only wires NavigationRoute's denylist when both are
+        // given together, confirmed by inspecting the built sw.js (the
+        // denylist alone produced an unrestricted NavigationRoute with no
+        // denylist args at all).
+        navigateFallback: "index.html",
+        navigateFallbackDenylist: [/^\/authorize/, /^\/token/, /^\/register/, /^\/mcp/, /^\/\.well-known\//]
       }
     })
   ]
