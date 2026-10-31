@@ -1,7 +1,7 @@
 {
   "rewrites": [
     { "source": "/mcp", "destination": "https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp" },
-    { "source": "/authorize", "destination": "https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp/authorize" },
+    { "source": "/authorize", "destination": "/api/authorize" },
     { "source": "/token", "destination": "https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp/token" },
     { "source": "/register", "destination": "https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp/register" },
     { "source": "/.well-known/oauth-authorization-server", "destination": "https://rjzfyfgymkcaffazzpff.supabase.co/functions/v1/forge-mcp/.well-known/oauth-authorization-server" },

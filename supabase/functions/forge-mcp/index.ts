@@ -21,10 +21,21 @@
 // Routes (all under /functions/v1/forge-mcp):
 //   GET  /.well-known/oauth-authorization-server  - OAuth metadata
 //   GET  /.well-known/oauth-protected-resource     - resource metadata
-//   GET  /authorize   - login form
-//   POST /authorize    - verifies the coach, issues a signed code
-//   POST /token         - exchanges a code (or refresh_token) for a Supabase JWT
+//   POST /register      - Dynamic Client Registration (RFC 7591)
+//   POST /token           - exchanges a code (or refresh_token) for a Supabase JWT
 //   *    (anything else) - the MCP streamable HTTP endpoint
+//
+// NOTE: GET/POST /authorize (the login page) does NOT live here - it's
+// a Vercel serverless function instead (api/authorize.js in this repo).
+// Reason: Supabase Edge Functions on the default *.supabase.co domain
+// always have a text/html response rewritten to text/plain (documented,
+// deliberate anti-XSS platform behavior - confirmed live, a login page
+// served from here rendered as raw unstyled source text). JSON
+// responses are unaffected, so only that one HTML-rendering route
+// moved; /register, /token, the .well-known docs, and /mcp all stay
+// here. api/authorize.js signs/the code with the exact same
+// MCP_SIGNING_SECRET this function verifies with below - keep both in
+// sync if that secret ever rotates.
 //
 // IMPORTANT: Supabase only ever routes /functions/v1/<name>/* to an Edge
 // Function - nothing can live at a project's bare domain root. Claude's
@@ -33,11 +44,11 @@
 // so those are additionally reverse-proxied from app.forgeperformance.online
 // (the live app's own Vercel domain, which CAN serve arbitrary root
 // paths - see vercel.json's rewrites) straight through to this same
-// function. All self-referential URLs below (issuer, PUBLIC_RESOURCE,
-// etc.) point at that domain, not at *.supabase.co, for exactly this
-// reason - this function's own code never changes based on which
-// domain actually reached it, since Vercel's proxy forwards the
-// original path/method/body unchanged.
+// function (except /authorize, see above). All self-referential URLs
+// below (issuer, MCP_RESOURCE, etc.) point at that domain, not at
+// *.supabase.co, for exactly this reason - this function's own code
+// never changes based on which domain actually reached it, since
+// Vercel's proxy forwards the original path/method/body unchanged.
 //
 // See forge-mcp-setup.md for deploy steps and how to add this as a
 // Claude custom connector.
@@ -45,7 +56,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@^2.0.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { signCode, verifyCode, pkceMatches, passwordLogin, refreshLogin, isCoach, loginPage, decodeJwtExp, decodeJwtSub } from "./oauth.ts";
+import { verifyCode, pkceMatches, refreshLogin, decodeJwtExp } from "./oauth.ts";
 import { registerAllTools } from "./tools.ts";
 
 const CORS = {
@@ -57,7 +68,6 @@ const CORS = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const CODE_TTL_MS = 2 * 60 * 1000;
 
 // Deliberately NOT derived from req.url: Supabase's gateway presents the
 // function with a rewritten internal URL that doesn't match the real
@@ -115,39 +125,6 @@ Deno.serve(async (req) => {
         token_endpoint_auth_method: "none",
         client_name: body.client_name || "Claude",
       }, 201);
-    }
-
-    if (path.endsWith("/authorize") && req.method === "GET") {
-      const p = Object.fromEntries(url.searchParams.entries());
-      if (!p.redirect_uri || !p.client_id || p.response_type !== "code" || !p.code_challenge) {
-        return new Response("Missing or invalid OAuth parameters.", { status: 400, headers: CORS });
-      }
-      return new Response(loginPage(p), { headers: { ...CORS, "Content-Type": "text/html" } });
-    }
-
-    if (path.endsWith("/authorize") && req.method === "POST") {
-      const form = await req.formData();
-      const email = String(form.get("email") || "");
-      const password = String(form.get("password") || "");
-      const p = {
-        response_type: String(form.get("response_type") || ""),
-        client_id: String(form.get("client_id") || ""),
-        redirect_uri: String(form.get("redirect_uri") || ""),
-        state: String(form.get("state") || ""),
-        code_challenge: String(form.get("code_challenge") || ""),
-        code_challenge_method: String(form.get("code_challenge_method") || ""),
-      };
-      const login = await passwordLogin(email, password);
-      if ("error" in login) return new Response(loginPage(p, login.error), { status: 401, headers: { ...CORS, "Content-Type": "text/html" } });
-      const sub = decodeJwtSub(login.access_token);
-      if (!sub || !(await isCoach(login.access_token, sub))) {
-        return new Response(loginPage(p, "This is a client account - only the coach's own login can connect Claude."), { status: 403, headers: { ...CORS, "Content-Type": "text/html" } });
-      }
-      const code = await signCode({ at: login.access_token, rt: login.refresh_token, cc: p.code_challenge, ri: p.redirect_uri, ci: p.client_id, exp: Date.now() + CODE_TTL_MS });
-      const redirect = new URL(p.redirect_uri);
-      redirect.searchParams.set("code", code);
-      if (p.state) redirect.searchParams.set("state", p.state);
-      return new Response(null, { status: 302, headers: { ...CORS, Location: redirect.toString() } });
     }
 
     if (path.endsWith("/token") && req.method === "POST") {
