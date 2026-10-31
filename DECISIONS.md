@@ -1,3 +1,67 @@
+# Coach desktop web layout — decisions log
+
+Denis wanted the coach side of Forge to feel like a real desktop web
+app in a browser - the kind of layout other fitness-coaching platforms
+(Trainerize, TrueCoach, HubFit) have - not a phone screen stretched
+wider. Scope, confirmed directly: coach-only (the client-facing mobile
+app untouched), a responsive web layout (no PWA/installable-app work).
+
+A full-codebase survey found the coach app had only shallow, scattered
+desktop-width awareness: `useIsMobile(breakpoint)` (`src/lib/browser.js`)
+is the only responsive mechanism anywhere - no CSS media queries exist
+at all. `CoachDashboard.jsx` was the only file with a real two-tier
+`isMobile`/`isTablet` split, and even there most of its own screens
+ignored it and stayed single-column regardless of width. Denis
+confirmed (AskUserQuestion) he wanted the bigger change: a persistent
+left sidebar, not just wider versions of the same "tile grid you tap
+into" mobile navigation.
+
+**Phase 1** - new `CoachSidebarShell.jsx`: at real desktop width
+(`!useIsMobile(1180)`, reusing `CoachDashboard`'s own existing
+`isTablet` ceiling rather than inventing a new breakpoint), both coach
+entry points (`CoachDashboard.jsx` and `ClientView.jsx`'s coach branch)
+wrap their content in a persistent left nav listing every top-level
+section plus all 14 Tools destinations as direct links - nothing is
+more than one click away, and the sidebar stays mounted across
+navigating between the dashboard and a client's profile. It self-
+derives its active link from the URL (both `CoachDashboardRoute` and
+`CoachClientRoute` were already param-driven in `App.jsx`) rather than
+requiring callers to compute and pass one. `COACH_NAV`/`TOOLS` moved
+out of `CoachDashboard.jsx` into a new `coachNav.js` to avoid a
+circular import (`CoachDashboard.jsx` renders `CoachSidebarShell`,
+which needs both lists). Below 1180px, nothing changed - same
+`CoachBottomNav`, same tile grid, same tab-pill row.
+
+**Phase 2** - fixed every hardcoded single/fixed-column spot inside
+`CoachDashboard.jsx` and `CoachNutritionDashboard.jsx` found by the
+survey (`CoachHome`'s "Go to" tiles were stuck at 2 columns forever;
+`CoachAnalytics` had a declared-but-dead `isMobile`; `NotificationsTab`,
+payments/intake-forms client lists, saved templates, and the nutrition
+triage rows were all plain single-column stacks) - each now grids with
+`auto-fit` at desktop width, mirroring the pattern the Tools grid and
+Clients tab already used successfully. Deliberately left
+`CoachBroadcastScreen` (a compose form), `CoachAutomationsScreen` (one
+toggle-list card) and `CoachSettingsTab` (a settings list) single-
+column - a focused column is the right desktop pattern for forms and
+settings, same reasoning applied below to the Program Builder.
+
+**Phase 3** - per-client desktop layouts: `ClientView.jsx`'s coach-
+branch tab-pill row wraps instead of horizontal-scrolling at desktop
+width (no reason to keep acting like a phone nav once the sidebar owns
+that job); `CoachPlanBuilderV2.jsx`'s meal cards grid instead of always
+stacking; `ProgressReportBuilder.jsx`'s Preview/Report-details tab
+toggle becomes a permanent two-pane layout at desktop width (controls
+left, live preview right, independently scrollable, sheet cap raised
+720px -> 1200px) - a report builder is far more useful when you don't
+have to leave the controls to see what they did.
+
+**Deliberately out of scope**: `TrainScreens.jsx`'s Program Builder
+block/exercise editor stays single-column even at desktop width -
+turning it into a multi-column grid would fight its own "move block
+up/down" reordering controls, and a focused single-column editing flow
+is reasonable UX even on a wide screen. Can revisit as a cheap follow-
+up if wanted later.
+
 # Completed sessions: "Edit logs" replaces "Log again" — decisions log
 
 Denis wanted a completed session to be editable, not just re-loggable
