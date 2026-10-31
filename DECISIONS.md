@@ -1,3 +1,117 @@
+# forge-mcp: remote MCP server for Claude — decisions log
+
+Denis asked for an MCP server so he could connect Claude (claude.ai →
+Settings → Connectors) and query/manage his coaching data in chat -
+initially read-only, then expanded mid-build to include creating and
+editing a client's program and nutrition plan.
+
+## Data map (confirmed by reading code, not assumed)
+
+`clients` (id, trainer_id, client_user_id) + `client_data`
+(client_id/section/data jsonb) hold everything client-side; `trainers` +
+`trainer_data` hold coach-side data (templates, articles,
+checkin_template, automations, etc). Every RLS policy in this project
+follows one house style - `trainer_id = auth.uid()` directly or an
+`EXISTS` subquery through `clients` - so a query run with the coach's
+own JWT is already scoped to just their clients with zero extra
+filtering needed.
+
+Two assumptions in the original brief didn't match the repo and were
+corrected before building: there is no `forge-automations` edge
+function (the real ones are `forge-ai`/`forge-fatsecret`/`forge-paypal`,
+whose conventions this follows instead), and there was no
+`supabase/config.toml`/CLI link in this repo at all (the existing
+functions were all deployed via the Dashboard's paste-in flow).
+
+## Auth: a self-built OAuth shim, not Supabase's native MCP-OAuth
+
+Supabase does now document a native MCP-OAuth path
+(`@supabase/server`'s `withOAuthProtectedResource`/`withSupabase`), but
+it requires switching the whole project's JWT signing to asymmetric
+(affects every existing client/coach session), enabling public dynamic
+client registration, and adding a new `/oauth/consent` route to the
+live app. For a single-coach admin tool that's a lot of shared-infra
+risk for not much benefit, so `forge-mcp/oauth.ts` instead implements a
+small Authorization Code + PKCE layer of its own, wrapping Supabase
+Auth's existing password grant:
+
+- The coach logs in on a page this function serves itself
+  (`GET /authorize`) - email/password POSTs straight to Supabase Auth's
+  `/auth/v1/token?grant_type=password`, never stored.
+- Only a user with a row in `trainers` can get past this step - checked
+  with the user's own fresh JWT, not the service role key.
+- A short-lived (2 min), HMAC-signed code carries the resulting Supabase
+  access/refresh tokens through the redirect - no new table, no
+  server-side session store.
+- The token Claude ends up holding at `/token` is literally the coach's
+  own Supabase JWT. Every tool call builds a fresh Supabase client with
+  that JWT as its Authorization header - RLS is the real access control,
+  identical to every other write path in this app
+  (`src/lib/clientData.js`'s `upsertSection`/`upsertTrainerData`). The
+  service role key is never used anywhere in this function.
+
+One real bug caught before it shipped: `baseUrl()` was first derived
+from the incoming `req.url`, but Supabase's gateway presents the
+function with a rewritten internal URL (`http`, no `/functions/v1/`
+prefix) that only coincidentally resembles the real public URL. The
+OAuth metadata documents were advertising a URL no external client could
+actually reach. Fixed by building the base URL from the `SUPABASE_URL`
+env var plus the known `/functions/v1/forge-mcp` suffix instead of
+trusting the request's own scheme/host - confirmed correct against the
+live deployment afterward.
+
+## Write tools: live program writes, draft-first nutrition writes
+
+`save_program` has no draft tier to fall back on - a client's `program`
+section already *is* their live calendar, so this goes live immediately
+on write, same blast radius as a coach clicking Save in the Program
+Builder (confirmed this tradeoff directly before building). It reuses
+`hydrateAIProgram`'s exact hydration rules (ported, dependency-free, in
+`programModel.ts`), so a program written from Claude is indistinguishable
+from one built by hand.
+
+`update_nutrition_plan` defaults to writing a `draft` plan version -
+invisible to the client until published in-app - using the `draft` /
+`published` / `archived` status machinery that already existed for this
+exact purpose (`nutritionV2Model.js`/`nutritionV2Math.js`). `publish:
+true` writes it live immediately instead. Items are built "quick-log
+style" (macros given directly as a total for the item, no `foodId` /
+food-library lookup) - the same path the client-facing "Describe it"
+fallback already uses, which avoids a food-matching problem entirely.
+
+Porting `publishPlan`'s date math (`addDaysISO`) first used
+`toISOString()` and shipped a real off-by-one bug — exactly the
+"Dubai 23:59 vs 00:01" class of bug this codebase already has scar
+tissue from, caught by a Node-based smoke test (esbuild-transpiled, run
+outside Deno since this sandbox has neither Deno nor Docker available)
+before it ever reached a live deploy. Fixed to use local date
+components, matching `dateUtils.js`'s `isoDate()`.
+
+## Verification without Deno/Docker
+
+No Deno or Docker available in this environment, so the dependency-free
+logic (`programModel.ts`, `nutritionModel.ts`, `trainingLogs.ts`,
+`oauth.ts`'s crypto) was transpiled with esbuild and exercised with real
+Node tests instead - including PKCE verified against the actual RFC 7636
+test vector, and the plan-publish supersession/archival logic against
+hand-built fixtures. `supabase functions deploy` itself doesn't need
+Docker (only local `supabase start`/`functions serve` does), so the
+function was deployed to the real project and the full OAuth metadata
+chain, `/authorize` form rendering + validation, and `/token` error
+paths were verified live via curl. The one thing that couldn't be tested
+without Denis's real password - actually completing a login - is left
+for him to do directly via the Claude custom-connector flow, since that
+password should only ever reach this function's own login page, never
+this session.
+
+## Not done
+
+v2 write tools (`send_message`, `publish_article`,
+`draft_program_block`) were deliberately scoped out, same as the
+original brief asked - listed in `forge-mcp-setup.md` for later. No new
+Supabase Auth settings were changed; a minimal `supabase/config.toml`
+was added only to flip `verify_jwt` off for this one function.
+
 # Coach desktop web layout — decisions log
 
 Denis wanted the coach side of Forge to feel like a real desktop web

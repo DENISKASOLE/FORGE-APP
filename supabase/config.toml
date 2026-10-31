@@ -1,0 +1,13 @@
+# This project has no local Supabase CLI link/config yet (forge-ai,
+# forge-fatsecret, forge-paypal were all deployed via the Dashboard's
+# copy-paste flow, not `supabase functions deploy`). This file only
+# exists to flip verify_jwt off for forge-mcp, which authenticates
+# requests itself (see forge-mcp/oauth.ts) - the platform's own JWT
+# gateway check would otherwise reject the unauthenticated OAuth
+# discovery/authorize/token requests before they ever reach that code.
+# `supabase link` + `supabase config push` applies this - see
+# forge-mcp-setup.md.
+project_id = "rjzfyfgymkcaffazzpff"
+
+[functions.forge-mcp]
+verify_jwt = false
