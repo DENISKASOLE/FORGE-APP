@@ -254,6 +254,7 @@ function notifTone(n) {
   return { fg: BRAND.orange, bg: BRAND.orangeBg, border: "rgba(255,159,69,0.18)" };
 }
 export function NotificationsTab({ notifications, selectClient }) {
+  const isDesktop = !useIsMobile(1180);
   const [handled, setHandled] = useState(() => new Set());
   const [filter, setFilter] = useState("all");
   const unhandled = notifications.filter((n) => !handled.has(n.id));
@@ -274,6 +275,7 @@ export function NotificationsTab({ notifications, selectClient }) {
         ))}
       </div>
       {shown.length === 0 && <Card><div style={{ color: BRAND.muted }}>{filter === "unhandled" ? "You're all caught up. No unhandled alerts." : "Nothing here."}</div></Card>}
+      <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(320px,1fr))" : "minmax(0,1fr)", gap: 12 }}>
       {shown.map((n) => {
         const tone = notifTone(n);
         const isHandled = handled.has(n.id);
@@ -296,11 +298,13 @@ export function NotificationsTab({ notifications, selectClient }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
 // ---------- Coach shell: Home · Clients · Alerts · Settings ----------
 export function CoachPaymentsScreen({ clients, selectClient, onBack }) {
+  const isDesktop = !useIsMobile(1180);
   const withDue = clients.filter((c) => c.paymentDueDate);
   const rank = (c) => { const s = paymentStatus(c); if (s.color === BRAND.red) return 0; if (s.color === BRAND.gold) return 1; if (s.color === BRAND.green) return 3; return 2; };
   const sorted = [...withDue].sort((a, b) => rank(a) - rank(b));
@@ -318,10 +322,12 @@ export function CoachPaymentsScreen({ clients, selectClient, onBack }) {
     <Card>
       <div style={{ fontWeight: 500, fontSize: 16, marginBottom: 4 }}>By client</div>
       {sorted.length === 0 && <div style={{ color: BRAND.muted }}>No payment dates set yet. Add a due date on a client to track it here.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(280px,1fr))" : "minmax(0,1fr)", columnGap: 20 }}>
       {sorted.map((c) => { const st = paymentStatus(c); return <div key={c.id} onClick={() => selectClient(c)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
         <div><div style={{ fontWeight: 500 }}>{c.name}</div><div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>{c.paymentDueDate}</div></div>
         <div style={{ color: st.color, fontWeight: 500, fontSize: 13, textAlign: "right" }}>{st.label}</div>
       </div>; })}
+      </div>
     </Card>
   </div>;
 }
@@ -382,6 +388,7 @@ function ClientIntakeAnswers({ client, selectClient }) {
   );
 }
 export function CoachIntakeFormsScreen({ user, clients, selectClient, onBack }) {
+  const isDesktop = !useIsMobile(1180);
   const submitted = clients.filter((c) => c.intake?.answers?.length);
   const pending = clients.filter((c) => !c.intake?.answers?.length);
   return <div style={{ display: "grid", gap: 14 }}>
@@ -391,7 +398,7 @@ export function CoachIntakeFormsScreen({ user, clients, selectClient, onBack }) 
     {clients.length > 0 && (
       <div>
         <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Client answers ({submitted.length} of {clients.length} submitted)</div>
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(320px,1fr))" : "minmax(0,1fr)", gap: 8, alignItems: "start" }}>
           {[...submitted, ...pending].map((c) => <ClientIntakeAnswers key={c.id} client={c} selectClient={selectClient} />)}
         </div>
       </div>
@@ -561,7 +568,7 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
         </Card>
       )}
       <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>Go to</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: isTablet ? 18 : 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(170px,1fr))", gap: isTablet ? 18 : 12 }}>
         <CoachTile isTablet={isTablet} icon="clients" color={BRAND.orange} name="Clients" meta={`${clients.length} active${flagged ? ` · ${flagged} flagged` : ""}`} count={clients.length} onClick={onOpenClients} />
         <CoachTile isTablet={isTablet} icon="templates" color={BRAND.blue} name="Templates" meta={`${templatesCount} program${templatesCount === 1 ? "" : "s"} saved`} count={templatesCount} quiet onClick={() => onTile("templates")} />
         <CoachTile isTablet={isTablet} icon="calendar" color={BRAND.violet} name="Calendar" meta={`${todaysSessions ?? "..."} session${todaysSessions === 1 ? "" : "s"} today`} count={todaysSessions || null} onClick={() => onTile("calendar")} />
@@ -573,6 +580,7 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
   );
 }
 export function CoachTemplates({ user, clients, refresh, onBack }) {
+  const isDesktop = !useIsMobile(1180);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -632,6 +640,7 @@ export function CoachTemplates({ user, clients, refresh, onBack }) {
           </div>
         </Card>
       )}
+      <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(360px,1fr))" : "minmax(0,1fr)", gap: 14, alignItems: "start" }}>
       {templates.map((t) => {
         const usedBy = clients.filter((c) => c.program?.templateId === t.id).length;
         const isAssigning = assigningTemplate?.id === t.id;
@@ -663,6 +672,7 @@ export function CoachTemplates({ user, clients, refresh, onBack }) {
           </Card>
         );
       })}
+      </div>
       <Card style={{ background: BRAND.card2 }}>
         <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, lineHeight: 1.55 }}>
           Hit <b style={{ color: BRAND.gold, fontWeight: 500 }}>Assign</b> above to send a template straight to a client, or open a client → Program → Edit Program → <b style={{ color: BRAND.gold, fontWeight: 500 }}>Load from template</b> to load it into a program you're already editing.
@@ -673,6 +683,7 @@ export function CoachTemplates({ user, clients, refresh, onBack }) {
 }
 export function CoachAnalytics({ clients, selectClient, onBack }) {
   const isMobile = useIsMobile(520);
+  const isDesktop = !useIsMobile(1180);
   const { cold, adherence, lastSessionOf } = coachStats(clients);
   const thisMonth = new Date().toISOString().slice(0, 7);
   const pbsThisMonth = clients.reduce((n, c) => n + recentPBsAcrossHistory(c.trainingLogs, 20).filter((pb) => pb.date && pb.date.slice(0, 7) === thisMonth).length, 0);
@@ -703,13 +714,14 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
         <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>Analytics</div>
         <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Client activity, last 8 weeks</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
         <Mini label="Sessions" value={String(total)} />
         <Mini label="Avg adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
         <Mini label="Going cold" value={String(cold.length)} color={cold.length > 0 ? BRAND.yellow : BRAND.text} />
         <Mini label="PBs this month" value={String(pbsThisMonth)} color={BRAND.blue} />
         <Mini label="Payments overdue" value={String(overduePayments)} color={overduePayments > 0 ? BRAND.yellow : BRAND.text} />
       </div>
+      <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "1fr 1fr" : "minmax(0,1fr)", gap: 14, alignItems: "start" }}>
       <div>
         <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>Sessions completed per week</div>
         <Card style={{ padding: 16 }}>
@@ -750,6 +762,7 @@ export function CoachAnalytics({ clients, selectClient, onBack }) {
             );
           })}
         </Card>
+      </div>
       </div>
     </div>
   );

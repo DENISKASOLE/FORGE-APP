@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useIsMobile } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { normalizePlans, normalizeLogs, normalizeMarks } from "../../lib/nutritionV2.js";
 import { recentAlertSignals, attentionFlagFor, weeklyProgress } from "../nutrition-v2/nutritionV2Math.js";
@@ -59,6 +60,7 @@ function ClientRow({ health, onClick }) {
 // and why, up front. Reached from the coach Tools grid
 // (CoachDashboard.jsx's "nutrition_dashboard" tile/screen).
 export function CoachNutritionDashboard({ clients, selectClient, onBack }) {
+  const isDesktop = !useIsMobile(1180);
   const [filter, setFilter] = useState("all");
   const today = isoDate();
 
@@ -87,7 +89,7 @@ export function CoachNutritionDashboard({ clients, selectClient, onBack }) {
         <div>
           <div style={{ padding: "0 2px 10px", fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.bad }}>Needs attention</div>
           {attention.length === 0 && <div style={{ fontFamily: NT.sans, fontSize: 12.5, color: NT.dim, padding: "4px 2px" }}>Nobody needs attention right now.</div>}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(280px,1fr))" : "minmax(0,1fr)", gap: 8 }}>
             {attention.map((h) => <ClientRow key={h.client.id} health={h} onClick={() => selectClient(h.client)} />)}
           </div>
         </div>
@@ -97,7 +99,7 @@ export function CoachNutritionDashboard({ clients, selectClient, onBack }) {
         <div>
           <div style={{ padding: "0 2px 10px", fontFamily: NT.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", color: NT.muted }}>On track</div>
           {onTrack.length === 0 && <div style={{ fontFamily: NT.sans, fontSize: 12.5, color: NT.dim, padding: "4px 2px" }}>No clients here yet.</div>}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(auto-fit,minmax(280px,1fr))" : "minmax(0,1fr)", gap: 8 }}>
             {onTrack.map((h) => <ClientRow key={h.client.id} health={h} onClick={() => selectClient(h.client)} />)}
           </div>
         </div>
