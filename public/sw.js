@@ -22,13 +22,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// forge-mcp's OAuth endpoints (DECISIONS.md "forge-mcp") live on this
+// same origin via Vercel rewrites - never intercept these, even on a
+// cache miss that would otherwise fall through to network correctly.
+// A coach's phone already has this worker installed from ordinary app
+// use, so the in-app browser Claude opens for sign-in shares it.
+const BYPASS_PREFIXES = ["/authorize", "/token", "/register", "/mcp", "/.well-known/"];
+
 // Cache-first for the app's own files (JS/CSS/HTML), network-first for
 // everything else (Supabase API calls, images) so data stays fresh.
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   const isOwnAsset = url.origin === self.location.origin;
+  const isBypassed = BYPASS_PREFIXES.some((p) => url.pathname.startsWith(p));
 
-  if (!isOwnAsset) return; // let API/network calls pass straight through
+  if (!isOwnAsset || isBypassed) return; // let API/network/OAuth calls pass straight through
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
