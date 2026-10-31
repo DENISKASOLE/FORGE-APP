@@ -30,6 +30,7 @@ import { normalizePlans, normalizeLogs, normalizeMarks } from "../../lib/nutriti
 import { MEAL_KEYS } from "../nutrition-v2/nutritionV2Model.js";
 import { planForDate, mealStatus, mergeLegacyMacroLog } from "../nutrition-v2/nutritionV2Math.js";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
+import { CoachSidebarShell } from "../coach/CoachSidebarShell.jsx";
 
 // `tab`/`setTab` are optionally controlled: pass them (e.g. from a router
 // route) to drive navigation externally, or omit them to fall back to
@@ -80,9 +81,12 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "ai_coach" && !isCoach && <ClientAIChat client={client} updateClient={updateClient} />}
   </>;
 
-  // ---- COACH: unchanged horizontal tab bar, full tablet layout ----
+  // ---- COACH: horizontal tab bar below 1180px, persistent sidebar at
+  // real desktop width (CoachSidebarShell - DECISIONS.md "Coach desktop
+  // web layout") ----
   if (isCoach) {
     return (
+      <CoachSidebarShell>
       <div data-app="coach" style={{ minHeight: "100vh", width: "100%", maxWidth: "100%", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans }}>
         <header style={{ borderBottom: `${BRAND.hairline} solid ${BRAND.line}`, padding: isMobile ? "8px 10px" : 14, display: "flex", gap: 9, alignItems: "center", position: "sticky", top: 0, background: "color-mix(in srgb, var(--page) 96%, transparent)", backdropFilter: "blur(16px)", zIndex: 80, maxWidth: "100%", overflow: "hidden" }}>
           <Button variant="ghost" onClick={back} style={{ padding: isMobile ? "8px 10px" : undefined }}>Back</Button>
@@ -117,6 +121,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
           {content}
         </main>
       </div>
+      </CoachSidebarShell>
     );
   }
 

@@ -36,6 +36,8 @@ import { Trials } from "./Trials.jsx";
 import { BuddyPairsScreen } from "./BuddyPairs.jsx";
 import { PackageDesigner } from "./PackageDesigner.jsx";
 import { loadTodaysAgenda } from "./coachHelpers.js";
+import { CoachSidebarShell } from "./CoachSidebarShell.jsx";
+import { COACH_NAV, TOOLS } from "./coachNav.js";
 import { timeLabel } from "../../lib/clientData.js";
 
 async function loadExerciseLibraryData(trainerId) {
@@ -433,22 +435,6 @@ export function CoachAutomationsScreen({ user, onBack }) {
 
 export function CoachToolsTab({ onOpen }) {
   const isMobile = useIsMobile(520);
-  const TOOLS = [
-    { key: "templates", name: "Programs", meta: "Templates & builder", icon: "templates", color: BRAND.blue },
-    { key: "exercise_library", name: "Exercise Library", meta: "Custom moves & video", icon: "exlib", color: BRAND.yellow },
-    { key: "calendar", name: "Calendar", meta: "Sessions & bookings", icon: "calendar", color: BRAND.violet },
-    { key: "analytics", name: "Analytics", meta: "Adherence & trends", icon: "analytics", color: BRAND.green },
-    { key: "trials", name: "Trials", meta: "Consults & assessments", icon: "trials", color: BRAND.red },
-    { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot", icon: "buddypairs", color: BRAND.orange },
-    { key: "content", name: "Content", meta: "Forge Academy articles", icon: "content", color: BRAND.blue },
-    { key: "payments", name: "Payments", meta: "Plans & invoices", icon: "payments", color: BRAND.green },
-    { key: "packages", name: "Packages", meta: "Design your offers", icon: "packages", color: BRAND.violet },
-    { key: "forms", name: "Intake Forms", meta: "Onboarding & health", icon: "forms", color: BRAND.yellow },
-    { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
-    { key: "automations", name: "Automations", meta: "Reminders & nudges", icon: "automations", color: BRAND.orange },
-    { key: "foods", name: "Foods", meta: "Food library for nutrition plans", icon: "foods", color: BRAND.green },
-    { key: "nutrition_dashboard", name: "Nutrition", meta: "Who needs attention today", icon: "foods", color: BRAND.red },
-  ];
   return <div style={{ display: "grid", gap: 14 }}>
     <div><div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Tools</div><div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Everything you run your coaching with</div></div>
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
@@ -460,13 +446,6 @@ export function CoachToolsTab({ onOpen }) {
     </div>
   </div>;
 }
-export const COACH_NAV = [
-  { key: "home", label: "Home", icon: "home" },
-  { key: "clients", label: "Clients", icon: "clients" },
-  { key: "tools", label: "Tools", icon: "templates" },
-  { key: "alerts", label: "Alerts", icon: "bell" },
-  { key: "settings", label: "Settings", icon: "gear" },
-];
 export function CoachBottomNav({ tab, setTab, unread }) {
   return (
     <div className="glass-nav" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
@@ -858,6 +837,9 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   const [trialsCount, setTrialsCount] = useState(0);
   const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
+  // Matches CoachSidebarShell's own breakpoint exactly (DESKTOP_SIDEBAR_MIN)
+  // - whenever the sidebar is showing, the old bottom nav shouldn't be too.
+  const isDesktop = !isMobile && !isTablet;
   const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) && (c.clientType || "1:1") === clientTypeFilter);
   function adherenceSortValue(c) { const a = overallAdherence(c.program, c.trainingLogs); return a.total > 0 ? a.pct : 101; }
   const sorted = sortBy === "name" ? [...filtered].sort((a, b) => a.name.localeCompare(b.name))
@@ -982,7 +964,8 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   );
   else body = <CoachSettingsTab user={user} trainer={trainer} onEditProfile={() => setShowSettings(true)} clientsCount={clients.length} syncStatus={syncStatus} onOpenTool={(k) => { setToolOrigin("settings"); setScreen(k); }} />;
   return (
-    <div data-app="coach" style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans, paddingBottom: 96 }}>
+    <CoachSidebarShell>
+    <div data-app="coach" style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans, paddingBottom: isDesktop ? 0 : 96 }}>
       <header style={{ position: "sticky", top: 0, zIndex: 50, background: "color-mix(in srgb, var(--page) 93%, transparent)", backdropFilter: "blur(16px)", borderBottom: `${BRAND.hairline} solid ${BRAND.line}`, padding: isMobile ? "10px 12px" : "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ fontFamily: BRAND.display, width: isMobile ? 38 : 44, height: isMobile ? 38 : 44, borderRadius: "50%", background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, overflow: "hidden", display: "grid", placeItems: "center", color: BRAND.gold, fontWeight: 500 }}>
@@ -1000,10 +983,11 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
       <main style={{ width: "100%", maxWidth: isMobile ? 480 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
         {body}
       </main>
-      <CoachBottomNav tab={screen ? toolOrigin : tab} setTab={(t) => { setScreen(null); setTab(t); }} unread={notifications.length} />
+      {!isDesktop && <CoachBottomNav tab={screen ? toolOrigin : tab} setTab={(t) => { setScreen(null); setTab(t); }} unread={notifications.length} />}
       {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onCreate={createClient} />}
       {showSettings && <CoachSettingsModal user={user} trainer={trainer} onClose={() => setShowSettings(false)} onSaved={(next) => { setTrainer?.(next); setShowSettings(false); refresh(); }} />}
     </div>
+    </CoachSidebarShell>
   );
 }
 export function Kpi({ title, value, icon, color, onClick, compact = false }) {
