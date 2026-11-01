@@ -11,7 +11,7 @@ import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
 import { SupersetLogger } from "./SupersetLogger.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
-import { confirmDialog, promptDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
@@ -29,7 +29,7 @@ import {
   newSet, newExercise, newBlock, newWorkout, newProgWeek, newProgram, cloneWithNewIds,
   DOW_LETTER, DOW_LABEL, programStart, dayDate, restNoteFor, weekDayMap, workoutForDay,
   unassignedWorkouts, normalizeProgramDays, buildProgramDays, currentProgramWeek,
-  exerciseCountOf, findPrescribedExercise,
+  exerciseCountOf, findPrescribedExercise, spliceProgramFromWeek,
 } from "../../lib/programModel.js";
 import { EXERCISE_LIBRARY } from "./exerciseLibraryData.js";
 import { EXERCISE_TAXONOMY, MUSCLE_GROUPS, MOVEMENT_PATTERNS } from "./exerciseTaxonomy.js";
@@ -364,10 +364,31 @@ export function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMove
   );
 }
 
+// Loading a template or an AI-drafted program used to wholesale-replace
+// whatever the client already had, which quietly orphaned every logged
+// session from the weeks it threw away (buildProgramDays can only ever
+// show the weeks the current program still has). This asks which week the
+// new material should start at, defaulting to right after the last
+// existing week so nothing is lost unless the coach explicitly dials the
+// start week back - see spliceProgramFromWeek.
+async function askStartWeekAndSplice(existingProgram, incomingProgram, loadLabel) {
+  const existingWeeks = existingProgram?.weeks?.length || 0;
+  const maxStart = existingWeeks + 1;
+  const raw = await promptDialog(
+    `${loadLabel} This client's program already has ${existingWeeks} week${existingWeeks === 1 ? "" : "s"}. Which week should the new weeks start at? Weeks before that are left exactly as they are, so logged work stays visible. Enter ${maxStart} to keep every existing week and add the new ones after.`,
+    String(maxStart),
+    { title: "Start new weeks at...", confirmLabel: "Load" },
+  );
+  if (raw == null) return null;
+  const startWeek = Math.min(Math.max(1, parseInt(raw, 10) || maxStart), maxStart);
+  return spliceProgramFromWeek(existingProgram, incomingProgram, startWeek);
+}
+
 // ---------- Coach: Program Builder ----------
 export function ProgramBuilder({ client, program, onClose, onSave }) {
   const isMobile = useIsMobile(520);
-  const [p, setP] = useState(() => normalizeProgramDays(program?.version === 2 ? JSON.parse(JSON.stringify(program)) : newProgram(`${client.name?.split(" ")[0] || "Client"}'s Program`, client.goal || "General Fitness", 4)));
+  const hadExistingProgram = program?.version === 2;
+  const [p, setP] = useState(() => normalizeProgramDays(hadExistingProgram ? JSON.parse(JSON.stringify(program)) : newProgram(`${client.name?.split(" ")[0] || "Client"}'s Program`, client.goal || "General Fitness", 4)));
   const [wk, setWk] = useState(0);
   const [wo, setWo] = useState(0);
   const [templates, setTemplates] = useState([]);
@@ -380,9 +401,15 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
     return () => { active = false; };
   }, [trainerId]);
   async function loadTemplate(t) {
-    if (!await confirmDialog(`Load "${t.name}"? This replaces the program you're editing. Logs are never touched.`, { confirmLabel: "Load" })) return;
     const copy = cloneWithNewIds(t.program);
-    setP({ ...copy, id: uid(), name: p.name || copy.name, startDate: p.startDate || copy.startDate || isoDate(), templateId: t.id });
+    const incoming = { ...copy, id: uid(), name: p.name || copy.name, templateId: t.id };
+    if (hadExistingProgram) {
+      const spliced = await askStartWeekAndSplice(p, incoming, `Load "${t.name}"?`);
+      if (!spliced) return;
+      setP(spliced);
+    } else {
+      setP(normalizeProgramDays({ ...incoming, startDate: p.startDate || incoming.startDate || isoDate() }));
+    }
     setWk(0); setWo(0);
   }
   async function saveAsTemplate() {
@@ -1063,6 +1090,13 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   }
   function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setAiDraft(null); setWeekNum(currentProgramWeek(p)); }
   function saveLogs(l) { setLogs(l); persist(program, l); }
+  async function applyAiDraft(draft) {
+    const next = program ? await askStartWeekAndSplice(program, draft, "Use this AI-drafted program?") : normalizeProgramDays(draft);
+    if (!next) return;
+    setAiDraft(next);
+    setAssistant(false);
+    setBuilder(true);
+  }
   function startOrContinue(day) {
     const existing = sessionForWorkout(logs, day.week.id, day.workout.id);
     if (existing && existing.status === "in_progress") { setLive(existing); return; }
@@ -1124,7 +1158,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
             : <ProgramMonthView days={days} cursor={monthCursor} setCursor={setMonthCursor} currentWeek={currentProgramWeek(program)} onOpen={(d) => setOpenKey(d.key)} />}
         </>
       )}
-      {assistant && <CoachAssistantModal client={client} program={program} onClose={() => setAssistant(false)} onApply={(p) => { setAiDraft(p); setAssistant(false); setBuilder(true); }} />}
+      {assistant && <CoachAssistantModal client={client} program={program} onClose={() => setAssistant(false)} onApply={(p) => { setAiDraft(p); setAssistant(false); setBuilder(true); }} onApplyNew={applyAiDraft} />}
       {builder && <ProgramBuilder client={client} program={aiDraft || program} onClose={() => { setBuilder(false); setAiDraft(null); }} onSave={saveProgram} />}
     </div>
   );

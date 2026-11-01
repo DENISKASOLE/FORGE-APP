@@ -13,10 +13,13 @@ const boxStyle = { background: BRAND.card2, border: `${BRAND.hairline} solid ${B
 
 // Neither AI call here writes anything - generateProgramFromAI returns a
 // hydrated program object, suggestProgramSwaps returns a reviewable list.
-// onApply hands the result to ProgramTab, which opens it in ProgramBuilder -
-// the coach's own "Save Program" click is the only thing that ever persists
-// it, same as building one by hand.
-export function CoachAssistantModal({ client, program, onClose, onApply }) {
+// Both callbacks hand their result to ProgramTab, which opens it in
+// ProgramBuilder - the coach's own "Save Program" click is the only thing
+// that ever persists it, same as building one by hand. They're split in two
+// because only onApplyNew is actually a different program replacing this
+// one (so ProgramTab asks which week it should start at); onApply's swaps
+// edit the same weeks/ids in place, nothing to ask about.
+export function CoachAssistantModal({ client, program, onClose, onApply, onApplyNew }) {
   const isMobile = useIsMobile(520);
   const hasProgram = !!(program?.weeks?.some((w) => w.workouts?.length));
 
@@ -86,7 +89,7 @@ export function CoachAssistantModal({ client, program, onClose, onApply }) {
                 {createResult.program.name} · {createResult.program.weeks.length} weeks
                 {createResult.program.weeks[0] && ` · ${createResult.program.weeks[0].workouts.length} workouts/week`}
               </div>
-              <Button onClick={() => onApply(createResult.program)}>Open in Program Builder</Button>
+              <Button onClick={() => onApplyNew(createResult.program)}>Open in Program Builder</Button>
             </div>
           )}
         </div>

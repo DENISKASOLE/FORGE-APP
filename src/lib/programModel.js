@@ -102,6 +102,25 @@ export function buildProgramDays(program, logs) {
   });
   return out;
 }
+// Loading a template or an AI draft over an existing program used to wholesale
+// replace it - the old weeks' ids vanished, so trainingLogs sessions keyed to
+// them (sessionForWorkout looks up by week.id/workout.id) could never resolve
+// again even though the log rows themselves were untouched. This keeps weeks
+// 1..(startWeek-1) from the program already in place - unchanged ids, so their
+// logged sessions keep showing - and splices the incoming weeks in after them,
+// renumbered to continue the sequence. startDate is deliberately kept from the
+// existing program so the preserved weeks' calendar dates don't shift.
+export function spliceProgramFromWeek(existingProgram, incomingProgram, startWeek) {
+  const keepCount = Math.max(0, Math.min(startWeek - 1, existingProgram?.weeks?.length || 0));
+  const keptWeeks = (existingProgram?.weeks || []).slice(0, keepCount);
+  const newWeeks = (incomingProgram?.weeks || []).map((w, i) => ({ ...w, weekNum: keepCount + i + 1 }));
+  const weeks = [...keptWeeks, ...newWeeks];
+  return normalizeProgramDays({
+    ...incomingProgram,
+    startDate: existingProgram?.startDate || incomingProgram?.startDate || isoDate(),
+    weeks: weeks.length ? weeks : [newProgWeek(1)],
+  });
+}
 export function currentProgramWeek(program) {
   if (!program?.weeks?.length) return 1;
   const diff = Math.floor((new Date(`${isoDate(new Date())}T00:00:00`) - new Date(`${isoDate(programStart(program))}T00:00:00`)) / 86400000);
