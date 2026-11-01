@@ -11,7 +11,7 @@ import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
 import { SupersetLogger } from "./SupersetLogger.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
-import { promptDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { confirmDialog, promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
@@ -560,6 +560,10 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const [subQuery, setSubQuery] = useState("");
   const [addingExercise, setAddingExercise] = useState(false);
   const [addQuery, setAddQuery] = useState("");
+  const [swappingWorkout, setSwappingWorkout] = useState(false);
+  const [swapName, setSwapName] = useState("");
+  const [swapQuery, setSwapQuery] = useState("");
+  const [swapQueue, setSwapQueue] = useState([]);
   const [rest, setRest] = useState(null);
   const [finished, setFinished] = useState(() => (session.status === "completed" && !editing ? session : null));
   const [rpePickerFor, setRpePickerFor] = useState(null); // `${entryId}:${si}` of the set currently choosing an RPE, or null
@@ -611,6 +615,31 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     setCurrent(total);
     setAddingExercise(false);
     setAddQuery("");
+  }
+  // Swapping the whole day - a client shows up for one session a week and
+  // the planned split doesn't fit, so the coach improvises a full-body (or
+  // whatever) on the spot. Only today's session.entries changes - program
+  // (and the workout this session was started from) are never touched, so
+  // next time this day comes around the original plan is exactly as it was.
+  function openSwapWorkout() { setSwapName(session.workoutName || workout?.name || ""); setSwapQuery(""); setSwapQueue([]); setSwappingWorkout(true); }
+  function addToSwapQueue(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSwapQueue((q) => (q.some((n) => n.toLowerCase() === trimmed.toLowerCase()) ? q : [...q, trimmed]));
+    setSwapQuery("");
+  }
+  function removeFromSwapQueue(name) { setSwapQueue((q) => q.filter((n) => n !== name)); }
+  async function confirmSwapWorkout() {
+    if (!swapQueue.length) { showToast("Add at least one exercise first.", "warn"); return; }
+    const hasLoggedWork = session.entries.some((e) => e.sets.some((s) => s.done));
+    if (hasLoggedWork && !(await confirmDialog("This replaces every exercise in today's session. Anything already logged today will be gone - only this one session's log, the program itself is never touched.", { confirmLabel: "Swap", danger: true }))) return;
+    const entries = swapQueue.map((name) => ({
+      id: uid(), exerciseId: null, blockId: null, tag: "", name, substitutedName: "",
+      sets: [0, 1, 2].map(() => ({ setId: null, reps: "", load: "", duration: "", rpe: "", done: false })),
+    }));
+    onUpdate({ ...session, workoutName: swapName.trim() || session.workoutName, entries });
+    setCurrent(0);
+    setSwappingWorkout(false);
   }
   function handleExit() { if (session.startedAt && session.status !== "completed") { const e = Math.round((Date.now() - new Date(session.startedAt)) / 1000); onUpdate({ ...session, startedAt: null, elapsedSec: e }); } onExit(); }
   function adjustRest(delta) { if (rest && restLeft > 0) { const nl = Math.max(5, restLeft + delta); setRest({ until: Date.now() + nl * 1000, total: Math.max(rest.total, nl) }); } else { const base = Math.max(15, restTotal + delta); setRest({ until: Date.now() + base * 1000, total: base }); } }
@@ -667,7 +696,42 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       </Card>
     );
   }
-  if (!step) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
+  const swapPanel = (
+    <>
+      <button onClick={() => (swappingWorkout ? setSwappingWorkout(false) : openSwapWorkout())} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{swappingWorkout ? "Cancel swap" : "Swap whole workout"}</button>
+      {swappingWorkout && (
+        <Card style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Build today's session</div>
+          <div style={{ color: BRAND.dim, fontSize: 12 }}>Replaces every exercise in today's log only - "{workout?.name || session.workoutName || "today's plan"}" stays exactly as planned for next time.</div>
+          <Field label="Session name" value={swapName} onChange={setSwapName} />
+          <input placeholder="Search or type an exercise..." value={swapQuery} onChange={(e) => setSwapQuery(e.target.value)} style={inputStyle()} />
+          {swapQuery && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {exerciseLibrary.filter((n) => n.toLowerCase().includes(swapQuery.toLowerCase())).slice(0, 10).map((n) => (
+                <button key={n} onClick={() => addToSwapQueue(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>{n}</button>
+              ))}
+              <button onClick={() => addToSwapQueue(swapQuery)} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ Add: {swapQuery.trim()}</button>
+            </div>
+          )}
+          {swapQueue.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {swapQueue.map((n, i) => (
+                <div key={n} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: BRAND.panel, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "8px 10px" }}>
+                  <span style={{ fontSize: 13 }}>{i + 1}. {n}</span>
+                  <button onClick={() => removeFromSwapQueue(n)} style={{ background: "none", border: "none", color: BRAND.muted, cursor: "pointer", fontSize: 12 }}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="ghost" onClick={() => setSwappingWorkout(false)} style={{ flex: 1 }}>Cancel</Button>
+            <Button onClick={confirmSwapWorkout} disabled={!swapQueue.length} style={{ flex: 1 }}>Start swapped workout</Button>
+          </div>
+        </Card>
+      )}
+    </>
+  );
+  if (!step) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><div style={{ marginTop: 10 }}>{swapPanel}</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
   const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
   const ringC = 2 * Math.PI * 26;
   const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
@@ -680,6 +744,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer", padding: 0 }}>‹ Exit</button>
         <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "5px 11px", fontWeight: 500, color: BRAND.gold, fontSize: 13 }}>{editing ? "Editing" : (elapsed > 0 ? fmtClock(elapsed) : "0:00")}</div>
       </div>
+      {swapPanel}
       {isSuperset ? (
         <SupersetLogger
           group={step.entries}
@@ -702,7 +767,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
           <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Exercise {cur + 1} of {total}</div>
-          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "right" }}>{workout?.name || session.workoutName}</div>
+          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "right" }}>{session.workoutName || workout?.name}</div>
         </div>
         <div style={{ fontSize: 26, fontWeight: 500, textTransform: "uppercase", lineHeight: 1.05, marginTop: 6 }}>{effectiveName}</div>
         {exMeta?.muscleGroup && <div style={{ marginTop: 6 }}><MuscleGroupTag muscleGroup={exMeta.muscleGroup} needsReview={exMeta.needsReview} /></div>}
