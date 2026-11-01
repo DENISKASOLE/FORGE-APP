@@ -1,3 +1,39 @@
+# Live session logging: swap the whole day's workout — decisions log
+
+Denis asked for a way to improvise an entire day's workout during live
+coach session logging - some clients only train once a week, so
+whatever the program has scheduled for that specific day sometimes
+doesn't fit and he needs to swap in a full-body (or whatever) on the
+spot, without losing the previously logged weeks' structure.
+
+## Why this reused existing machinery almost entirely
+
+`WorkoutSession` (TrainScreens.jsx) already had an ad-hoc-exercise
+pattern - the "+ Add exercise" button at the end of a session appends
+an entry with `exerciseId: null, blockId: null`, deliberately not
+backed by any plan item, exactly the same convention `addSet()`
+already used for `setId: null`. `groupSessionSteps` already treats any
+entry whose `blockId` doesn't match a block in the workout as a plain
+single step, and every render site downstream (`exById[entry.exerciseId]`,
+block lookups, etc.) was already null-tolerant for this - all proven
+working by that single-exercise case before this feature existed. So
+"swap the whole day" is just that same entry shape, N times, replacing
+`session.entries` outright rather than appending one.
+
+## What it touches - and deliberately doesn't
+
+"Swap whole workout" (visible at any point while logging, not just at
+the end) opens a builder for a fresh exercise list and, on confirm,
+replaces `session.entries` and optionally renames `session.workoutName`.
+It warns first if any sets in the current session are already marked
+done, since those get discarded. It never touches `program` or the
+`workout` object this session was started from - the plan for that
+calendar day is exactly what it was before, so next time this day
+comes around in the schedule it's unaffected. The session header now
+prefers `session.workoutName` over `workout?.name` for display, since
+the session itself is the source of truth once it's been renamed; the
+two were always identical before this feature existed.
+
 # Program Builder: splice new weeks instead of replacing — decisions log
 
 Denis reported that loading a new program over a client's existing one
