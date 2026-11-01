@@ -1,3 +1,46 @@
+# Program Builder: splice new weeks instead of replacing — decisions log
+
+Denis reported that loading a new program over a client's existing one
+(via "Load from template" or an AI-generated draft in Coach Assistant)
+should not wholesale-replace it - it should ask which week the new
+material starts at, so previously logged weeks stay intact.
+
+## Why this was actually broken
+
+`buildProgramDays` (src/lib/programModel.js) only ever renders the
+calendar from the *current* program's own `weeks` array, and
+`sessionForWorkout` looks up a logged session by `week.id`/`workout.id`
+- ids that live only on that program's week/workout objects. Loading a
+template or a brand-new AI draft built an entirely fresh set of ids
+(`cloneWithNewIds`/`hydrateAIProgram`) and replaced `program.weeks`
+outright. The old `trainingLogs` rows were never deleted, but nothing
+in the app could resolve them anymore once their week/workout ids
+stopped existing in the current program - the existing "Logs are never
+touched" confirm dialog on Load Template was true in a narrow, mostly
+useless sense (the bytes survive) while still erasing them from view.
+
+## Fix: `spliceProgramFromWeek`
+
+New helper in `src/lib/programModel.js`: given the program already in
+place and an incoming one (template or AI draft), keep weeks
+`1..(startWeek-1)` from the existing program completely untouched -
+same ids, same `startDate` - and append the incoming program's weeks
+after that point, renumbered to continue the sequence. `startDate`
+deliberately stays from the *existing* program, since the preserved
+weeks' calendar dates are computed from it.
+
+Both replace sites (`ProgramBuilder`'s "Load from template" dropdown,
+and Coach Assistant's "Create a new program" → "Open in Program
+Builder") now call a shared `askStartWeekAndSplice` helper
+(TrainScreens.jsx) that prompts for a start week - defaulting to
+right after the last existing week, so nothing is lost unless the
+coach explicitly dials it back - before splicing. Coach Assistant's
+other action, "Suggest changes" → "Apply selected swaps", edits the
+*same* program's weeks/ids in place (`applyProgramSwaps`), so it was
+kept on its own unchanged `onApply` callback rather than routed
+through the splice flow, which would have wrongly doubled the week
+count.
+
 # forge-mcp: remote MCP server for Claude — decisions log
 
 Denis asked for an MCP server so he could connect Claude (claude.ai →
