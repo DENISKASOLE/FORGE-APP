@@ -5,7 +5,7 @@
 // like every other data-access path in this app (src/lib/clientData.js).
 // Never the service role key.
 import { z } from "npm:zod@^4.3.6";
-import { hydrateProgram, currentProgramWeek } from "./programModel.ts";
+import { hydrateProgram, currentProgramWeek, videoMapFromProgram, videoMapFromLibrary } from "./programModel.ts";
 import { buildPlanItem, buildMeal, buildPlanVersion, publishPlan, planForDate, validatePlanVersion } from "./nutritionModel.ts";
 import { bestLiftsFrom, recentSessions } from "./trainingLogs.ts";
 
@@ -65,6 +65,7 @@ const ExerciseSchema = z.object({
   name: z.string().min(1),
   loadType: z.enum(["kg", "%1RM", "RPE", "BW"]).optional(),
   tempo: z.string().optional(), rest: z.string().optional(), note: z.string().optional(),
+  videoUrl: z.string().optional().describe("Demo video link (http/https). Omit to keep the link this exercise already has in the client's program or the coach's exercise library."),
   sets: z.array(SetSchema).min(1),
 });
 const BlockSchema = z.object({
@@ -208,11 +209,16 @@ export function registerAllTools(server: any, supabase: any) {
 
   server.registerTool("save_program", {
     title: "Create or replace a client's program",
-    description: "Writes a complete training program for a client. This REPLACES their current program entirely and goes LIVE immediately - exactly the same as the coach clicking Save in the Program Builder. Call get_program first if you're editing an existing program rather than starting from scratch, and include every week/workout you want to keep, not just the ones you're changing.",
+    description: "Writes a complete training program for a client. This REPLACES their current program entirely and goes LIVE immediately - exactly the same as the coach clicking Save in the Program Builder. Call get_program first if you're editing an existing program rather than starting from scratch, and include every week/workout you want to keep, not just the ones you're changing. Each exercise may carry a videoUrl; when it's omitted, the link is kept from the same exercise (matched by name) in the client's current program, then from the coach's custom exercise library.",
     inputSchema: z.object({ client_id: uuid(), program: ProgramSchema }),
   }, async ({ client_id, program }: { client_id: string; program: any }) => {
     await clientRow(supabase, client_id);
-    const hydrated = hydrateProgram(program);
+    // Video fallbacks: the client's current program wins over the library,
+    // because it holds the links the coach set for this specific client.
+    const existing = await sectionData(supabase, client_id, "program");
+    const { data: lib } = await supabase.from("trainer_data").select("data").eq("section", "custom_exercise_library").limit(1).maybeSingle();
+    const fallbackVideos = { ...videoMapFromLibrary(lib?.data?.items), ...videoMapFromProgram(existing) };
+    const hydrated = hydrateProgram(program, undefined, fallbackVideos);
     await writeSection(supabase, client_id, "program", hydrated);
     return toolText({ saved: true, live: true, program: hydrated });
   });

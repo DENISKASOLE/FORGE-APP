@@ -36,7 +36,52 @@ function normalizeProgramDays(program: any): any {
   };
 }
 
-export function hydrateProgram(raw: any, existingId?: string): any {
+// ---------- exercise video links ----------
+// Only http(s) links are kept, so a save can never store a javascript: or
+// data: URL that the client app would later open.
+export function cleanVideoUrl(v: any): string {
+  if (typeof v !== "string") return "";
+  const s = v.trim();
+  if (!s) return "";
+  try {
+    const u = new URL(s);
+    return u.protocol === "https:" || u.protocol === "http:" ? s : "";
+  } catch {
+    return "";
+  }
+}
+
+// Case/spacing-insensitive key so "DB Lateral Raises" matches
+// "DB LATERAL RAISES" and "SkiErg" matches "SKIERG".
+export function exerciseKey(name: any): string {
+  return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// name-key -> videoUrl, from every exercise in a stored program.
+export function videoMapFromProgram(program: any): Record<string, string> {
+  const map: Record<string, string> = {};
+  (program?.weeks || []).forEach((w: any) => (w?.workouts || []).forEach((wo: any) => (wo?.blocks || []).forEach((b: any) => (b?.exercises || []).forEach((ex: any) => {
+    const url = cleanVideoUrl(ex?.videoUrl);
+    const key = exerciseKey(ex?.name);
+    if (url && key && !map[key]) map[key] = url;
+  }))));
+  return map;
+}
+
+// name-key -> videoUrl, from the coach's custom exercise library items.
+export function videoMapFromLibrary(items: any): Record<string, string> {
+  const map: Record<string, string> = {};
+  (Array.isArray(items) ? items : []).forEach((it: any) => {
+    const url = cleanVideoUrl(it?.videoUrl);
+    const key = exerciseKey(it?.name);
+    if (url && key && !map[key]) map[key] = url;
+  });
+  return map;
+}
+
+// fallbackVideos: name-key -> url, used when an exercise is saved without
+// its own videoUrl (so re-saving a program never wipes the coach's links).
+export function hydrateProgram(raw: any, existingId?: string, fallbackVideos: Record<string, string> = {}): any {
   const weeks = (raw?.weeks || []).map((w: any, wi: number) => ({
     id: uid(),
     weekNum: Number(w?.weekNum) || wi + 1,
@@ -60,7 +105,7 @@ export function hydrateProgram(raw: any, existingId?: string): any {
           tempo: ex?.tempo || "",
           rest: ex?.rest || "",
           note: ex?.note || "",
-          videoUrl: "",
+          videoUrl: cleanVideoUrl(ex?.videoUrl) || fallbackVideos[exerciseKey(ex?.name)] || "",
           sets: (ex?.sets?.length ? ex.sets : [{}]).map((s: any) => ({
             id: uid(), targetReps: s?.targetReps || "", targetLoad: s?.targetLoad || "", targetRpe: s?.targetRpe || "",
           })),
