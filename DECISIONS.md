@@ -1,3 +1,70 @@
+# Fuel tab redesign: weekly rotation + client Today/Change-a-meal — decisions log
+
+Denis commissioned a full visual redesign of the client-facing Fuel
+(nutrition) tab, approved as four Design Component mockups plus a build
+brief (`docs/design/fuel-tab/`). "Picture before code" - the design was
+signed off before any of this was built. Build order follows the
+brief's own suggestion: rotation data layer, then Today, then
+Change-a-meal, then My week, then the coach Nutrition dashboard. This
+entry covers the first two screens; My week and the coach dashboard are
+still to come.
+
+## Data layer: weekly rotation is back
+
+A plan version can carry `days` (1=Mon..7=Sun), each overriding that
+weekday's meals/targets/label. This is the exact same feature that was
+built and then reverted the day before (commit `9267baa`, reverted in
+`ce4a8cf`) - reverted specifically because the UI it needed hadn't been
+designed yet, not because anything was wrong with it. Now that the
+design is approved, it's back, re-applied by hand onto the current
+tree rather than cherry-picked, since `ce4a8cf` also reverted an
+unrelated exercise-video-link change in the same commit and a cherry-
+pick would have dragged that back in too. Ported to forge-mcp's
+nutrition tools as before (not yet redeployed).
+
+## Colors: verified against the actual rendered mockups, not memorized
+
+The four `.dc.html` files are plain HTML with inline hex styles, but
+Denis's first-round build used a plausible palette instead of the
+mockups' exact one in a couple of spots, which he caught. Poppler
+(`pdftoppm`) isn't installed in this environment, so the brief's PDF
+export couldn't be rendered the normal way; instead, `pdfjs-dist` +
+`@napi-rs/canvas` (pure JS, no native build step) rasterized all 4 PDF
+pages to PNG, which also caught a color the `.dc.html` text alone
+didn't make obvious: a second, softer red (`#FF7A7A`, "coral") distinct
+from the brand red (`#ED000A`, reserved for the coach avatar) - used
+for the Swap sheet's "Skip fried & sweet drinks" cue and the coach
+dashboard's most-severe roster flag. Every hex value in
+`fuelTheme.js` is now checked against the rendered image, not
+transcribed from the HTML text alone.
+
+## Client · Today (`FuelToday.jsx`) and Change-a-meal (`FuelSwap.jsx`)
+
+New client-facing components reusing nutrition-v2's existing data layer
+end to end (`planForDate`, log entries, `mealOutcomeFor`) - this is a
+new UI on the same model, not a new one. Replaces `NutritionV2Flow.jsx`'s
+old client branch (date-nav + Overview/Meal plan/Food log tabs,
+portion-editing, skip-meal) entirely; the coach branch is untouched.
+`ClientFoodLogTab.jsx` is now unused by the live app (kept on disk, not
+deleted) since the new design's three logging paths (plan swap /
+eating out / photo+word) cover what it did.
+
+New 4-state outcome model (`mealOutcomeFor`/`dayOnPlanTally`/
+`last7DaysOnPlan` in `nutritionV2Math.js`) alongside the existing
+`mealStatus`/`dayAdherence` (untouched, still backs the old
+adherence/weekly-progress math): planned / swapped / offplan / missed /
+future, "no-shame logging" by design - swapped counts as on-plan,
+nothing is ever shown in red. The swap sheet's "noticeably less
+protein" hint reuses the plan meal's own existing `.note` field (same
+channel the coach already has in the plan builder) rather than
+auto-generating coaching advice.
+
+Known simplifications, flagged to Denis: eating-out logging falls back
+to the planned meal's own macros since there's no coach UI yet to set a
+custom eating-out estimate (`meal.eatingOutEstimate`, read but not yet
+settable); the off-plan dashed button targets whichever meal is next
+up, since every log entry needs a meal key.
+
 # Live session logging: swap the whole day's workout — decisions log
 
 Denis asked for a way to improvise an entire day's workout during live
