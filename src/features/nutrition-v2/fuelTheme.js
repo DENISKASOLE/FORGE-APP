@@ -29,3 +29,14 @@ export const FUEL = {
   coral: "#FF7A7A",
 };
 export const fuelLbl = { fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: FUEL.muted, fontWeight: 700 };
+
+// The 4-state outcome model's visual mark - shared by the client My week
+// day-by-day grid and the coach dashboard's last-7-days heatmap (brief:
+// "the same states and legend as the client week grid"). Shapes differ,
+// not just color, so the legend reads without relying on color alone.
+export const OUTCOME_MARK = {
+  planned: { bg: FUEL.protein, fg: "#000", mark: "✓", label: "As planned" },
+  swapped: { bg: FUEL.proteinSwapped, fg: "#000", mark: "⇄", label: "Swapped" },
+  offplan: { bg: FUEL.amber, fg: "#000", mark: "+", label: "Off-plan" },
+  missed: { bg: "transparent", fg: FUEL.dim, mark: "", label: "Missed", border: true },
+};

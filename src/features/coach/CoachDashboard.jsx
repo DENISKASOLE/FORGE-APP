@@ -926,7 +926,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "foods") body = <FoodsLibraryScreen trainerId={user.id} onBack={goHome} />;
-  else if (screen === "nutrition_dashboard") body = <CoachNutritionDashboard clients={clients} selectClient={selectClient} onBack={goHome} />;
+  else if (screen === "nutrition_dashboard") body = <CoachNutritionDashboard clients={clients} selectClient={selectClient} updateClient={updateClientLocal} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
       trainer={trainer} user={user} clients={clients} notifications={notifications}

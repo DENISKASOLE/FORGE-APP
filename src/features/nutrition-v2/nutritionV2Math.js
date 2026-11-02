@@ -126,7 +126,7 @@ export function mealStatus(dateISO, todayISO, meal, dateLogEntries, dateMarks) {
 export function unplannedEntries(dateLogEntries) {
   return (dateLogEntries || []).filter((e) => !e.planItemId && e.source !== "sub");
 }
-export function loggedDayTotals(dateLogEntries) { return sumMacros((dateLogEntries || []).map((e) => e.macros)); }
+export function loggedDayTotals(dateLogEntries) { return sumMacros((dateLogEntries || []).map((e) => e.macros || emptyMacros())); }
 
 // ---------- Fuel tab redesign: the 4-state outcome model (DECISIONS.md "Fuel tab redesign") ----------
 // mealStatus above (eaten/partial/substituted/skipped/open/future) backs
@@ -172,15 +172,25 @@ export function dayOnPlanTally(planVersion, dateISO, todayISO, dateLogEntries, d
 // same "no-shame logging" principle as the outcome model above, rather
 // than requiring a perfect on-plan day. A day with no plan at all (or no
 // meals on it) can't break the streak either - there was nothing to log.
+// Each day also carries its own meal-by-meal outcome grid (`meals`) and
+// logged protein - the same per-day/per-meal walk the client "My week"
+// day-by-day grid and the coach's roster heatmap both need (brief: "the
+// same states and legend as the client week grid"), so both screens
+// read it from this one call instead of re-deriving it twice.
 export function last7DaysOnPlan(plans, logs, marks, todayISO) {
   const days = weekDatesEnding(todayISO);
   let onPlanSum = 0, countedSum = 0;
   const perDay = days.map((d) => {
     const plan = planForDate(plans, d);
-    const tally = plan ? dayOnPlanTally(plan, d, todayISO, logs?.[d] || [], marks?.[d] || {}) : { onPlan: 0, counted: 0, total: 0 };
+    const dateEntries = logs?.[d] || [];
+    const dateMarks = marks?.[d] || {};
+    const orderedMeals = plan?.meals ? [...plan.meals].sort((a, b) => a.time.localeCompare(b.time)) : [];
+    const meals = orderedMeals.map((m) => ({ key: m.key, name: m.name, outcome: mealOutcomeFor(d, todayISO, m, dateEntries, dateMarks) }));
+    const tally = plan ? dayOnPlanTally(plan, d, todayISO, dateEntries, dateMarks) : { onPlan: 0, counted: 0, total: 0 };
     onPlanSum += tally.onPlan;
     countedSum += tally.counted;
-    return { date: d, plan, tally, hasAnyLog: (logs?.[d] || []).length > 0 };
+    const protein = loggedDayTotals(dateEntries).protein;
+    return { date: d, plan, tally, meals, protein, proteinTarget: plan?.targets?.protein || 0, hasAnyLog: dateEntries.length > 0 };
   });
   let streak = 0;
   for (let i = perDay.length - 1; i >= 0; i--) {
@@ -324,6 +334,45 @@ export function attentionFlagFor(signals) {
   if (signals.lowAdherence) return `Meal adherence low (${Math.round((signals.avgAdherence || 0) * 100)}% over the last ${LOW_ADHERENCE_WINDOW_DAYS} days)`;
   if (signals.heavyExtrasDays >= HEAVY_EXTRAS_DAYS_OF_7) return `Unplanned extras heavy on ${signals.heavyExtrasDays} of the last 7 days`;
   return null;
+}
+
+// ---------- coach Nutrition dashboard: weekly check-in suggestion ----------
+// Brief's exact rule, read as a fat-loss framing (the example client is a
+// fat-loss case): a trend between -1%/wk and -0.25%/wk of bodyweight, at
+// >=75% on-plan, is on pace - keep. Flat for 2+ weeks at >=75% on-plan
+// suggests tightening by 100 kcal. Losing faster than -1%/wk suggests
+// loosening by 100 kcal - not one of the brief's two stated bullets, but
+// the mirror case the +100 kcal button exists for. Below 75% on-plan,
+// adherence (not the target) is the variable worth fixing first, so it's
+// always "keep" regardless of the trend - the brief's own third bullet.
+export const CHECKIN_ONPLAN_THRESHOLD = 0.75;
+export const CHECKIN_SLOW_PCT = 0.0025; // 0.25% bodyweight/week - the slow edge of "on pace"
+export const CHECKIN_FAST_PCT = 0.01; // 1% bodyweight/week - the fast edge of "on pace"
+export const CHECKIN_FLAT_PCT = 0.001; // under this, a week's change counts as "flat"
+export function nextMondayISO(todayISO) {
+  const dow = dayOfWeekISO(todayISO);
+  return addDaysISO(todayISO, dow === 1 ? 7 : 8 - dow);
+}
+// weightPoints: oldest-first [{date,value}] (same shape as clientMetrics.js's
+// weightTrend().points). onPlanPct: this client's last7DaysOnPlan() figure.
+export function weeklyCheckinSuggestion(weightPoints, onPlanPct) {
+  const n = weightPoints?.length || 0;
+  if (n < 2) return { action: "keep", headline: "Keep targets.", reason: "Not enough weigh-in history yet to judge the trend." };
+  const bodyweight = weightPoints[n - 1].value;
+  const deltas = [];
+  for (let i = n - 1; i > 0 && deltas.length < 3; i--) deltas.push(weightPoints[i].value - weightPoints[i - 1].value);
+  const latest = deltas[0];
+  const pctPerWeek = bodyweight > 0 ? latest / bodyweight : 0;
+  const onPlanPctRounded = onPlanPct != null ? Math.round(onPlanPct * 100) : null;
+  const trendStr = `${latest >= 0 ? "+" : "−"}${Math.abs(latest).toFixed(1)} kg/week`;
+  const trendLine = `Weight trend ${trendStr} at ${onPlanPctRounded != null ? `${onPlanPctRounded}%` : "an unknown"} on plan.`;
+  const lowAdherence = onPlanPct == null || onPlanPct < CHECKIN_ONPLAN_THRESHOLD;
+  if (lowAdherence) return { action: "keep", headline: "Keep targets. Adherence first.", reason: `On-plan is ${onPlanPctRounded != null ? `${onPlanPctRounded}%` : "low"}, so the plan isn't the variable to change yet.` };
+  if (pctPerWeek <= -CHECKIN_SLOW_PCT && pctPerWeek >= -CHECKIN_FAST_PCT) return { action: "keep", headline: "Keep targets. On pace.", reason: trendLine };
+  if (pctPerWeek < -CHECKIN_FAST_PCT) return { action: "add", headline: "Add 100 kcal. Losing too fast.", reason: trendLine };
+  const flat = deltas.length >= 2 && bodyweight > 0 && deltas.slice(0, 2).every((d) => Math.abs(d / bodyweight) < CHECKIN_FLAT_PCT);
+  if (flat) return { action: "cut", headline: "Cut 100 kcal. Progress has stalled.", reason: `Weight has been flat for 2+ weeks at ${onPlanPctRounded}% on plan.` };
+  return { action: "keep", headline: "Keep targets.", reason: trendLine };
 }
 
 // ---------- legacy macro_log -> nutrition_v2_logs, read-time promote-on-first-touch ----------

@@ -6,16 +6,18 @@ import { mergeLegacyMacroLog } from "./nutritionV2Math.js";
 import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
 import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
 import { FuelToday } from "./FuelToday.jsx";
+import { FuelWeek } from "./FuelWeek.jsx";
 
 // Unified replacement for food_log/macros/prescribed_plan (DECISIONS.md
 // "Nutrition redesign"), restyled per the approved Fuel tab redesign
 // (DECISIONS.md "Fuel tab redesign", docs/design/fuel-tab/BRIEF.md). The
 // coach side keeps the app's standard look (CoachPlanBuilderV2 /
 // NutritionV2Progress get their own pass); this file is the
-// client-facing shell - today just FuelToday, with My week / Change-a-
-// meal to follow as their own steps.
+// client-facing shell - FuelToday with FuelWeek pushed over it, the
+// coach Nutrition dashboard (Coach.dc.html) still to come.
 export function NutritionV2Flow({ client, updateClient, isCoach }) {
   const [coachTab, setCoachTab] = useState("builder");
+  const [clientScreen, setClientScreen] = useState("today");
   const [logs, setLogs] = useState(() => normalizeLogs(client.nutritionV2Logs));
   const [marks, setMarks] = useState(() => normalizeMarks(client.nutritionV2Marks));
   // Plans are edited by the coach (CoachPlanBuilderV2), never here - just
@@ -62,6 +64,10 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
     );
   }
 
+  if (clientScreen === "week") {
+    return <FuelWeek client={client} plans={plans} logs={logs} marks={marks} notes={notes} onBack={() => setClientScreen("today")} />;
+  }
+
   return (
     <FuelToday
       client={client}
@@ -71,6 +77,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
       entries={todayEntries}
       notes={notes}
       onWrite={writeDay}
+      onOpenWeek={() => setClientScreen("week")}
     />
   );
 }

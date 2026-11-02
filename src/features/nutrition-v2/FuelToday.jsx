@@ -5,30 +5,13 @@ import { isoDate, startOfWeek, addDays, DAYS } from "../../lib/dateUtils.js";
 import { uid } from "../../lib/uid.js";
 import { buildProgramDays, currentProgramWeek } from "../../lib/programModel.js";
 import { itemMacros, mealTotals, planForDate, mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan } from "./nutritionV2Math.js";
+import { dayTypeFor } from "./fuelDayType.js";
 import { FuelSwap } from "./FuelSwap.jsx";
 import { FUEL, fuelLbl } from "./fuelTheme.js";
 
 function nowHHMM() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-// Resolves a calendar date's "day type" (the chip on Main.dc.html's
-// header and the dot under each day in the 7-day strip): the nutrition
-// rotation's own label wins when the coach has set one for that weekday
-// (Coach.dc.html's rotation editor can call a day "Training", "Rest",
-// "Dinner out", anything); otherwise it falls back to whether the
-// client's training program actually has a workout that date. "Training"
-// amber-dots; everything else (Rest, Dinner out, Lunch out, ...) is
-// neutral - matches the Coach rotation editor's own border-color rule
-// (only the literal "Training" label gets the amber outline).
-function dayTypeFor(resolvedPlan, hasWorkout) {
-  if (resolvedPlan?.dayLabel) {
-    const lower = resolvedPlan.dayLabel.toLowerCase();
-    const label = lower === "training" ? "Training day" : lower === "rest" ? "Rest day" : resolvedPlan.dayLabel;
-    return { label, training: lower.includes("train") };
-  }
-  return { label: hasWorkout ? "Training day" : "Rest day", training: hasWorkout };
 }
 
 function DayTypeChip({ label, training }) {

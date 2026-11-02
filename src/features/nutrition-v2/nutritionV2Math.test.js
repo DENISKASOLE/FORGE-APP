@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   itemMacros, mealTotals, dayTotals, planForDate, planVersionForDate, resolvePlanDayNum, dayOfWeekISO, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
-  mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan,
+  mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan, nextMondayISO, weeklyCheckinSuggestion,
   weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals, suggestSavedMealsFromHistory, attentionFlagFor,
 } from "./nutritionV2Math.js";
 import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow, cloneVersionWithNewIds, validatePlanVersion } from "./nutritionV2Model.js";
@@ -190,6 +190,15 @@ describe("last7DaysOnPlan - the Today/My week shared streak + on-plan %", () => 
     const result = last7DaysOnPlan([], {}, {}, today);
     expect(result.streak).toBe(7); // no plan on any of the 7 days, none of them a "true blank"
     expect(result.onPlanPct).toBeNull();
+  });
+  it("each day also carries its own meal-by-meal outcome grid and logged protein, for the week grid / heatmap", () => {
+    const logs = { "2026-10-14": [{ meal: "breakfast", source: "confirm", macros: { kcal: 0, protein: 30, carbs: 0, fat: 0 } }, { meal: "lunch", source: "sub", macros: { kcal: 0, protein: 20, carbs: 0, fat: 0 } }] };
+    const result = last7DaysOnPlan([plan], logs, {}, today);
+    const mon = result.days.find((d) => d.date === today);
+    expect(mon.meals).toEqual([{ key: "breakfast", name: "Breakfast", outcome: "planned" }, { key: "lunch", name: "Lunch", outcome: "swapped" }]);
+    expect(mon.protein).toBe(50);
+    const blank = result.days.find((d) => d.date === "2026-10-08");
+    expect(blank.meals).toEqual([{ key: "breakfast", name: "Breakfast", outcome: "missed" }, { key: "lunch", name: "Lunch", outcome: "missed" }]);
   });
 });
 
@@ -470,5 +479,46 @@ describe("weekly rotation - per-weekday meals and targets", () => {
     expect(clone.days["6"]).toEqual(plan.days["6"]); // label-only day has no meals to re-id
     const bad = { ...plan, days: { ...plan.days, "2": { ...plan.days["2"], meals: [{ ...tueMeals[0], items: [{ ...tueMeals[0].items[0], qty: 0 }] }] } } };
     expect(validatePlanVersion(bad).some((e) => e.startsWith("Tue ·"))).toBe(true);
+  });
+});
+
+describe("nextMondayISO - the coach dashboard's 'effective from' date for check-in changes", () => {
+  it("rolls forward a full week when today already is Monday", () => {
+    expect(nextMondayISO("2026-11-02")).toBe("2026-11-09"); // 2026-11-02 is a Monday
+  });
+  it("otherwise finds the coming Monday within the week", () => {
+    expect(nextMondayISO("2026-11-03")).toBe("2026-11-09"); // Tuesday -> next Monday
+    expect(nextMondayISO("2026-11-08")).toBe("2026-11-09"); // Sunday -> the very next day
+  });
+});
+
+describe("weeklyCheckinSuggestion - the coach dashboard's weekly check-in card", () => {
+  const points = (vals) => vals.map((v, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, value: v }));
+
+  it("keeps targets when there isn't enough weigh-in history", () => {
+    expect(weeklyCheckinSuggestion([], 0.9).action).toBe("keep");
+    expect(weeklyCheckinSuggestion(points([70]), 0.9).action).toBe("keep");
+  });
+  it("keeps targets below 75% on-plan regardless of the weight trend", () => {
+    const fastLoss = points([72, 70]); // -2kg/week, way outside the 'keep' band
+    expect(weeklyCheckinSuggestion(fastLoss, 0.5).action).toBe("keep");
+    expect(weeklyCheckinSuggestion(fastLoss, 0.5).headline).toContain("Adherence first");
+  });
+  it("keeps targets when the trend is within the -0.25%..-1% bodyweight/week band at >=75% on-plan", () => {
+    // 70kg bodyweight, -0.5kg/week = -0.71% - inside the band
+    expect(weeklyCheckinSuggestion(points([70.5, 70]), 0.86).action).toBe("keep");
+  });
+  it("suggests adding 100 kcal when losing faster than 1% bodyweight/week", () => {
+    // 70kg bodyweight, -1kg/week = -1.43% - faster than the band
+    const r = weeklyCheckinSuggestion(points([71, 70]), 0.8);
+    expect(r.action).toBe("add");
+  });
+  it("suggests cutting 100 kcal when weight has been flat for 2+ weeks at good adherence", () => {
+    const r = weeklyCheckinSuggestion(points([70, 70, 70]), 0.8);
+    expect(r.action).toBe("cut");
+  });
+  it("keeps targets when progress has only just started to flatten (one flat week, not two)", () => {
+    // -0.71%/wk then flat - only the most recent week is flat, not 2 in a row
+    expect(weeklyCheckinSuggestion(points([70.5, 70, 70]), 0.8).action).toBe("keep");
   });
 });
