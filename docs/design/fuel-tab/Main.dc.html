@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fuel · Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000}
+*{box-sizing:border-box}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a1a1a1}
+button{font-family:inherit;font-weight:700;cursor:pointer}
+a{color:#EDEDED}a:hover{color:#fff}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 1240px; background: #000000; color: #EDEDED; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; display: flex; flex-direction: column; position: relative">
+
+  <div style="padding: 22px 20px 0; display: flex; justify-content: space-between; align-items: flex-start">
+    <div>
+      <div class="lbl">Monday · Week 10</div>
+      <div style="font-size: 30px; letter-spacing: .04em; text-transform: uppercase; margin-top: 4px">Fuel</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; background: #171717; border: 1px solid #262626; border-radius: 999px; padding: 8px 12px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">
+      <span style="width: 7px; height: 7px; border-radius: 99px; background: #FFA94D"></span>Training day
+    </div>
+  </div>
+
+  <div style="padding: 16px 20px 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+    <sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+      <div style="{{d.style}}">
+        <div style="font-size: 10px; letter-spacing: .08em; color: #a1a1a1">{{d.name}}</div>
+        <div style="font-size: 15px; margin-top: 3px">{{d.num}}</div>
+        <div style="{{d.dot}}"></div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin: 18px 20px 0; background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 18px; display: flex; gap: 18px; align-items: center">
+    <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="Calories and protein progress">
+      <circle cx="66" cy="66" r="60" fill="none" stroke="#1f1f1f" stroke-width="10"></circle>
+      <circle cx="66" cy="66" r="60" fill="none" stroke="#EDEDED" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{kDash}}" transform="rotate(-90 66 66)"></circle>
+      <circle cx="66" cy="66" r="44" fill="none" stroke="#123326" stroke-width="10"></circle>
+      <circle cx="66" cy="66" r="44" fill="none" stroke="#3DD68C" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{pDash}}" transform="rotate(-90 66 66)"></circle>
+      <text x="66" y="63" text-anchor="middle" fill="#EDEDED" font-size="22" font-weight="800" font-family="system-ui, sans-serif">{{pLeft}}</text>
+      <text x="66" y="80" text-anchor="middle" fill="#a1a1a1" font-size="9" font-weight="700" letter-spacing="1" font-family="system-ui, sans-serif">G PROTEIN LEFT</text>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 14px; flex: 1">
+      <div>
+        <div style="display: flex; align-items: center; gap: 6px" class="lbl"><span style="width: 8px; height: 8px; border-radius: 2px; background: #3DD68C"></span>Protein</div>
+        <div style="font-size: 22px; margin-top: 3px">{{pNow}}<span style="color: #a1a1a1; font-size: 14px"> / 115 g</span></div>
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 6px" class="lbl"><span style="width: 8px; height: 8px; border-radius: 2px; background: #EDEDED"></span>Calories</div>
+        <div style="font-size: 22px; margin-top: 3px">{{kNow}}<span style="color: #a1a1a1; font-size: 14px"> / 1,700</span></div>
+      </div>
+      <div style="font-size: 12px; color: #a1a1a1">{{mealsDone}} of 4 meals on plan</div>
+    </div>
+  </div>
+
+  <div style="margin: 12px 20px 0; background: #0d0d0d; border: 1px solid #262626; border-radius: 16px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start">
+    <div style="width: 28px; height: 28px; border-radius: 99px; background: #ED000A; color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; flex: none">D</div>
+    <div style="font-size: 13px; line-height: 1.45; color: #d4d4d4">Weigh your chicken this week. 120 g cooked is about 160 g raw.</div>
+  </div>
+
+  <div style="padding: 22px 20px 8px; display: flex; justify-content: space-between; align-items: baseline">
+    <div class="lbl">Today's plan</div>
+    <div style="font-size: 12px; color: #a1a1a1">Signed by Coach Denis</div>
+  </div>
+
+  <div style="padding: 0 20px; display: flex; flex-direction: column; gap: 12px">
+    <sc-for list="{{meals}}" as="m" hint-placeholder-count="4">
+      <div style="{{m.cardStyle}}">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <sc-if value="{{m.done}}" hint-placeholder-val="{{false}}">
+              <div style="width: 26px; height: 26px; border-radius: 99px; background: #3DD68C; display: flex; align-items: center; justify-content: center">
+                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </div>
+            </sc-if>
+            <sc-if value="{{m.notDone}}" hint-placeholder-val="{{true}}">
+              <div style="width: 26px; height: 26px; border-radius: 99px; border: 2px solid #3a3a3a"></div>
+            </sc-if>
+            <div>
+              <div style="font-size: 15px; text-transform: uppercase; letter-spacing: .06em">{{m.name}}</div>
+              <div style="font-size: 12px; color: #a1a1a1; margin-top: 2px">{{m.time}} · {{m.kcal}} kcal · <span style="color: #3DD68C">{{m.protein}} g protein</span></div>
+            </div>
+          </div>
+          <sc-if value="{{m.isNext}}" hint-placeholder-val="{{false}}">
+            <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; background: #EDEDED; color: #000; border-radius: 99px; padding: 5px 9px">Next</div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{m.notDone}}" hint-placeholder-val="{{true}}">
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
+            <sc-for list="{{m.items}}" as="it" hint-placeholder-count="3">
+              <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px; color: #e5e5e5; padding: 8px 0; border-top: 1px solid #1f1f1f">
+                <span>{{it.name}}</span><span style="color: #a1a1a1; white-space: nowrap">{{it.amount}}</span>
+              </div>
+            </sc-for>
+            <sc-if value="{{m.hasTip}}" hint-placeholder-val="{{false}}">
+              <div style="font-size: 12px; color: #FFA94D; line-height: 1.4">{{m.tip}}</div>
+            </sc-if>
+          </div>
+          <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+            <button onClick="{{m.tick}}" style="grid-column: span 2; height: 48px; border-radius: 14px; border: none; background: #EDEDED; color: #000; font-size: 13px; letter-spacing: .1em; text-transform: uppercase">Ate it</button>
+            <a href="Swap.dc.html" style="height: 48px; border-radius: 14px; border: 1px solid #333333; background: #171717; color: #EDEDED; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; text-decoration: none">Swap</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{m.done}}" hint-placeholder-val="{{false}}">
+          <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #a1a1a1">
+            <span>{{m.doneNote}}</span>
+            <button onClick="{{m.tick}}" style="background: none; border: none; color: #a1a1a1; font-size: 12px; text-decoration: underline; padding: 10px 0">Undo</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <a href="Swap.dc.html" style="margin: 16px 20px 0; height: 54px; border-radius: 16px; border: 1px dashed #3a3a3a; color: #EDEDED; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; text-decoration: none">
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="#EDEDED" stroke-width="2.4" stroke-linecap="round"></path></svg>
+    Ate something off-plan
+  </a>
+
+  <a href="Week.dc.html" style="margin: 12px 20px 0; padding: 14px 16px; border-radius: 16px; background: #0d0d0d; border: 1px solid #262626; color: #EDEDED; display: flex; justify-content: space-between; align-items: center; text-decoration: none">
+    <div>
+      <div class="lbl">This week</div>
+      <div style="font-size: 15px; margin-top: 4px">5-day streak · 86% on plan</div>
+    </div>
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#a1a1a1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  </a>
+
+  <div style="flex: 1"></div>
+
+  <nav aria-label="Main" style="margin-top: 24px; border-top: 1px solid #262626; background: #070707; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 10px 6px 22px">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="6">
+      <div style="{{t.style}}">
+        <div style="{{t.bar}}"></div>{{t.name}}
+      </div>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1240}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { done: { breakfast: '7:42 AM', lunch: '12:51 PM' } };
+  }
+  renderVals() {
+    const plan = [
+      { key: 'breakfast', name: 'Breakfast', time: '7:30 AM', kcal: 525, protein: 23, items: [
+        { name: 'Puttu', amount: '1 piece' },
+        { name: 'Egg curry · 2 eggs + 2 whites', amount: '1 portion' },
+        { name: 'Apple', amount: '1 medium' } ] },
+      { key: 'lunch', name: 'Lunch', time: '12:30 PM', kcal: 530, protein: 44, items: [
+        { name: 'Rice, cooked', amount: '1 cup' },
+        { name: 'Chicken curry', amount: '120 g cooked' },
+        { name: 'Cabbage thoran', amount: '1 cup' },
+        { name: 'Pickle', amount: '1 tsp' } ] },
+      { key: 'snack', name: 'Snack', time: '4:00 PM', kcal: 120, protein: 1, tip: '60 to 90 min before training', items: [
+        { name: 'Steamed banana', amount: '1 small' } ] },
+      { key: 'dinner', name: 'Dinner', time: '7:00 PM', kcal: 490, protein: 45, items: [
+        { name: 'Chapati', amount: '2' },
+        { name: 'Dry roast chicken', amount: '120 g cooked' },
+        { name: 'Salad', amount: '1 bowl' } ] },
+    ];
+    const done = this.state.done;
+    const firstOpen = plan.find((m) => !done[m.key]);
+    let k = 0, p = 0, n = 0;
+    const meals = plan.map((m) => {
+      const isDone = !!done[m.key];
+      if (isDone) { k += m.kcal; p += m.protein; n += 1; }
+      const isNext = !isDone && firstOpen && firstOpen.key === m.key;
+      return {
+        ...m, done: isDone, notDone: !isDone, isNext, hasTip: !!m.tip,
+        doneNote: isDone ? 'Ate as planned · ' + done[m.key] : '',
+        cardStyle: 'background: #0d0d0d; border-radius: 20px; padding: 16px; border: 1px solid ' + (isNext ? '#EDEDED' : '#262626') + (isDone ? '; opacity: .8' : ''),
+        tick: () => {
+          const next = { ...this.state.done };
+          if (next[m.key]) delete next[m.key]; else next[m.key] = 'just now';
+          this.setState({ done: next });
+        },
+      };
+    });
+    const CK = 2 * Math.PI * 60, CP = 2 * Math.PI * 44;
+    const kf = Math.min(k / 1700, 1), pf = Math.min(p / 115, 1);
+    const days = [['MON', 2], ['TUE', 3], ['WED', 4], ['THU', 5], ['FRI', 6], ['SAT', 7], ['SUN', 8]];
+    const week = days.map(([name, num], i) => ({
+      name, num,
+      style: 'text-align: center; padding: 8px 0; border-radius: 12px; ' + (i === 0 ? 'background: #EDEDED; color: #000' : 'background: #0d0d0d; border: 1px solid #262626'),
+      dot: 'width: 5px; height: 5px; border-radius: 99px; margin: 5px auto 0; background: ' + (i === 0 ? '#000' : [1, 3, 5].includes(i) ? '#3a3a3a' : '#FFA94D'),
+    }));
+    const tabs = ['Today', 'Train', 'Fuel', 'Check-in', 'Learn', 'Me'].map((name) => ({
+      name,
+      style: 'text-align: center; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding-top: 8px; color: ' + (name === 'Fuel' ? '#EDEDED' : '#8f8f8f'),
+      bar: 'width: 22px; height: 3px; border-radius: 9px; margin: 0 auto 8px; background: ' + (name === 'Fuel' ? '#EDEDED' : 'transparent'),
+    }));
+    return {
+      meals, week, tabs,
+      kNow: k.toLocaleString('en-US'), pNow: p, pLeft: Math.max(115 - p, 0), mealsDone: n,
+      kDash: (CK * kf).toFixed(1) + ' ' + CK.toFixed(1),
+      pDash: (CP * pf).toFixed(1) + ' ' + CP.toFixed(1),
+    };
+  }
+}
+</script>
+</body>
+</html>

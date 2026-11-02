@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fuel · My week</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000}
+*{box-sizing:border-box}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a1a1a1}
+a{color:#EDEDED}a:hover{color:#fff}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 1080px; background: #000000; color: #EDEDED; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; padding: 22px 20px 28px; display: flex; flex-direction: column; gap: 14px">
+
+  <div style="display: flex; align-items: center; gap: 12px">
+    <a href="Main.dc.html" aria-label="Back to today" style="width: 44px; height: 44px; border-radius: 99px; background: #171717; display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="#EDEDED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+    </a>
+    <div>
+      <div class="lbl">Last 7 days</div>
+      <div style="font-size: 24px; text-transform: uppercase; letter-spacing: .04em; margin-top: 2px">My week</div>
+    </div>
+  </div>
+
+  <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 18px; display: flex; justify-content: space-between; align-items: center">
+    <div>
+      <div class="lbl">On plan</div>
+      <div style="font-size: 44px; line-height: 1; margin-top: 6px">86<span style="font-size: 22px">%</span></div>
+      <div style="font-size: 12px; color: #a1a1a1; margin-top: 6px">24 of 28 meals ticked or swapped</div>
+    </div>
+    <div style="text-align: center; padding: 12px 14px; border-radius: 16px; background: #171717">
+      <div style="font-size: 26px; color: #FFA94D">5</div>
+      <div class="lbl" style="margin-top: 2px">Day streak</div>
+    </div>
+  </div>
+
+  <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 16px">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 10px">
+      <div class="lbl">Day by day</div>
+      <div class="lbl">Protein</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 6px 0">
+          <div style="width: 74px; font-size: 13px">{{d.name}}<div style="font-size: 10px; color: #a1a1a1; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px">{{d.type}}</div></div>
+          <div style="flex: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px">
+            <sc-for list="{{d.meals}}" as="m" hint-placeholder-count="4">
+              <div style="{{m.style}}" aria-label="{{m.label}}">{{m.mark}}</div>
+            </sc-for>
+          </div>
+          <div style="width: 48px; text-align: right; font-size: 13px; color: {{d.pColor}}">{{d.protein}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 11px; color: #a1a1a1">
+      <span><span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #3DD68C; color: #000; font-size: 10px; text-align: center; line-height: 14px; vertical-align: -3px">✓</span> As planned</span>
+      <span><span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #9fe8c4; color: #000; font-size: 10px; text-align: center; line-height: 14px; vertical-align: -3px">⇄</span> Swapped</span>
+      <span><span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #FFA94D; color: #000; font-size: 10px; text-align: center; line-height: 14px; vertical-align: -3px">+</span> Off-plan</span>
+      <span><span style="display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid #3a3a3a; vertical-align: -3px"></span> Missed</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+    <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 18px; padding: 14px">
+      <div class="lbl">Avg protein</div>
+      <div style="font-size: 24px; margin-top: 6px">108<span style="font-size: 13px; color: #a1a1a1"> / 115 g</span></div>
+      <div style="height: 6px; border-radius: 9px; background: #123326; margin-top: 10px"><div style="width: 94%; height: 6px; border-radius: 9px; background: #3DD68C"></div></div>
+    </div>
+    <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 18px; padding: 14px">
+      <div class="lbl">Avg calories</div>
+      <div style="font-size: 24px; margin-top: 6px">1,640<span style="font-size: 13px; color: #a1a1a1"> / 1,660</span></div>
+      <div style="height: 6px; border-radius: 9px; background: #262626; margin-top: 10px"><div style="width: 99%; height: 6px; border-radius: 9px; background: #EDEDED"></div></div>
+    </div>
+  </div>
+
+  <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 16px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <div class="lbl">Weight · 7-day average</div>
+      <div style="font-size: 13px; color: #3DD68C">−0.5 kg</div>
+    </div>
+    <div style="font-size: 24px; margin-top: 6px">[68.4] <span style="font-size: 13px; color: #a1a1a1">kg</span></div>
+    <svg width="318" height="70" viewBox="0 0 318 70" role="img" aria-label="Weight trend falling slowly over 4 weeks" style="margin-top: 8px">
+      <polyline points="4,14 48,22 92,18 136,30 180,34 224,40 268,46 314,52" fill="none" stroke="#EDEDED" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      <circle cx="314" cy="52" r="4" fill="#EDEDED"></circle>
+    </svg>
+    <div style="font-size: 12px; color: #a1a1a1; margin-top: 4px">Daily weigh-ins are smoothed so one salty dinner doesn't scare you.</div>
+  </div>
+
+  <div style="background: #171717; border: 1px solid #333333; border-radius: 22px; padding: 16px; display: flex; gap: 12px">
+    <div style="width: 34px; height: 34px; border-radius: 99px; background: #ED000A; color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: none">D</div>
+    <div>
+      <div class="lbl">Coach Denis · weekly review</div>
+      <div style="font-size: 14px; line-height: 1.5; margin-top: 6px; color: #e5e5e5">Great week. Wednesday came in low on protein, so on rice and soya days add 3 egg whites to your snack. Targets stay the same.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const S = {
+      p: ['#3DD68C', '#000', '✓', 'As planned'],
+      s: ['#9fe8c4', '#000', '⇄', 'Swapped'],
+      o: ['#FFA94D', '#000', '+', 'Off-plan'],
+      x: ['transparent', '#8f8f8f', '', 'Missed'],
+    };
+    const rows = [
+      ['Tue', 'Rest', 'ppps', '116 g'], ['Wed', 'Training', 'pppx', '92 g'], ['Thu', 'Rest', 'pspp', '119 g'],
+      ['Fri', 'Training', 'pppp', '113 g'], ['Sat', 'Dinner out', 'ppoo', '101 g'], ['Sun', 'Lunch out', 'popp', '108 g'], ['Mon', 'Training', 'ppxp', '107 g'],
+    ];
+    const days = rows.map(([name, type, code, protein]) => ({
+      name, type, protein,
+      pColor: parseInt(protein, 10) < 100 ? '#FFA94D' : '#EDEDED',
+      meals: code.split('').map((c) => {
+        const [bg, fg, mark, label] = S[c];
+        return { mark, label, style: 'height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; background: ' + bg + '; color: ' + fg + (c === 'x' ? '; border: 1px solid #3a3a3a' : '') };
+      }),
+    }));
+    return { days };
+  }
+}
+</script>
+</body>
+</html>

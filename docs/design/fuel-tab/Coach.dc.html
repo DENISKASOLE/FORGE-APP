@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coach · Nutrition</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000}
+*{box-sizing:border-box}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a1a1a1}
+button{font-family:inherit;font-weight:700;cursor:pointer}
+a{color:#EDEDED}a:hover{color:#fff}
+</style>
+</helmet>
+<div style="background: #000000; color: #EDEDED; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; min-height: 1240px; padding: 28px 24px 40px">
+<div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px">
+
+  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 14px">
+    <div>
+      <div class="lbl">Coach · Tools</div>
+      <div style="font-size: 30px; text-transform: uppercase; letter-spacing: .04em; margin-top: 4px">Nutrition</div>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <button style="height: 40px; padding: 0 16px; border-radius: 99px; border: none; background: #EDEDED; color: #000; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">Needs attention · 3</button>
+      <button style="height: 40px; padding: 0 16px; border-radius: 99px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">All clients</button>
+      <button style="height: 40px; padding: 0 16px; border-radius: 99px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">Online</button>
+      <button style="height: 40px; padding: 0 16px; border-radius: 99px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">In-person</button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start">
+
+    <div style="flex: 1 1 380px; min-width: 0; background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 8px">
+      <div style="overflow-x: auto">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 380px">
+          <thead>
+            <tr style="text-align: left">
+              <th class="lbl" style="padding: 12px 12px 10px; font-weight: 700">Client</th>
+              <th class="lbl" style="padding: 12px 8px 10px; font-weight: 700">On plan</th>
+              <th class="lbl" style="padding: 12px 8px 10px; font-weight: 700">Protein</th>
+              <th class="lbl" style="padding: 12px 12px 10px; font-weight: 700; text-align: right">Trend</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{roster}}" as="r" hint-placeholder-count="7">
+              <tr style="{{r.rowStyle}}">
+                <td style="padding: 12px">
+                  <div>{{r.name}}</div>
+                  <div style="font-size: 11px; color: {{r.flagColor}}; margin-top: 3px">{{r.flag}}</div>
+                </td>
+                <td style="padding: 12px 8px">{{r.adh}}</td>
+                <td style="padding: 12px 8px; color: {{r.pColor}}">{{r.protein}}</td>
+                <td style="padding: 12px; text-align: right; color: #a1a1a1">{{r.trend}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+        <div>
+          <div style="font-size: 24px">Sumy</div>
+          <div style="font-size: 12px; color: #a1a1a1; margin-top: 3px">Fat loss · 1:1 · Training 1,700 / Rest 1,600 kcal · 115 g protein every day</div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">Message</button>
+          <button style="height: 44px; padding: 0 16px; border-radius: 12px; border: none; background: #EDEDED; color: #000; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">Edit plan</button>
+        </div>
+      </div>
+
+      <div style="background: #171717; border: 1px solid #333333; border-radius: 22px; padding: 18px; display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; align-items: center">
+        <div style="flex: 1 1 320px">
+          <div class="lbl">Weekly check-in · suggested</div>
+          <div style="font-size: 20px; margin-top: 6px">Keep targets. She's on pace.</div>
+          <div style="font-size: 13px; line-height: 1.5; color: #c4c4c4; margin-top: 6px">Weight trend −0.5 kg/week at 86% on plan. Protein averaged 108 g (short on Wednesday's rice and soya day).</div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button style="height: 46px; padding: 0 18px; border-radius: 12px; border: none; background: #EDEDED; color: #000; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">Keep</button>
+          <button style="height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">−100 kcal</button>
+          <button style="height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 11px; letter-spacing: .1em; text-transform: uppercase">+100 kcal</button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px">
+
+        <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 16px">
+          <div class="lbl" style="margin-bottom: 10px">Last 7 days · meals</div>
+          <div style="display: grid; grid-template-columns: 70px repeat(4, minmax(0, 1fr)); gap: 5px; font-size: 10px; color: #a1a1a1; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px">
+            <span></span><span>Bkfst</span><span>Lunch</span><span>Snack</span><span>Dinner</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 5px">
+            <sc-for list="{{heat}}" as="d" hint-placeholder-count="7">
+              <div style="display: grid; grid-template-columns: 70px repeat(4, minmax(0, 1fr)); gap: 5px; align-items: center">
+                <span style="font-size: 12px">{{d.name}}</span>
+                <sc-for list="{{d.meals}}" as="m" hint-placeholder-count="4">
+                  <div style="{{m.style}}" aria-label="{{m.label}}">{{m.mark}}</div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size: 11px; color: #a1a1a1; margin-top: 10px">✓ as planned · ⇄ swapped · + off-plan · empty = missed</div>
+        </div>
+
+        <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div class="lbl">Off-plan this week · 3</div>
+          <sc-for list="{{offplan}}" as="o" hint-placeholder-count="3">
+            <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid #1f1f1f">
+              <div style="width: 52px; height: 52px; border-radius: 12px; background: #171717; border: 1px solid #262626; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #8f8f8f; text-align: center; letter-spacing: .06em; flex: none">PHOTO</div>
+              <div style="flex: 1; min-width: 0">
+                <div style="font-size: 13px">{{o.what}}</div>
+                <div style="font-size: 11px; color: #a1a1a1; margin-top: 3px">{{o.when}} · {{o.size}}</div>
+              </div>
+              <button style="height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 10px; letter-spacing: .1em; text-transform: uppercase">Reply</button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background: #0d0d0d; border: 1px solid #262626; border-radius: 22px; padding: 16px">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px">
+          <div class="lbl">Week rotation</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <button style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 10px; letter-spacing: .1em; text-transform: uppercase">Copy Mon to…</button>
+            <button style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 10px; letter-spacing: .1em; text-transform: uppercase">Make eating-out day</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; overflow-x: auto">
+          <sc-for list="{{rot}}" as="d" hint-placeholder-count="7">
+            <div style="{{d.style}}">
+              <div style="font-size: 12px">{{d.name}}</div>
+              <div style="font-size: 10px; margin-top: 3px; letter-spacing: .04em; text-transform: uppercase; opacity: .8">{{d.type}}</div>
+              <div style="font-size: 11px; margin-top: 6px">{{d.kcal}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px">
+          <sc-for list="{{monMeals}}" as="m" hint-placeholder-count="4">
+            <div style="padding: 12px; border-radius: 14px; background: #171717">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .1em; text-transform: uppercase"><span>{{m.name}}</span><span style="color: #a1a1a1">{{m.time}}</span></div>
+              <div style="font-size: 13px; margin-top: 6px; color: #e5e5e5; line-height: 1.4">{{m.food}}</div>
+              <div style="font-size: 11px; margin-top: 6px; color: #a1a1a1">{{m.kcal}} kcal · <span style="color: #3DD68C">{{m.p}} g</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const roster = [
+      ['Saif', '—', '—', '—', 'No log for 6 days', '#FF7A7A'],
+      ['Ahmed', '61%', '82 / 140 g', '→ flat 3 wks', 'Protein short 4 of 7 days', '#FFA94D'],
+      ['Kashif', '70%', '128 / 150 g', '↑ +0.3 kg', 'Weekend off-plan', '#FFA94D'],
+      ['Sumy', '86%', '108 / 115 g', '↓ −0.5 kg/wk', 'On track', '#3DD68C'],
+      ['Zaheer', '91%', '146 / 150 g', '↓ −0.4 kg/wk', 'On track', '#3DD68C'],
+      ['Philipe', '78%', '120 / 130 g', '↓ −0.2 kg/wk', 'On track', '#3DD68C'],
+      ['Venkat', '—', '—', '—', 'No plan yet · create', '#a1a1a1'],
+    ].map(([name, adh, protein, trend, flag, flagColor]) => ({
+      name, adh, protein, trend, flag, flagColor,
+      pColor: protein.startsWith('82') ? '#FFA94D' : '#EDEDED',
+      rowStyle: 'border-top: 1px solid #1f1f1f' + (name === 'Sumy' ? '; background: #171717' : ''),
+    }));
+    const S = { p: ['#3DD68C', '#000', '✓', 'As planned'], s: ['#9fe8c4', '#000', '⇄', 'Swapped'], o: ['#FFA94D', '#000', '+', 'Off-plan'], x: ['transparent', '#8f8f8f', '', 'Missed'] };
+    const heat = [['Tue', 'ppps'], ['Wed', 'pppx'], ['Thu', 'pspp'], ['Fri', 'pppp'], ['Sat', 'ppoo'], ['Sun', 'popp'], ['Mon', 'ppxp']].map(([name, code]) => ({
+      name,
+      meals: code.split('').map((c) => ({ mark: S[c][2], label: S[c][3], style: 'height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; background: ' + S[c][0] + '; color: ' + S[c][1] + (c === 'x' ? '; border: 1px solid #3a3a3a' : '') })),
+    }));
+    const offplan = [
+      { what: 'Chicken shawarma plate, half the fries', when: 'Sat dinner', size: 'Normal' },
+      { what: 'Biryani at a friend’s', when: 'Sun lunch', size: 'Large' },
+      { what: 'Two tea biscuits', when: 'Sat 5 PM', size: 'Small' },
+    ];
+    const types = [['Mon', 'Training', '1,670'], ['Tue', 'Rest', '1,585'], ['Wed', 'Training', '1,620'], ['Thu', 'Rest', '1,550'], ['Fri', 'Training', '1,670'], ['Sat', 'Dinner out', '1,805'], ['Sun', 'Lunch out', '1,640']];
+    const rot = types.map(([name, type, kcal], i) => ({
+      name, type, kcal,
+      style: 'padding: 10px 8px; border-radius: 12px; min-width: 70px; ' + (i === 0 ? 'background: #EDEDED; color: #000' : 'background: #171717; color: #EDEDED; border: 1px solid ' + (type === 'Training' ? '#FFA94D' : '#262626')),
+    }));
+    const monMeals = [
+      { name: 'Breakfast', time: '7:30', food: 'Puttu, egg curry (2 eggs + 2 whites), apple', kcal: 525, p: 23 },
+      { name: 'Lunch', time: '12:30', food: 'Rice, chicken curry 120 g, cabbage thoran, pickle', kcal: 530, p: 44 },
+      { name: 'Snack', time: '16:00', food: 'Steamed banana, before training', kcal: 120, p: 1 },
+      { name: 'Dinner', time: '19:00', food: '2 chapati, dry roast chicken 120 g, salad', kcal: 490, p: 45 },
+    ];
+    return { roster, heat, offplan, rot, monMeals };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fuel · Change a meal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#000}
+*{box-sizing:border-box}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a1a1a1}
+button,input{font-family:inherit;font-weight:700}
+a{color:#EDEDED}a:hover{color:#fff}
+</style>
+</helmet>
+<div style="width: 390px; height: 1040px; background: #000000; color: #EDEDED; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; position: relative; overflow: hidden">
+
+  <div aria-hidden="true" style="padding: 22px 20px; opacity: .25">
+    <div class="lbl">Monday · Week 10</div>
+    <div style="font-size: 30px; text-transform: uppercase; letter-spacing: .04em; margin-top: 4px">Fuel</div>
+    <div style="margin-top: 18px; height: 168px; border-radius: 22px; background: #0d0d0d; border: 1px solid #262626"></div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: #0d0d0d; border-top: 1px solid #333333; border-radius: 26px 26px 0 0; padding: 10px 20px 24px; display: flex; flex-direction: column; gap: 18px">
+    <div style="width: 40px; height: 4px; border-radius: 9px; background: #3a3a3a; margin: 0 auto"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start">
+      <div>
+        <div class="lbl">Lunch · 12:30 PM</div>
+        <div style="font-size: 22px; margin-top: 4px">Change this meal</div>
+      </div>
+      <a href="Main.dc.html" aria-label="Close" style="width: 44px; height: 44px; border-radius: 99px; background: #171717; display: flex; align-items: center; justify-content: center">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="#EDEDED" stroke-width="2.4" stroke-linecap="round"></path></svg>
+      </a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div class="lbl">1 · Swap for another plan meal</div>
+      <div style="font-size: 12px; color: #a1a1a1; margin-bottom: 2px">Coach-approved lunches from your week. Same job, different food.</div>
+
+      <label style="display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 16px; border: 1px solid #EDEDED; background: #171717">
+        <input type="radio" name="swap" checked style="width: 20px; height: 20px; accent-color: #EDEDED">
+        <div style="flex: 1">
+          <div style="font-size: 14px">Chapati and chicken curry</div>
+          <div style="font-size: 12px; color: #a1a1a1; margin-top: 3px">Thursday's lunch · 2 chapati, 120 g chicken, spinach thoran</div>
+        </div>
+        <div style="text-align: right; font-size: 12px; color: #3DD68C; white-space: nowrap">47 g<br><span style="color: #a1a1a1">protein</span></div>
+      </label>
+
+      <label style="display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 16px; border: 1px solid #262626; background: #0d0d0d">
+        <input type="radio" name="swap" style="width: 20px; height: 20px; accent-color: #EDEDED">
+        <div style="flex: 1">
+          <div style="font-size: 14px">Chapati and soya curry</div>
+          <div style="font-size: 12px; color: #a1a1a1; margin-top: 3px">Tuesday's lunch · 2 chapati, soya curry, beans thoran</div>
+        </div>
+        <div style="text-align: right; font-size: 12px; color: #3DD68C; white-space: nowrap">31 g<br><span style="color: #a1a1a1">protein</span></div>
+      </label>
+
+      <label style="display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 16px; border: 1px solid #262626; background: #0d0d0d">
+        <input type="radio" name="swap" style="width: 20px; height: 20px; accent-color: #EDEDED">
+        <div style="flex: 1">
+          <div style="font-size: 14px">Rice and soya curry</div>
+          <div style="font-size: 12px; color: #a1a1a1; margin-top: 3px">Wednesday's lunch · lower protein</div>
+          <div style="font-size: 12px; color: #FFA94D; margin-top: 4px">Add 3 egg whites to your snack to cover it</div>
+        </div>
+        <div style="text-align: right; font-size: 12px; color: #3DD68C; white-space: nowrap">28 g<br><span style="color: #a1a1a1">protein</span></div>
+      </label>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div class="lbl">2 · Eating out</div>
+      <div style="padding: 14px; border-radius: 16px; background: #171717; border: 1px solid #262626; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; font-size: 11px; letter-spacing: .06em; text-transform: uppercase">
+          <div style="padding: 10px 4px; border-radius: 12px; background: #0d0d0d"><div style="font-size: 18px; color: #3DD68C">1st</div>Grilled protein</div>
+          <div style="padding: 10px 4px; border-radius: 12px; background: #0d0d0d"><div style="font-size: 18px">+1</div>One starch</div>
+          <div style="padding: 10px 4px; border-radius: 12px; background: #0d0d0d"><div style="font-size: 18px; color: #FF7A7A">Skip</div>Fried &amp; sweet drinks</div>
+        </div>
+        <button style="height: 46px; border-radius: 12px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 12px; letter-spacing: .1em; text-transform: uppercase">Log as eating out</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div class="lbl">3 · Something else</div>
+      <div style="display: flex; gap: 8px">
+        <button aria-label="Add a photo" style="width: 56px; height: 52px; flex: none; border-radius: 14px; border: 1px dashed #3a3a3a; background: #0d0d0d; display: flex; align-items: center; justify-content: center">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="#EDEDED" stroke-width="2" stroke-linejoin="round"></path><circle cx="12" cy="13" r="3.5" fill="none" stroke="#EDEDED" stroke-width="2"></circle></svg>
+        </button>
+        <label style="flex: 1; display: flex">
+          <span style="position: absolute; left: -9999px">What did you eat?</span>
+          <input type="text" placeholder="What did you eat?" style="flex: 1; height: 52px; border-radius: 14px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; padding: 0 14px; font-size: 14px">
+        </label>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 12px; letter-spacing: .08em; text-transform: uppercase">Small</button>
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #EDEDED; background: #171717; color: #EDEDED; font-size: 12px; letter-spacing: .08em; text-transform: uppercase">Normal</button>
+        <button style="height: 44px; border-radius: 12px; border: 1px solid #333333; background: #0d0d0d; color: #EDEDED; font-size: 12px; letter-spacing: .08em; text-transform: uppercase">Large</button>
+      </div>
+      <div style="font-size: 12px; color: #a1a1a1">No counting. A photo and a word is enough. Coach Denis sees it.</div>
+    </div>
+
+    <div style="flex: 1"></div>
+    <a href="Main.dc.html" style="height: 54px; border-radius: 16px; background: #EDEDED; color: #000; display: flex; align-items: center; justify-content: center; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; text-decoration: none">Save lunch</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
