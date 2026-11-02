@@ -4,7 +4,7 @@ import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate, startOfWeek, addDays, DAYS } from "../../lib/dateUtils.js";
 import { uid } from "../../lib/uid.js";
 import { buildProgramDays, currentProgramWeek } from "../../lib/programModel.js";
-import { itemMacros, mealTotals, planForDate, mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan } from "./nutritionV2Math.js";
+import { itemMacros, mealTotals, planForDate, mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan, mergeLegacyMacroLog, addDaysISO } from "./nutritionV2Math.js";
 import { dayTypeFor } from "./fuelDayType.js";
 import { FuelSwap } from "./FuelSwap.jsx";
 import { FUEL, fuelLbl } from "./fuelTheme.js";
@@ -12,6 +12,9 @@ import { FUEL, fuelLbl } from "./fuelTheme.js";
 function nowHHMM() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function fmtHeaderDate(dateISO) {
+  return new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short" });
 }
 
 function DayTypeChip({ label, training }) {
@@ -44,24 +47,41 @@ function DoubleRing({ kcalNow, kcalTarget, proteinNow, proteinTarget }) {
   );
 }
 
-function WeekStrip({ plans, workoutByDate, todayISO }) {
-  const monday = startOfWeek(new Date(`${todayISO}T00:00:00`));
+// The strip always shows the week CONTAINING the selected date, not a
+// fixed calendar week - paging dateISO across a Sun/Mon boundary (via
+// the date-nav chevrons or by tapping a day here) naturally slides the
+// whole strip to the right week with no extra logic.
+function WeekStrip({ plans, workoutByDate, dateISO, todayISO, onSelect }) {
+  const monday = startOfWeek(new Date(`${dateISO}T00:00:00`));
   const days = DAYS.map((name, i) => {
     const date = addDays(monday, i);
-    const dateISO = isoDate(date);
-    const isToday = dateISO === todayISO;
-    const { training } = dayTypeFor(planForDate(plans, dateISO), workoutByDate.get(dateISO));
-    return { name, num: date.getDate(), isToday, training };
+    const cellISO = isoDate(date);
+    const isSelected = cellISO === dateISO;
+    const isToday = cellISO === todayISO;
+    const { training } = dayTypeFor(planForDate(plans, cellISO), workoutByDate.get(cellISO));
+    return { name, num: date.getDate(), cellISO, isSelected, isToday, training };
   });
   return (
     <div style={{ padding: "16px 20px 0", display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
       {days.map((d) => (
-        <div key={d.name} style={{ textAlign: "center", padding: "8px 0", borderRadius: 12, background: d.isToday ? FUEL.text : FUEL.card, border: d.isToday ? "none" : `1px solid ${FUEL.line}` }}>
-          <div style={{ fontSize: 10, letterSpacing: ".08em", color: d.isToday ? "#000" : FUEL.muted, fontWeight: 700 }}>{d.name.toUpperCase()}</div>
-          <div style={{ fontSize: 15, marginTop: 3, color: d.isToday ? "#000" : FUEL.text, fontWeight: 700 }}>{d.num}</div>
-          <div style={{ width: 5, height: 5, borderRadius: 99, margin: "5px auto 0", background: d.isToday ? "#000" : (d.training ? FUEL.amber : FUEL.lineDashed) }} />
-        </div>
+        <button key={d.name} onClick={() => onSelect(d.cellISO)} style={{ textAlign: "center", padding: "8px 0", borderRadius: 12, background: d.isSelected ? FUEL.text : FUEL.card, border: d.isSelected ? "none" : `1px solid ${d.isToday ? FUEL.lineSoft : FUEL.line}`, cursor: "pointer", fontFamily: "inherit" }}>
+          <div style={{ fontSize: 10, letterSpacing: ".08em", color: d.isSelected ? "#000" : FUEL.muted, fontWeight: 700 }}>{d.name.toUpperCase()}</div>
+          <div style={{ fontSize: 15, marginTop: 3, color: d.isSelected ? "#000" : FUEL.text, fontWeight: 700 }}>{d.num}</div>
+          <div style={{ width: 5, height: 5, borderRadius: 99, margin: "5px auto 0", background: d.isSelected ? "#000" : (d.training ? FUEL.amber : FUEL.lineDashed) }} />
+        </button>
       ))}
+    </div>
+  );
+}
+function DateNavRow({ dateISO, todayISO, onChange }) {
+  return (
+    <div style={{ margin: "14px 20px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+      <button onClick={() => onChange(addDaysISO(dateISO, -1))} aria-label="Previous day" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, color: FUEL.text, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{"‹"}</button>
+      <div style={{ textAlign: "center", minWidth: 120 }}>
+        <div style={{ fontSize: 15, fontWeight: 700 }}>{fmtHeaderDate(dateISO)}</div>
+        {dateISO !== todayISO && <button onClick={() => onChange(todayISO)} style={{ marginTop: 2, background: "none", border: "none", color: FUEL.amber, fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Jump to today</button>}
+      </div>
+      <button onClick={() => onChange(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, color: FUEL.text, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{"›"}</button>
     </div>
   );
 }
@@ -76,8 +96,8 @@ function doneNoteFor(meal, entries) {
   return other ? `${other.name || "Logged"} · ${other.time || ""}` : "Logged";
 }
 
-function MealCard({ meal, totals, outcome, isNext, entries, onAte, onUndo, onSwap }) {
-  const done = outcome !== "missed";
+function MealCard({ meal, totals, outcome, isNext, entries, editable, onAte, onUndo, onSwap }) {
+  const done = outcome !== "missed" && outcome !== "future";
   return (
     <div style={{ background: FUEL.card, borderRadius: 20, padding: 16, border: `1px solid ${isNext ? FUEL.text : FUEL.line}`, opacity: done ? 0.8 : 1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -107,15 +127,17 @@ function MealCard({ meal, totals, outcome, isNext, entries, onAte, onUndo, onSwa
             ))}
             {meal.note && <div style={{ fontSize: 12, color: FUEL.amber, lineHeight: 1.4, fontWeight: 700 }}>{meal.note}</div>}
           </div>
-          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-            <button onClick={onAte} style={{ gridColumn: "span 2", height: 48, borderRadius: 14, border: "none", background: FUEL.text, color: "#000", fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Ate it</button>
-            <button onClick={onSwap} style={{ height: 48, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card2, color: FUEL.text, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Swap</button>
-          </div>
+          {editable && (
+            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+              <button onClick={onAte} style={{ gridColumn: "span 2", height: 48, borderRadius: 14, border: "none", background: FUEL.text, color: "#000", fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Ate it</button>
+              <button onClick={onSwap} style={{ height: 48, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card2, color: FUEL.text, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Swap</button>
+            </div>
+          )}
         </>
       ) : (
         <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: FUEL.muted, fontWeight: 700 }}>
           <span>{doneNoteFor(meal, entries)}</span>
-          <button onClick={onUndo} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", padding: "10px 0", cursor: "pointer", fontWeight: 700 }}>Undo</button>
+          {editable && <button onClick={onUndo} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", padding: "10px 0", cursor: "pointer", fontWeight: 700 }}>Undo</button>}
         </div>
       )}
     </div>
@@ -127,21 +149,31 @@ function MealCard({ meal, totals, outcome, isNext, entries, onAte, onUndo, onSwa
 // end (planForDate, log entries, mealOutcomeFor) - this is a new UI on
 // the same model, not a new one.
 //
-// `plans`/`logs`/`marks` are the client's full (every date) stores - the
-// week strip and the "This week" teaser need every day's data to resolve
-// their own plan/outcome. `entries` is specifically TODAY's entries,
-// passed in already resolved by the caller (NutritionV2Flow merges in
-// any legacy macro_log data for today - see its dateEntries memo) rather
-// than read fresh off `logs[todayISO]` here, so that merge isn't lost.
-// `onOpenWeek` is left optional (falling back to a "coming next" toast)
-// until Week.dc.html is built - the brief's own suggested order builds
-// this screen first. The Change-a-meal sheet (FuelSwap) is owned right
-// here, not passed in, since every prop it needs (plan/entries/onWrite)
+// Real date navigation (chevrons, tap a day in the strip, "Jump to
+// today"): `dateISO` is owned here, not in the caller, since it only
+// ever needs `plans`/`logs`/`marks` (the client's full, every-date
+// stores) to resolve whichever date is selected - including the legacy
+// macro_log merge-on-first-touch (see `entries` below), previously done
+// by the caller for "today" only. Viewing a date after today is
+// read-only (`editable` below) - nothing can be logged ahead of when it
+// happens, same rule the pre-redesign screen enforced. "This week" and
+// the 7-day strip's training dots always use the REAL today
+// (`todayISO`), never the browsed `dateISO` - browsing history doesn't
+// change what "this week" means. The Change-a-meal sheet (FuelSwap) is
+// owned right here too, since every prop it needs (plan/entries/onWrite)
 // already lives in this component.
-export function FuelToday({ client, plans, logs, marks, entries, notes, onWrite, onOpenWeek }) {
+export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWeek }) {
   const todayISO = isoDate();
-  const plan = planForDate(plans, todayISO);
-  const todayMarks = marks?.[todayISO] || {};
+  const [dateISO, setDateISO] = useState(todayISO);
+  const editable = dateISO <= todayISO;
+  const plan = planForDate(plans, dateISO);
+  const dateMarks = marks?.[dateISO] || {};
+  const entries = useMemo(() => {
+    const existing = logs?.[dateISO] || [];
+    if (existing.length) return existing;
+    const legacyDay = client.nutrition?.macro_log?.[dateISO];
+    return legacyDay ? mergeLegacyMacroLog(legacyDay, dateISO) : existing;
+  }, [logs, dateISO, client.nutrition]);
   const orderedMeals = plan?.meals ? [...plan.meals].sort((a, b) => a.time.localeCompare(b.time)) : [];
   const [swapMeal, setSwapMeal] = useState(null);
   const totals = entries.reduce((t, e) => ({ kcal: t.kcal + (e.macros?.kcal || 0), protein: t.protein + (e.macros?.protein || 0) }), { kcal: 0, protein: 0 });
@@ -152,40 +184,42 @@ export function FuelToday({ client, plans, logs, marks, entries, notes, onWrite,
     buildProgramDays(client.program, client.trainingLogs).forEach((d) => map.set(d.dateISO, !!d.workout));
     return map;
   }, [client.program, client.trainingLogs]);
-  const chip = dayTypeFor(plan, workoutByDate.get(todayISO));
-  const tally = plan ? dayOnPlanTally(plan, todayISO, todayISO, entries, todayMarks) : { onPlan: 0, total: 0 };
+  const chip = dayTypeFor(plan, workoutByDate.get(dateISO));
+  const tally = plan ? dayOnPlanTally(plan, dateISO, todayISO, entries, dateMarks) : { onPlan: 0, total: 0 };
   const weekInfo = last7DaysOnPlan(plans, logs, marks, todayISO);
-  const firstOpenKey = orderedMeals.find((m) => mealOutcomeFor(todayISO, todayISO, m, entries, todayMarks) === "missed")?.key;
+  const firstOpenKey = orderedMeals.find((m) => mealOutcomeFor(dateISO, todayISO, m, entries, dateMarks) === "missed")?.key;
+  const planLabel = dateISO === todayISO ? "Today's plan" : `${new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}'s plan`;
 
   async function ateMeal(meal) {
     const kept = entries.filter((e) => e.meal !== meal.key);
     const time = nowHHMM();
     const added = meal.items.map((it) => ({
-      id: uid(), date: todayISO, meal: meal.key, name: it.name, foodId: it.foodId, qty: it.qty, unit: it.unit,
+      id: uid(), date: dateISO, meal: meal.key, name: it.name, foodId: it.foodId, qty: it.qty, unit: it.unit,
       macros: itemMacros(it), source: "confirm", time, planItemId: it.id, estimate: false, replaces: null, reason: null,
     }));
-    await onWrite([...kept, ...added], todayMarks);
+    await onWrite(dateISO, [...kept, ...added], dateMarks);
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
     showToast(`${meal.name} logged as planned.`, "success");
   }
   async function undoMeal(meal) {
     const kept = entries.filter((e) => e.meal !== meal.key);
-    const nextMarks = { ...todayMarks };
+    const nextMarks = { ...dateMarks };
     delete nextMarks[meal.key];
-    await onWrite(kept, nextMarks);
+    await onWrite(dateISO, kept, nextMarks);
   }
 
   return (
     <div style={{ width: "100%", background: FUEL.bg, color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", margin: "0 -16px", padding: "0 0 24px" }}>
       <div style={{ padding: "6px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={fuelLbl}>{new Date(`${todayISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}{client.program ? ` · Week ${currentProgramWeek(client.program)}` : ""}</div>
+          <div style={fuelLbl}>{new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}{client.program ? ` · Week ${currentProgramWeek(client.program)}` : ""}</div>
           <div style={{ fontSize: 30, letterSpacing: ".04em", textTransform: "uppercase", marginTop: 4, fontWeight: 700 }}>Fuel</div>
         </div>
         <DayTypeChip label={chip.label} training={chip.training} />
       </div>
 
-      <WeekStrip plans={plans} workoutByDate={workoutByDate} todayISO={todayISO} />
+      <WeekStrip plans={plans} workoutByDate={workoutByDate} dateISO={dateISO} todayISO={todayISO} onSelect={setDateISO} />
+      <DateNavRow dateISO={dateISO} todayISO={todayISO} onChange={setDateISO} />
 
       <div style={{ margin: "18px 20px 0", background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 18, display: "flex", gap: 18, alignItems: "center" }}>
         <DoubleRing kcalNow={totals.kcal} kcalTarget={target.kcal || 0} proteinNow={totals.protein} proteinTarget={target.protein || 0} />
@@ -210,16 +244,16 @@ export function FuelToday({ client, plans, logs, marks, entries, notes, onWrite,
       )}
 
       <div style={{ padding: "22px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div style={fuelLbl}>Today's plan</div>
+        <div style={fuelLbl}>{planLabel}</div>
         <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 700 }}>Signed by Coach Denis</div>
       </div>
 
       {!plan ? (
-        <div style={{ margin: "0 20px", color: FUEL.muted, fontSize: 13, fontWeight: 700 }}>No meals prescribed for today.</div>
+        <div style={{ margin: "0 20px", color: FUEL.muted, fontSize: 13, fontWeight: 700 }}>No meals prescribed for this day.</div>
       ) : (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           {orderedMeals.map((meal) => {
-            const outcome = mealOutcomeFor(todayISO, todayISO, meal, entries, todayMarks);
+            const outcome = mealOutcomeFor(dateISO, todayISO, meal, entries, dateMarks);
             return (
               <MealCard
                 key={meal.key}
@@ -228,6 +262,7 @@ export function FuelToday({ client, plans, logs, marks, entries, notes, onWrite,
                 outcome={outcome}
                 isNext={meal.key === firstOpenKey}
                 entries={entries}
+                editable={editable}
                 onAte={() => ateMeal(meal)}
                 onUndo={() => undoMeal(meal)}
                 onSwap={() => setSwapMeal(meal)}
@@ -237,10 +272,12 @@ export function FuelToday({ client, plans, logs, marks, entries, notes, onWrite,
         </div>
       )}
 
-      <button onClick={() => { const target = orderedMeals.find((m) => m.key === firstOpenKey) || orderedMeals[orderedMeals.length - 1]; if (target) setSwapMeal(target); else showToast("No meals prescribed for today.", "info"); }} style={{ margin: "16px 20px 0", height: 54, borderRadius: 16, border: "1px dashed #3a3a3a", color: FUEL.text, background: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" /></svg>
-        Ate something off-plan
-      </button>
+      {editable && (
+        <button onClick={() => { const target = orderedMeals.find((m) => m.key === firstOpenKey) || orderedMeals[orderedMeals.length - 1]; if (target) setSwapMeal(target); else showToast("No meals prescribed for this day.", "info"); }} style={{ margin: "16px 20px 0", height: 54, borderRadius: 16, border: "1px dashed #3a3a3a", color: FUEL.text, background: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" /></svg>
+          Ate something off-plan
+        </button>
+      )}
 
       <button onClick={() => (onOpenWeek ? onOpenWeek() : showToast("My week is coming in a later step.", "info"))} style={{ margin: "12px 20px 0", padding: "14px 16px", borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.line}`, color: FUEL.text, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", textAlign: "left" }}>
         <div>
@@ -255,10 +292,10 @@ export function FuelToday({ client, plans, logs, marks, entries, notes, onWrite,
           client={client}
           plan={plan}
           meal={swapMeal}
-          todayISO={todayISO}
+          todayISO={dateISO}
           entries={entries}
-          todayMarks={todayMarks}
-          onWrite={onWrite}
+          todayMarks={dateMarks}
+          onWrite={(nextEntries, nextMarks) => onWrite(dateISO, nextEntries, nextMarks)}
           onClose={() => setSwapMeal(null)}
         />
       )}

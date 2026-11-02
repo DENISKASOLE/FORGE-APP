@@ -62,8 +62,11 @@ function swapOptionsFor(plan, mealKey, todayDayNum, todayISO) {
 //
 // `meal` is the plan meal being changed (its own `.items` are the
 // planned prescription, shown as the fallback eating-out estimate).
-// `plan`/`todayISO`/`entries`/`todayMarks`/`onWrite` mirror FuelToday's
-// own props exactly, so this sheet writes through the same writeDay path.
+// `todayISO` is actually whichever date FuelToday has selected (real
+// date navigation lives there) - named for what every entry gets
+// stamped with, not necessarily literally today. `plan`/`entries`/
+// `todayMarks`/`onWrite` are that same date's data, passed straight
+// through so this sheet writes via the same writeDay path.
 export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, onWrite, onClose }) {
   const todayDayNum = dayOfWeekISO(todayISO);
   const options = plan ? swapOptionsFor(plan, meal.key, todayDayNum, todayISO) : [];

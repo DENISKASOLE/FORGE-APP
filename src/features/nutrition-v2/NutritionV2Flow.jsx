@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { Chip } from "../../components/ui/Chip.jsx";
-import { isoDate } from "../../lib/dateUtils.js";
-import { normalizePlans, normalizeLogs, normalizeMarks, normalizeNotes, logsForDate, marksForDate, saveLogs, saveMarks } from "../../lib/nutritionV2.js";
-import { mergeLegacyMacroLog } from "./nutritionV2Math.js";
+import { normalizePlans, normalizeLogs, normalizeMarks, normalizeNotes, marksForDate, saveLogs, saveMarks } from "../../lib/nutritionV2.js";
 import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
 import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
 import { FuelToday } from "./FuelToday.jsx";
@@ -26,26 +24,14 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
   const plans = useMemo(() => normalizePlans(client.nutritionV2Plans), [client.nutritionV2Plans]);
   const notes = useMemo(() => normalizeNotes(client.nutritionV2Notes), [client.nutritionV2Notes]);
 
-  const today = isoDate();
-  // Legacy macros -> the new flat log shape, merged at render time (see
-  // nutritionV2Math.js's mergeLegacyMacroLog) rather than written back
-  // proactively from an effect - the merged result only actually gets
-  // persisted the moment the client writes something new for today
-  // (writeDay below always saves whatever todayEntries currently holds,
-  // so a confirm/swap/off-plan log on a legacy-only day naturally
-  // carries the old entries forward in the same write). A day never
-  // revisited just stays untouched in its original macro_log row
-  // forever, which is fine - no data is ever deleted.
-  const todayEntries = useMemo(() => {
-    const existing = logsForDate(logs, today);
-    if (existing.length || isCoach) return existing;
-    const legacyDay = client.nutrition?.macro_log?.[today];
-    return legacyDay ? mergeLegacyMacroLog(legacyDay, today) : existing;
-  }, [logs, today, isCoach, client.nutrition]);
-
-  async function writeDay(nextEntries, nextMarksForToday = marksForDate(marks, today)) {
-    const nextLogs = { ...logs, [today]: nextEntries };
-    const nextMarks = { ...marks, [today]: nextMarksForToday };
+  // Writes one date's entries/marks - which date is up to the caller.
+  // FuelToday owns its own dateISO (real date navigation, not just
+  // "today") and the legacy macro_log merge-on-first-touch for whichever
+  // date is selected, since it already holds the full logs/marks/client
+  // objects needed to resolve any date, not just today's.
+  async function writeDay(dateISO, nextEntries, nextMarksForDate = marksForDate(marks, dateISO)) {
+    const nextLogs = { ...logs, [dateISO]: nextEntries };
+    const nextMarks = { ...marks, [dateISO]: nextMarksForDate };
     setLogs(nextLogs);
     setMarks(nextMarks);
     updateClient({ ...client, nutritionV2Logs: nextLogs, nutritionV2Marks: nextMarks });
@@ -74,7 +60,6 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
       plans={plans}
       logs={logs}
       marks={marks}
-      entries={todayEntries}
       notes={notes}
       onWrite={writeDay}
       onOpenWeek={() => setClientScreen("week")}
