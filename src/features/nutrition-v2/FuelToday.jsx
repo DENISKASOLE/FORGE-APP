@@ -25,25 +25,63 @@ function DayTypeChip({ label, training }) {
   );
 }
 
-// 132x132 concentric rings, ported 1:1 from Main.dc.html's own SVG
-// (outer=calories/white, inner=protein/green) rather than reused via
-// NutritionRing.jsx's single-ring <Ring/> - stacking two of those
-// wouldn't reproduce the exact concentric-with-centered-text geometry
-// the approved design calls for.
-function DoubleRing({ kcalNow, kcalTarget, proteinNow, proteinTarget }) {
-  const CK = 2 * Math.PI * 60, CP = 2 * Math.PI * 44;
-  const kf = kcalTarget > 0 ? Math.min(kcalNow / kcalTarget, 1) : 0;
-  const pf = proteinTarget > 0 ? Math.min(proteinNow / proteinTarget, 1) : 0;
-  const pLeft = Math.max(Math.round(proteinTarget - proteinNow), 0);
+// Calorie gauge: a 270° arc (90° gap centered at the bottom, "speedo"
+// style) replacing the earlier double-ring, per Denis's reference
+// screenshot of another app's macro card. Kept in Forge's own FUEL
+// palette rather than that app's blue, same call as the colors fix
+// earlier in this redesign - the reference is for layout, not color.
+// Track starts at the 7:30 position and sweeps 270° clockwise through
+// 12 o'clock to 4:30 (see the rotate(135) below): base rotate(-90) is
+// this codebase's own "dash pattern starts at 12 o'clock" convention
+// (used by every other ring here), plus 225° more to move the start
+// point to 7:30 - 90+225=135.
+function CalorieGauge({ kcalEaten, kcalGoal }) {
+  const r = 56, sw = 12;
+  const C = 2 * Math.PI * r;
+  const trackLen = C * 0.75; // 270 of 360 degrees
+  const pct = kcalGoal > 0 ? Math.max(0, Math.min(1, (kcalGoal - kcalEaten) / kcalGoal)) : 0;
+  const left = Math.max(Math.round(kcalGoal - kcalEaten), 0);
   return (
-    <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label="Calories and protein progress">
-      <circle cx="66" cy="66" r="60" fill="none" stroke="#1f1f1f" strokeWidth="10" />
-      <circle cx="66" cy="66" r="60" fill="none" stroke={FUEL.text} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(CK * kf).toFixed(1)} ${CK.toFixed(1)}`} transform="rotate(-90 66 66)" />
-      <circle cx="66" cy="66" r="44" fill="none" stroke={FUEL.proteinTrack} strokeWidth="10" />
-      <circle cx="66" cy="66" r="44" fill="none" stroke={FUEL.protein} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(CP * pf).toFixed(1)} ${CP.toFixed(1)}`} transform="rotate(-90 66 66)" />
-      <text x="66" y="63" textAnchor="middle" fill={FUEL.text} fontSize="22" fontWeight="800" fontFamily={BRAND.sans}>{pLeft}</text>
-      <text x="66" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="9" fontWeight="700" letterSpacing="1" fontFamily={BRAND.sans}>G PROTEIN LEFT</text>
-    </svg>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+      <div style={{ textAlign: "center", flexShrink: 0, minWidth: 0 }}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>{Math.round(kcalEaten).toLocaleString()}</div>
+        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 700 }}>eaten</div>
+      </div>
+      <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Calories left" style={{ flexShrink: 0 }}>
+        <circle cx="70" cy="70" r={r} fill="none" stroke={FUEL.card2} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 70 70)" />
+        <circle cx="70" cy="70" r={r} fill="none" stroke={FUEL.text} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 70 70)" />
+        <text x="70" y="67" textAnchor="middle" fill={FUEL.text} fontSize="26" fontWeight="800" fontFamily={BRAND.sans}>{left.toLocaleString()}</text>
+        <text x="70" y="87" textAnchor="middle" fill={FUEL.muted} fontSize="12" fontWeight="700" fontFamily={BRAND.sans}>left</text>
+      </svg>
+      <div style={{ textAlign: "center", flexShrink: 0, minWidth: 0 }}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>{Math.round(kcalGoal).toLocaleString()}</div>
+        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 700 }}>goal</div>
+      </div>
+    </div>
+  );
+}
+
+const MACRO_BAR_META = {
+  carbs: { label: "Carbs", color: FUEL.text },
+  fat: { label: "Fat", color: FUEL.text },
+  protein: { label: "Protein", color: FUEL.protein },
+};
+function MacroBarRow({ now, target }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+      {["carbs", "fat", "protein"].map((key) => {
+        const meta = MACRO_BAR_META[key];
+        const t = Math.round(target[key] || 0);
+        const n = Math.round(now[key] || 0);
+        const pct = t > 0 ? Math.min(100, (n / t) * 100) : 0;
+        return (
+          <div key={key}>
+            <div style={{ fontSize: 14 }}><span style={{ fontWeight: 800 }}>{meta.label}</span> <span style={{ color: FUEL.muted, fontWeight: 700 }}>({n}/{t}g)</span></div>
+            <div style={{ height: 5, borderRadius: 9, background: FUEL.card2, marginTop: 8 }}><div style={{ width: `${pct}%`, height: 5, borderRadius: 9, background: meta.color }} /></div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -176,7 +214,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
   }, [logs, dateISO, client.nutrition]);
   const orderedMeals = plan?.meals ? [...plan.meals].sort((a, b) => a.time.localeCompare(b.time)) : [];
   const [swapMeal, setSwapMeal] = useState(null);
-  const totals = entries.reduce((t, e) => ({ kcal: t.kcal + (e.macros?.kcal || 0), protein: t.protein + (e.macros?.protein || 0) }), { kcal: 0, protein: 0 });
+  const totals = entries.reduce((t, e) => ({ kcal: t.kcal + (e.macros?.kcal || 0), protein: t.protein + (e.macros?.protein || 0), carbs: t.carbs + (e.macros?.carbs || 0), fat: t.fat + (e.macros?.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
   const target = plan?.targets || {};
 
   const workoutByDate = useMemo(() => {
@@ -221,19 +259,12 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
       <WeekStrip plans={plans} workoutByDate={workoutByDate} dateISO={dateISO} todayISO={todayISO} onSelect={setDateISO} />
       <DateNavRow dateISO={dateISO} todayISO={todayISO} onChange={setDateISO} />
 
-      <div style={{ margin: "18px 20px 0", background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 18, display: "flex", gap: 18, alignItems: "center" }}>
-        <DoubleRing kcalNow={totals.kcal} kcalTarget={target.kcal || 0} proteinNow={totals.protein} proteinTarget={target.protein || 0} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, ...fuelLbl }}><span style={{ width: 8, height: 8, borderRadius: 2, background: FUEL.protein }} />Protein</div>
-            <div style={{ fontSize: 22, marginTop: 3, fontWeight: 700 }}>{Math.round(totals.protein)}<span style={{ color: FUEL.muted, fontSize: 14 }}> / {Math.round(target.protein || 0)} g</span></div>
-          </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, ...fuelLbl }}><span style={{ width: 8, height: 8, borderRadius: 2, background: FUEL.text }} />Calories</div>
-            <div style={{ fontSize: 22, marginTop: 3, fontWeight: 700 }}>{Math.round(totals.kcal).toLocaleString()}<span style={{ color: FUEL.muted, fontSize: 14 }}> / {Math.round(target.kcal || 0).toLocaleString()}</span></div>
-          </div>
-          <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 700 }}>{tally.onPlan} of {orderedMeals.length || 4} meals on plan</div>
+      <div style={{ margin: "18px 20px 0", background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: "20px 18px 18px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <CalorieGauge kcalEaten={totals.kcal} kcalGoal={target.kcal || 0} />
+        <div style={{ borderTop: `1px solid ${FUEL.line}`, paddingTop: 16 }}>
+          <MacroBarRow now={totals} target={target} />
         </div>
+        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 700, textAlign: "center" }}>{tally.onPlan} of {orderedMeals.length || 4} meals on plan</div>
       </div>
 
       {notes?.shared && (
