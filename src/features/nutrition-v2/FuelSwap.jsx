@@ -40,21 +40,16 @@ function mealShortTitle(items) {
 function itemsLine(items) {
   return items.map((it) => `${it.qty}${it.unit === "piece" ? "" : ` ${it.unit}`} ${it.name.toLowerCase()}`).join(", ");
 }
-// Every OTHER weekday in the current rotation that has a different meal
-// for this slot - deduped, since a plan with no rotation set up yet
-// resolves every weekday to the identical default meal, and offering 6
-// copies of "swap for the exact same meal" would be useless.
+// Every OTHER weekday's version of this meal, one row per day - the
+// client's whole week to choose from, same day even when two days
+// happen to share the same food (each is still its own labeled day).
 function swapOptionsFor(plan, mealKey, todayDayNum, todayISO) {
-  const seen = new Set();
   const options = [];
   for (let dayNum = 1; dayNum <= 7; dayNum++) {
     if (dayNum === todayDayNum) continue;
     const resolved = resolvePlanDayNum(plan, dayNum);
     const meal = resolved?.meals?.find((m) => m.key === mealKey);
     if (!meal || !meal.items.length) continue;
-    const key = meal.items.map((it) => `${it.name}:${it.qty}:${it.unit}`).join("|");
-    if (seen.has(key)) continue;
-    seen.add(key);
     options.push({ dayNum, dayName: weekdayName(dayNum, todayISO), meal, totals: mealTotals(meal) });
   }
   return options;
