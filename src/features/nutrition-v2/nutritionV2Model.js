@@ -100,7 +100,11 @@ export function newPlanVersion({ version = 1, from = null, targets } = {}) {
   };
 }
 export function cloneVersionWithNewIds(version) {
-  return { ...version, id: uid(), meals: version.meals.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, id: uid() })) })) };
+  const cloneMeals = (meals) => meals.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, id: uid() })) }));
+  const days = version.days
+    ? Object.fromEntries(Object.entries(version.days).map(([k, d]) => [k, { ...d, ...(Array.isArray(d.meals) ? { meals: cloneMeals(d.meals) } : {}) }]))
+    : undefined;
+  return { ...version, id: uid(), meals: cloneMeals(version.meals), ...(days ? { days } : {}) };
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -109,12 +113,15 @@ export function validatePlanVersion(plan) {
   if (!plan || typeof plan !== "object") return ["Plan is missing."];
   if (!plan.from) errors.push("Plan needs an effective-from date.");
   if (!PLAN_STATUSES.includes(plan.status)) errors.push("Invalid plan status.");
-  (plan.meals || []).forEach((m) => {
-    if (!TIME_RE.test(m.time || "")) errors.push(`${m.name}: time "${m.time}" isn't HH:MM (24h).`);
+  const DAY_NAMES = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun" };
+  const checkMeals = (meals, prefix) => (meals || []).forEach((m) => {
+    if (!TIME_RE.test(m.time || "")) errors.push(`${prefix}${m.name}: time "${m.time}" isn't HH:MM (24h).`);
     (m.items || []).forEach((it) => {
-      if (!(Number(it.qty) > 0)) errors.push(`${m.name} / ${it.name}: amount must be greater than 0.`);
+      if (!(Number(it.qty) > 0)) errors.push(`${prefix}${m.name} / ${it.name}: amount must be greater than 0.`);
     });
   });
+  checkMeals(plan.meals, "");
+  Object.entries(plan.days || {}).forEach(([k, d]) => checkMeals(d?.meals, `${DAY_NAMES[k] || k} · `));
   return errors;
 }
 
@@ -124,9 +131,9 @@ export function validatePlanVersion(plan) {
 // point of the redesign being ONE unified log instead of three separate
 // stores. macros is always a frozen value computed at write time, never
 // re-derived from qty later, matching how plan items snapshot too.
-export function newLogEntry({ date, meal, name, foodId = null, qty = null, unit = null, macros, source, time, planItemId = null, estimate = false, replaces = null, reason = null }) {
+export function newLogEntry({ date, meal, name, foodId = null, qty = null, unit = null, macros, source, time, planItemId = null, estimate = false, replaces = null, reason = null, photo = null }) {
   if (!LOG_SOURCES.includes(source)) throw new Error(`Invalid log source: ${source}`);
-  return { id: uid(), date, meal, name, foodId, qty, unit, macros: { ...emptyMacros(), ...macros }, source, time, planItemId, estimate, replaces, reason };
+  return { id: uid(), date, meal, name, foodId, qty, unit, macros: { ...emptyMacros(), ...macros }, source, time, planItemId, estimate, replaces, reason, photo };
 }
 
 // ---------- saved meals (client-built, DECISIONS.md "warm redesign") ----------

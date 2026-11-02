@@ -6,7 +6,7 @@
 // Never the service role key.
 import { z } from "npm:zod@^4.3.6";
 import { hydrateProgram, currentProgramWeek } from "./programModel.ts";
-import { buildPlanItem, buildMeal, buildPlanVersion, publishPlan, planForDate, validatePlanVersion } from "./nutritionModel.ts";
+import { buildPlanItem, buildMeal, buildPlanVersion, publishPlan, planForDate, planVersionForDate, validatePlanVersion } from "./nutritionModel.ts";
 import { bestLiftsFrom, recentSessions } from "./trainingLogs.ts";
 
 const uuid = () => z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, "must be a client_id (uuid)");
@@ -95,9 +95,16 @@ const PlanItemSchema = z.object({
 const PlanMealSchema = z.object({
   key: z.enum(["breakfast", "lunch", "dinner", "snack"]),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "must be HH:MM, 24h").optional(),
+  note: z.string().optional().describe("Shown to the client under the meal, e.g. eating-out guidance."),
   items: z.array(PlanItemSchema),
 });
 const TargetsSchema = z.object({ kcal: z.number().nonnegative(), protein: z.number().nonnegative(), carbs: z.number().nonnegative(), fat: z.number().nonnegative() }).partial();
+const PlanDaySchema = z.object({
+  day: z.number().int().min(1).max(7).describe("1=Mon .. 7=Sun"),
+  label: z.string().optional().describe('e.g. "Training day", "Rest day", "Dinner out"'),
+  targets: TargetsSchema.optional().describe("Omit to use the plan's default targets"),
+  meals: z.array(PlanMealSchema).optional().describe("Omit to use the plan's default meals"),
+});
 
 export function registerAllTools(server: any, supabase: any) {
   server.registerTool("list_clients", {
@@ -225,28 +232,40 @@ export function registerAllTools(server: any, supabase: any) {
   }, async ({ client_id }: { client_id: string }) => {
     const raw = await sectionData(supabase, client_id, "nutrition_v2_plans");
     const plans = Array.isArray(raw) ? raw : [];
-    const live = planForDate(plans, new Date().toISOString().slice(0, 10));
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const live = planVersionForDate(plans, todayISO);
+    const today = planForDate(plans, todayISO);
     const draft = plans.find((p: any) => p.status === "draft") || null;
-    return toolText({ live, draft, version_count: plans.length });
+    return toolText({ live, today_resolved: live?.days ? today : undefined, draft, version_count: plans.length });
   });
 
   server.registerTool("update_nutrition_plan", {
     title: "Create or edit a client's nutrition plan",
-    description: "Writes a new nutrition plan version for a client (meals with items, each item's macros given directly - no food-library lookup needed). Defaults to a DRAFT, invisible to the client until published in the app; pass publish:true to make it live immediately. Call get_nutrition_plan first if editing, and include every meal you want kept, not just the ones changing.",
+    description: "Writes a new nutrition plan version for a client (meals with items, each item's macros given directly - no food-library lookup needed). Defaults to a DRAFT, invisible to the client until published in the app; pass publish:true to make it live immediately. Call get_nutrition_plan first if editing, and include every meal you want kept, not just the ones changing. For a weekly rotation, pass `meals` as the default day and `days` for each weekday that differs (its own meals, targets and/or label); weekdays not listed use the default.",
     inputSchema: z.object({
       client_id: uuid(),
       meals: z.array(PlanMealSchema).min(1),
       targets: TargetsSchema.optional(),
       from: isoDateStr().optional(),
       publish: z.boolean().optional(),
+      days: z.array(PlanDaySchema).optional(),
     }),
-  }, async ({ client_id, meals, targets, from, publish }: { client_id: string; meals: any[]; targets?: any; from?: string; publish?: boolean }) => {
+  }, async ({ client_id, meals, targets, from, publish, days }: { client_id: string; meals: any[]; targets?: any; from?: string; publish?: boolean; days?: any[] }) => {
     await clientRow(supabase, client_id);
     const raw = await sectionData(supabase, client_id, "nutrition_v2_plans");
     const plans = Array.isArray(raw) ? raw : [];
     const version = (plans.length ? Math.max(...plans.map((p: any) => p.version)) : 0) + 1;
-    const builtMeals = meals.map((m) => buildMeal(m.key, m.time, (m.items || []).map((it: any) => buildPlanItem(it))));
-    const draft = buildPlanVersion({ version, from: from || new Date().toISOString().slice(0, 10), targets, meals: builtMeals, publish: !!publish });
+    const build = (list: any[]) => list.map((m) => buildMeal(m.key, m.time, (m.items || []).map((it: any) => buildPlanItem(it)), m.note));
+    const builtMeals = build(meals);
+    const builtDays: Record<string, any> = {};
+    (days || []).forEach((d: any) => {
+      const entry: any = {};
+      if (d.label) entry.label = d.label;
+      if (d.targets && Object.keys(d.targets).length) entry.targets = d.targets;
+      if (d.meals?.length) entry.meals = build(d.meals);
+      if (Object.keys(entry).length) builtDays[String(d.day)] = entry;
+    });
+    const draft = buildPlanVersion({ version, from: from || new Date().toISOString().slice(0, 10), targets, meals: builtMeals, publish: !!publish, days: builtDays });
     const errors = validatePlanVersion(draft);
     if (errors.length) throw new Error(errors.join(" "));
     const withoutExistingDraft = plans.filter((p: any) => p.status !== "draft");

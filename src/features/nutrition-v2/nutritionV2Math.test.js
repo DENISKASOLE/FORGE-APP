@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
-  itemMacros, mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom,
+  itemMacros, mealTotals, dayTotals, planForDate, planVersionForDate, resolvePlanDayNum, dayOfWeekISO, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
+  mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan,
   weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals, suggestSavedMealsFromHistory, attentionFlagFor,
 } from "./nutritionV2Math.js";
-import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow } from "./nutritionV2Model.js";
+import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow, cloneVersionWithNewIds, validatePlanVersion } from "./nutritionV2Model.js";
 
 const chickenRow = { id: "chk", name: "Chicken breast, cooked", unit: "g", kcal: 165, protein: 31, carbs: 0, fat: 3.6 };
 const eggRow = { id: "egg", name: "Egg, hard-boiled", unit: "piece", pieceGrams: 50, kcal: 155, protein: 12.6, carbs: 1.1, fat: 10.6 };
@@ -120,6 +121,75 @@ describe("mealStatus - matches the prototype's status() exactly", () => {
   it("no entries, date in the past, is 'open'; in the future, is 'future'", () => {
     expect(mealStatus("2026-10-10", today, meal, [], {})).toBe("open");
     expect(mealStatus("2026-10-20", today, meal, [], {})).toBe("future");
+  });
+});
+
+describe("mealOutcomeFor / dayOnPlanTally - the Fuel tab redesign's 4-state model", () => {
+  const meal = newPlanMeal("lunch");
+  meal.items = [newPlanItem(foodRefFromRow(chickenRow), 180, "g")];
+  const today = "2026-10-14";
+
+  it("confirm wins as 'planned', regardless of portion size", () => {
+    expect(mealOutcomeFor(today, today, meal, [{ meal: "lunch", source: "confirm" }], {})).toBe("planned");
+  });
+  it("a plan-swap (source 'sub') is 'swapped', on-plan but distinct from 'planned'", () => {
+    expect(mealOutcomeFor(today, today, meal, [{ meal: "lunch", source: "sub" }], {})).toBe("swapped");
+  });
+  it("eating-out/quick/photo logging (no confirm, no sub) is 'offplan', never red/a failure", () => {
+    expect(mealOutcomeFor(today, today, meal, [{ meal: "lunch", source: "quick", estimate: true }], {})).toBe("offplan");
+    expect(mealOutcomeFor(today, today, meal, [{ meal: "lunch", source: "photo", estimate: true }], {})).toBe("offplan");
+  });
+  it("a legacy skip mark is also 'offplan', not a 5th state", () => {
+    expect(mealOutcomeFor(today, today, meal, [], { lunch: "skipped" })).toBe("offplan");
+  });
+  it("nothing logged is 'missed' for a past/today date, 'future' for one that hasn't happened", () => {
+    expect(mealOutcomeFor(today, today, meal, [], {})).toBe("missed");
+    expect(mealOutcomeFor("2026-10-20", today, meal, [], {})).toBe("future");
+  });
+
+  it("dayOnPlanTally counts planned+swapped as on-plan, excludes future meals entirely", () => {
+    const plan = newPlanVersion({ from: "2026-10-01" });
+    plan.meals = [newPlanMeal("breakfast"), newPlanMeal("lunch"), newPlanMeal("dinner")];
+    const entries = [
+      { meal: "breakfast", source: "confirm" }, // planned
+      { meal: "lunch", source: "sub" }, // swapped
+      // dinner: nothing logged -> missed
+    ];
+    expect(dayOnPlanTally(plan, today, today, entries, {})).toEqual({ onPlan: 2, counted: 3, total: 3 });
+  });
+  it("a future date's meals are all excluded, never counted as missed", () => {
+    const plan = newPlanVersion({ from: "2026-10-01" });
+    plan.meals = [newPlanMeal("breakfast"), newPlanMeal("lunch")];
+    expect(dayOnPlanTally(plan, "2026-10-20", today, [], {})).toEqual({ onPlan: 0, counted: 0, total: 2 });
+  });
+});
+
+describe("last7DaysOnPlan - the Today/My week shared streak + on-plan %", () => {
+  const plan = { ...newPlanVersion({ version: 1, from: "2026-10-01" }), status: "published" };
+  plan.meals = [newPlanMeal("breakfast"), newPlanMeal("lunch")];
+  const today = "2026-10-14";
+
+  it("on-plan % is on-plan meals over every counted (non-future) meal across the week", () => {
+    const logs = { "2026-10-14": [{ meal: "breakfast", source: "confirm" }, { meal: "lunch", source: "sub" }] };
+    const result = last7DaysOnPlan([plan], logs, {}, today);
+    // 1 logged day (2 of 2 on-plan) + 6 unlogged days (0 of 2 each) = 2 on-plan / 14 counted
+    expect(result.onPlanCount).toBe(2);
+    expect(result.totalCount).toBe(14);
+    expect(result.onPlanPct).toBeCloseTo(2 / 14);
+  });
+  it("streak counts consecutive logged days back from today, breaking at the first true blank", () => {
+    const logs = {
+      "2026-10-14": [{ meal: "breakfast", source: "confirm" }],
+      "2026-10-13": [{ meal: "breakfast", source: "quick" }], // off-plan still counts as "logged something"
+      // 2026-10-12: nothing logged -> breaks the streak
+      "2026-10-11": [{ meal: "breakfast", source: "confirm" }],
+    };
+    expect(last7DaysOnPlan([plan], logs, {}, today).streak).toBe(2);
+  });
+  it("a day with no plan at all can't break the streak - there was nothing to log", () => {
+    const result = last7DaysOnPlan([], {}, {}, today);
+    expect(result.streak).toBe(7); // no plan on any of the 7 days, none of them a "true blank"
+    expect(result.onPlanPct).toBeNull();
   });
 });
 
@@ -353,5 +423,52 @@ describe("suggestSavedMealsFromHistory", () => {
     ["2026-10-01", "2026-10-03", "2026-10-05"].forEach((d) => { logs[d] = [...(logs[d] || []), quick(d, "A")]; });
     const names = suggestSavedMealsFromHistory(logs, [], { limit: 1 }).map((s) => s.name);
     expect(names).toEqual(["A"]); // A occurs 3x vs B's 2x
+  });
+});
+
+describe("weekly rotation - per-weekday meals and targets", () => {
+  const base = { ...newPlanVersion({ version: 1, from: "2026-11-02", targets: { kcal: 1700, protein: 115, carbs: 0, fat: 0 } }), status: "published" };
+  base.meals[0].items = [newPlanItem(foodRefFromRow(eggRow), 2, "piece")];
+  const tueMeals = base.meals.map((m) => ({ ...m, items: m.key === "breakfast" ? [newPlanItem(foodRefFromRow(chickenRow), 100, "g")] : m.items }));
+  const plan = { ...base, days: { "2": { label: "Rest day", targets: { kcal: 1600, protein: 115 }, meals: tueMeals }, "6": { label: "Dinner out" } } };
+
+  it("numbers weekdays Mon=1 .. Sun=7 from the local date", () => {
+    expect(dayOfWeekISO("2026-11-02")).toBe(1); // Monday
+    expect(dayOfWeekISO("2026-11-08")).toBe(7); // Sunday
+  });
+  it("a weekday with an override gets its own meals, targets and label", () => {
+    const tue = planForDate([plan], "2026-11-03");
+    expect(tue.dayLabel).toBe("Rest day");
+    expect(tue.targets.kcal).toBe(1600);
+    expect(tue.meals[0].items[0].foodId).toBe("chk");
+  });
+  it("a weekday without an override (or with only a label) falls back to the default day", () => {
+    const mon = planForDate([plan], "2026-11-02");
+    expect(mon.meals[0].items[0].foodId).toBe("egg");
+    expect(mon.targets.kcal).toBe(1700);
+    const sat = planForDate([plan], "2026-11-07");
+    expect(sat.dayLabel).toBe("Dinner out");
+    expect(sat.meals[0].items[0].foodId).toBe("egg");
+  });
+  it("resolvePlanDayNum resolves the same way as resolvePlanDay, keyed by weekday number directly", () => {
+    expect(resolvePlanDayNum(plan, 2).dayLabel).toBe("Rest day"); // Tuesday
+    expect(resolvePlanDayNum(plan, 1).dayLabel).toBeUndefined(); // Monday - no override
+    expect(resolvePlanDayNum(plan, 1).meals[0].items[0].foodId).toBe("egg");
+  });
+  it("planVersionForDate returns the stored version untouched, so the builder keeps the rotation", () => {
+    const raw = planVersionForDate([plan], "2026-11-03");
+    expect(raw.meals[0].items[0].foodId).toBe("egg");
+    expect(Object.keys(raw.days)).toEqual(["2", "6"]);
+    expect(nextDraftFrom(raw, "published").days).toBe(raw.days);
+  });
+  it("a plan without days behaves exactly as before", () => {
+    expect(planForDate([base], "2026-11-03")).toBe(base);
+  });
+  it("cloning re-ids items inside the rotation and validation checks rotation meals", () => {
+    const clone = cloneVersionWithNewIds(plan);
+    expect(clone.days["2"].meals[0].items[0].id).not.toBe(plan.days["2"].meals[0].items[0].id);
+    expect(clone.days["6"]).toEqual(plan.days["6"]); // label-only day has no meals to re-id
+    const bad = { ...plan, days: { ...plan.days, "2": { ...plan.days["2"], meals: [{ ...tueMeals[0], items: [{ ...tueMeals[0].items[0], qty: 0 }] }] } } };
+    expect(validatePlanVersion(bad).some((e) => e.startsWith("Tue ·"))).toBe(true);
   });
 });

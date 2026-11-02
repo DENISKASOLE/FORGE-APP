@@ -48,8 +48,45 @@ export function roundMacros(m) { return { kcal: Math.round(m.kcal), protein: Mat
 // mirrors the prototype's own confirmPublish() exactly; getting the
 // archived/published split wrong would make historical days resolve to
 // the wrong version.
-export function planForDate(plans, dateISO) {
+//
+// Weekly rotation: a version may carry `days`, keyed "1".."7" (Mon..Sun,
+// same numbering as a program workout's dayOfWeek). Each entry can
+// override that weekday's meals and/or targets and give it a label
+// ("Training day", "Dinner out"). A weekday with no entry uses the
+// version's own meals/targets, so a plan without `days` behaves exactly
+// as before.
+//
+// planVersionForDate = the raw stored version (what the coach builder
+// edits and publishes). planForDate = that version resolved to the
+// weekday's meals/targets - what every client screen, adherence and
+// report calculation reads, so they all pick up the rotation for free.
+export function dayOfWeekISO(dateISO) {
+  const d = new Date(`${dateISO}T00:00:00`).getDay();
+  return d === 0 ? 7 : d;
+}
+// Same resolution as resolvePlanDay, but keyed directly off a weekday
+// number (1=Mon..7=Sun) instead of a real date - used by the
+// Change-a-meal sheet to show "what lunch looks like on your other
+// rotation days" without having to fabricate a date for each one.
+export function resolvePlanDayNum(plan, dayNum) {
+  if (!plan) return null;
+  const day = plan.days?.[String(dayNum)];
+  if (!day) return plan;
+  return {
+    ...plan,
+    meals: Array.isArray(day.meals) && day.meals.length ? day.meals : plan.meals,
+    targets: day.targets ? { ...emptyMacros(), ...day.targets } : plan.targets,
+    dayLabel: day.label || "",
+  };
+}
+export function resolvePlanDay(plan, dateISO) {
+  return resolvePlanDayNum(plan, dayOfWeekISO(dateISO));
+}
+export function planVersionForDate(plans, dateISO) {
   return (plans || []).find((p) => p.status === "published" && p.from <= dateISO && (!p.to || p.to >= dateISO)) || null;
+}
+export function planForDate(plans, dateISO) {
+  return resolvePlanDay(planVersionForDate(plans, dateISO), dateISO);
 }
 export function publishPlan(plans, draft, publishedAtISO) {
   const updated = (plans || []).map((p) => {
@@ -90,6 +127,68 @@ export function unplannedEntries(dateLogEntries) {
   return (dateLogEntries || []).filter((e) => !e.planItemId && e.source !== "sub");
 }
 export function loggedDayTotals(dateLogEntries) { return sumMacros((dateLogEntries || []).map((e) => e.macros)); }
+
+// ---------- Fuel tab redesign: the 4-state outcome model (DECISIONS.md "Fuel tab redesign") ----------
+// mealStatus above (eaten/partial/substituted/skipped/open/future) backs
+// the OLD client screens' portion-editing and skip actions, which the
+// redesign retires - the new screens (Today, Change-a-meal, My week) only
+// ever show one of 4 outcomes per meal, "no-shame logging" by design
+// (ground rule: swaps/off-plan are never shown as a failure):
+//   planned  - confirmed exactly as prescribed (source "confirm").
+//   swapped  - logged as another PLAN meal instead (source "sub",
+//              Swap.dc.html section 1) - counts as on-plan.
+//   offplan  - logged something that's neither the plan nor a plan-swap
+//              (quick/photo/search, i.e. eating-out or "something else" -
+//              Swap.dc.html sections 2-3), or a legacy skip mark. Neutral
+//              amber, never red, and never counts as on-plan.
+//   missed   - nothing logged for a date that's already happened.
+//   future   - the date hasn't happened yet, so there's nothing to judge.
+export function mealOutcomeFor(dateISO, todayISO, meal, dateLogEntries, dateMarks) {
+  const entries = (dateLogEntries || []).filter((e) => e.meal === meal.key);
+  if (entries.some((e) => e.source === "confirm")) return "planned";
+  if (entries.some((e) => e.source === "sub")) return "swapped";
+  if (entries.length) return "offplan";
+  if ((dateMarks || {})[meal.key] === "skipped") return "offplan";
+  return dateISO > todayISO ? "future" : "missed";
+}
+// One day's on-plan tally - "swapped" counts as on-plan, "offplan" and
+// "missed" don't (brief, Client · My week); "future" meals are excluded
+// entirely rather than counted as a failure.
+export function dayOnPlanTally(planVersion, dateISO, todayISO, dateLogEntries, dateMarks) {
+  const meals = planVersion?.meals || [];
+  let onPlan = 0, counted = 0;
+  meals.forEach((m) => {
+    const outcome = mealOutcomeFor(dateISO, todayISO, m, dateLogEntries, dateMarks);
+    if (outcome === "future") return;
+    counted += 1;
+    if (outcome === "planned" || outcome === "swapped") onPlan += 1;
+  });
+  return { onPlan, counted, total: meals.length };
+}
+// Last 7 days' on-plan % (Today's "This week" teaser and My week's
+// headline tile share this) plus a day streak. The streak counts
+// consecutive days, back from today, that were never a total blank -
+// anything logged (planned, swapped, or off-plan alike) keeps it alive,
+// same "no-shame logging" principle as the outcome model above, rather
+// than requiring a perfect on-plan day. A day with no plan at all (or no
+// meals on it) can't break the streak either - there was nothing to log.
+export function last7DaysOnPlan(plans, logs, marks, todayISO) {
+  const days = weekDatesEnding(todayISO);
+  let onPlanSum = 0, countedSum = 0;
+  const perDay = days.map((d) => {
+    const plan = planForDate(plans, d);
+    const tally = plan ? dayOnPlanTally(plan, d, todayISO, logs?.[d] || [], marks?.[d] || {}) : { onPlan: 0, counted: 0, total: 0 };
+    onPlanSum += tally.onPlan;
+    countedSum += tally.counted;
+    return { date: d, plan, tally, hasAnyLog: (logs?.[d] || []).length > 0 };
+  });
+  let streak = 0;
+  for (let i = perDay.length - 1; i >= 0; i--) {
+    const day = perDay[i];
+    if (day.tally.total === 0 || day.hasAnyLog) streak += 1; else break;
+  }
+  return { onPlanPct: countedSum ? onPlanSum / countedSum : null, onPlanCount: onPlanSum, totalCount: countedSum, streak, days: perDay };
+}
 
 // ---------- §adherence: eaten ÷ meals with any logged outcome, not-logged excluded ----------
 export function dayAdherence(planVersion, dateISO, todayISO, dateLogEntries, dateMarks) {
