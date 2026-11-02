@@ -1,3 +1,26 @@
+# Fuel tab redesign: real date navigation on Today — decisions log
+
+The approved Main.dc.html deliberately had no date paging - "Today" was
+always today. Denis compared it against a reference screenshot from
+another app (chevrons, a tappable week strip, an editable date) and
+asked for real navigation back, after confirming the scope explicitly
+(this reopens a design decision already closed, not a small tweak).
+
+`FuelToday.jsx` now owns `dateISO` as its own state, including the
+legacy `macro_log` merge-on-first-touch for whichever date is browsed
+(previously only done for today, in `NutritionV2Flow.jsx`) - it already
+held the full `logs`/`marks`/`client` objects needed to resolve any
+date, not just today's, so this is a `useState` plus moving some
+existing logic rather than new plumbing. `writeDay` takes an explicit
+`dateISO` now instead of always writing to today.
+
+A date after today is read-only (no Ate it/Swap/Undo, no "ate something
+off-plan") - the same rule the pre-redesign screen enforced, since
+logging ahead of when something happens would corrupt adherence stats.
+The 7-day strip now shows the week *containing* the selected date, not
+a fixed calendar week, so paging across a Sun/Mon boundary slides the
+whole strip over for free.
+
 # Fuel tab redesign: My week + coach Nutrition dashboard — decisions log
 
 Completes the Fuel tab redesign (the previous entry below covers the
