@@ -48,38 +48,8 @@ export function roundMacros(m) { return { kcal: Math.round(m.kcal), protein: Mat
 // mirrors the prototype's own confirmPublish() exactly; getting the
 // archived/published split wrong would make historical days resolve to
 // the wrong version.
-//
-// Weekly rotation: a version may carry `days`, keyed "1".."7" (Mon..Sun,
-// same numbering as a program workout's dayOfWeek). Each entry can
-// override that weekday's meals and/or targets and give it a label
-// ("Training day", "Dinner out"). A weekday with no entry uses the
-// version's own meals/targets, so a plan without `days` behaves exactly
-// as before.
-//
-// planVersionForDate = the raw stored version (what the coach builder
-// edits and publishes). planForDate = that version resolved to the
-// weekday's meals/targets - what every client screen, adherence and
-// report calculation reads, so they all pick up the rotation for free.
-export function dayOfWeekISO(dateISO) {
-  const d = new Date(`${dateISO}T00:00:00`).getDay();
-  return d === 0 ? 7 : d;
-}
-export function resolvePlanDay(plan, dateISO) {
-  if (!plan) return null;
-  const day = plan.days?.[String(dayOfWeekISO(dateISO))];
-  if (!day) return plan;
-  return {
-    ...plan,
-    meals: Array.isArray(day.meals) && day.meals.length ? day.meals : plan.meals,
-    targets: day.targets ? { ...emptyMacros(), ...day.targets } : plan.targets,
-    dayLabel: day.label || "",
-  };
-}
-export function planVersionForDate(plans, dateISO) {
-  return (plans || []).find((p) => p.status === "published" && p.from <= dateISO && (!p.to || p.to >= dateISO)) || null;
-}
 export function planForDate(plans, dateISO) {
-  return resolvePlanDay(planVersionForDate(plans, dateISO), dateISO);
+  return (plans || []).find((p) => p.status === "published" && p.from <= dateISO && (!p.to || p.to >= dateISO)) || null;
 }
 export function publishPlan(plans, draft, publishedAtISO) {
   const updated = (plans || []).map((p) => {

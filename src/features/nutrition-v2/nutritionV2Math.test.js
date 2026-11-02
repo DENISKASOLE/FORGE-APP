@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  itemMacros, mealTotals, dayTotals, planForDate, planVersionForDate, dayOfWeekISO, publishPlan, nextDraftFrom,
+  itemMacros, mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom,
   mealStatus, unplannedEntries, loggedDayTotals, dayAdherence, mergeLegacyMacroLog, addDaysISO,
   weekDatesEnding, weeklyProgress, weeklyInsights, recentAlertSignals, suggestSavedMealsFromHistory, attentionFlagFor,
 } from "./nutritionV2Math.js";
-import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow, cloneVersionWithNewIds, validatePlanVersion } from "./nutritionV2Model.js";
+import { foodRefFromRow, newPlanItem, newPlanMeal, newPlanVersion, newLogEntry, normalizeFoodRow } from "./nutritionV2Model.js";
 
 const chickenRow = { id: "chk", name: "Chicken breast, cooked", unit: "g", kcal: 165, protein: 31, carbs: 0, fat: 3.6 };
 const eggRow = { id: "egg", name: "Egg, hard-boiled", unit: "piece", pieceGrams: 50, kcal: 155, protein: 12.6, carbs: 1.1, fat: 10.6 };
@@ -353,46 +353,5 @@ describe("suggestSavedMealsFromHistory", () => {
     ["2026-10-01", "2026-10-03", "2026-10-05"].forEach((d) => { logs[d] = [...(logs[d] || []), quick(d, "A")]; });
     const names = suggestSavedMealsFromHistory(logs, [], { limit: 1 }).map((s) => s.name);
     expect(names).toEqual(["A"]); // A occurs 3x vs B's 2x
-  });
-});
-
-describe("weekly rotation - per-weekday meals and targets", () => {
-  const base = { ...newPlanVersion({ version: 1, from: "2026-11-02", targets: { kcal: 1700, protein: 115, carbs: 0, fat: 0 } }), status: "published" };
-  base.meals[0].items = [newPlanItem(foodRefFromRow(eggRow), 2, "piece")];
-  const tueMeals = base.meals.map((m) => ({ ...m, items: m.key === "breakfast" ? [newPlanItem(foodRefFromRow(chickenRow), 100, "g")] : m.items }));
-  const plan = { ...base, days: { "2": { label: "Rest day", targets: { kcal: 1600, protein: 115 }, meals: tueMeals }, "6": { label: "Dinner out" } } };
-
-  it("numbers weekdays Mon=1 .. Sun=7 from the local date", () => {
-    expect(dayOfWeekISO("2026-11-02")).toBe(1); // Monday
-    expect(dayOfWeekISO("2026-11-08")).toBe(7); // Sunday
-  });
-  it("a weekday with an override gets its own meals, targets and label", () => {
-    const tue = planForDate([plan], "2026-11-03");
-    expect(tue.dayLabel).toBe("Rest day");
-    expect(tue.targets.kcal).toBe(1600);
-    expect(tue.meals[0].items[0].foodId).toBe("chk");
-  });
-  it("a weekday without an override (or with only a label) falls back to the default day", () => {
-    const mon = planForDate([plan], "2026-11-02");
-    expect(mon.meals[0].items[0].foodId).toBe("egg");
-    expect(mon.targets.kcal).toBe(1700);
-    const sat = planForDate([plan], "2026-11-07");
-    expect(sat.dayLabel).toBe("Dinner out");
-    expect(sat.meals[0].items[0].foodId).toBe("egg");
-  });
-  it("planVersionForDate returns the stored version untouched, so the builder keeps the rotation", () => {
-    const raw = planVersionForDate([plan], "2026-11-03");
-    expect(raw.meals[0].items[0].foodId).toBe("egg");
-    expect(Object.keys(raw.days)).toEqual(["2", "6"]);
-    expect(nextDraftFrom(raw, "published").days).toBe(raw.days);
-  });
-  it("a plan without days behaves exactly as before", () => {
-    expect(planForDate([base], "2026-11-03")).toBe(base);
-  });
-  it("cloning re-ids items inside the rotation and validation checks rotation meals", () => {
-    const clone = cloneVersionWithNewIds(plan);
-    expect(clone.days["2"].meals[0].items[0].id).not.toBe(plan.days["2"].meals[0].items[0].id);
-    const bad = { ...plan, days: { "2": { meals: [{ ...tueMeals[0], time: "7am" }] } } };
-    expect(validatePlanVersion(bad).some((e) => e.startsWith("Tue · "))).toBe(true);
   });
 });

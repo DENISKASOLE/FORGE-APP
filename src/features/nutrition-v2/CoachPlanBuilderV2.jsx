@@ -7,7 +7,7 @@ import { uid } from "../../lib/uid.js";
 import { loadFoodLibrary, loadMealPresets, saveMealPresets } from "../../lib/nutritionPlan.js";
 import { normalizePlans, savePlans } from "../../lib/nutritionV2.js";
 import { MEAL_KEYS, MEAL_NAMES, foodRefFromRow, normalizeFoodRow, unitGramsFor, newPlanItem, newPlanVersion, validatePlanVersion, fatSecretFoodRow } from "./nutritionV2Model.js";
-import { mealTotals, dayTotals, planVersionForDate, publishPlan, nextDraftFrom } from "./nutritionV2Math.js";
+import { mealTotals, dayTotals, planForDate, publishPlan, nextDraftFrom } from "./nutritionV2Math.js";
 import { useFatSecretResults } from "../../lib/fatsecret.js";
 import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
@@ -164,7 +164,6 @@ function PublishSheet({ draft, warnings, onClose, onConfirm }) {
 // publishes it for them, versioned by effective date (see
 // nutritionV2Math.js's planForDate/publishPlan for the exact
 // versioning rules this builds on).
-const DAY_SHORT = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun" };
 export function CoachPlanBuilderV2({ client, updateClient }) {
   const isDesktop = !useIsMobile(1180);
   const [plans, setPlans] = useState(() => normalizePlans(client.nutritionV2Plans));
@@ -188,9 +187,7 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
   }, [client.trainer_id]);
 
   const today = isoDate();
-  // Raw stored version (not weekday-resolved) - the builder edits the
-  // version itself, so its `days` rotation is carried through untouched.
-  const livePlan = planVersionForDate(plans, today);
+  const livePlan = planForDate(plans, today);
   const persistedDraft = plans.find((p) => p.status === "draft") || null;
   const draft = persistedDraft || (livePlan ? nextDraftFrom(livePlan, "published") : newPlanVersion({ version: (plans.length ? Math.max(...plans.map((p) => p.version)) : 0) + 1, from: today }));
 
@@ -278,7 +275,6 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
   const warnings = [...emptyMeals.map((n) => `${n} has no foods.`), ...targetWarnings];
   const statusPill = { draft: ["Unsaved changes", NT.muted], saving: ["Saving…", NT.muted], saved: ["Saved", NT.protein], offline: ["Offline — not saved", NT.bad] }[saveStatus];
   const history = plans.filter((p) => p.status !== "draft").slice().sort((a, b) => b.version - a.version);
-  const rotationDays = Object.entries(draft.days || {}).sort(([a], [b]) => Number(a) - Number(b));
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -290,12 +286,6 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
         <button onClick={() => setPublishOpen(true)} style={{ background: NT.accent, color: NT.bg, border: "none", fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: "11px 20px", borderRadius: 999, cursor: "pointer" }}>Publish</button>
       </div>
 
-      {rotationDays.length > 0 && (
-        <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: "14px 18px", color: NT.muted, fontFamily: NT.sans, fontSize: 12.5, lineHeight: 1.5 }}>
-          <span style={{ color: NT.text, fontWeight: 600 }}>Weekly rotation · </span>
-          {rotationDays.map(([k, d]) => `${DAY_SHORT[k]}${d.label ? ` (${d.label})` : ""}`).join(", ")} have their own meals. Changes here edit the default day only; the rotation is kept when you publish.
-        </div>
-      )}
       <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18 }}>
         <div style={{ fontFamily: NT.sans, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: NT.muted, marginBottom: 14 }}>Daily targets</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 14 }}>
