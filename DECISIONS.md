@@ -1,3 +1,63 @@
+# Fuel tab redesign: My week + coach Nutrition dashboard — decisions log
+
+Completes the Fuel tab redesign (the previous entry below covers the
+rotation data layer, client Today and Change-a-meal). Denis said to
+keep going through all five of the brief's steps without stopping for
+approval between each one.
+
+## Client · My week (`FuelWeek.jsx`)
+
+Reads almost entirely from `last7DaysOnPlan`, extended to also return
+each day's meal-by-meal outcome grid and logged protein (so the client
+week grid and the coach's heatmap - see below - share one walk of the
+week instead of two). The day-by-day grid, on-plan tile and streak
+match `Week.dc.html` exactly.
+
+The weight card needed a real decision: the brief's copy ("Daily
+weigh-ins are smoothed...") assumes daily weigh-in data, but this app's
+only real weight source is the check-in's weight question, and
+check-ins are weekly (`isCheckInDue`'s Sat-Tue window), not daily.
+Rather than fabricate a denser average the data doesn't support,
+`weightTrend()` (new, in `lib/clientMetrics.js`) uses each logged
+weigh-in as its own point - a true 7-day rolling average would almost
+always just equal the single most recent one anyway given weekly
+cadence. Hidden entirely below 2 weigh-ins, per the brief's own "if
+there isn't enough data, hide the card" rule.
+
+## Coach · Tools › Nutrition (`CoachNutritionDashboard.jsx`)
+
+Full rewrite, same mount point as the earlier simpler version (a
+client-list triage screen with just an attention flag and an adherence
+ring) - that one's roster-only shape couldn't grow into the brief's
+richer master-detail layout (roster + a selected client's full weekly
+picture) without becoming a different screen anyway, so this replaces
+it outright rather than extending it.
+
+New `weeklyCheckinSuggestion()` encodes the brief's exact rule as a
+fat-loss framing: -0.25%..-1% bodyweight/week at >=75% on-plan is "on
+pace" (keep); flatter than that for 2+ weeks suggests -100 kcal; faster
+than -1%/week suggests +100 kcal (the mirror case the brief doesn't
+spell out but the +100 kcal button clearly exists for); under 75%
+on-plan is always "keep" regardless of trend, since adherence - not the
+target - is the variable worth fixing first. Applying a change clones
+the live plan version, adjusts `targets.kcal` by ±100, and publishes it
+effective the next Monday (`nextMondayISO` + the existing
+`publishPlan`) - gated behind a confirm dialog every time, per "Denis
+always confirms; nothing auto-changes."
+
+The week rotation editor's two actions ("Copy day to...", "Make
+eating-out day") go through that same clone-then-publish-next-Monday
+path. Real per-meal content editing (adding/removing foods within a
+day) stays the coach plan builder's job, same "not done yet" noted in
+the rotation data layer's own decisions entry - this dashboard only
+ever shows a day's resolved meals read-only, copies a whole day, or
+relabels one.
+
+Known simplification: "Message"/"Edit plan"/"Reply" all just open the
+client (`selectClient`) rather than composing a message or jumping
+straight to a specific tab - there's no tab-deep-link mechanism from
+the coach dashboard into a client's Messages tab yet.
+
 # Fuel tab redesign: weekly rotation + client Today/Change-a-meal — decisions log
 
 Denis commissioned a full visual redesign of the client-facing Fuel
