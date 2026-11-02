@@ -21,15 +21,16 @@ export function buildPlanItem(input: { name: string; qty?: number; unit?: string
     snapshot: { kcal: input.kcal || 0, protein: input.protein || 0, carbs: input.carbs || 0, fat: input.fat || 0, basisGrams: qty },
   };
 }
-export function buildMeal(key: string, time: string | undefined, items: any[]) {
-  return { key, name: MEAL_NAMES[key] || key, time: time || DEFAULT_TIME[key] || "12:00", note: "", items };
+export function buildMeal(key: string, time: string | undefined, items: any[], note?: string) {
+  return { key, name: MEAL_NAMES[key] || key, time: time || DEFAULT_TIME[key] || "12:00", note: note || "", items };
 }
-export function buildPlanVersion(input: { version: number; from: string; targets?: any; meals: any[]; publish: boolean }) {
+export function buildPlanVersion(input: { version: number; from: string; targets?: any; meals: any[]; publish: boolean; days?: Record<string, any> }) {
   return {
     id: uid(), version: input.version, status: input.publish ? "published" : "draft",
     from: input.from, to: null, published: input.publish ? new Date().toISOString() : null,
     targets: input.targets && Object.keys(input.targets).length ? { ...emptyMacros(), ...input.targets } : emptyMacros(),
     meals: input.meals,
+    ...(input.days && Object.keys(input.days).length ? { days: input.days } : {}),
   };
 }
 
@@ -60,17 +61,42 @@ export function publishPlan(plans: any[], draft: any, publishedAtISO: string): a
   return [...updated, published];
 }
 
-export function planForDate(plans: any[], dateISO: string): any {
+// Weekly rotation - ported from nutritionV2Math.js. A version may carry
+// `days` keyed "1".."7" (Mon..Sun); each can override that weekday's
+// meals/targets/label. planVersionForDate = stored version;
+// planForDate = resolved to the weekday, exactly as the app reads it.
+export function dayOfWeekISO(dateISO: string): number {
+  const d = new Date(`${dateISO}T00:00:00`).getDay();
+  return d === 0 ? 7 : d;
+}
+export function resolvePlanDay(plan: any, dateISO: string): any {
+  if (!plan) return null;
+  const day = plan.days?.[String(dayOfWeekISO(dateISO))];
+  if (!day) return plan;
+  return {
+    ...plan,
+    meals: Array.isArray(day.meals) && day.meals.length ? day.meals : plan.meals,
+    targets: day.targets ? { ...emptyMacros(), ...day.targets } : plan.targets,
+    dayLabel: day.label || "",
+  };
+}
+export function planVersionForDate(plans: any[], dateISO: string): any {
   return (plans || []).find((p: any) => p.status === "published" && p.from <= dateISO && (!p.to || p.to >= dateISO)) || null;
+}
+export function planForDate(plans: any[], dateISO: string): any {
+  return resolvePlanDay(planVersionForDate(plans, dateISO), dateISO);
 }
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function validatePlanVersion(plan: any): string[] {
   const errors: string[] = [];
   if (!plan?.from) errors.push("Plan needs an effective-from date.");
-  (plan?.meals || []).forEach((m: any) => {
-    if (!TIME_RE.test(m.time || "")) errors.push(`${m.name}: time "${m.time}" isn't HH:MM (24h).`);
-    (m.items || []).forEach((it: any) => { if (!(Number(it.qty) > 0)) errors.push(`${m.name} / ${it.name}: amount must be greater than 0.`); });
+  const DAY_NAMES: Record<string, string> = { "1": "Mon", "2": "Tue", "3": "Wed", "4": "Thu", "5": "Fri", "6": "Sat", "7": "Sun" };
+  const checkMeals = (meals: any[], prefix: string) => (meals || []).forEach((m: any) => {
+    if (!TIME_RE.test(m.time || "")) errors.push(`${prefix}${m.name}: time "${m.time}" isn't HH:MM (24h).`);
+    (m.items || []).forEach((it: any) => { if (!(Number(it.qty) > 0)) errors.push(`${prefix}${m.name} / ${it.name}: amount must be greater than 0.`); });
   });
+  checkMeals(plan?.meals, "");
+  Object.entries(plan?.days || {}).forEach(([k, d]: [string, any]) => checkMeals(d?.meals, `${DAY_NAMES[k] || k} · `));
   return errors;
 }

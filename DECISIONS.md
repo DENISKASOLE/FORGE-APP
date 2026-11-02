@@ -1,3 +1,38 @@
+# Nutrition plans: weekly rotation (per-weekday meals) — decisions log
+
+Denis's real plans are weekly rotations (e.g. Sumy: training days vs rest
+days, a dinner out on Saturday, lunch out on Sunday). A plan version held
+only one day, so the rotation couldn't be represented.
+
+## Shape
+
+A plan version may now carry `days`, keyed "1".."7" (Mon..Sun - the same
+numbering as a program workout's `dayOfWeek`). Each entry may set its own
+`meals`, `targets` and `label`; anything left out falls back to the
+version's own meals/targets. No `days` = exactly the old behaviour, so
+every existing plan is untouched. No DB/migration change - it's just more
+JSON inside the existing `nutrition_v2_plans` section.
+
+## Why it needed almost no UI work
+
+Every client-facing reader (NutritionV2Flow, ClientView, adherence,
+weekly progress, alerts, progress report) already goes through
+`planForDate(plans, dateISO)`. That function now returns the version
+*resolved to that date's weekday*, so all of them show the right day's
+meals and targets automatically. `planVersionForDate` returns the raw
+stored version; the coach builder uses that, so editing and publishing
+carries the rotation through untouched. Meal keys stay
+breakfast/lunch/dinner/snack on every day, so logs and ticks keyed by
+meal still line up.
+
+## Not done yet
+
+The coach builder can't edit individual weekdays - it edits the default
+day and shows a "Weekly rotation" notice listing the days that have their
+own meals. Rotations are written via the forge-mcp `update_nutrition_plan`
+tool (new `days` param, plus a per-meal `note`). A day-tab editor in the
+builder needs a mockup first (picture-before-code).
+
 # Live session logging: swap the whole day's workout — decisions log
 
 Denis asked for a way to improvise an entire day's workout during live
