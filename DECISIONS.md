@@ -1,3 +1,35 @@
+# Fuel tab redesign: calorie-gauge macro card — decisions log
+
+Denis sent another reference screenshot (a different app's macro
+summary: a 270° calorie gauge with eaten/left/goal, and a Carbs/Fat/
+Protein bar row below) and asked for the hero card to match it exactly.
+
+Same rule as the earlier colors correction: the reference is for
+*layout*, not palette. The gauge is drawn in Forge's own FUEL tokens
+(white for calories, matching the old double-ring's outer-ring color;
+green for protein) rather than the reference app's blue. Carbs and fat
+get a neutral white/muted tone rather than introducing the old
+nutrition theme's blue/violet (`NT.carbs`/`NT.fat` in
+nutritionV2Theme.js) - the approved Fuel screens never use those colors
+anywhere, and adding them here would be a different design language
+mid-screen.
+
+Flagged, not blocked: this walks back Main.dc.html's explicit "double
+ring: outer = calories, inner = protein" spec - protein is now one of
+three equal macro bars instead of having its own ring. Implemented as
+asked since the instruction was direct and specific ("exactly like
+this"), but it's a real departure from the originally approved design,
+not a neutral restyle.
+
+The gauge math: a `<circle>` with no rotation starts its dash pattern
+at the 3 o'clock position; this codebase's existing rings already use
+`rotate(-90)` to start at 12 o'clock instead (confirmed against the
+shipped double-ring). For a gauge with a 90°-wide gap centered at the
+bottom, the visible arc needs to start at the 7:30 position and sweep
+270° clockwise through the top to 4:30 - `rotate(135)` total (not
+`rotate(-90)` plus something else; derived directly as the rotation
+that lands the natural 3-o'clock start point on 7:30).
+
 # Fuel tab redesign: real date navigation on Today — decisions log
 
 The approved Main.dc.html deliberately had no date paging - "Today" was
