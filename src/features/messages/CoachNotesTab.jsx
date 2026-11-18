@@ -2,7 +2,6 @@ import { useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
-import { inputStyle } from "../../components/ui/Field.jsx";
 import { uid } from "../../lib/uid.js";
 import { upsertSection } from "../../lib/clientData.js";
 import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
@@ -12,46 +11,56 @@ import { confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 // `coach_notes` section; the client app never renders it.
 export function CoachNotesTab({ client, updateClient }) {
   const [notes, setNotes] = useState(client.coachNotes || []);
-  const [text, setText] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [editText, setEditText] = useState("");
+  // Full-screen editor: null when closed, else { id (null = new), text }.
+  const [editor, setEditor] = useState(null);
 
   async function save(next) {
     setNotes(next);
     updateClient({ ...client, coachNotes: next });
     await upsertSection(client.id, "coach_notes", { list: next });
   }
-  function add() {
-    const t = text.trim();
-    if (!t) return;
-    setText("");
-    save([{ id: uid(), text: t, date: new Date().toISOString() }, ...notes]);
-  }
-  function saveEdit() {
-    const t = editText.trim();
-    if (!t) return;
-    save(notes.map((n) => (n.id === editId ? { ...n, text: t, edited: new Date().toISOString() } : n)));
-    setEditId(null);
+  function commit() {
+    const t = editor.text.trim();
+    if (!t) { setEditor(null); return; }
+    const now = new Date().toISOString();
+    save(editor.id
+      ? notes.map((n) => (n.id === editor.id ? { ...n, text: t, edited: now } : n))
+      : [{ id: uid(), text: t, date: now }, ...notes]);
+    setEditor(null);
   }
   async function remove(n) {
     if (!(await confirmDialog("Delete this note?", { danger: true, confirmLabel: "Delete" }))) return;
     save(notes.filter((x) => x.id !== n.id));
   }
   const fmt = (iso) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  const area = (v, set, auto) => (
-    <textarea value={v} onChange={(e) => set(e.target.value)} autoFocus={auto} rows={3} placeholder="e.g. A1 split squat 2x12 @ 16kg, left knee caving - cue it next session"
-      style={inputStyle({ width: "100%", boxSizing: "border-box", resize: "vertical", minHeight: 84, fontSize: 16, lineHeight: 1.45, fontFamily: BRAND.sans })} />
-  );
+
+  if (editor) {
+    return (
+      <div className="fx-push" style={{ position: "fixed", inset: 0, zIndex: 1200, background: "var(--page)", display: "flex", flexDirection: "column", height: "100dvh",
+        paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${BRAND.line}` }}>
+          <button onClick={() => setEditor(null)} style={linkBtn(BRAND.muted, 16)}>Cancel</button>
+          <div style={{ textAlign: "center", minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: BRAND.text }}>{editor.id ? "Edit note" : "New note"}</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: BRAND.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{client.name} · 🔒 only you</div>
+          </div>
+          <button onClick={commit} disabled={!editor.text.trim()} style={{ ...linkBtn(BRAND.gold, 16), opacity: editor.text.trim() ? 1 : 0.4 }}>Save</button>
+        </div>
+        <textarea value={editor.text} onChange={(e) => setEditor({ ...editor, text: e.target.value })} autoFocus
+          placeholder="Write your note…"
+          style={{ flex: 1, width: "100%", boxSizing: "border-box", resize: "none", border: "none", outline: "none", background: "transparent", color: BRAND.text, padding: "16px 18px", fontSize: 17, lineHeight: 1.55, fontFamily: BRAND.sans }} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <Card style={{ padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
           <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", color: BRAND.text }}>Notes</div>
           <div style={{ fontSize: 12, fontWeight: 600, color: BRAND.muted }}>🔒 Only you see these</div>
         </div>
-        {area(text, setText, false)}
-        <Button onClick={add} disabled={!text.trim()} style={{ width: "100%", marginTop: 8, fontWeight: 700 }}>Save note</Button>
+        <Button onClick={() => setEditor({ id: null, text: "" })} style={{ width: "100%", fontWeight: 700 }}>+ New note</Button>
       </Card>
 
       {notes.length === 0 && <div style={{ color: BRAND.muted, fontSize: 14, textAlign: "center", padding: "18px 0" }}>No notes for {client.name} yet.</div>}
@@ -60,29 +69,17 @@ export function CoachNotesTab({ client, updateClient }) {
         <Card key={n.id} flat style={{ padding: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.gold }}>{fmt(n.date)}{n.edited ? <span style={{ color: BRAND.dim, fontWeight: 500 }}> · edited</span> : null}</div>
-            {editId !== n.id && (
-              <div style={{ display: "flex", gap: 14 }}>
-                <button onClick={() => { setEditId(n.id); setEditText(n.text); }} style={linkBtn(BRAND.muted)}>Edit</button>
-                <button onClick={() => remove(n)} style={linkBtn(BRAND.yellow)}>Delete</button>
-              </div>
-            )}
+            <div style={{ display: "flex", gap: 14 }}>
+              <button onClick={() => setEditor({ id: n.id, text: n.text })} style={linkBtn(BRAND.muted)}>Edit</button>
+              <button onClick={() => remove(n)} style={linkBtn(BRAND.yellow)}>Delete</button>
+            </div>
           </div>
-          {editId === n.id ? (
-            <>
-              {area(editText, setEditText, true)}
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <Button variant="dark" onClick={() => setEditId(null)} style={{ flex: 1 }}>Cancel</Button>
-                <Button onClick={saveEdit} disabled={!editText.trim()} style={{ flex: 1, fontWeight: 700 }}>Save</Button>
-              </div>
-            </>
-          ) : (
-            <div style={{ fontSize: 15, lineHeight: 1.5, color: BRAND.text, whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>{n.text}</div>
-          )}
+          <button onClick={() => setEditor({ id: n.id, text: n.text })} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 15, lineHeight: 1.5, color: BRAND.text, whiteSpace: "pre-wrap", overflowWrap: "break-word" }}>{n.text}</button>
         </Card>
       ))}
     </div>
   );
 }
-function linkBtn(color) {
-  return { background: "none", border: "none", padding: 0, color, fontSize: 13, fontWeight: 700, cursor: "pointer" };
+function linkBtn(color, size = 13) {
+  return { background: "none", border: "none", padding: "6px 2px", color, fontSize: size, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" };
 }
