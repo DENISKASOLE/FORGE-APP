@@ -102,7 +102,9 @@ export function HomeDaily({ client, updateClient, goTo, unread = 0, openLog }) {
   const waistChange = change(waist?.change, "cm");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, maxWidth: "100%" }}>
+    // Everything on Home drawn ~10% smaller (Denis, Nov 18 2026). zoom keeps
+    // the layout full-width and scales text, rings and tiles together.
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, maxWidth: "100%", zoom: 0.9 }}>
       <div style={{ display: "grid", gridTemplateColumns: "42px 1fr 42px", alignItems: "center", paddingTop: 2 }}>
         <div />
         <div style={{ textAlign: "center", fontFamily: BRAND.display, fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>Today</div>
