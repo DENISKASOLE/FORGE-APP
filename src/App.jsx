@@ -4,7 +4,9 @@ import { supabase } from "./supabaseClient.js";
 import { BRAND } from "./theme/tokens.js";
 import { ToastHost } from "./components/ui/Toast.jsx";
 import { ConfirmHost } from "./components/ui/ConfirmDialog.jsx";
-import { FORGE_SYNC_QUEUE_KEY, readJson, saveForgeCache, readForgeCache, flushSyncQueue } from "./lib/cache.js";
+import { saveForgeCache, readForgeCache, flushSyncQueue } from "./lib/cache.js";
+import { useSyncStatus, pendingClientSections, pendingClientPatch } from "./lib/sync.js";
+import { SyncPill } from "./components/ui/SyncPill.jsx";
 import { DENIS_EMAIL } from "./lib/constants.js";
 import { ensureMobileViewport, useIsMobile } from "./lib/browser.js";
 import { mapClient, paymentLockout } from "./lib/clientData.js";
@@ -58,18 +60,24 @@ export default function App() {
   const [isCoachConfirmed, setIsCoachConfirmed] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [accountNotActive, setAccountNotActive] = useState(false);
-  const [syncStatus, setSyncStatus] = useState(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
+  const sync = useSyncStatus();
+  const syncStatus = sync.offline ? "offline" : sync.syncing || sync.pending ? "syncing" : "online";
   const recoveryModeRef = useRef(false);
+  // Background refresh bookkeeping (see refreshFromServer below).
+  const userRef = useRef(null);
+  const refreshingRef = useRef(null);
+  const lastRefreshRef = useRef(0);
   useEffect(() => {
     ensureMobileViewport();
-    const goOnline = async () => { setSyncStatus("syncing"); await flushSyncQueue(); setSyncStatus("online"); };
-    const goOffline = () => setSyncStatus("offline");
+    // Back online, or the app brought back to the front: push anything saved
+    // offline, then quietly pull fresh data. The screen never blanks out -
+    // new data just replaces what's shown when it arrives.
+    const goOnline = () => { if (userRef.current) refreshFromServer(userRef.current); };
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && userRef.current && Date.now() - lastRefreshRef.current > 60000) refreshFromServer(userRef.current);
+    };
     window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    const retryTimer = setInterval(async () => {
-      const queued = readJson(FORGE_SYNC_QUEUE_KEY, []);
-      if (queued.length) await flushSyncQueue();
-    }, 20000);
+    document.addEventListener("visibilitychange", onVisible);
     // Supabase's password-reset email can arrive as a PKCE "?code=" link (needs an explicit
     // exchange) or the older "#access_token=...&type=recovery" hash link. The "?code=" link
     // doesn't always carry a "type=recovery" param alongside it, so we treat the presence of
@@ -86,20 +94,33 @@ export default function App() {
       recoveryModeRef.current = true;
       setRecoveryMode(true);
     } else {
-      supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (data.session) boot(data.session.user); else setLoading(false); });
+      // Open straight from the login saved on this phone - no network wait.
+      // Offline with an expired token, Supabase keeps retrying the refresh
+      // (the app used to sit on the Forge logo); the token renews by itself
+      // once there's signal, and a login that is truly revoked still signs
+      // out through the SIGNED_OUT event below.
+      const stored = storedSession();
+      if (stored) { setSession(stored); boot(stored.user); }
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) { setSession(data.session); if (!stored) boot(data.session.user); }
+        else if (!stored) setLoading(false);
+      });
     }
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       if (_event === "PASSWORD_RECOVERY") { recoveryModeRef.current = true; setRecoveryMode(true); setLoading(false); return; }
       if (_event === "TOKEN_REFRESHED" || _event === "USER_UPDATED") return; // session stayed the same, just the token renewed - don't reload data mid-session
       if (recoveryModeRef.current) return; // don't auto-boot into the dashboard while someone is mid-way through setting a new password - use the ref, not the state, since this callback is created once and would otherwise see a permanently stale value
-      if (sess) boot(sess.user);
-      else { setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); setIsCoachConfirmed(false); }
+      if (sess) { if (userRef.current?.id === sess.user.id) return; boot(sess.user); }
+      // Only a real sign-out clears the app. A failed token refresh while
+      // offline also reports "no session" and must not log anyone out.
+      else if (_event === "SIGNED_OUT") { userRef.current = null; setLoading(false); setTrainer(null); setClients([]); setClientPortal(null); setIsCoachConfirmed(false); }
     });
-    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); clearInterval(retryTimer); sub.subscription.unsubscribe(); };
+    return () => { window.removeEventListener("online", goOnline); document.removeEventListener("visibilitychange", onVisible); sub.subscription.unsubscribe(); };
   }, []);
   async function boot(user) {
-    const cached = readForgeCache(user.id);
+    userRef.current = user;
+    const cached = await readForgeCache(user.id);
     if (cached) {
       setTrainer(cached.trainer || null);
       setClients(cached.clients || []);
@@ -115,28 +136,28 @@ export default function App() {
     } else {
       setLoading(true);
     }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setSyncStatus("offline");
-      setLoading(false);
-      return;
-    }
-    setSyncStatus("syncing");
-    try {
-      await flushSyncQueue();
-      await ensureTrainer(user);
-      await loadRole(user);
-      setSyncStatus("online");
-    } catch (error) {
-      // An uncaught throw here (a bad API response shape, a network drop
-      // mid-fetch) used to leave boot() permanently unresolved - loading
-      // stayed true forever with no way out except closing the app. Now it
-      // logs and falls through to whatever was already resolved (cache, or
-      // nothing), same as any other "role not confirmed yet" state.
-      console.error("Forge: boot() failed", error);
-      setSyncStatus(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline");
-    } finally {
-      setLoading(false);
-    }
+    await refreshFromServer(user);
+    setLoading(false);
+  }
+  // Push pending saves, then fetch fresh data, merging anything still
+  // waiting to upload on top so local work is never reverted. Runs at most
+  // once at a time; failures (offline, weak signal) leave the on-device data
+  // on screen and are retried on the next trigger.
+  function refreshFromServer(user) {
+    if (refreshingRef.current) return refreshingRef.current;
+    refreshingRef.current = (async () => {
+      try {
+        await flushSyncQueue();
+        await ensureTrainer(user).catch(() => {});
+        await loadRole(user);
+        lastRefreshRef.current = Date.now();
+      } catch (error) {
+        console.warn("Forge: background refresh failed (offline or weak signal)", error?.message || error);
+      } finally {
+        refreshingRef.current = null;
+      }
+    })();
+    return refreshingRef.current;
   }
   async function ensureTrainer(user) {
     const email = user.email || "";
@@ -150,7 +171,12 @@ export default function App() {
     }
   }
   async function loadRole(user) {
-    let { data: clientMatch } = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
+    // Any failed request means "couldn't reach the server", never "this
+    // account doesn't exist" - throwing keeps the on-device data on screen
+    // instead of signing someone out on a bad signal.
+    const first = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
+    if (first.error) throw first.error;
+    let clientMatch = first.data;
     if (!clientMatch) {
       // Self-heal: an invite claim can silently fail to link client_user_id
       // if it ran before this session was actually authenticated (email
@@ -159,26 +185,26 @@ export default function App() {
       // migration). A real login always has an active session, so retry the
       // claim here by the account's own verified email every time no client
       // row is found yet, before concluding the account really is inactive.
-      const { data: healed } = await supabase.rpc("claim_invite_by_email");
+      const { data: healed, error: healErr } = await supabase.rpc("claim_invite_by_email");
+      if (healErr && !healErr.code) throw healErr; // network, not "no invite"
       if (healed?.length) {
         const retry = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
+        if (retry.error) throw retry.error;
         clientMatch = retry.data;
       }
     }
     if (clientMatch) {
-      const { data: rows } = await supabase.from("client_data").select("*").eq("client_id", clientMatch.id);
-      const mappedClient = mapClient(clientMatch, rows || []);
-      const hasPendingEdits = readJson(FORGE_SYNC_QUEUE_KEY, []).some((item) => item.clientId === clientMatch.id);
-      setClientPortal((prev) => {
-        const next = hasPendingEdits && prev?.id === mappedClient.id ? prev : mappedClient;
-        saveForgeCache(user.id, { trainer: null, clients: [], clientPortal: next });
-        return next;
-      });
+      const { data: rows, error: rowsErr } = await supabase.from("client_data").select("*").eq("client_id", clientMatch.id);
+      if (rowsErr) throw rowsErr;
+      const mappedClient = mapClient(withPendingRow(clientMatch), withPendingSections(clientMatch.id, rows || []));
+      setClientPortal(mappedClient);
+      saveForgeCache(user.id, { trainer: null, clients: [], clientPortal: mappedClient });
       setClients([]);
       setIsCoachConfirmed(false);
       return;
     }
-    const { data: trainerMatch } = await supabase.from("trainers").select("id").eq("id", user.id).maybeSingle();
+    const { data: trainerMatch, error: trainerErr } = await supabase.from("trainers").select("id").eq("id", user.id).maybeSingle();
+    if (trainerErr) throw trainerErr;
     const isKnownCoach = !!trainerMatch || (user.email || "").toLowerCase() === DENIS_EMAIL;
     if (!isKnownCoach) {
       // Not an existing trainer, not the bootstrap coach email, and no client profile found (deleted, or never existed) - never fall through to the coach dashboard.
@@ -197,28 +223,28 @@ export default function App() {
     // above, or a plain refresh from an already-rendered coach dashboard -
     // means the role is settled as coach, so it's safe to render CoachRoutes.
     setIsCoachConfirmed(true);
-    const { data: trainerRow } = await supabase.from("trainers").select("*").eq("id", user.id).maybeSingle();
+    const { data: trainerRow, error: trainerRowErr } = await supabase.from("trainers").select("*").eq("id", user.id).maybeSingle();
+    if (trainerRowErr) throw trainerRowErr;
     setTrainer(trainerRow || { id: user.id, name: user.email?.split("@")[0], email: user.email });
     if ((user.email || "").toLowerCase() === DENIS_EMAIL) {
       await supabase.from("clients").update({ trainer_id: user.id }).is("trainer_id", null);
     }
     const { data: clientRows, error } = await supabase.from("clients").select("*").eq("trainer_id", user.id).order("created_at", { ascending: false });
-    if (error) { console.error(error); return; }
+    if (error) throw error;
     const ids = (clientRows || []).map((c) => c.id);
     let dataRows = [];
     if (ids.length) {
       // Photos are fetched lazily per-client when their Photos tab is opened (see TransformPhotos) -
       // excluding them here is what keeps a 16-client sync fast instead of downloading every photo up front.
-      const { data } = await supabase.from("client_data").select("*").in("client_id", ids).neq("section", "transformPhotos");
+      const { data, error: dataErr } = await supabase.from("client_data").select("*").in("client_id", ids).neq("section", "transformPhotos");
+      if (dataErr) throw dataErr;
       dataRows = data || [];
     }
-    const mapped = (clientRows || []).map((r, i) => mapClient(r, dataRows, i));
-    const pendingIds = new Set(readJson(FORGE_SYNC_QUEUE_KEY, []).map((item) => item.clientId).filter(Boolean));
-    setClients((prev) => {
-      const prevById = new Map(prev.map((c) => [c.id, c]));
-      // A client with edits still waiting to sync is newer than what we just fetched - keep the local version so we never silently revert unsaved work.
-      return mapped.map((c) => (pendingIds.has(c.id) && prevById.has(c.id) ? prevById.get(c.id) : c));
-    });
+    // Edits still waiting to upload are newer than what we just fetched -
+    // lay them over the server data, section by section, so the coach's
+    // other updates still come through and local work is never reverted.
+    const mapped = (clientRows || []).map((r, i) => mapClient(withPendingRow(r), withPendingSections(r.id, dataRows), i));
+    setClients(mapped);
     saveForgeCache(user.id, { trainer: trainerRow || { id: user.id, name: user.email?.split("@")[0], email: user.email }, clients: mapped, clientPortal: null });
   }
   function updateClient(updated) {
@@ -262,6 +288,7 @@ export default function App() {
       // just because clientPortal happens to be empty at this instant.
       bootScreen
     )}
+    {session && !loading && <SyncPill />}
     <ToastHost />
     <ConfirmHost />
   </>;
@@ -291,4 +318,26 @@ function CoachClientRoute({ clients, updateClient, refresh }) {
   return <ClientView client={client} updateClient={updateClient} isCoach refresh={refresh}
     back={() => navigate("/coach/clients")}
     tab={tab || "profile"} setTab={(t) => navigate(`/coach/clients/${clientId}/${t}`)} />;
+}
+
+// The saved Supabase login, read straight from the phone. Used only when
+// Supabase can't confirm it because there's no signal.
+function storedSession() {
+  try {
+    const raw = localStorage.getItem(supabase.auth.storageKey);
+    const parsed = raw ? JSON.parse(raw) : null;
+    const sess = parsed?.currentSession || parsed;
+    return sess?.user?.id && sess.refresh_token ? sess : null;
+  } catch {
+    return null;
+  }
+}
+function withPendingRow(row) {
+  const patch = pendingClientPatch(row.id);
+  return patch ? { ...row, ...patch } : row;
+}
+function withPendingSections(clientId, rows) {
+  const pending = pendingClientSections(clientId);
+  const extra = Object.entries(pending).map(([section, data]) => ({ client_id: clientId, section, data }));
+  return extra.length ? [...rows, ...extra] : rows;
 }

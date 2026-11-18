@@ -122,7 +122,7 @@ img { -webkit-user-drag: none; }
 .set-input::placeholder { color: var(--ink-2); opacity: .7; font-weight: 500; }
 
 /* Focus mode during a workout: no Me photo row above the exercise. */
-html[data-focus="workout"] .me-top-row { display: none; }
+html[data-focus="workout"] .me-top-row { display: none !important; }
 
 /* ---------- Motion (screens, sheets, menus) ---------- */
 @keyframes fx-fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

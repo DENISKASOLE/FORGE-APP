@@ -56,7 +56,28 @@ export default defineConfig({
         // denylist alone produced an unrestricted NavigationRoute with no
         // denylist args at all).
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/authorize/, /^\/token/, /^\/register/, /^\/mcp/, /^\/\.well-known\//]
+        navigateFallbackDenylist: [/^\/authorize/, /^\/token/, /^\/register/, /^\/mcp/, /^\/\.well-known\//],
+        // Offline (Nov 2026): pictures the app has shown once stay on the
+        // phone - exercise video thumbnails and client photos/avatars from
+        // Supabase Storage. Signed photo links change their token on every
+        // load, so the token is ignored when matching a saved copy.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /(^|\.)ytimg\.com$|^img\.youtube\.com$/.test(url.hostname),
+            handler: "CacheFirst",
+            options: { cacheName: "forge-video-thumbs", expiration: { maxEntries: 400, maxAgeSeconds: 60 * 24 * 3600 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/storage/v1/object/") && /\.(supabase\.co|supabase\.in)$/.test(url.hostname),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "forge-photos",
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+              plugins: [{ cacheKeyWillBeUsed: async ({ request }) => { const u = new URL(request.url); u.searchParams.delete("token"); return u.href; } }],
+            },
+          },
+        ]
       }
     })
   ]

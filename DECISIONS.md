@@ -3152,3 +3152,18 @@ first) but broken in the other.
   no way to get a live screenshot of an authenticated screen in this
   sandbox to see the coach/client screens directly.
 
+
+## Offline mode (Nov 18 2026)
+
+Goal from Denis: both apps keep working with no signal; a client can complete a whole workout offline; the app opens from on-device data instantly and syncs in the background, with fresh data just appearing.
+
+- **Outbox (`src/lib/sync.js`).** Every save is written to an on-device outbox first (localStorage, synchronous), then uploaded. Keyed per record (`client + section`, `trainer + section`, `clients` row patch) so only the newest version is ever sent; an item is removed only when that exact version is confirmed. Replaces the old append-only queue, which replayed older saves over newer ones and could drop saves made during a flush. Network/timeout/expired-token errors retry with backoff; real server rejections are kept, flagged, and reported once (never dropped).
+- **`upsertSection` contract:** resolves within ~4 s: `{queued:false}` on the server, `{queued:true,error:null}` saved on device, `{queued:true,error}` rejected. Callers only toast on `error`.
+- **Snapshot in IndexedDB (`src/lib/idb.js`, `cache.js`).** The data the app opens from lives in IndexedDB (no 5 MB cap), debounced, written immediately when the app is hidden. localStorage fallback for private mode.
+- **Boot:** opens straight from the login saved on the phone (no network wait; offline with an expired token Supabase otherwise retries forever) and the snapshot; then `refreshFromServer` flushes the outbox and reloads. Runs again on `online` and when the app returns to the front (>60 s). Any failed request throws ("couldn't reach the server") instead of being read as "account doesn't exist" - a weak signal can no longer sign a client out. Only a real `SIGNED_OUT` clears the app.
+- **Merge:** fresh server rows get pending outbox sections/patches laid over them, so the coach's other updates arrive while unsynced local work is kept.
+- **Program tab** saves only the section that changed (a logged set writes `training_logs` only; it used to re-save `program` on every set and could overwrite coach edits).
+- **Network:** REST/auth calls time out after 15 s (`supabaseClient.js`). Service worker caches exercise thumbnails and Storage photos (signed-URL token ignored for matching).
+- **Sync pill** (`SyncPill.jsx`): "Offline · saved on this phone", "Syncing…" (only after 1.5 s), "Some changes didn't sync · Retry", "All synced".
+- Verified with Playwright against the built app + service worker and a fake Supabase: client offline with expired token → full workout → reopen offline → reconnect → workout on server, coach program edit not overwritten and shown without reload; coach offline note → reopen → sync.
+- Not offline: video playback, photo uploads, AI features, barcode lookup, creating clients/buddy pairs.
