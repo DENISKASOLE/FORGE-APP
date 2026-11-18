@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
-import { NavIcon } from "../../components/ui/NavIcon.jsx";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
 import { upsertSection } from "../../lib/clientData.js";
@@ -60,7 +59,8 @@ function workoutToday(client) {
 }
 
 // Client · Home "Today" (Nov 2026, approved mockup): date strip, mood
-// check-in, today's workout (kept from the old Home), then health tiles.
+// check-in, then health tiles (today's workout card removed Nov 18 2026 -
+// it lives on the Train tab).
 // Tapping a tile opens the matching quick-log sheet (steps, water, sleep,
 // weight & measurements) or the related tab. Days after today are shown
 // but can't be selected; a past day shows that day's food, habits and mood.
@@ -72,7 +72,7 @@ export function HomeDaily({ client, updateClient, goTo, unread = 0, openLog }) {
   const days = weekOf(dateISO);
   const monthLabel = new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" }).toUpperCase();
 
-  const { program, workout, exCount, estMin, trainDone, trainTotal } = workoutToday(client);
+  const { trainDone, trainTotal } = workoutToday(client);
   const { eaten, target } = dayNutrition(client, dateISO);
   const kcalPct = target?.kcal ? eaten.kcal / target.kcal : 0;
   const habits = habitsFor(client, dateISO);
@@ -133,25 +133,6 @@ export function HomeDaily({ client, updateClient, goTo, unread = 0, openLog }) {
             );
           })}
         </div>
-      </div>
-
-      <div style={{ ...card, padding: 16, background: "var(--hero-gradient)" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: BRAND.gold }}>Today's workout</div>
-        {workout ? (
-          <>
-            <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 6, textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{workout.name}</div>
-            <div style={{ display: "flex", gap: 18, alignItems: "center", marginTop: 10 }}>
-              <div><div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 700 }}>{exCount || "–"}</div><div style={{ fontSize: 12, color: BRAND.dim }}>exercises</div></div>
-              <div style={{ width: 1, height: 32, background: BRAND.line }} />
-              <div><div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 700 }}>{estMin ? `~${estMin}m` : "–"}</div><div style={{ fontSize: 12, color: BRAND.dim }}>est.</div></div>
-            </div>
-            {goTo && <button onClick={() => goTo("program")} style={{ width: "100%", marginTop: 12, height: 48, borderRadius: 14, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Start Workout →</button>}
-          </>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, color: BRAND.muted, fontSize: 13 }}>
-            <NavIcon name="train" size={20} color={BRAND.dim} />{program ? "Rest day — nothing scheduled today" : "No program yet — your coach will add one"}
-          </div>
-        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
