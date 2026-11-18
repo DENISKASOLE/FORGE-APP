@@ -8,40 +8,49 @@ function inviteCodeFromUrl() {
   return new URL(window.location.href).searchParams.get("invite") || "";
 }
 
-// Text box for the sign-in screens. Crisp by design (Nov 2026: the light
-// login looked blurry): solid card, hairline border, and a sharp accent
-// border only while the box actually has focus - no glow, no tint.
-function AuthField({ label, value, onChange, type = "text", placeholder = "", right = null }) {
+// Text box for the sign-in screens (Nov 2026 redesign, after the UP login):
+// sentence-case label above a rounded pill field; the border turns teal
+// while the field has focus. Password fields get a show/hide eye.
+function AuthField({ label, value, onChange, type = "text", placeholder = "", autoComplete }) {
   const [focused, setFocused] = useState(false);
+  const [show, setShow] = useState(false);
+  const isPw = type === "password";
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <div style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, color: BRAND.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
-        {right}
-      </div>
-      <div style={{
-        background: BRAND.card,
-        border: `1.5px solid ${focused ? BRAND.gold : BRAND.line}`,
-        borderRadius: 13,
-        padding: "14px 14px",
-        transition: "border-color .15s ease",
-      }}>
+    <label style={{ display: "block" }}>
+      <div style={{ fontFamily: BRAND.sans, fontSize: 15, fontWeight: 500, color: BRAND.text, marginBottom: 8 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", background: BRAND.card, border: `1.5px solid ${focused ? BRAND.gold : "var(--line-strong)"}`, borderRadius: 999, padding: "0 18px", height: 54, transition: "border-color .15s ease" }}>
         <input
-          type={type}
+          type={isPw && !show ? "password" : isPw ? "text" : type}
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          autoComplete={type === "password" ? "current-password" : label.toLowerCase().includes("email") ? "email" : "off"}
-          style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: BRAND.text, fontFamily: BRAND.sans, fontWeight: 500, fontSize: 16, padding: 0 }}
+          autoComplete={autoComplete}
+          autoCapitalize="none"
+          style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", color: BRAND.text, fontFamily: BRAND.sans, fontWeight: 400, fontSize: 16, padding: 0 }}
         />
+        {isPw && (
+          <button type="button" onClick={(e) => { e.preventDefault(); setShow((v) => !v); }} aria-label={show ? "Hide password" : "Show password"}
+            style={{ background: "none", border: "none", padding: 4, marginLeft: 8, cursor: "pointer", color: BRAND.dim, display: "grid", placeItems: "center" }}>
+            <EyeIcon off={!show} />
+          </button>
+        )}
       </div>
-    </div>
+    </label>
+  );
+}
+function EyeIcon({ off }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {off && <path d="M4 4l16 16" />}
+    </svg>
   );
 }
 
-export function LoginScreen({ onReady }) {
+export function LoginScreen({ onReady, onBack }) {
   const isMobile = useIsMobile(520);
   const urlInvite = inviteCodeFromUrl();
   const [mode, setMode] = useState(urlInvite ? "invite" : "login");
@@ -74,6 +83,7 @@ export function LoginScreen({ onReady }) {
     setLoading(false);
   }
   async function forgotPassword() {
+    if (!email.trim()) { setMsg("Enter your email first, then tap Forgot Password."); return; }
     setLoading(true); setMsg("");
     const redirectTo = "https://forgeappbydenis.vercel.app/";
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
@@ -82,63 +92,56 @@ export function LoginScreen({ onReady }) {
   }
   const isInvite = mode === "invite";
   const msgIsGood = msg.includes("sent") || msg.includes("created") || msg.includes("connected");
+  const linkBtn = { background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 15 };
   return (
-    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", justifyContent: "center", overflow: "hidden" }}>
-      <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column", padding: isMobile ? "56px 24px 40px" : "72px 24px 48px", position: "relative", minHeight: "100vh", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 40 }}>
-          <div style={{ fontFamily: BRAND.display, fontSize: 15, fontWeight: 800, letterSpacing: "0.1em", color: BRAND.text }}>FORGE</div>
-          <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 600, letterSpacing: "0.14em", color: BRAND.muted }}>PERFORMANCE</div>
+    <div className="fx-screen" style={{ minHeight: "100dvh", background: BRAND.bg, color: BRAND.text, display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top) + 14px) 28px calc(env(safe-area-inset-bottom) + 32px)", boxSizing: "border-box", position: "relative" }}>
+        {onBack ? (
+          <button onClick={onBack} aria-label="Back" style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 6, marginLeft: -6, cursor: "pointer", color: BRAND.text }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+        ) : <div style={{ height: 34 }} />}
+
+        <div style={{ textAlign: "center", marginTop: isMobile ? 46 : 64 }}>
+          <div style={{ fontFamily: BRAND.display, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: BRAND.text }}>Forge Performance</div>
+          <div style={{ fontFamily: BRAND.sans, fontSize: 28, fontWeight: 400, letterSpacing: "-0.01em", lineHeight: 1.25, color: BRAND.dim, marginTop: 40 }}>
+            {isInvite ? <>Create your<br />account</> : <>Results that<br />matter</>}
+          </div>
         </div>
 
-        <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 28 : 32, fontWeight: 800, letterSpacing: "-0.9px", lineHeight: 1.05, color: BRAND.text }}>
-          {isInvite ? "Create your account." : "Good to see you."}
-        </div>
-        <div style={{ fontFamily: BRAND.sans, fontSize: 15, color: BRAND.muted, marginTop: 9, lineHeight: 1.5 }}>
-          {isInvite ? "Enter your email and choose a password to finish setting up your account." : "Pick up where you left off."}
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 30 }}>
-          <AuthField label="Email" value={email} onChange={setEmail} placeholder="you@email.com" />
-          <AuthField
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            type="password"
-            placeholder="Password"
-            right={!isInvite ? (
-              <button onClick={forgotPassword} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, color: BRAND.gold }}>Forgot password?</button>
-            ) : null}
-          />
-          {isInvite && <AuthField label="Invite code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" />}
+        <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: isMobile ? 52 : 64 }}>
+          <AuthField label="Email" value={email} onChange={setEmail} placeholder="Enter your email" autoComplete="email" />
+          <AuthField label="Password" value={password} onChange={setPassword} type="password" placeholder={isInvite ? "Choose a password" : "Enter your password"} autoComplete={isInvite ? "new-password" : "current-password"} />
+          {isInvite && <AuthField label="Invite code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" autoComplete="off" />}
         </div>
 
         {msg && (
-          <div style={{ fontFamily: BRAND.sans, marginTop: 14, color: msgIsGood ? BRAND.green : BRAND.red, fontSize: 13, fontWeight: 500, lineHeight: 1.5 }}>{msg}</div>
+          <div style={{ fontFamily: BRAND.sans, marginTop: 16, color: msgIsGood ? BRAND.green : BRAND.red, fontSize: 14, fontWeight: 500, lineHeight: 1.5, textAlign: "center" }}>{msg}</div>
         )}
 
         <button
           disabled={loading}
           onClick={isInvite ? acceptInvite : login}
+          className="pressable"
           style={{
-            width: "100%", background: BRAND.gold, border: "none", borderRadius: 14, padding: 17,
-            fontFamily: BRAND.sans, fontWeight: 700, fontSize: 15, color: BRAND.btnInk, cursor: loading ? "not-allowed" : "pointer",
-            marginTop: 24, boxShadow: "0 1px 2px rgba(0,0,0,.08)", opacity: loading ? 0.6 : 1,
+            width: "100%", height: 56, background: BRAND.btnBg, border: "none", borderRadius: 999,
+            fontFamily: BRAND.sans, fontWeight: 600, fontSize: 17, letterSpacing: "0.02em", textTransform: "uppercase", color: BRAND.btnInk,
+            cursor: loading ? "not-allowed" : "pointer", marginTop: 34, opacity: loading ? 0.6 : 1,
           }}
         >
-          {isInvite ? "Accept invite" : "Sign in"}
+          {loading ? "…" : isInvite ? "Create account" : "Continue"}
         </button>
 
-        <div style={{ marginTop: 16, textAlign: "center", fontFamily: BRAND.sans, fontSize: 13, color: BRAND.muted }}>
-          {isInvite ? (
-            <>Already have an account?{" "}
-              <button onClick={() => setMode("login")} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.gold, fontWeight: 700, fontSize: 13 }}>Sign in instead</button>
-            </>
-          ) : (
-            <>New here?{" "}
-              <button onClick={() => setMode("invite")} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.gold, fontWeight: 700, fontSize: 13 }}>Create your account</button>
-            </>
-          )}
+        <div style={{ marginTop: 28, textAlign: "center" }}>
+          {isInvite
+            ? <button onClick={() => setMode("login")} style={linkBtn}>Already have an account? Log in</button>
+            : <button onClick={forgotPassword} style={linkBtn}>Forgot Password?</button>}
         </div>
+        {!isInvite && (
+          <div style={{ marginTop: 14, textAlign: "center", fontFamily: BRAND.sans, fontSize: 14, color: BRAND.muted }}>
+            New here? <button onClick={() => setMode("invite")} style={{ ...linkBtn, fontSize: 14, color: BRAND.gold }}>Create your account</button>
+          </div>
+        )}
       </div>
     </div>
   );
