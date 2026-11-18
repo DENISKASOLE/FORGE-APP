@@ -20,8 +20,8 @@ function CalorieGauge({ kcalEaten, kcalGoal }) {
   const left = Math.max(Math.round(kcalGoal - kcalEaten), 0);
   const side = (v, l) => (
     <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
-      <div style={{ fontFamily: BRAND.display, fontSize: 21, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{Math.round(v).toLocaleString()}</div>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: FUEL.dim }}>{l}</div>
+      <div style={{ fontFamily: BRAND.display, fontSize: 21, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{Math.round(v).toLocaleString()}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: FUEL.dim }}>{l}</div>
     </div>
   );
   return (
@@ -30,8 +30,8 @@ function CalorieGauge({ kcalEaten, kcalGoal }) {
       <svg width="124" height="112" viewBox="0 0 124 118" role="img" aria-label={`${left} calories left`} style={{ flexShrink: 0 }}>
         <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
         <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.red} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
-        <text x="62" y="62" textAnchor="middle" fill={FUEL.text} fontSize="27" fontWeight="800" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
-        <text x="62" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="11" fontWeight="700" fontFamily={BRAND.sans}>kcal left</text>
+        <text x="62" y="62" textAnchor="middle" fill={FUEL.text} fontSize="27" fontWeight="600" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
+        <text x="62" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="11" fontWeight="600" fontFamily={BRAND.sans}>kcal left</text>
       </svg>
       {side(kcalGoal, "goal")}
     </div>
@@ -47,8 +47,8 @@ function MacroBars({ now, target }) {
         const pct = t > 0 ? Math.min(100, (n / t) * 100) : 0;
         return (
           <div key={key} style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.muted }}>{label}</div>
-            <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", marginTop: 1, fontVariantNumeric: "tabular-nums" }}>{n}<span style={{ color: FUEL.dim, fontWeight: 600, fontSize: 12 }}> / {t}g</span></div>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.muted }}>{label}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: "nowrap", marginTop: 1, fontVariantNumeric: "tabular-nums" }}>{n}<span style={{ color: FUEL.dim, fontWeight: 600, fontSize: 12 }}> / {t}g</span></div>
             <div style={{ height: 6, borderRadius: 9, background: `color-mix(in srgb, ${MACRO_COLOR[key]} 18%, transparent)`, marginTop: 6, overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", borderRadius: 9, background: MACRO_COLOR[key] }} /></div>
           </div>
         );
@@ -63,7 +63,7 @@ function MacroBars({ now, target }) {
 function DayRing({ pct, future, label }) {
   const r = 16, C = 2 * Math.PI * r;
   return (
-    <div style={{ width: 38, height: 38, margin: "0 auto", position: "relative", display: "grid", placeItems: "center", fontSize: 15, fontWeight: 800 }}>
+    <div style={{ width: 38, height: 38, margin: "0 auto", position: "relative", display: "grid", placeItems: "center", fontSize: 15, fontWeight: 600 }}>
       <svg width="38" height="38" viewBox="0 0 38 38" style={{ position: "absolute", inset: 0 }} aria-hidden="true">
         <circle cx="19" cy="19" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth="3" strokeDasharray={future ? "3 3.4" : undefined} />
         {pct > 0 && <circle cx="19" cy="19" r={r} fill="none" stroke={FUEL.protein} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(C * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(-90 19 19)" />}
@@ -86,7 +86,7 @@ function WeekStrip({ plans, logs, marks, dateISO, todayISO, onSelect }) {
         const pct = tally && tally.total ? tally.onPlan / tally.total : 0;
         return (
           <button key={name} onClick={() => onSelect(cellISO)} aria-label={date.toDateString()} aria-pressed={sel} style={{ padding: "6px 0 7px", borderRadius: 16, background: sel ? FUEL.card : "transparent", border: `1px solid ${sel ? "var(--line-strong)" : "transparent"}`, color: FUEL.text, cursor: "pointer", fontFamily: "inherit" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: sel || cellISO === todayISO ? FUEL.text : FUEL.dim, marginBottom: 4 }}>{name.slice(0, 3)}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: sel || cellISO === todayISO ? FUEL.text : FUEL.dim, marginBottom: 4 }}>{name.slice(0, 3)}</div>
             <DayRing pct={pct} future={future} label={date.getDate()} />
           </button>
         );
@@ -125,15 +125,15 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
       <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, color: FUEL.text, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>{cap(meal.name)}</span>
+            <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>{cap(meal.name)}</span>
             {outcome === "swapped" && <span style={pill(FUEL.proteinTrack, FUEL.protein)}>Swapped</span>}
             {outcome === "offplan" && logged && <span style={pill("var(--orange-bg)", FUEL.amber)}>Off-plan</span>}
             {isNext && !logged && <span style={pill(FUEL.red, FUEL.onText)}>Next</span>}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: FUEL.muted, marginTop: 2 }}>
             {hasLayers
-              ? <><b style={{ color: FUEL.text }}>{Math.round(t.kcal)} kcal</b> · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
-              : <><span style={{ color: FUEL.text, fontWeight: 700 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
+              ? <><span style={{ color: FUEL.text, fontWeight: 600 }}>{Math.round(t.kcal)} kcal</span> · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
+              : <><span style={{ color: FUEL.text, fontWeight: 600 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
           </div>
         </div>
         {logged ? (
@@ -147,7 +147,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
           {loggedLayers(mealEntries).map((l) => (
             <div key={l.name} style={{ minWidth: 0, display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0", borderTop: `1px solid color-mix(in srgb, var(--ink) 9%, transparent)`, fontSize: 13 }}>
               <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{l.name}{l.count === 1 && l.qty != null ? <span style={{ color: FUEL.dim }}> · {l.qty}{l.unit === "piece" ? " pc" : ` ${l.unit}`}</span> : null}</span>
-              <span style={{ color: FUEL.text, fontWeight: 700, flexShrink: 0 }}>{Math.round(l.kcal)}</span>
+              <span style={{ color: FUEL.text, fontWeight: 600, flexShrink: 0 }}>{Math.round(l.kcal)}</span>
             </div>
           ))}
         </div>
@@ -156,7 +156,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
   );
 }
 function pill(bg, fg) {
-  return { fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, fontWeight: 800, background: bg, color: fg };
+  return { fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 99, fontWeight: 600, background: bg, color: fg };
 }
 
 // Client · Fuel (Nov 2026 redesign, approved mockup fuel-log-v2):
@@ -202,14 +202,14 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
   }
 
   const seg = (key, label) => (
-    <button onClick={() => setView(key)} aria-pressed={view === key} style={{ padding: "7px 14px", borderRadius: 999, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", background: view === key ? FUEL.red : "transparent", color: view === key ? FUEL.onText : FUEL.muted }}>{label}</button>
+    <button onClick={() => setView(key)} aria-pressed={view === key} style={{ padding: "7px 14px", borderRadius: 999, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: view === key ? FUEL.red : "transparent", color: view === key ? FUEL.onText : FUEL.muted }}>{label}</button>
   );
 
   return (
     <div style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", paddingBottom: 12 }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingTop: 2 }}>
         <div style={{ display: "flex" }}><div style={{ display: "flex", background: FUEL.card2, border: `1px solid ${FUEL.line}`, borderRadius: 999, padding: 3 }}>{seg("log", "Log")}{seg("plan", "Plan")}</div></div>
-        <div style={{ fontFamily: BRAND.display, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>Fuel</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 28, fontWeight: 600, letterSpacing: "-0.02em" }}>Fuel</div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button onClick={onOpenWeek} aria-label="This week" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", cursor: "pointer", color: FUEL.text }}><ChartIcon /></button>
         </div>
@@ -225,8 +225,8 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
             <div style={{ borderBottom: `1px solid ${FUEL.line}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 8px 0" }}>
               <button onClick={() => setDateISO(addDaysISO(dateISO, -1))} aria-label="Previous day" style={navBtn}><Chevron dir="left" color={FUEL.dim} /></button>
-              <button onClick={() => setDateISO(todayISO)} style={{ background: "none", border: "none", color: FUEL.text, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
-                {dayWord}<span style={{ background: chip.training ? "var(--orange-bg)" : FUEL.card2, color: chip.training ? FUEL.amber : FUEL.muted, fontSize: 11, fontWeight: 800, borderRadius: 99, padding: "3px 9px" }}>{chip.label}</span>
+              <button onClick={() => setDateISO(todayISO)} style={{ background: "none", border: "none", color: FUEL.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
+                {dayWord}<span style={{ background: chip.training ? "var(--orange-bg)" : FUEL.card2, color: chip.training ? FUEL.amber : FUEL.muted, fontSize: 11, fontWeight: 600, borderRadius: 99, padding: "3px 9px" }}>{chip.label}</span>
               </button>
               <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={navBtn}><Chevron dir="right" color={FUEL.dim} /></button>
             </div>
@@ -243,8 +243,8 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
           )}
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "14px 2px 0" }}>
-            <span style={{ ...fuelLbl, color: FUEL.text, fontWeight: 800, fontSize: 13, letterSpacing: ".1em" }}>{dateISO === todayISO ? "Today's meals" : "Meals"}</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: FUEL.protein }}>{tally.onPlan} of {orderedMeals.length} on plan</span>
+            <span style={{ ...fuelLbl, color: FUEL.text, fontWeight: 600, fontSize: 13, letterSpacing: ".1em" }}>{dateISO === todayISO ? "Today's meals" : "Meals"}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: FUEL.protein }}>{tally.onPlan} of {orderedMeals.length} on plan</span>
           </div>
 
           {!plan ? (
