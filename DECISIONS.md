@@ -8,6 +8,14 @@ so a new plan starting mid-week shows correctly. Eating out on the meal
 screen now opens a "What did you eat?" box and won't log without a
 description; the entry is named "Eating out: <description>" and keeps
 the coach's estimate macros.
+# Talas fonts — decisions log
+
+Nov 2026, Denis: switch Forge to the Talas fonts. Bricolage Grotesque
+(titles + numbers, --display) and Manrope (everything else, --sans),
+replacing Sora + Inter. Self-hosted via @fontsource-variable (imported in
+main.jsx), Google Fonts links removed, and woff2 added to the PWA
+precache so fonts work offline in the installed app. Report chart PNGs
+keep Arial (canvas renders before web fonts are guaranteed loaded).
 
 # Talas colours across Forge — decisions log
 

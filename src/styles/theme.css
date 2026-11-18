@@ -4,9 +4,12 @@
    no purple anywhere. Dark mode is the same family on a deep teal-black
    page with a lighter teal accent so buttons stay readable. Token NAMES
    are unchanged (e.g. --violet now holds Talas sand) so every component
-   keeps reading the same variables. See DECISIONS.md "Talas colours". */
+   keeps reading the same variables. See DECISIONS.md "Talas colours".
+   Fonts (Nov 2026): Talas pair - Bricolage Grotesque for titles and
+   numbers (--display), Manrope for everything else (--sans). Bundled
+   via @fontsource-variable (imported in main.jsx) so they work offline
+   in the installed PWA and don't depend on Google Fonts. */
 
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap');
 
 :root, [data-theme="light"]{
   --shell:#EFEBE3; --page:#F5F2EC; --card:#FFFFFF; --card-soft:#FBF9F5; --chip:#F2EEE6;
@@ -31,8 +34,8 @@
   --hero-gradient-warm: linear-gradient(135deg,#FFFFFF,#FBEFD9);
   --hero-gradient-danger: linear-gradient(135deg,#FDECE6 0%,#FBDDD5 100%);
   --radius-card:22px; --radius-control:14px; --hairline:1px;
-  --display:'Sora', -apple-system, BlinkMacSystemFont, sans-serif;
-  --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --display:'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Manrope Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  --sans:'Manrope Variable', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{

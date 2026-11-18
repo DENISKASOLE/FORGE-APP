@@ -32,7 +32,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         // forge-mcp's OAuth endpoints (DECISIONS.md "forge-mcp") live on
         // this same origin via vercel.json rewrites. Workbox's generated
         // service worker otherwise registers an unrestricted
