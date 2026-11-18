@@ -43,13 +43,20 @@ function itemsLine(items) {
 // Every OTHER weekday's version of this meal, one row per day - the
 // client's whole week to choose from, same day even when two days
 // happen to share the same food (each is still its own labeled day).
-function swapOptionsFor(plan, mealKey, todayDayNum, todayISO) {
+function swapOptionsFor(plan, mealKey, todayDayNum, todayISO, todayMeal) {
   const options = [];
+  // One option per DISTINCT meal: identical meals on several weekdays (and
+  // anything identical to today's meal) are shown once, not once per day.
+  const sig = (items) => items.map((it) => `${it.foodId || it.name}:${it.qty}${it.unit}`).sort().join("|");
+  const seen = new Set(todayMeal ? [sig(todayMeal.items || [])] : []);
   for (let dayNum = 1; dayNum <= 7; dayNum++) {
     if (dayNum === todayDayNum) continue;
     const resolved = resolvePlanDayNum(plan, dayNum);
     const meal = resolved?.meals?.find((m) => m.key === mealKey);
     if (!meal || !meal.items.length) continue;
+    const k = sig(meal.items);
+    if (seen.has(k)) continue;
+    seen.add(k);
     options.push({ dayNum, dayName: weekdayName(dayNum, todayISO), meal, totals: mealTotals(meal) });
   }
   return options;
@@ -67,9 +74,12 @@ function swapOptionsFor(plan, mealKey, todayDayNum, todayISO) {
 // stamped with, not necessarily literally today. `plan`/`entries`/
 // `todayMarks`/`onWrite` are that same date's data, passed straight
 // through so this sheet writes via the same writeDay path.
-export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, onWrite, onClose }) {
+export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, onWrite, onClose, only = null }) {
   const todayDayNum = dayOfWeekISO(todayISO);
-  const options = plan ? swapOptionsFor(plan, meal.key, todayDayNum, todayISO) : [];
+  // only="else": opened from the meal screen's "Log something else", where
+  // the coach's options and eating out already live - show just the
+  // free-text/photo section.
+  const options = only === "else" || !plan ? [] : swapOptionsFor(plan, meal.key, todayDayNum, todayISO, meal);
   const [selectedDay, setSelectedDay] = useState(null);
   const [query, setQuery] = useState("");
   const [size, setSize] = useState("Normal");
@@ -134,14 +144,14 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.6)", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" }}>
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 64, background: FUEL.card, borderTop: `1px solid ${FUEL.lineSoft}`, borderRadius: "26px 26px 0 0", padding: "10px 20px 24px", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto", color: FUEL.text, fontWeight: 500 }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(10,20,19,.6)", fontFamily: "var(--sans)" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 64, background: "var(--sheet)", boxShadow: "0 -12px 40px rgba(0,0,0,.35)", borderTop: `1px solid ${FUEL.lineSoft}`, borderRadius: "26px 26px 0 0", padding: "10px 20px 24px", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto", color: FUEL.text, fontWeight: 500 }}>
         <div style={{ width: 40, height: 4, borderRadius: 9, background: FUEL.lineDashed, margin: "0 auto" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={fuelLbl}>{meal.name} · {fmtTime12(meal.time)}</div>
-            <div style={{ fontSize: 22, marginTop: 4 }}>Change this meal</div>
+            <div style={{ fontFamily: "var(--display)", fontSize: 22, fontWeight: 500, marginTop: 4 }}>{only === "else" ? "Log something else" : "Change this meal"}</div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{ width: 44, height: 44, borderRadius: 99, background: FUEL.card2, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" /></svg>
@@ -171,6 +181,7 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
           </div>
         )}
 
+        {only !== "else" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={fuelLbl}>{options.length > 0 ? "2" : "1"} · Eating out</div>
           <div style={{ padding: 14, borderRadius: 16, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -182,9 +193,10 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
             <button onClick={logEatingOut} style={{ height: 46, borderRadius: 12, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 12, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }}>Log as eating out</button>
           </div>
         </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={fuelLbl}>{options.length > 0 ? "3" : "2"} · Something else</div>
+          {only !== "else" && <div style={fuelLbl}>{options.length > 0 ? "3" : "2"} · Something else</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <label aria-label="Add a photo" style={{ width: 56, height: 52, flexShrink: 0, borderRadius: 14, border: `1px dashed ${FUEL.lineDashed}`, background: FUEL.card, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
               {photoFile

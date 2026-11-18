@@ -175,7 +175,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
       )}
 
       {sheet && (
-        <FuelSwap client={client} plan={plan} meal={meal} todayISO={dateISO} entries={entries} todayMarks={dateMarks}
+        <FuelSwap only="else" client={client} plan={plan} meal={meal} todayISO={dateISO} entries={entries} todayMarks={dateMarks}
           onWrite={async (e, m) => { await onWrite(e, m); sheetSaved.current = true; }}
           onClose={() => { setSheet(false); if (sheetSaved.current) onBack(); }} />
       )}
