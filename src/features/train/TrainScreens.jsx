@@ -645,6 +645,17 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   function adjustRest(delta) { if (rest && restLeft > 0) { const nl = Math.max(5, restLeft + delta); setRest({ until: Date.now() + nl * 1000, total: Math.max(rest.total, nl) }); } else { const base = Math.max(15, restTotal + delta); setRest({ until: Date.now() + base * 1000, total: base }); } }
   const sessionRef = useRef(session); sessionRef.current = session;
   useEffect(() => () => { const sn = sessionRef.current; if (sn && sn.startedAt && sn.status !== "completed") { const e = Math.round((Date.now() - new Date(sn.startedAt)) / 1000); onUpdate({ ...sn, startedAt: null, elapsedSec: e }); } }, []);
+  // A session left "running" (app closed mid-workout, phone locked
+  // overnight) must not resume showing e.g. 29 hours: if it was started
+  // more than 3 h ago, restart the clock from the time already logged.
+  useEffect(() => {
+    if (session.startedAt && session.status !== "completed" && Date.now() - new Date(session.startedAt) > 3 * 3600 * 1000) {
+      onUpdate({ ...session, startedAt: new Date(Date.now() - (session.elapsedSec || 0) * 1000).toISOString() });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Hide the top-right photo row while a workout is on screen (focus mode).
+  useEffect(() => { document.documentElement.dataset.focus = "workout"; return () => { delete document.documentElement.dataset.focus; }; }, []);
   const elapsed = session.startedAt ? Math.round((Date.now() - new Date(session.startedAt)) / 1000) : (session.elapsedSec || 0);
   const stats = sessionStatsV2(session);
   const restLeft = rest ? Math.ceil((rest.until - Date.now()) / 1000) : 0;
@@ -777,7 +788,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         {block && block.type !== "straight" && <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 500, textTransform: "uppercase", marginTop: 4 }}>{entry.tag} · {block.type}</div>}
       </div>
       {thumb ? <button onClick={() => setPlayingVideo({ videoId: thumb.videoId, title: effectiveName })} style={{ width: "100%", padding: 0, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: BRAND.card2 }}>
-        <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.5 }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.5)", border: `2px solid ${BRAND.gold}`, display: "grid", placeItems: "center", color: BRAND.gold, fontSize: 20 }}>▶</div></div></div>
+        <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.45)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1.5px solid rgba(255,255,255,.85)", display: "grid", placeItems: "center", color: "#fff", fontSize: 20, paddingLeft: 3 }}>▶</div></div></div>
         {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
       {ex.note && <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 500 }}>Coach: </span>{ex.note}</div>}
