@@ -46,7 +46,7 @@ function ChoiceSheet({ title, field, options, suffix, client, updateClient, onCl
     </Sheet>
   );
 }
-const MEASURE_FIELDS = [["waist", "Waist"], ["hip", "Hip"], ["chest", "Chest"], ["stomach", "Stomach"], ["leftArm", "Left arm"], ["rightArm", "Right arm"]];
+const MEASURE_FIELDS = [["waist", "Waist", "cm"], ["hip", "Hip", "cm"], ["chest", "Chest", "cm"], ["stomach", "Stomach", "cm"], ["leftArm", "Left arm", "cm"], ["rightArm", "Right arm", "cm"], ["restingHr", "Resting HR", "bpm"], ["vo2max", "VO₂ max", "ml/kg/min"]];
 function MeasureSheet({ client, updateClient, onClose }) {
   const [f, setF] = useState({});
   const [saving, setSaving] = useState(false);
@@ -70,8 +70,8 @@ function MeasureSheet({ client, updateClient, onClose }) {
     <Sheet title="Weight & measurements" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {field("weight", "Weight", "kg", true)}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>{MEASURE_FIELDS.map(([k, l]) => field(k, l, "cm"))}</div>
-        <div style={{ fontSize: 12, color: BRAND.dim }}>Fill in what you measured today. Coach Denis sees it in your progress.</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>{MEASURE_FIELDS.map(([k, l, u]) => field(k, l, u))}</div>
+        <div style={{ fontSize: 12, color: BRAND.dim }}>Fill in what you measured today. Resting HR and VO₂ max are on your watch or Apple Health. Coach Denis sees it in your progress.</div>
         <button onClick={save} disabled={saving} style={primary}>{saving ? "Saving…" : "Save"}</button>
       </div>
     </Sheet>
@@ -81,8 +81,12 @@ function MeasureSheet({ client, updateClient, onClose }) {
 // The + quick-log menu (Nov 2026): log food, scan a barcode, steps, water,
 // sleep, weight & measurements. The menu floats above the dock; each
 // choice opens its own bottom sheet.
-export function QuickLogMenu({ client, updateClient, open, onClose }) {
-  const [view, setView] = useState(null);
+// `view`/`setView` can be passed in so other screens (Home tiles) can open
+// a sheet directly; otherwise the menu keeps its own.
+export function QuickLogMenu({ client, updateClient, open, onClose, view: viewProp, setView: setViewProp }) {
+  const [ownView, setOwnView] = useState(null);
+  const view = viewProp !== undefined ? viewProp : ownView;
+  const setView = setViewProp || setOwnView;
   const h = todaysHabits(client);
   const w = latestWeight(client);
   const go = (v) => { setView(v); onClose(); };

@@ -1,3 +1,18 @@
+# Client Home "Today" redesign — decisions log
+
+Nov 2026, Denis approved mockup home-redesign ("exactly like that").
+Home (src/features/home/HomeDaily.jsx) = Today header + photo (Me), week
+date strip, mood check-in (5 emoji, saved to section mood_log), today's
+workout (the only card kept from the old Home), Calories ring + macros,
+Weight / Steps / Water / Sleep, VO2 max, then Resting HR, Energy, Waist,
+Body fat, Protein streak, Training. Tiles open the matching + quick-log
+sheet (today only) or the related tab. Old Home cards removed: payment
+banner, check-in due banner, intake prompt, momentum rings, habits card,
+coach message, nutrition-today strip, Learn strip. iOS install prompt kept.
+VO2 max / resting HR are entered by the client (web app can't read Apple
+Health). Font switched to Inter everywhere (bundled) so every phone
+matches the approved mockup.
+
 # Fonts: SF Pro (Inter fallback) — decisions log
 
 Nov 2026, Denis: switch from Bricolage Grotesque + Manrope to the font in
