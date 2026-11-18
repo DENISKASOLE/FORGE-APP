@@ -155,7 +155,6 @@ export function BarcodeSheet({ client, updateClient, onClose, onSearchInstead })
       }
     })();
     return () => { cancelled = true; controlsRef.current?.stop(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [food, attempt]);
 
   if (food) {

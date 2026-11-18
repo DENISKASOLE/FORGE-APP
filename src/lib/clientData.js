@@ -195,6 +195,9 @@ export function mapClient(row, dataRows = [], index = 0) {
     // of previously exported reports. Raw here; normalize through
     // lib/progressReports.js, same convention as the nutrition sections.
     measurementsHistory: sections.measurements_history?.entries || [],
+    // Home mood check-in (Nov 2026): { "YYYY-MM-DD": 1..5 }.
+    moodLog: sections.mood_log?.entries || {},
+    habitGoals: sections.habit_goals || null,
     progressReportNotes: sections.progress_report_notes || null,
     progressReportHistory: sections.progress_report_history?.entries || [],
     notes: profile.notes || row.notes || "",
