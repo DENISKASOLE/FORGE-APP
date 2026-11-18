@@ -1,3 +1,27 @@
+# Fuel tab: new look (Log / meal screen / Plan) — decisions log
+
+Nov 2026, Denis approved mockup `fuel-log-v2` (inspired by his reference
+app screenshots, MyFitnessPal and HubFit's plan-based logging).
+
+- Log screen (`FuelToday.jsx`): Log/Plan toggle, week strip of on-plan
+  rings, slim summary card (thin 4px calorie arc, 3px macro bars in the
+  app macro colors carbs blue / fat violet / protein green), then one
+  slim row per meal with the + on the RIGHT. Meal items are no longer
+  listed on this screen; once logged, the foods show as small layers
+  under the meal. The old "Ate something off-plan" and "This week"
+  buttons are gone - off-plan is "Log something else" on the meal
+  screen; This week is the chart button top right.
+- Meal screen (`FuelMealLog.jsx`, new): opened by tapping a meal. Coach's
+  options, Log as planned, Change amounts (per-item steppers), Eating
+  out, Log something else (the existing FuelSwap sheet).
+- Coach's options = today's version of the meal plus every distinct
+  version of the same meal on other rotation days (`fuelOptions.js`) -
+  the pool the swap sheet already used, so no plan-builder or data
+  change. True per-meal alternatives in the builder can come later.
+- Plan tab (`FuelPlanView.jsx`, new): read-only signed plan - day-type
+  targets, macro targets, weekday picker, meals with items.
+- Fonts: Sora for titles/numbers, app sans for everything else.
+
 # Fuel tab: match the rest of the app (light mode + typography) — decisions log
 
 Nov 2026, Denis: the Fuel tab looked different from the rest of Forge (font

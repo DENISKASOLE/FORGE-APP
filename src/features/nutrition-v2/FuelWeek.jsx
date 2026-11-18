@@ -14,7 +14,7 @@ function dayShortName(dateISO) {
 function OnPlanCard({ weekInfo }) {
   const pct = weekInfo.onPlanPct != null ? Math.round(weekInfo.onPlanPct * 100) : null;
   return (
-    <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 18, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 18, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
         <div style={fuelLbl}>On plan</div>
         <div style={{ fontSize: 44, lineHeight: 1, marginTop: 6 }}>{pct != null ? pct : "—"}<span style={{ fontSize: 22 }}>%</span></div>
@@ -30,7 +30,7 @@ function OnPlanCard({ weekInfo }) {
 
 function DayByDayCard({ weekInfo, workoutByDate }) {
   return (
-    <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 16 }}>
+    <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 18, padding: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={fuelLbl}>Day by day</div>
         <div style={fuelLbl}>Protein</div>
@@ -92,7 +92,7 @@ function WeightCard({ trend }) {
   const last = trend.points[trend.points.length - 1];
   const changeStr = `${trend.change >= 0 ? "+" : "−"}${Math.abs(trend.change).toFixed(1)} kg`;
   return (
-    <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 16 }}>
+    <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 18, padding: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div style={fuelLbl}>Weight · 7-day average</div>
         <div style={{ fontSize: 13, color: FUEL.protein }}>{changeStr}</div>
@@ -122,7 +122,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
   }, [client.program, client.trainingLogs]);
 
   return (
-    <div style={{ width: "100%", background: FUEL.bg, color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", gap: 14, margin: "0 -16px", padding: "6px 20px 28px" }}>
+    <div style={{ width: "100%", background: FUEL.bg, color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button onClick={onBack} aria-label="Back to today" style={{ width: 44, height: 44, borderRadius: 99, background: FUEL.card2, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -144,7 +144,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
       <WeightCard trend={trend} />
 
       {notes?.shared && (
-        <div style={{ background: FUEL.card2, border: `1px solid ${FUEL.lineSoft}`, borderRadius: 22, padding: 16, display: "flex", gap: 12 }}>
+        <div style={{ background: FUEL.card2, border: `1px solid ${FUEL.lineSoft}`, borderRadius: 18, padding: 14, display: "flex", gap: 12 }}>
           <div style={{ width: 34, height: 34, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>D</div>
           <div>
             <div style={fuelLbl}>Coach Denis · weekly review</div>

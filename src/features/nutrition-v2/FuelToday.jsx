@@ -1,83 +1,54 @@
 import { useMemo, useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
-import { showToast } from "../../components/ui/Toast.jsx";
 import { isoDate, startOfWeek, addDays, DAYS } from "../../lib/dateUtils.js";
-import { uid } from "../../lib/uid.js";
-import { buildProgramDays, currentProgramWeek } from "../../lib/programModel.js";
-import { itemMacros, mealTotals, planForDate, mealOutcomeFor, dayOnPlanTally, last7DaysOnPlan, mergeLegacyMacroLog, addDaysISO } from "./nutritionV2Math.js";
+import { buildProgramDays } from "../../lib/programModel.js";
+import { mealTotals, planForDate, mealOutcomeFor, dayOnPlanTally, mergeLegacyMacroLog, addDaysISO } from "./nutritionV2Math.js";
 import { dayTypeFor } from "./fuelDayType.js";
-import { FuelSwap } from "./FuelSwap.jsx";
-import { FUEL, fuelLbl } from "./fuelTheme.js";
+import { FuelMealLog } from "./FuelMealLog.jsx";
+import { FuelPlanView } from "./FuelPlanView.jsx";
+import { FUEL, fuelLbl, MACRO_COLOR } from "./fuelTheme.js";
+import { Chevron, PlusIcon, CheckIcon, ChartIcon } from "./fuelUi.jsx";
 
-function nowHHMM() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-function fmtHeaderDate(dateISO) {
-  return new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "2-digit", month: "short" });
-}
-
-function DayTypeChip({ label, training }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, background: FUEL.card2, border: `1px solid ${FUEL.line}`, borderRadius: 999, padding: "8px 12px", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: FUEL.text, fontWeight: 500, flexShrink: 0 }}>
-      <span style={{ width: 7, height: 7, borderRadius: 99, background: training ? FUEL.amber : FUEL.lineDashed }} />{label}
-    </div>
-  );
-}
-
-// Calorie gauge: a 270° arc (90° gap centered at the bottom, "speedo"
-// style) replacing the earlier double-ring, per Denis's reference
-// screenshot of another app's macro card. Kept in Forge's own FUEL
-// palette rather than that app's blue, same call as the colors fix
-// earlier in this redesign - the reference is for layout, not color.
-// Track starts at the 7:30 position and sweeps 270° clockwise through
-// 12 o'clock to 4:30 (see the rotate(135) below): base rotate(-90) is
-// this codebase's own "dash pattern starts at 12 o'clock" convention
-// (used by every other ring here), plus 225° more to move the start
-// point to 7:30 - 90+225=135.
+// Calorie gauge - thin 270° "speedo" arc (Nov 2026: Denis asked for a
+// thin ring and slimmer cards). Track starts at 7:30 and sweeps clockwise
+// to 4:30: rotate(135) = this codebase's 12-o'clock start (-90) + 225.
 function CalorieGauge({ kcalEaten, kcalGoal }) {
-  const r = 56, sw = 12;
+  const r = 52, sw = 4;
   const C = 2 * Math.PI * r;
-  const trackLen = C * 0.75; // 270 of 360 degrees
-  const pct = kcalGoal > 0 ? Math.max(0, Math.min(1, (kcalGoal - kcalEaten) / kcalGoal)) : 0;
+  const trackLen = C * 0.75;
+  const pct = kcalGoal > 0 ? Math.max(0, Math.min(1, kcalEaten / kcalGoal)) : 0;
   const left = Math.max(Math.round(kcalGoal - kcalEaten), 0);
+  const side = (v, l) => (
+    <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+      <div style={{ fontFamily: BRAND.display, fontSize: 19, fontWeight: 600 }}>{Math.round(v).toLocaleString()}</div>
+      <div style={{ fontSize: 11, color: FUEL.dim }}>{l}</div>
+    </div>
+  );
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-      <div style={{ textAlign: "center", flexShrink: 0, minWidth: 0 }}>
-        <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 600 }}>{Math.round(kcalEaten).toLocaleString()}</div>
-        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 500 }}>eaten</div>
-      </div>
-      <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Calories left" style={{ flexShrink: 0 }}>
-        <circle cx="70" cy="70" r={r} fill="none" stroke={FUEL.card2} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 70 70)" />
-        <circle cx="70" cy="70" r={r} fill="none" stroke={FUEL.text} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 70 70)" />
-        <text x="70" y="67" textAnchor="middle" fill={FUEL.text} fontSize="26" fontWeight="600" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
-        <text x="70" y="87" textAnchor="middle" fill={FUEL.muted} fontSize="12" fontWeight="500" fontFamily={BRAND.sans}>left</text>
+    <div style={{ display: "flex", alignItems: "center", padding: "6px 10px 0" }}>
+      {side(kcalEaten, "eaten")}
+      <svg width="124" height="112" viewBox="0 0 124 118" role="img" aria-label={`${left} calories left`} style={{ flexShrink: 0 }}>
+        <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
+        <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.text} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
+        <text x="62" y="62" textAnchor="middle" fill={FUEL.text} fontSize="24" fontWeight="600" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
+        <text x="62" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="11" fontFamily={BRAND.sans}>kcal left</text>
       </svg>
-      <div style={{ textAlign: "center", flexShrink: 0, minWidth: 0 }}>
-        <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 600 }}>{Math.round(kcalGoal).toLocaleString()}</div>
-        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 500 }}>goal</div>
-      </div>
+      {side(kcalGoal, "goal")}
     </div>
   );
 }
 
-const MACRO_BAR_META = {
-  carbs: { label: "Carbs", color: FUEL.text },
-  fat: { label: "Fat", color: FUEL.text },
-  protein: { label: "Protein", color: FUEL.protein },
-};
-function MacroBarRow({ now, target }) {
+function MacroBars({ now, target }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
-      {["carbs", "fat", "protein"].map((key) => {
-        const meta = MACRO_BAR_META[key];
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14, padding: "10px 14px 12px", borderTop: `1px solid ${FUEL.line}` }}>
+      {[["carbs", "Carbs"], ["fat", "Fat"], ["protein", "Protein"]].map(([key, label]) => {
         const t = Math.round(target[key] || 0);
         const n = Math.round(now[key] || 0);
         const pct = t > 0 ? Math.min(100, (n / t) * 100) : 0;
         return (
-          <div key={key}>
-            <div style={{ fontSize: 14 }}><span style={{ fontWeight: 600 }}>{meta.label}</span> <span style={{ color: FUEL.muted, fontWeight: 500 }}>({n}/{t}g)</span></div>
-            <div style={{ height: 5, borderRadius: 9, background: FUEL.card2, marginTop: 8 }}><div style={{ width: `${pct}%`, height: 5, borderRadius: 9, background: meta.color }} /></div>
+          <div key={key} style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>{label} <span style={{ color: FUEL.dim }}>{n}/{t}g</span></div>
+            <div style={{ height: 3, borderRadius: 9, background: FUEL.lineSoft, marginTop: 6, overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", borderRadius: 9, background: MACRO_COLOR[key] }} /></div>
           </div>
         );
       })}
@@ -85,124 +56,116 @@ function MacroBarRow({ now, target }) {
   );
 }
 
-// The strip always shows the week CONTAINING the selected date, not a
-// fixed calendar week - paging dateISO across a Sun/Mon boundary (via
-// the date-nav chevrons or by tapping a day here) naturally slides the
-// whole strip to the right week with no extra logic.
-function WeekStrip({ plans, workoutByDate, dateISO, todayISO, onSelect }) {
+// Day ring: share of that day's meals on plan (planned or swapped). Future
+// days are a dashed track; the strip always shows the week containing the
+// selected date.
+function DayRing({ pct, future, label }) {
+  const r = 16, C = 2 * Math.PI * r;
+  return (
+    <div style={{ width: 38, height: 38, margin: "0 auto", position: "relative", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 600 }}>
+      <svg width="38" height="38" viewBox="0 0 38 38" style={{ position: "absolute", inset: 0 }} aria-hidden="true">
+        <circle cx="19" cy="19" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth="2.5" strokeDasharray={future ? "3 3.4" : undefined} />
+        {pct > 0 && <circle cx="19" cy="19" r={r} fill="none" stroke={FUEL.protein} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(C * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(-90 19 19)" />}
+      </svg>
+      {label}
+    </div>
+  );
+}
+function WeekStrip({ plans, logs, marks, dateISO, todayISO, onSelect }) {
   const monday = startOfWeek(new Date(`${dateISO}T00:00:00`));
-  const days = DAYS.map((name, i) => {
-    const date = addDays(monday, i);
-    const cellISO = isoDate(date);
-    const isSelected = cellISO === dateISO;
-    const isToday = cellISO === todayISO;
-    const { training } = dayTypeFor(planForDate(plans, cellISO), workoutByDate.get(cellISO));
-    return { name, num: date.getDate(), cellISO, isSelected, isToday, training };
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, margin: "12px 0 10px" }}>
+      {DAYS.map((name, i) => {
+        const date = addDays(monday, i);
+        const cellISO = isoDate(date);
+        const sel = cellISO === dateISO;
+        const future = cellISO > todayISO;
+        const p = planForDate(plans, cellISO);
+        const tally = p && !future ? dayOnPlanTally(p, cellISO, todayISO, logs?.[cellISO] || [], marks?.[cellISO] || {}) : null;
+        const pct = tally && tally.total ? tally.onPlan / tally.total : 0;
+        return (
+          <button key={name} onClick={() => onSelect(cellISO)} aria-label={date.toDateString()} aria-pressed={sel} style={{ padding: "5px 0 6px", borderRadius: 16, background: sel ? FUEL.card : "transparent", border: `1px solid ${sel ? FUEL.lineSoft : "transparent"}`, color: FUEL.text, cursor: "pointer", fontFamily: "inherit" }}>
+            <div style={{ fontSize: 11, fontWeight: 500, color: sel ? FUEL.text : FUEL.dim, marginBottom: 4 }}>{name.slice(0, 3)}</div>
+            <DayRing pct={pct} future={future} label={date.getDate()} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Logged entries grouped for display: a swap writes one entry per item
+// all titled with the swap's name, so group by name and sum.
+function loggedLayers(mealEntries) {
+  const map = new Map();
+  mealEntries.forEach((e) => {
+    const key = e.name || "Logged";
+    const cur = map.get(key) || { name: key, kcal: 0, count: 0, qty: e.qty, unit: e.unit };
+    cur.kcal += e.macros?.kcal || 0;
+    cur.count += 1;
+    map.set(key, cur);
   });
-  return (
-    <div style={{ padding: "16px 20px 0", display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
-      {days.map((d) => (
-        <button key={d.name} onClick={() => onSelect(d.cellISO)} style={{ textAlign: "center", padding: "8px 0", borderRadius: 12, background: d.isSelected ? FUEL.text : FUEL.card, border: d.isSelected ? "none" : `1px solid ${d.isToday ? FUEL.lineSoft : FUEL.line}`, cursor: "pointer", fontFamily: "inherit" }}>
-          <div style={{ fontSize: 10, letterSpacing: ".08em", color: d.isSelected ? FUEL.onText : FUEL.muted, fontWeight: 500 }}>{d.name.toUpperCase()}</div>
-          <div style={{ fontSize: 15, marginTop: 3, color: d.isSelected ? FUEL.onText : FUEL.text, fontWeight: 500 }}>{d.num}</div>
-          <div style={{ width: 5, height: 5, borderRadius: 99, margin: "5px auto 0", background: d.isSelected ? FUEL.onText : (d.training ? FUEL.amber : FUEL.lineDashed) }} />
-        </button>
-      ))}
-    </div>
-  );
+  return [...map.values()];
 }
-function DateNavRow({ dateISO, todayISO, onChange }) {
-  return (
-    <div style={{ margin: "14px 20px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
-      <button onClick={() => onChange(addDaysISO(dateISO, -1))} aria-label="Previous day" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, color: FUEL.text, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{"‹"}</button>
-      <div style={{ textAlign: "center", minWidth: 120 }}>
-        <div style={{ fontSize: 15, fontWeight: 500 }}>{fmtHeaderDate(dateISO)}</div>
-        {dateISO !== todayISO && <button onClick={() => onChange(todayISO)} style={{ marginTop: 2, background: "none", border: "none", color: FUEL.amber, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Jump to today</button>}
-      </div>
-      <button onClick={() => onChange(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, color: FUEL.text, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{"›"}</button>
-    </div>
-  );
+function sumEntries(list) {
+  return list.reduce((t, e) => ({ kcal: t.kcal + (e.macros?.kcal || 0), protein: t.protein + (e.macros?.protein || 0), carbs: t.carbs + (e.macros?.carbs || 0), fat: t.fat + (e.macros?.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 }
 
-function doneNoteFor(meal, entries) {
-  const mealEntries = entries.filter((e) => e.meal === meal.key);
-  const confirm = mealEntries.find((e) => e.source === "confirm");
-  if (confirm) return `Ate as planned · ${confirm.time || ""}`;
-  const sub = mealEntries.find((e) => e.source === "sub");
-  if (sub) return `Swapped for ${sub.name} · ${sub.time || ""}`;
-  const other = mealEntries[0];
-  return other ? `${other.name || "Logged"} · ${other.time || ""}` : "Logged";
-}
-
-function MealCard({ meal, totals, outcome, isNext, entries, editable, onAte, onUndo, onSwap }) {
-  const done = outcome !== "missed" && outcome !== "future";
+function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
+  const logged = mealEntries.length > 0;
+  const t = sumEntries(mealEntries);
+  const planned = mealTotals(meal);
   return (
-    <div style={{ background: FUEL.card, borderRadius: 20, padding: 16, border: `1px solid ${isNext ? FUEL.text : FUEL.line}`, opacity: done ? 0.8 : 1 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {done ? (
-            <div style={{ width: 26, height: 26, borderRadius: 99, background: FUEL.protein, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke={FUEL.onColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </div>
-          ) : (
-            <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${FUEL.lineDashed}`, flexShrink: 0 }} />
-          )}
-          <div>
-            <div style={{ fontSize: 15, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.text, fontWeight: 500 }}>{meal.name}</div>
-            <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2, fontWeight: 500 }}>{meal.time} · {Math.round(totals.kcal)} kcal · <span style={{ color: FUEL.protein }}>{Math.round(totals.protein)} g protein</span></div>
+    <div style={{ background: FUEL.card, border: `1px solid ${isNext ? FUEL.lineSoft : FUEL.line}`, borderRadius: 18, padding: "10px 12px" }}>
+      <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, color: FUEL.text, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 15, fontWeight: 500 }}>{cap(meal.name)}</span>
+            {outcome === "swapped" && <span style={pill(FUEL.proteinTrack, FUEL.protein)}>Swapped</span>}
+            {outcome === "offplan" && logged && <span style={pill("var(--orange-bg)", FUEL.amber)}>Off-plan</span>}
+            {isNext && !logged && <span style={pill(FUEL.text, FUEL.onText)}>Next</span>}
+          </div>
+          <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2 }}>
+            {logged
+              ? <>{Math.round(t.kcal)} kcal · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
+              : <>{meal.time} · {Math.round(planned.kcal)} kcal planned</>}
           </div>
         </div>
-        {isNext && !done && <div style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", background: FUEL.text, color: FUEL.onText, borderRadius: 99, padding: "5px 9px", fontWeight: 500, flexShrink: 0 }}>Next</div>}
-      </div>
-
-      {!done ? (
-        <>
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-            {meal.items.map((it) => (
-              <div key={it.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 14, color: FUEL.text, padding: "8px 0", borderTop: `1px solid ${FUEL.line}`, fontWeight: 500 }}>
-                <span>{it.name}</span><span style={{ color: FUEL.muted, whiteSpace: "nowrap" }}>{it.qty}{it.unit === "piece" ? "" : it.unit}</span>
-              </div>
-            ))}
-            {meal.note && <div style={{ fontSize: 12, color: FUEL.amber, lineHeight: 1.4, fontWeight: 500 }}>{meal.note}</div>}
-          </div>
-          {editable && (
-            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-              <button onClick={onAte} style={{ gridColumn: "span 2", height: 48, borderRadius: 14, border: "none", background: FUEL.text, color: FUEL.onText, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 500, cursor: "pointer" }}>Ate it</button>
-              <button onClick={onSwap} style={{ height: 48, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card2, color: FUEL.text, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 500, cursor: "pointer" }}>Swap</button>
+        {logged ? (
+          <div aria-label="Logged" style={{ width: 32, height: 32, borderRadius: 99, background: FUEL.protein, display: "grid", placeItems: "center", flexShrink: 0 }}><CheckIcon color={FUEL.onColor} /></div>
+        ) : (
+          <div aria-label={`Log ${meal.name}`} style={{ width: 32, height: 32, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.lineSoft}`, display: "grid", placeItems: "center", flexShrink: 0 }}><PlusIcon color={FUEL.text} /></div>
+        )}
+      </button>
+      {logged && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+          {loggedLayers(mealEntries).map((l) => (
+            <div key={l.name} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 10px", borderRadius: 10, background: "var(--card-soft)", border: `1px solid ${FUEL.line}`, fontSize: 12 }}>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.name}{l.count === 1 && l.qty != null ? <span style={{ color: FUEL.dim }}> · {l.qty}{l.unit === "piece" ? " pc" : ` ${l.unit}`}</span> : null}</span>
+              <span style={{ color: FUEL.muted, flexShrink: 0 }}>{Math.round(l.kcal)}</span>
             </div>
-          )}
-        </>
-      ) : (
-        <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: FUEL.muted, fontWeight: 500 }}>
-          <span>{doneNoteFor(meal, entries)}</span>
-          {editable && <button onClick={onUndo} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", padding: "10px 0", cursor: "pointer", fontWeight: 500 }}>Undo</button>}
+          ))}
         </div>
       )}
     </div>
   );
 }
+function pill(bg, fg) {
+  return { fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 99, fontWeight: 600, background: bg, color: fg };
+}
 
-// Client · Fuel › Today (docs/design/fuel-tab/Main.dc.html, DECISIONS.md
-// "Fuel tab redesign"). Reuses nutrition-v2's existing data layer end to
-// end (planForDate, log entries, mealOutcomeFor) - this is a new UI on
-// the same model, not a new one.
-//
-// Real date navigation (chevrons, tap a day in the strip, "Jump to
-// today"): `dateISO` is owned here, not in the caller, since it only
-// ever needs `plans`/`logs`/`marks` (the client's full, every-date
-// stores) to resolve whichever date is selected - including the legacy
-// macro_log merge-on-first-touch (see `entries` below), previously done
-// by the caller for "today" only. Viewing a date after today is
-// read-only (`editable` below) - nothing can be logged ahead of when it
-// happens, same rule the pre-redesign screen enforced. "This week" and
-// the 7-day strip's training dots always use the REAL today
-// (`todayISO`), never the browsed `dateISO` - browsing history doesn't
-// change what "this week" means. The Change-a-meal sheet (FuelSwap) is
-// owned right here too, since every prop it needs (plan/entries/onWrite)
-// already lives in this component.
+// Client · Fuel (Nov 2026 redesign, approved mockup fuel-log-v2):
+// Log/Plan toggle, week strip of on-plan rings, a slim summary card (thin
+// calorie gauge + macro bars), then one slim row per meal with a + on the
+// right. Tapping a meal opens FuelMealLog, where all logging happens;
+// logged foods show as small layers under the meal here. Same data layer
+// as before (planForDate, log entries, mealOutcomeFor) - new UI only.
+// Viewing a date after today is read-only.
 export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWeek }) {
   const todayISO = isoDate();
   const [dateISO, setDateISO] = useState(todayISO);
+  const [view, setView] = useState("log");
+  const [openMealKey, setOpenMealKey] = useState(null);
   const editable = dateISO <= todayISO;
   const plan = planForDate(plans, dateISO);
   const dateMarks = marks?.[dateISO] || {};
@@ -213,10 +176,8 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
     return legacyDay ? mergeLegacyMacroLog(legacyDay, dateISO) : existing;
   }, [logs, dateISO, client.nutrition]);
   const orderedMeals = plan?.meals ? [...plan.meals].sort((a, b) => a.time.localeCompare(b.time)) : [];
-  const [swapMeal, setSwapMeal] = useState(null);
-  const totals = entries.reduce((t, e) => ({ kcal: t.kcal + (e.macros?.kcal || 0), protein: t.protein + (e.macros?.protein || 0), carbs: t.carbs + (e.macros?.carbs || 0), fat: t.fat + (e.macros?.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+  const totals = sumEntries(entries);
   const target = plan?.targets || {};
-
   const workoutByDate = useMemo(() => {
     const map = new Map();
     buildProgramDays(client.program, client.trainingLogs).forEach((d) => map.set(d.dateISO, !!d.workout));
@@ -224,112 +185,75 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
   }, [client.program, client.trainingLogs]);
   const chip = dayTypeFor(plan, workoutByDate.get(dateISO));
   const tally = plan ? dayOnPlanTally(plan, dateISO, todayISO, entries, dateMarks) : { onPlan: 0, total: 0 };
-  const weekInfo = last7DaysOnPlan(plans, logs, marks, todayISO);
   const firstOpenKey = orderedMeals.find((m) => mealOutcomeFor(dateISO, todayISO, m, entries, dateMarks) === "missed")?.key;
-  const planLabel = dateISO === todayISO ? "Today's plan" : `${new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}'s plan`;
+  const dayWord = dateISO === todayISO ? "Today" : dateISO === addDaysISO(todayISO, -1) ? "Yesterday" : dateISO === addDaysISO(todayISO, 1) ? "Tomorrow" : new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  const openMeal = orderedMeals.find((m) => m.key === openMealKey);
 
-  async function ateMeal(meal) {
-    const kept = entries.filter((e) => e.meal !== meal.key);
-    const time = nowHHMM();
-    const added = meal.items.map((it) => ({
-      id: uid(), date: dateISO, meal: meal.key, name: it.name, foodId: it.foodId, qty: it.qty, unit: it.unit,
-      macros: itemMacros(it), source: "confirm", time, planItemId: it.id, estimate: false, replaces: null, reason: null,
-    }));
-    await onWrite(dateISO, [...kept, ...added], dateMarks);
-    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
-    showToast(`${meal.name} logged as planned.`, "success");
+  if (openMeal) {
+    return (
+      <FuelMealLog client={client} plan={plan} meal={openMeal} dateISO={dateISO} entries={entries} dateMarks={dateMarks} editable={editable}
+        onWrite={(nextEntries, nextMarks) => onWrite(dateISO, nextEntries, nextMarks)} onBack={() => setOpenMealKey(null)} />
+    );
   }
-  async function undoMeal(meal) {
-    const kept = entries.filter((e) => e.meal !== meal.key);
-    const nextMarks = { ...dateMarks };
-    delete nextMarks[meal.key];
-    await onWrite(dateISO, kept, nextMarks);
-  }
+
+  const seg = (key, label) => (
+    <button onClick={() => setView(key)} aria-pressed={view === key} style={{ padding: "7px 14px", borderRadius: 999, border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", background: view === key ? FUEL.text : "transparent", color: view === key ? FUEL.onText : FUEL.muted }}>{label}</button>
+  );
 
   return (
-    <div style={{ width: "100%", background: FUEL.bg, color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", margin: "0 -16px", padding: "0 0 24px" }}>
-      <div style={{ padding: "6px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div style={fuelLbl}>{new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}{client.program ? ` · Week ${currentProgramWeek(client.program)}` : ""}</div>
-          <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 4 }}>Fuel</div>
+    <div style={{ width: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", paddingBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingTop: 2 }}>
+        <div style={{ display: "flex" }}><div style={{ display: "flex", background: FUEL.card2, border: `1px solid ${FUEL.line}`, borderRadius: 999, padding: 3 }}>{seg("log", "Log")}{seg("plan", "Plan")}</div></div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Fuel</div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onOpenWeek} aria-label="This week" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", cursor: "pointer", color: FUEL.text }}><ChartIcon /></button>
         </div>
-        <DayTypeChip label={chip.label} training={chip.training} />
       </div>
 
-      <WeekStrip plans={plans} workoutByDate={workoutByDate} dateISO={dateISO} todayISO={todayISO} onSelect={setDateISO} />
-      <DateNavRow dateISO={dateISO} todayISO={todayISO} onChange={setDateISO} />
-
-      <div style={{ margin: "18px 20px 0", background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: "20px 18px 18px", display: "flex", flexDirection: "column", gap: 18 }}>
-        <CalorieGauge kcalEaten={totals.kcal} kcalGoal={target.kcal || 0} />
-        <div style={{ borderTop: `1px solid ${FUEL.line}`, paddingTop: 16 }}>
-          <MacroBarRow now={totals} target={target} />
-        </div>
-        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 500, textAlign: "center" }}>{tally.onPlan} of {orderedMeals.length || 4} meals on plan</div>
-      </div>
-
-      {notes?.shared && (
-        <div style={{ margin: "12px 20px 0", background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 16, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <div style={{ width: 28, height: 28, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 500 }}>D</div>
-          <div style={{ fontSize: 13, lineHeight: 1.45, color: FUEL.text, fontWeight: 500 }}>{notes.shared}</div>
-        </div>
-      )}
-
-      <div style={{ padding: "22px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div style={fuelLbl}>{planLabel}</div>
-        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 500 }}>Signed by Coach Denis</div>
-      </div>
-
-      {!plan ? (
-        <div style={{ margin: "0 20px", color: FUEL.muted, fontSize: 13, fontWeight: 500 }}>No meals prescribed for this day.</div>
+      {view === "plan" ? (
+        <FuelPlanView plans={plans} dateISO={dateISO} />
       ) : (
-        <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {orderedMeals.map((meal) => {
-            const outcome = mealOutcomeFor(dateISO, todayISO, meal, entries, dateMarks);
-            return (
-              <MealCard
-                key={meal.key}
-                meal={meal}
-                totals={mealTotals(meal)}
-                outcome={outcome}
-                isNext={meal.key === firstOpenKey}
-                entries={entries}
-                editable={editable}
-                onAte={() => ateMeal(meal)}
-                onUndo={() => undoMeal(meal)}
-                onSwap={() => setSwapMeal(meal)}
-              />
-            );
-          })}
-        </div>
-      )}
+        <>
+          <WeekStrip plans={plans} logs={logs} marks={marks} dateISO={dateISO} todayISO={todayISO} onSelect={setDateISO} />
 
-      {editable && (
-        <button onClick={() => { const target = orderedMeals.find((m) => m.key === firstOpenKey) || orderedMeals[orderedMeals.length - 1]; if (target) setSwapMeal(target); else showToast("No meals prescribed for this day.", "info"); }} style={{ margin: "16px 20px 0", height: 54, borderRadius: 16, border: `1px dashed ${FUEL.lineDashed}`, color: FUEL.text, background: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" /></svg>
-          Ate something off-plan
-        </button>
-      )}
+          <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", borderBottom: `1px solid ${FUEL.line}` }}>
+              <button onClick={() => setDateISO(addDaysISO(dateISO, -1))} aria-label="Previous day" style={navBtn}><Chevron dir="left" color={FUEL.dim} /></button>
+              <button onClick={() => setDateISO(todayISO)} style={{ background: "none", border: "none", color: FUEL.text, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+                {dayWord} · <span style={{ color: chip.training ? FUEL.amber : FUEL.muted }}>{chip.label}</span>
+              </button>
+              <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={navBtn}><Chevron dir="right" color={FUEL.dim} /></button>
+            </div>
+            <CalorieGauge kcalEaten={totals.kcal} kcalGoal={target.kcal || 0} />
+            <MacroBars now={totals} target={target} />
+          </div>
 
-      <button onClick={() => (onOpenWeek ? onOpenWeek() : showToast("My week is coming in a later step.", "info"))} style={{ margin: "12px 20px 0", padding: "14px 16px", borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.line}`, color: FUEL.text, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", textAlign: "left" }}>
-        <div>
-          <div style={fuelLbl}>This week</div>
-          <div style={{ fontSize: 15, marginTop: 4, fontWeight: 500 }}>{weekInfo.streak}-day streak · {weekInfo.onPlanPct != null ? Math.round(weekInfo.onPlanPct * 100) : "—"}% on plan</div>
-        </div>
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke={FUEL.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
+          {notes?.shared && (
+            <div style={{ marginTop: 8, background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 14, padding: "8px 12px", display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ width: 24, height: 24, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 11, display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 600 }}>D</div>
+              <div style={{ fontSize: 12, lineHeight: 1.4, color: FUEL.muted }}>{notes.shared}</div>
+            </div>
+          )}
 
-      {swapMeal && (
-        <FuelSwap
-          client={client}
-          plan={plan}
-          meal={swapMeal}
-          todayISO={dateISO}
-          entries={entries}
-          todayMarks={dateMarks}
-          onWrite={(nextEntries, nextMarks) => onWrite(dateISO, nextEntries, nextMarks)}
-          onClose={() => setSwapMeal(null)}
-        />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "14px 2px 0" }}>
+            <span style={fuelLbl}>{dateISO === todayISO ? "Today's meals" : "Meals"}</span>
+            <span style={{ fontSize: 12, color: FUEL.dim }}>{tally.onPlan} of {orderedMeals.length} on plan</span>
+          </div>
+
+          {!plan ? (
+            <div style={{ marginTop: 10, color: FUEL.muted, fontSize: 13 }}>No meals prescribed for this day.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+              {orderedMeals.map((meal) => (
+                <MealRow key={meal.key} meal={meal} outcome={mealOutcomeFor(dateISO, todayISO, meal, entries, dateMarks)} isNext={meal.key === firstOpenKey && dateISO === todayISO}
+                  mealEntries={entries.filter((e) => e.meal === meal.key)} onOpen={() => setOpenMealKey(meal.key)} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
+const navBtn = { width: 32, height: 32, borderRadius: 99, background: "none", border: "none", display: "grid", placeItems: "center", cursor: "pointer" };
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
