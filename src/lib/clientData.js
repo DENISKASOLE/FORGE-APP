@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import { isoDate } from "./dateUtils.js";
-import { enqueueSync, flushSyncQueue } from "./cache.js";
+import "./cache.js"; // registers the Supabase sender for the outbox
+import { saveAndWait } from "./sync.js";
 import { normalizeSlotLabel } from "./browser.js";
 import { CLIENT_COLORS } from "./constants.js";
 import { BRAND } from "../theme/tokens.js";
@@ -205,37 +206,15 @@ export function mapClient(row, dataRows = [], index = 0) {
     notes: profile.notes || row.notes || "",
   };
 }
-export async function upsertSection(clientId, section, data) {
-  // Always attempt the real write first - navigator.onLine is an unreliable
-  // signal (frequent false negatives on mobile/PWA) and gating on it here
-  // used to mean a save could get silently queued and never retried even
-  // though the network was fine. Only queue on an actual failure below.
-  try {
-    const { error } = await supabase.from("client_data").upsert(
-      { client_id: clientId, section, data },
-      { onConflict: "client_id,section" }
-    );
-    if (error) throw error;
-    await flushSyncQueue();
-    return { queued: false };
-  } catch (error) {
-    enqueueSync({ type: "client_data", clientId, section, data });
-    return { queued: true, error };
-  }
+// Saves go to the on-device outbox first and sync in the background
+// (lib/sync.js). Resolves within a few seconds either way:
+// { queued: false } = on the server; { queued: true, error: null } = saved
+// on this device, will sync; { queued: true, error } = server rejected it.
+export function upsertSection(clientId, section, data) {
+  return saveAndWait({ type: "client_data", clientId, section, data });
 }
-export async function upsertTrainerData(trainerId, section, data) {
-  try {
-    const { error } = await supabase.from("trainer_data").upsert(
-      { trainer_id: trainerId, section, data },
-      { onConflict: "trainer_id,section" }
-    );
-    if (error) throw error;
-    await flushSyncQueue();
-    return { queued: false };
-  } catch (error) {
-    enqueueSync({ type: "trainer_data", trainerId, section, data });
-    return { queued: true, error };
-  }
+export function upsertTrainerData(trainerId, section, data) {
+  return saveAndWait({ type: "trainer_data", trainerId, section, data });
 }
 export async function loadTrainerTemplates(trainerId) {
   if (!trainerId) return [];

@@ -17,7 +17,7 @@ import { uid } from "../../lib/uid.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
 import { upsertSection, upsertTrainerData, loadTrainerTemplates } from "../../lib/clientData.js";
 import { buildPdfDoc, downloadBlob, sharePdfBlob, safeFilename } from "../../lib/pdf.js";
-import { updateClientRow } from "../../lib/cache.js";
+import { updateClientRow, readJson, writeJson } from "../../lib/cache.js";
 import { getVideoThumb } from "../../lib/exerciseVideos.js";
 import { GOAL_OPTIONS } from "../../lib/constants.js";
 import {
@@ -1159,12 +1159,19 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   const [weekNum, setWeekNum] = useState(() => currentProgramWeek(client.program));
   const [monthCursor, setMonthCursor] = useState(() => new Date());
   const days = useMemo(() => buildProgramDays(program, logs), [program, logs]);
+  // Only the section that actually changed is saved: logging a set writes
+  // training_logs alone. (It used to re-save the whole program on every set,
+  // which could overwrite program changes the coach had just made.)
+  const savedRef = useRef({ program: client.program, logs: client.trainingLogs });
   async function persist(nextProgram, nextLogs) {
     updateClient({ ...client, program: nextProgram, trainingLogs: nextLogs });
-    let failed = null;
-    if (nextProgram) { const r = await upsertSection(client.id, "program", nextProgram); if (r?.error) failed = r.error; }
-    if (nextLogs) { const r = await upsertSection(client.id, "training_logs", nextLogs); if (r?.error) failed = r.error; }
-    if (failed) showToast(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying, but if you see this repeatedly, the database needs attention - don't clear your browser data in the meantime.`, "error");
+    const jobs = [];
+    if (nextProgram && nextProgram !== savedRef.current.program) { savedRef.current.program = nextProgram; jobs.push(upsertSection(client.id, "program", nextProgram)); }
+    if (nextLogs && nextLogs !== savedRef.current.logs) { savedRef.current.logs = nextLogs; jobs.push(upsertSection(client.id, "training_logs", nextLogs)); }
+    // Offline or a weak signal is fine - it's saved on this device and the
+    // sync pill shows it. Only a real server rejection is worth a message.
+    const failed = (await Promise.all(jobs)).find((r) => r?.error)?.error;
+    if (failed) showToast(`Heads up: the server rejected this save (${failed.message || failed}). It's kept safely on this device and will keep retrying.`, "error");
   }
   function saveProgram(p) { setProgram(p); persist(p, logs); setBuilder(false); setAiDraft(null); setWeekNum(currentProgramWeek(p)); }
   function saveLogs(l) { setLogs(l); persist(program, l); }
@@ -1243,7 +1250,9 @@ export function ProgramTab({ client, updateClient, isCoach }) {
 }
 
 export function useExerciseLibrary() {
-  const [library, setLibrary] = useState(EXERCISE_LIBRARY);
+  // Last list from the server is kept on the device, so custom exercises
+  // are still there offline.
+  const [library, setLibrary] = useState(() => readJson("forge_exercise_library", null) || EXERCISE_LIBRARY);
   useEffect(() => {
     let active = true;
     async function loadExercises() {
@@ -1257,6 +1266,7 @@ export function useExerciseLibrary() {
           const dbNames = data.map((r) => r?.name).filter(Boolean);
           const merged = Array.from(new Set([...dbNames, ...EXERCISE_LIBRARY])).sort((a, b) => a.localeCompare(b));
           setLibrary(merged);
+          writeJson("forge_exercise_library", merged);
         }
       } catch (_) {
         // If the exercise_library table does not exist, Forge uses the built-in library.
@@ -1272,7 +1282,7 @@ export function useExerciseLibrary() {
 // before the exercise_library taxonomy migration is applied) and overlays
 // any DB rows once the migration has been run and seeded.
 export function useExerciseTaxonomyMap() {
-  const [map, setMap] = useState(EXERCISE_TAXONOMY);
+  const [map, setMap] = useState(() => readJson("forge_exercise_taxonomy", null) || EXERCISE_TAXONOMY);
   useEffect(() => {
     let active = true;
     async function loadTaxonomy() {
@@ -1287,6 +1297,7 @@ export function useExerciseTaxonomyMap() {
           merged[row.name] = { muscleGroup: row.muscle_group, movementPattern: row.movement_pattern, cues: row.coaching_cues || [], needsReview: !!row.needs_review };
         }
         setMap(merged);
+        writeJson("forge_exercise_taxonomy", merged);
       } catch (_) {
         // Taxonomy columns not migrated yet - the bundled static fallback covers it.
       }
