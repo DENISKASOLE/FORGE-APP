@@ -13,7 +13,7 @@ import { Chevron, PlusIcon, CheckIcon, ChartIcon } from "./fuelUi.jsx";
 // thin ring and slimmer cards). Track starts at 7:30 and sweeps clockwise
 // to 4:30: rotate(135) = this codebase's 12-o'clock start (-90) + 225.
 function CalorieGauge({ kcalEaten, kcalGoal }) {
-  const r = 52, sw = 7;
+  const r = 52, sw = 6;
   const C = 2 * Math.PI * r;
   const trackLen = C * 0.75;
   const pct = kcalGoal > 0 ? Math.max(0, Math.min(1, kcalEaten / kcalGoal)) : 0;
@@ -21,17 +21,17 @@ function CalorieGauge({ kcalEaten, kcalGoal }) {
   const side = (v, l) => (
     <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 21, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{Math.round(v).toLocaleString()}</div>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: HERO_SUB }}>{l}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: FUEL.dim }}>{l}</div>
     </div>
   );
   return (
-    <div style={{ display: "flex", alignItems: "center", padding: "6px 10px 4px", color: "var(--btn-ink)" }}>
+    <div style={{ display: "flex", alignItems: "center", padding: "6px 10px 4px", color: FUEL.text }}>
       {side(kcalEaten, "eaten")}
       <svg width="124" height="112" viewBox="0 0 124 118" role="img" aria-label={`${left} calories left`} style={{ flexShrink: 0 }}>
-        <circle cx="62" cy="62" r={r} fill="none" stroke="color-mix(in srgb, var(--btn-ink) 22%, transparent)" strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
-        <circle cx="62" cy="62" r={r} fill="none" stroke="var(--gold)" strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
-        <text x="62" y="62" textAnchor="middle" fill="var(--btn-ink)" fontSize="27" fontWeight="800" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
-        <text x="62" y="80" textAnchor="middle" fill={HERO_SUB} fontSize="11" fontWeight="700" fontFamily={BRAND.sans}>kcal left</text>
+        <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
+        <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.red} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
+        <text x="62" y="62" textAnchor="middle" fill={FUEL.text} fontSize="27" fontWeight="800" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
+        <text x="62" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="11" fontWeight="700" fontFamily={BRAND.sans}>kcal left</text>
       </svg>
       {side(kcalGoal, "goal")}
     </div>
@@ -47,7 +47,7 @@ function MacroBars({ now, target }) {
         const pct = t > 0 ? Math.min(100, (n / t) * 100) : 0;
         return (
           <div key={key} style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: MACRO_COLOR[key] }}>{label}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.muted }}>{label}</div>
             <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", marginTop: 1, fontVariantNumeric: "tabular-nums" }}>{n}<span style={{ color: FUEL.dim, fontWeight: 600, fontSize: 12 }}> / {t}g</span></div>
             <div style={{ height: 6, borderRadius: 9, background: `color-mix(in srgb, ${MACRO_COLOR[key]} 18%, transparent)`, marginTop: 6, overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", borderRadius: 9, background: MACRO_COLOR[key] }} /></div>
           </div>
@@ -60,13 +60,13 @@ function MacroBars({ now, target }) {
 // Day ring: share of that day's meals on plan (planned or swapped). Future
 // days are a dashed track; the strip always shows the week containing the
 // selected date.
-function DayRing({ pct, future, label, sel }) {
+function DayRing({ pct, future, label }) {
   const r = 16, C = 2 * Math.PI * r;
   return (
     <div style={{ width: 38, height: 38, margin: "0 auto", position: "relative", display: "grid", placeItems: "center", fontSize: 15, fontWeight: 800 }}>
       <svg width="38" height="38" viewBox="0 0 38 38" style={{ position: "absolute", inset: 0 }} aria-hidden="true">
-        <circle cx="19" cy="19" r={r} fill="none" stroke={sel ? "color-mix(in srgb, var(--btn-ink) 30%, transparent)" : FUEL.lineSoft} strokeWidth="3" strokeDasharray={future ? "3 3.4" : undefined} />
-        {pct > 0 && <circle cx="19" cy="19" r={r} fill="none" stroke={sel ? "var(--gold)" : FUEL.protein} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(C * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(-90 19 19)" />}
+        <circle cx="19" cy="19" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth="3" strokeDasharray={future ? "3 3.4" : undefined} />
+        {pct > 0 && <circle cx="19" cy="19" r={r} fill="none" stroke={FUEL.protein} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(C * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(-90 19 19)" />}
       </svg>
       {label}
     </div>
@@ -85,9 +85,9 @@ function WeekStrip({ plans, logs, marks, dateISO, todayISO, onSelect }) {
         const tally = p && !future ? dayOnPlanTally(p, cellISO, todayISO, logs?.[cellISO] || [], marks?.[cellISO] || {}) : null;
         const pct = tally && tally.total ? tally.onPlan / tally.total : 0;
         return (
-          <button key={name} onClick={() => onSelect(cellISO)} aria-label={date.toDateString()} aria-pressed={sel} style={{ padding: "6px 0 7px", borderRadius: 16, background: sel ? HERO_BG : "transparent", border: "none", boxShadow: sel ? "0 4px 12px color-mix(in srgb, var(--accent) 25%, transparent)" : "none", color: sel ? "var(--btn-ink)" : FUEL.text, cursor: "pointer", fontFamily: "inherit" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: sel ? "var(--btn-ink)" : cellISO === todayISO ? FUEL.red : FUEL.muted, marginBottom: 4 }}>{name.slice(0, 3)}</div>
-            <DayRing pct={pct} future={future} label={date.getDate()} sel={sel} />
+          <button key={name} onClick={() => onSelect(cellISO)} aria-label={date.toDateString()} aria-pressed={sel} style={{ padding: "6px 0 7px", borderRadius: 16, background: sel ? FUEL.card : "transparent", border: `1px solid ${sel ? "var(--line-strong)" : "transparent"}`, color: FUEL.text, cursor: "pointer", fontFamily: "inherit" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: sel || cellISO === todayISO ? FUEL.text : FUEL.dim, marginBottom: 4 }}>{name.slice(0, 3)}</div>
+            <DayRing pct={pct} future={future} label={date.getDate()} />
           </button>
         );
       })}
@@ -121,7 +121,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
   const planned = mealTotals(meal);
   const mc = mealColor(meal.key);
   return (
-    <div style={{ minWidth: 0, background: logged ? `color-mix(in srgb, ${FUEL.protein} 8%, ${FUEL.card})` : FUEL.card, border: `1px solid ${logged ? `color-mix(in srgb, ${FUEL.protein} 40%, transparent)` : isNext ? FUEL.red : "var(--line-strong)"}`, borderLeft: `5px solid ${mc}`, borderRadius: 18, padding: "12px 12px 12px 13px" }}>
+    <div style={{ minWidth: 0, background: logged ? `color-mix(in srgb, ${FUEL.protein} 5%, ${FUEL.card})` : FUEL.card, border: `1px solid ${logged ? `color-mix(in srgb, ${FUEL.protein} 40%, transparent)` : "var(--line-strong)"}`, borderLeft: `3px solid ${mc}`, borderRadius: 18, padding: "12px 12px 12px 13px" }}>
       <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, color: FUEL.text, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -133,13 +133,13 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: FUEL.muted, marginTop: 2 }}>
             {hasLayers
               ? <><b style={{ color: FUEL.text }}>{Math.round(t.kcal)} kcal</b> · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
-              : <><span style={{ color: mc, fontWeight: 800 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
+              : <><span style={{ color: FUEL.text, fontWeight: 700 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
           </div>
         </div>
         {logged ? (
           <div aria-label="Logged" style={{ width: 38, height: 38, borderRadius: 99, background: FUEL.protein, display: "grid", placeItems: "center", flexShrink: 0 }}><CheckIcon color={FUEL.onColor} /></div>
         ) : (
-          <div aria-label={`Log ${meal.name}`} style={{ width: 38, height: 38, borderRadius: 99, background: FUEL.red, boxShadow: "0 3px 10px color-mix(in srgb, var(--accent) 28%, transparent)", display: "grid", placeItems: "center", flexShrink: 0 }}><PlusIcon color={FUEL.onText} /></div>
+          <div aria-label={`Log ${meal.name}`} style={{ width: 38, height: 38, borderRadius: 99, background: "color-mix(in srgb, var(--accent) 12%, var(--card))", border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)", display: "grid", placeItems: "center", flexShrink: 0 }}><PlusIcon color={FUEL.red} /></div>
         )}
       </button>
       {hasLayers && (
@@ -222,13 +222,13 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
           <WeekStrip plans={plans} logs={logs} marks={marks} dateISO={dateISO} todayISO={todayISO} onSelect={setDateISO} />
 
           <div style={{ background: FUEL.card, border: "1px solid var(--line-strong)", borderRadius: 20, overflow: "hidden" }}>
-            <div style={{ background: HERO_BG, color: "var(--btn-ink)" }}>
+            <div style={{ borderBottom: `1px solid ${FUEL.line}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 8px 0" }}>
-              <button onClick={() => setDateISO(addDaysISO(dateISO, -1))} aria-label="Previous day" style={navBtn}><Chevron dir="left" color="var(--btn-ink)" /></button>
-              <button onClick={() => setDateISO(todayISO)} style={{ background: "none", border: "none", color: "var(--btn-ink)", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
-                {dayWord}<span style={{ background: chip.training ? "var(--gold)" : "color-mix(in srgb, var(--btn-ink) 18%, transparent)", color: chip.training ? "#152321" : "var(--btn-ink)", fontSize: 11, fontWeight: 800, borderRadius: 99, padding: "3px 9px" }}>{chip.label}</span>
+              <button onClick={() => setDateISO(addDaysISO(dateISO, -1))} aria-label="Previous day" style={navBtn}><Chevron dir="left" color={FUEL.dim} /></button>
+              <button onClick={() => setDateISO(todayISO)} style={{ background: "none", border: "none", color: FUEL.text, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
+                {dayWord}<span style={{ background: chip.training ? "var(--orange-bg)" : FUEL.card2, color: chip.training ? FUEL.amber : FUEL.muted, fontSize: 11, fontWeight: 800, borderRadius: 99, padding: "3px 9px" }}>{chip.label}</span>
               </button>
-              <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={navBtn}><Chevron dir="right" color="var(--btn-ink)" /></button>
+              <button onClick={() => setDateISO(addDaysISO(dateISO, 1))} aria-label="Next day" style={navBtn}><Chevron dir="right" color={FUEL.dim} /></button>
             </div>
             <CalorieGauge kcalEaten={totals.kcal} kcalGoal={target.kcal || 0} />
             </div>
@@ -262,8 +262,6 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
     </div>
   );
 }
-const HERO_BG = "linear-gradient(140deg, var(--accent) 0%, var(--accent-deep) 100%)";
-const HERO_SUB = "color-mix(in srgb, var(--btn-ink) 75%, transparent)";
 // One colour per meal so the list reads at a glance.
 const MEAL_TINT = { breakfast: "var(--orange)", lunch: "var(--blue)", snack: "var(--green)", snacks: "var(--green)", dinner: "var(--violet)" };
 function mealColor(key) { return MEAL_TINT[key] || "var(--accent)"; }
