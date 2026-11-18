@@ -42,7 +42,7 @@
       // Status bar / browser chrome colour = the page colour, so there is no
       // visible band above the app.
       var m = document.querySelector('meta[name="theme-color"]');
-      if (m) m.setAttribute("content", theme === "light" ? "#F5F2EC" : "#0B1513");
+      if (m) m.setAttribute("content", theme === "light" ? "#F5F2EC" : "#0A0A0A");
       // iPhone zooms the page when you tap a text box smaller than 16px.
       // maximum-scale=1 stops that auto-zoom; iOS still lets people pinch-zoom.
       if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
@@ -54,7 +54,7 @@
   <style>
     /* Boot screen: the logo on the page colour until the app has rendered
        (hidden automatically once #root has content). */
-    html, body { margin: 0; background: #0B1513; }
+    html, body { margin: 0; background: #0A0A0A; }
     html[data-theme="light"], html[data-theme="light"] body { background: #F5F2EC; }
     #boot { position: fixed; inset: 0; display: grid; place-items: center; }
     #boot img { width: 64px; height: auto; animation: boot-pulse 1.4s ease-in-out infinite; }

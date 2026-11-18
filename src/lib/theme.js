@@ -23,7 +23,7 @@ export function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
     // Keep the status bar / browser chrome the same colour as the page.
     const m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute("content", theme === "light" ? "#F5F2EC" : "#0B1513");
+    if (m) m.setAttribute("content", theme === "light" ? "#F5F2EC" : "#0A0A0A");
   }
   if (typeof localStorage !== "undefined") localStorage.setItem(THEME_KEY, theme);
 }

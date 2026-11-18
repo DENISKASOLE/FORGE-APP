@@ -38,26 +38,27 @@
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#0B1513; --page:#0B1513; --card:rgba(220,240,235,.055); --card-soft:rgba(220,240,235,.035); --chip:rgba(220,240,235,.075);
-  --sheet:#13201E;
-  --line:rgba(220,240,235,.10); --line-soft:rgba(220,240,235,.06); --line-strong:rgba(220,240,235,.20);
-  --ink:#F3EFE7; --ink-2:#AAB9B5; --ink-3:#74857F;
-  --green:#6CC497; --green-bg:rgba(108,196,151,.15);
-  --blue:#64A9DB;  --blue-bg:rgba(100,169,219,.15);
-  --yellow:#F6C76B; --yellow-bg:rgba(246,199,107,.15);
-  --violet:#CFA48C; --violet-bg:rgba(207,164,140,.15);
-  --red:#EC6B57; --red-bg:rgba(236,107,87,.15);
-  --orange:#E8866B; --orange-bg:rgba(232,134,107,.15);
-  --accent:#3FB1A6; --accent-deep:#2E8F86; --gold:#F6C76B;
-  --btn-bg:var(--accent); --btn-ink:#06201E;
-  --glass-hi:rgba(255,255,255,.10); --glass-hi-2:rgba(255,255,255,.02); --glass-shadow:rgba(0,0,0,.6);
-  --hero-gradient: linear-gradient(135deg,#14302C,#0F1F1D);
-  --hero-gradient-warm: linear-gradient(135deg,#14302C 0%,#2A2618 100%);
-  --hero-gradient-danger: linear-gradient(135deg,#2A1410 0%,#3A1A14 100%);
-  --cinematic-gradient:
-    radial-gradient(65% 40% at 18% -5%, rgba(18,128,122,.30), transparent 60%),
-    radial-gradient(55% 40% at 95% 12%, rgba(246,199,107,.07), transparent 60%),
-    linear-gradient(180deg,#0E1A18,#0B1513 55%,#09110F);
+  /* Dark mode, redesigned Nov 18 2026 ("dark dark", like WhatsApp):
+     near-black page, solid dark-grey cards clearly lighter than it,
+     white text and neutral greys; the deep-teal brand with white text on
+     buttons like light mode, and visible ring/bar tracks. */
+  --shell:#0A0A0A; --page:#0A0A0A; --card:#1C1C1E; --card-soft:#161618; --chip:#2C2C2E;
+  --sheet:#1C1C1E;
+  --line:#2C2C2E; --line-soft:#262628; --line-strong:#3A3A3C;
+  --ink:#FFFFFF; --ink-2:#A1A1A6; --ink-3:#6E6E73;
+  --green:#5FBB8A; --green-bg:rgba(95,187,138,.16);
+  --blue:#5EA4D6;  --blue-bg:rgba(94,164,214,.16);
+  --yellow:#E9B95B; --yellow-bg:rgba(233,185,91,.16);
+  --violet:#C99C84; --violet-bg:rgba(201,156,132,.16);
+  --red:#E26B57; --red-bg:rgba(226,107,87,.16);
+  --orange:#E0805F; --orange-bg:rgba(224,128,95,.16);
+  --accent:#2A9288; --accent-deep:#1F756D; --gold:#F0C36A;
+  --btn-bg:var(--accent); --btn-ink:#FFFFFF;
+  --glass-hi:rgba(255,255,255,.06); --glass-hi-2:rgba(255,255,255,.015); --glass-shadow:rgba(0,0,0,.5);
+  --hero-gradient: linear-gradient(135deg,#1F1F21 0%,#18181A 100%);
+  --hero-gradient-warm: linear-gradient(135deg,#1F1F21 0%,#24211A 100%);
+  --hero-gradient-danger: linear-gradient(135deg,#2A1714 0%,#331C18 100%);
+  --cinematic-gradient: #0A0A0A;
 }
 
 /* Surfaces layer page -> card-soft -> card, now translucent glass tiers
