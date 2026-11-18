@@ -25,6 +25,9 @@ export const FUEL = {
   red: "#ED000A",
   coral: "var(--red)",
 };
+// Macro colors - the app-wide convention (nutritionV2Theme MACRO_COLORS):
+// carbs blue, fat violet, protein green.
+export const MACRO_COLOR = { carbs: "var(--blue)", fat: "var(--violet)", protein: "var(--green)" };
 export const fuelLbl = { fontFamily: "var(--sans)", fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: FUEL.dim, fontWeight: 500 };
 
 // The 4-state outcome model's visual mark - shared by the client My week
