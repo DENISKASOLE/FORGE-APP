@@ -55,12 +55,13 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
   const [outOpen, setOutOpen] = useState(false);
   const [outText, setOutText] = useState("");
   const selected = options.find((o) => o.id === optId) || options[0];
-  const logged = entries.filter((e) => e.meal === meal.key);
+  const logged = entries.filter((e) => e.meal === meal.key && !e.extra);
+  const extras = entries.filter((e) => e.meal === meal.key && e.extra);
   const dateLabel = new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
   async function write(added, msg) {
     setSaving(true);
-    const kept = entries.filter((e) => e.meal !== meal.key);
+    const kept = entries.filter((e) => e.meal !== meal.key || e.extra);
     await onWrite([...kept, ...added], dateMarks);
     setSaving(false);
     if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
@@ -87,7 +88,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
     }], `${meal.name} logged as eating out.`);
   }
   async function clearLog() {
-    const kept = entries.filter((e) => e.meal !== meal.key);
+    const kept = entries.filter((e) => e.meal !== meal.key || e.extra);
     const nextMarks = { ...dateMarks };
     delete nextMarks[meal.key];
     await onWrite(kept, nextMarks);
@@ -119,6 +120,19 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
             {editable && <button onClick={clearLog} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 4 }}>Clear</button>}
           </div>
           <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2 }}>Logging again replaces what's here.</div>
+        </div>
+      )}
+
+      {extras.length > 0 && (
+        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.line}` }}>
+          <div style={{ ...fuelLbl, marginBottom: 4 }}>Also added</div>
+          {extras.map((x) => (
+            <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.name}</span>
+              <span style={{ color: FUEL.muted }}>{Math.round(x.macros?.kcal || 0)}</span>
+              {editable && <button onClick={() => onWrite(entries.filter((e) => e.id !== x.id), dateMarks)} aria-label={`Remove ${x.name}`} style={{ width: 28, height: 28, borderRadius: 99, border: `1px solid ${FUEL.line}`, background: FUEL.card2, color: FUEL.muted, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>}
+            </div>
+          ))}
         </div>
       )}
 

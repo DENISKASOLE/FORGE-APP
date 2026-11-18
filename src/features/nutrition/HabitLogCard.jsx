@@ -16,6 +16,11 @@ export function HabitLogCard({ client, updateClient }) {
   const today = isoDate();
   const nutrition = client.nutrition;
   const [habits, setHabits] = useState(() => habitLogFor(nutrition, today));
+  // Steps/water/sleep can also be saved from the + quick-log menu, so pick
+  // up changes made there instead of showing a stale value.
+  const saved = nutrition?.habits?.[today];
+  const [seen, setSeen] = useState(saved);
+  if (saved !== seen) { setSeen(saved); if (saved) setHabits(saved); }
 
   async function change(next) {
     setHabits(next);

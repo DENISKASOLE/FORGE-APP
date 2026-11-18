@@ -20,6 +20,10 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
   const [clientScreen, setClientScreen] = useState("today");
   const [logs, setLogs] = useState(() => normalizeLogs(client.nutritionV2Logs));
   const [marks, setMarks] = useState(() => normalizeMarks(client.nutritionV2Marks));
+  // Foods added from the + quick-log menu update client.nutritionV2Logs
+  // directly; keep this screen's copy in step with it.
+  const [seenLogs, setSeenLogs] = useState(client.nutritionV2Logs);
+  if (client.nutritionV2Logs !== seenLogs) { setSeenLogs(client.nutritionV2Logs); setLogs(normalizeLogs(client.nutritionV2Logs)); }
   // Plans are edited by the coach (CoachPlanBuilderV2), never here - just
   // re-synced whenever the client object itself changes (a refresh, or
   // the coach publishing while this client's app is open elsewhere).

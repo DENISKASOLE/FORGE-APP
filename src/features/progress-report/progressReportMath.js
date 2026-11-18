@@ -261,7 +261,7 @@ export function buildReportModel(client, trainerName, { period = "4w", customA =
 
   const weight = weightSeriesInRange(client.checkIns, window.a, window.b);
   const weightDays = datesInRange(window.a, window.b);
-  const weightRoll = rollingMean(weightHistoryFromCheckins(client.checkIns), weightDays);
+  const weightRoll = rollingMean(weightHistoryFromCheckins(client.checkIns, client.measurementsHistory), weightDays);
   const measurements = measurementContext(client.measurementsHistory, window.a, window.b);
 
   const sessionWindow = sessionWindowFor(client.program, client.trainingLogs, window.a, window.b);

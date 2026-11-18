@@ -69,7 +69,7 @@ function nutritionHealthFor(client, today) {
   const week = weeklyProgress(plans, logs, marks, today, today);
   const weekOnPlan = last7DaysOnPlan(plans, logs, marks, today);
   const livePlan = planVersionForDate(plans, today);
-  return { client, plans, logs, marks, flag, livePlan, week, weekOnPlan, trend: weightTrend(client.checkIns) };
+  return { client, plans, logs, marks, flag, livePlan, week, weekOnPlan, trend: weightTrend(client.checkIns, 8, client.measurementsHistory) };
 }
 
 function RosterTable({ healths, selectedId, onSelect }) {

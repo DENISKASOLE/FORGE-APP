@@ -114,7 +114,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
   const todayISO = isoDate();
   const weekInfo = last7DaysOnPlan(plans, logs, marks, todayISO);
   const progress = weeklyProgress(plans, logs, marks, todayISO, todayISO);
-  const trend = weightTrend(client.checkIns);
+  const trend = weightTrend(client.checkIns, 8, client.measurementsHistory);
   const workoutByDate = useMemo(() => {
     const map = new Map();
     buildProgramDays(client.program, client.trainingLogs).forEach((d) => map.set(d.dateISO, !!d.workout));

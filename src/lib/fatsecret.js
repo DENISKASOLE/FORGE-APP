@@ -45,3 +45,10 @@ export function useFatSecretResults(query) {
   }, [q]);
   return q ? { results, loading } : { results: [], loading: false };
 }
+
+// Barcode -> food (same shape as getFoodServings) via the forge-fatsecret
+// edge function's "barcode" action (GTIN-13 lookup on FatSecret).
+export async function lookupBarcode(code) {
+  const data = await callFatSecret({ action: "barcode", barcode: String(code || "").replace(/\D/g, "") });
+  return { id: data.id, name: data.name, brand: data.brand || "", servings: data.servings || [] };
+}

@@ -112,7 +112,10 @@ function sumEntries(list) {
 }
 
 function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
-  const logged = mealEntries.length > 0;
+  // The tick means the meal itself is logged; extras added from the +
+  // quick log show as layers but don't tick the meal.
+  const logged = mealEntries.some((e) => !e.extra);
+  const hasLayers = mealEntries.length > 0;
   const t = sumEntries(mealEntries);
   const planned = mealTotals(meal);
   return (
@@ -126,7 +129,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
             {isNext && !logged && <span style={pill(FUEL.text, FUEL.onText)}>Next</span>}
           </div>
           <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2 }}>
-            {logged
+            {hasLayers
               ? <>{Math.round(t.kcal)} kcal · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
               : <>{meal.time} · {Math.round(planned.kcal)} kcal planned</>}
           </div>
@@ -137,7 +140,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
           <div aria-label={`Log ${meal.name}`} style={{ width: 32, height: 32, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.lineSoft}`, display: "grid", placeItems: "center", flexShrink: 0 }}><PlusIcon color={FUEL.text} /></div>
         )}
       </button>
-      {logged && (
+      {hasLayers && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
           {loggedLayers(mealEntries).map((l) => (
             <div key={l.name} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 10px", borderRadius: 10, background: "var(--card-soft)", border: `1px solid ${FUEL.line}`, fontSize: 12 }}>

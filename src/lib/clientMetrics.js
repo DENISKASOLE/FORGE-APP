@@ -2,14 +2,23 @@
 // to any one feature's lib file. Lives here (not in trainingLogs.js or
 // nutrition.js) so both ProgressTab.jsx and the Progress Report can import
 // it without duplicating the regex-match logic.
-export function weightHistoryFromCheckins(checkIns) {
+// Weight points from weekly check-ins plus any weight logged from the +
+// quick-log menu (measurementsHistory entries with a `weight`). When both
+// exist for the same date, the quick-log value wins (it's the deliberate
+// weigh-in).
+export function weightHistoryFromCheckins(checkIns, measurementsHistory = []) {
   const points = [];
   (checkIns || []).forEach((c) => {
     const ans = (c.answers || []).find((a) => /weight/i.test(a.question));
     const val = ans ? parseFloat(String(ans.answer).replace(/[^0-9.]/g, "")) : NaN;
     if (!isNaN(val) && val > 0) points.push({ date: c.date, value: val });
   });
-  return points.sort((a, b) => a.date.localeCompare(b.date));
+  const byDate = new Map(points.map((p) => [p.date, p]));
+  (Array.isArray(measurementsHistory) ? measurementsHistory : []).forEach((e) => {
+    const val = parseFloat(e?.weight);
+    if (e?.date && !isNaN(val) && val > 0) byDate.set(e.date, { date: e.date, value: val });
+  });
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 // Weight trend for the Fuel tab redesign's "My week" screen (DECISIONS.md
 // "Fuel tab redesign"). Check-ins in this app are weekly (isCheckInDue's
@@ -19,8 +28,8 @@ export function weightHistoryFromCheckins(checkIns) {
 // rather than manufacturing a denser average the real data doesn't
 // support. Returns null when there isn't enough to show a trend (the
 // brief's own rule: "if there isn't enough data, hide the card").
-export function weightTrend(checkIns, maxPoints = 8) {
-  const all = weightHistoryFromCheckins(checkIns);
+export function weightTrend(checkIns, maxPoints = 8, measurementsHistory = []) {
+  const all = weightHistoryFromCheckins(checkIns, measurementsHistory);
   if (all.length < 2) return null;
   const points = all.slice(-maxPoints);
   const current = points[points.length - 1].value;

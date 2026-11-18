@@ -319,7 +319,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
   const volPrev = volumeTrend.volumes[volumeTrend.volumes.length - 2];
   const volNow = volumeTrend.volumes[volumeTrend.volumes.length - 1];
   const volumeDeltaPct = volPrev > 0 ? Math.round(((volNow - volPrev) / volPrev) * 100) : null;
-  const weightHistory = weightHistoryFromCheckins(client.checkIns);
+  const weightHistory = weightHistoryFromCheckins(client.checkIns, client.measurementsHistory);
   const latestWeight = weightHistory[weightHistory.length - 1]?.value ?? client.weight ?? null;
   const prevWeight = weightHistory.length >= 2 ? weightHistory[weightHistory.length - 2].value : null;
   const weightDelta = latestWeight != null && prevWeight != null ? +(latestWeight - prevWeight).toFixed(1) : null;

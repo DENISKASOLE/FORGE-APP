@@ -29,7 +29,8 @@ import { HabitLogCard } from "../nutrition/HabitLogCard.jsx";
 import { normalizePlans, normalizeLogs, normalizeMarks } from "../../lib/nutritionV2.js";
 import { MEAL_KEYS } from "../nutrition-v2/nutritionV2Model.js";
 import { planForDate, mealStatus, mergeLegacyMacroLog } from "../nutrition-v2/nutritionV2Math.js";
-import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
+import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal, MeAvatarButton } from "./ClientShellUI.jsx";
+import { QuickLogMenu } from "../quicklog/QuickLogMenu.jsx";
 import { CoachSidebarShell } from "../coach/CoachSidebarShell.jsx";
 import { inkOn } from "../../lib/colorUtils.js";
 
@@ -42,6 +43,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const tab = tabProp !== undefined ? tabProp : tabState;
   const setTab = setTabProp || setTabState;
   const [showSettings, setShowSettings] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const isMobile = useIsMobile(520);
   // Matches CoachSidebarShell's own breakpoint exactly (DESKTOP_SIDEBAR_MIN).
   const isDesktop = !useIsMobile(1180);
@@ -66,7 +68,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
   // ---- content block shared by both coach (tab bar) and client (bottom nav) ----
   const content = <>
-    {tab === "home" && <ClientHome client={client} updateClient={updateClient} goTo={!isCoach ? setTab : undefined} />}
+    {tab === "home" && <ClientHome client={client} updateClient={updateClient} goTo={!isCoach ? setTab : undefined} unread={(client.messages || []).filter((m) => m.from === "coach" && !m.read).length} />}
     {tab === "profile" && <ProfileTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "program" && <ProgramTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "nutrition" && <NutritionFlow client={client} updateClient={updateClient} isCoach={isCoach} />}
@@ -130,9 +132,14 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   }
 
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
-  const parentHub = ["payments", "profile", "ai_coach"].includes(tab) ? "me_hub" : null;
-  const parentHubLabel = "Me";
+  // "Me" is reached from the photo top-right (Nov 2026), so Me itself goes
+  // back to Home and its sub-screens go back to Me.
+  const parentHub = ["payments", "profile", "ai_coach"].includes(tab) ? "me_hub" : tab === "me_hub" ? "home" : null;
+  const parentHubLabel = tab === "me_hub" ? "Home" : "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
+  // Photo top-right on every main screen except Home (which has its own in
+  // the greeting) and the Me screens themselves.
+  const showTopAvatar = tab !== "home" && !["me_hub", "payments", "profile", "ai_coach"].includes(tab);
   const trainCards = [
     { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program ? `${client.program.goal || "Training"} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
     { key: "progress", icon: "progress", color: BRAND.blue, title: "Progress", sub: "See your trends and personal bests" },
@@ -154,12 +161,26 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
             <NavIcon name="back" size={15} /> Back to {parentHubLabel}
           </button>
         )}
+        {showTopAvatar && (
+          <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 2px 8px" }}>
+            <MeAvatarButton client={client} unread={unreadMessages} onClick={() => setTab("me_hub")} size={38} />
+          </div>
+        )}
         {tab === "train_hub" && <HubScreen title="Train" subtitle="Program, progress, and photos" cards={trainCards} onOpen={setTab} />}
-        {tab === "me_hub" && <HubScreen title="Me" subtitle="Your coach, payments, and account" cards={meCards} onOpen={handleMeOpen} />}
+        {tab === "me_hub" && <HubScreen title="Me" subtitle="Your coach, payments, and account" cards={meCards} onOpen={handleMeOpen} header={(
+          <div className="glass" style={{ display: "flex", alignItems: "center", gap: 14, padding: 14, marginBottom: 12 }}>
+            <ClientAvatar client={client} size={56} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: BRAND.display, fontSize: 19, fontWeight: 600 }}>{client.name}</div>
+              <div style={{ color: BRAND.muted, fontSize: 13 }}>{[client.goals?.join(" + ") || client.goal, client.clientType === "Online" ? "Online client" : client.clientType ? "In-person client" : ""].filter(Boolean).join(" · ")}</div>
+            </div>
+          </div>
+        )} />}
         {tab !== "train_hub" && tab !== "me_hub" && content}
       </main>
       {showSettings && <ClientSettingsModal client={client} onClose={() => setShowSettings(false)} />}
-      <ClientBottomNav tab={tab} setTab={setTab} unreadMessages={unreadMessages} client={client} />
+      <QuickLogMenu client={client} updateClient={updateClient} open={plusOpen} onClose={() => setPlusOpen(false)} />
+      <ClientBottomNav tab={tab} setTab={(t) => { setPlusOpen(false); setTab(t); }} plusOpen={plusOpen} onPlus={() => setPlusOpen((o) => !o)} />
     </div>
   );
 }
@@ -241,7 +262,7 @@ function MomentumRing({ centerText, pct, color, label, size = 58, stroke = 6 }) 
   );
 }
 
-function ClientHome({ client, updateClient, goTo }) {
+function ClientHome({ client, updateClient, goTo, unread = 0 }) {
   const todayISO = isoDate();
   const jsDow = new Date().getDay();
   const dow = jsDow === 0 ? 7 : jsDow; // program model is Mon(1)-Sun(7); Date#getDay() is Sun(0)-Sat(6)
@@ -320,7 +341,7 @@ function ClientHome({ client, updateClient, goTo }) {
         <div style={{ fontFamily: BRAND.sans, fontSize: 14, fontWeight: 400, color: BRAND.muted }}>{greeting}</div>
         <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 700, letterSpacing: "-0.4px", color: BRAND.text, marginTop: 2 }}>{firstName}.</div>
       </div>
-      <ClientAvatar client={client} size={42} />
+      {goTo ? <MeAvatarButton client={client} unread={unread} onClick={() => goTo("me_hub")} size={42} /> : <ClientAvatar client={client} size={42} />}
     </div>
 
     {goTo && showPaymentBanner && (
