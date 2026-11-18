@@ -8,26 +8,33 @@ function inviteCodeFromUrl() {
   return new URL(window.location.href).searchParams.get("invite") || "";
 }
 
-function AuthField({ label, value, onChange, type = "text", placeholder = "", right = null, focused = false }) {
+// Text box for the sign-in screens. Crisp by design (Nov 2026: the light
+// login looked blurry): solid card, hairline border, and a sharp accent
+// border only while the box actually has focus - no glow, no tint.
+function AuthField({ label, value, onChange, type = "text", placeholder = "", right = null }) {
+  const [focused, setFocused] = useState(false);
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <div style={{ fontFamily: BRAND.sans, fontSize: 10, fontWeight: 600, color: BRAND.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, color: BRAND.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
         {right}
       </div>
       <div style={{
-        background: focused ? BRAND.card2 : BRAND.card,
-        border: `1px solid ${focused ? "color-mix(in srgb, var(--accent) 35%, transparent)" : BRAND.line}`,
+        background: BRAND.card,
+        border: `1.5px solid ${focused ? BRAND.gold : BRAND.line}`,
         borderRadius: 13,
-        padding: "15px 14px",
-        boxShadow: focused ? "0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent)" : "none",
+        padding: "14px 14px",
+        transition: "border-color .15s ease",
       }}>
         <input
           type={type}
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: BRAND.text, fontFamily: BRAND.sans, fontWeight: 500, fontSize: 15, padding: 0 }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          autoComplete={type === "password" ? "current-password" : label.toLowerCase().includes("email") ? "email" : "off"}
+          style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: BRAND.text, fontFamily: BRAND.sans, fontWeight: 500, fontSize: 16, padding: 0 }}
         />
       </div>
     </div>
@@ -76,8 +83,7 @@ export function LoginScreen({ onReady }) {
   const isInvite = mode === "invite";
   const msgIsGood = msg.includes("sent") || msg.includes("created") || msg.includes("connected");
   return (
-    <div className="cinematic-bg" style={{ minHeight: "100vh", color: BRAND.text, display: "flex", justifyContent: "center", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: -130, right: -90, width: 340, height: 340, borderRadius: "50%", background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 66%)", pointerEvents: "none" }} />
+    <div style={{ minHeight: "100vh", background: BRAND.bg, color: BRAND.text, display: "flex", justifyContent: "center", overflow: "hidden" }}>
       <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column", padding: isMobile ? "56px 24px 40px" : "72px 24px 48px", position: "relative", minHeight: "100vh", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 40 }}>
           <div style={{ fontFamily: BRAND.display, fontSize: 15, fontWeight: 800, letterSpacing: "0.1em", color: BRAND.text }}>FORGE</div>
@@ -87,7 +93,7 @@ export function LoginScreen({ onReady }) {
         <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 28 : 32, fontWeight: 800, letterSpacing: "-0.9px", lineHeight: 1.05, color: BRAND.text }}>
           {isInvite ? "Create your account." : "Good to see you."}
         </div>
-        <div style={{ fontFamily: BRAND.sans, fontSize: 13, color: BRAND.muted, marginTop: 9, lineHeight: 1.5 }}>
+        <div style={{ fontFamily: BRAND.sans, fontSize: 15, color: BRAND.muted, marginTop: 9, lineHeight: 1.5 }}>
           {isInvite ? "Enter your email and choose a password to finish setting up your account." : "Pick up where you left off."}
         </div>
 
@@ -99,7 +105,6 @@ export function LoginScreen({ onReady }) {
             onChange={setPassword}
             type="password"
             placeholder="Password"
-            focused
             right={!isInvite ? (
               <button onClick={forgotPassword} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, color: BRAND.gold }}>Forgot password?</button>
             ) : null}
@@ -117,7 +122,7 @@ export function LoginScreen({ onReady }) {
           style={{
             width: "100%", background: BRAND.gold, border: "none", borderRadius: 14, padding: 17,
             fontFamily: BRAND.sans, fontWeight: 700, fontSize: 15, color: BRAND.btnInk, cursor: loading ? "not-allowed" : "pointer",
-            marginTop: 24, boxShadow: "0 8px 28px color-mix(in srgb, var(--accent) 26%, transparent)", opacity: loading ? 0.6 : 1,
+            marginTop: 24, boxShadow: "0 1px 2px rgba(0,0,0,.08)", opacity: loading ? 0.6 : 1,
           }}
         >
           {isInvite ? "Accept invite" : "Sign in"}

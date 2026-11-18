@@ -167,7 +167,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
           </button>
         )}
         {showTopAvatar && (
-          <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 2px 8px" }}>
+          <div className="me-top-row" style={{ display: "flex", justifyContent: "flex-end", padding: "0 2px 8px" }}>
             <MeAvatarButton client={client} unread={unreadMessages} onClick={() => setTab("me_hub")} size={38} />
           </div>
         )}

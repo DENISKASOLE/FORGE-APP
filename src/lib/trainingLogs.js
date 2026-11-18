@@ -51,6 +51,7 @@ export function parseSeconds(text = "") {
 }
 export function fmtClock(totalSec = 0) {
   const s = Math.max(0, Math.round(totalSec));
+  if (s >= 3600) return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 export function emptyTrainingLogs() { return { version: 2, sessions: [] }; }

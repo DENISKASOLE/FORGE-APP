@@ -56,11 +56,11 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
       </div>
 
       {thumb ? (
-        <button onClick={() => onPlayVideo(thumb.videoId, effectiveName)} style={{ width: "100%", padding: 0, border: "none", borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: "#ffffff" }}>
+        <button onClick={() => onPlayVideo(thumb.videoId, effectiveName)} style={{ width: "100%", padding: 0, border: "none", borderRadius: BRAND.radiusCard, overflow: "hidden", cursor: "pointer", display: "block", position: "relative", background: BRAND.card2 }}>
           <div style={{ position: "relative", height: 168 }}>
-            <img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }} />
+            <img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,.75)", border: "2px solid #000", display: "grid", placeItems: "center", color: "#000", fontSize: 20 }}>▶</div>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.45)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1.5px solid rgba(255,255,255,.85)", display: "grid", placeItems: "center", color: "#fff", fontSize: 20, paddingLeft: 3 }}>▶</div>
             </div>
           </div>
         </button>

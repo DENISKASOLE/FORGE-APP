@@ -117,6 +117,9 @@ input, textarea, select, [contenteditable="true"], .selectable, .selectable * {
 }
 img { -webkit-user-drag: none; }
 
+/* Focus mode during a workout: no Me photo row above the exercise. */
+html[data-focus="workout"] .me-top-row { display: none; }
+
 /* ---------- Motion (screens, sheets, menus) ---------- */
 @keyframes fx-fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fx-push { from { opacity: .4; transform: translateX(28px); } to { opacity: 1; transform: none; } }
