@@ -14,6 +14,7 @@ import { AccountNotActiveScreen } from "./features/auth/AccountNotActiveScreen.j
 import { PaymentLockedScreen } from "./features/auth/PaymentLockedScreen.jsx";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
+import { WelcomeIntro } from "./features/auth/WelcomeIntro.jsx";
 import { CoachDashboard } from "./features/coach/CoachDashboard.jsx";
 import { ClientView } from "./features/client-shell/ClientView.jsx";
 /*
@@ -265,7 +266,7 @@ export default function App() {
     {accountNotActive ? <AccountNotActiveScreen onBackToLogin={() => setAccountNotActive(false)} />
     : recoveryMode ? <ResetPasswordScreen onDone={() => { recoveryModeRef.current = false; setRecoveryMode(false); }} />
     : loading ? bootScreen
-    : !session ? <LoginScreen onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
+    : !session ? <SignedOut onReady={() => supabase.auth.getSession().then(({ data }) => data.session && boot(data.session.user))} />
     : clientPortal && paymentLockout(clientPortal).locked ? (
       <PaymentLockedScreen client={clientPortal} updateClient={updateClient} overdueDays={paymentLockout(clientPortal).overdueDays} />
     ) : clientPortal ? (
@@ -340,4 +341,13 @@ function withPendingSections(clientId, rows) {
   const pending = pendingClientSections(clientId);
   const extra = Object.entries(pending).map(([section, data]) => ({ client_id: clientId, section, data }));
   return extra.length ? [...rows, ...extra] : rows;
+}
+
+// Signed out: the video welcome first, then the login page. An invite link
+// goes straight to account creation.
+function SignedOut({ onReady }) {
+  const hasInvite = typeof window !== "undefined" && new URL(window.location.href).searchParams.has("invite");
+  const [stage, setStage] = useState(hasInvite ? "login" : "intro");
+  if (stage === "intro") return <WelcomeIntro onLogin={() => setStage("login")} />;
+  return <LoginScreen onReady={onReady} onBack={hasInvite ? null : () => setStage("intro")} />;
 }
