@@ -199,6 +199,8 @@ export function mapClient(row, dataRows = [], index = 0) {
     moodLog: sections.mood_log?.entries || {},
     habitGoals: sections.habit_goals || null,
     progressReportNotes: sections.progress_report_notes || null,
+    // Coach-only per-client notes (Nov 2026, replaces the coach Messages tab).
+    coachNotes: sections.coach_notes?.list || [],
     progressReportHistory: sections.progress_report_history?.entries || [],
     notes: profile.notes || row.notes || "",
   };

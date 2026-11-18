@@ -11,6 +11,7 @@ import { useIsMobile } from "../../lib/browser.js";
 import { paymentStatus } from "../../lib/clientData.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { MessagesTab } from "../messages/MessagesTab.jsx";
+import { CoachNotesTab } from "../messages/CoachNotesTab.jsx";
 import { ClientAIChat } from "../coach/ClientAIChat.jsx";
 import { ScheduleTab, InviteTab } from "../scheduling/ScheduleTab.jsx";
 import { PackagesTab } from "../scheduling/PackagesTab.jsx";
@@ -55,7 +56,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"],
     isOnline ? ["checkins", "Check-ins"] : ["schedule", "Schedule"],
     isOnline ? ["payments", "Payments"] : ["packages", "Packages"],
-    ["messages", "Messages"], ["invite", "Invite"],
+    ["notes", "Notes"], ["invite", "Invite"],
   ] : [
     ["home", "Home"], ["nutrition", "Nutrition"], ["program", "Program"], ["progress", "Progress"], ["photos", "Photos"],
     ...(isOnline ? [["checkins", "Check-ins"], ["payments", "Payments"]] : []),
@@ -86,6 +87,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "intake" && <IntakeForm client={client} updateClient={updateClient} goTo={setTab} />}
     {tab === "payments" && <PaymentsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "invite" && <InviteTab client={client} updateClient={updateClient} />}
+    {tab === "notes" && isCoach && <CoachNotesTab client={client} updateClient={updateClient} />}
     {tab === "messages" && <MessagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "ai_coach" && !isCoach && <ClientAIChat client={client} updateClient={updateClient} />}
   </>;
