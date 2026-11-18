@@ -137,22 +137,39 @@ export const CLIENT_BOTTOM_NAV = [
   { key: "progress_hub", label: "Progress", icon: "progress", group: ["progress_hub", "progress"] },
   { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "ai_coach", "photos", "checkins", "measurements"] },
 ];
-export function ClientBottomNav({ tab, setTab, unreadMessages }) {
+// Floating glass dock (Nov 2026, inspired by MyFitnessPal's iOS bar):
+// the first four tabs share one frosted capsule with a sliding glass pill
+// behind the active one; "Me" sits apart as a round button showing the
+// client's own photo (initial fallback), ringed when active.
+export function ClientBottomNav({ tab, setTab, unreadMessages, client }) {
+  const tabs = CLIENT_BOTTOM_NAV.filter((i) => i.key !== "me_hub");
+  const me = CLIENT_BOTTOM_NAV.find((i) => i.key === "me_hub");
+  const activeIndex = tabs.findIndex((i) => i.group.includes(tab));
+  const meActive = me.group.includes(tab);
+  const photoUrl = usePhotoUrl(client?.photo);
   return (
-    <div className="glass-nav" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "space-around", paddingTop: 10, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
-      {CLIENT_BOTTOM_NAV.map((item) => {
-        const active = item.group.includes(tab);
-        return (
-          <button key={item.key} onClick={() => setTab(item.key)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, flex: 1, minWidth: 0, position: "relative", padding: 0 }}>
-            <div className={active ? "glass-pill-active" : undefined} style={{ width: 42, height: 28, borderRadius: 999, display: "grid", placeItems: "center", transition: "box-shadow .2s, background .2s" }}>
-              <NavIcon name={item.icon} size={22} color={active ? BRAND.btnInk : BRAND.dim} />
-              {item.key === "me_hub" && unreadMessages > 0 && <div style={{ position: "absolute", top: -2, right: 6, width: 16, height: 16, borderRadius: "50%", background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 500, display: "grid", placeItems: "center", border: `2px solid var(--shell)` }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
-            </div>
-            <div style={{ fontSize: 9, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", color: active ? BRAND.text : BRAND.dim }}>{item.label}</div>
-          </button>
-        );
-      })}
-    </div>
+    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "0 14px max(12px, env(safe-area-inset-bottom))", pointerEvents: "none" }}>
+      <div className="glass-dock" style={{ position: "relative", flex: 1, maxWidth: 360, height: 64, borderRadius: 999, display: "flex", padding: 5, pointerEvents: "auto" }}>
+        {activeIndex >= 0 && (
+          <div aria-hidden="true" className="glass-dock-pill" style={{ position: "absolute", top: 5, bottom: 5, left: `calc(5px + ${activeIndex} * (100% - 10px) / ${tabs.length})`, width: `calc((100% - 10px) / ${tabs.length})`, borderRadius: 999, transition: "left .32s cubic-bezier(.3,1.3,.5,1)" }} />
+        )}
+        {tabs.map((item, i) => {
+          const active = i === activeIndex;
+          return (
+            <button key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ position: "relative", zIndex: 1, flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: BRAND.sans, color: active ? BRAND.text : BRAND.muted }}>
+              <NavIcon name={item.icon} size={22} color={active ? BRAND.text : BRAND.muted} />
+              <span style={{ fontSize: 11, fontWeight: active ? 600 : 500, whiteSpace: "nowrap" }}>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <button onClick={() => setTab(me.key)} aria-label={me.label} aria-current={meActive ? "page" : undefined} className="glass-dock" style={{ position: "relative", width: 64, height: 64, borderRadius: "50%", padding: 4, flexShrink: 0, cursor: "pointer", pointerEvents: "auto", display: "grid", placeItems: "center", outline: meActive ? `2px solid ${BRAND.text}` : "none", outlineOffset: -2 }}>
+        <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : (client?.color || BRAND.card2), color: "#000", fontFamily: BRAND.display, fontWeight: 600, fontSize: 20 }}>
+          {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client?.avatar || client?.name?.[0] || <NavIcon name="me" size={22} color={BRAND.text} />)}
+        </div>
+        {unreadMessages > 0 && <div style={{ position: "absolute", top: 0, right: 0, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 10, fontWeight: 600, display: "grid", placeItems: "center", border: "2px solid var(--shell)" }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
+      </button>
+    </nav>
   );
 }
 export function HubScreen({ title, subtitle, cards, onOpen }) {
