@@ -144,8 +144,8 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(10,20,19,.6)", fontFamily: "var(--sans)" }}>
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 64, background: "var(--sheet)", boxShadow: "0 -12px 40px rgba(0,0,0,.35)", borderTop: `1px solid ${FUEL.lineSoft}`, borderRadius: "26px 26px 0 0", padding: "10px 20px 24px", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto", color: FUEL.text, fontWeight: 500 }}>
+    <div className="fx-scrim" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(10,20,19,.6)", fontFamily: "var(--sans)" }}>
+      <div className="fx-sheet" style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 64, background: "var(--sheet)", boxShadow: "0 -12px 40px rgba(0,0,0,.35)", borderTop: `1px solid ${FUEL.lineSoft}`, borderRadius: "26px 26px 0 0", padding: "10px 20px calc(24px + env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto", color: FUEL.text, fontWeight: 500 }}>
         <div style={{ width: 40, height: 4, borderRadius: 9, background: FUEL.lineDashed, margin: "0 auto" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

@@ -995,7 +995,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
         </span>
       </header>
       <main style={{ width: "100%", maxWidth: isMobile ? 480 : isTablet ? 960 : 1180, margin: "0 auto", padding: isMobile ? 12 : 16, boxSizing: "border-box", overflowX: "hidden" }}>
-        {body}
+        <div key={screen || tab} className={screen ? "fx-push" : "fx-screen"}>{body}</div>
       </main>
       {!isDesktop && <CoachBottomNav tab={screen ? toolOrigin : tab} setTab={(t) => { setScreen(null); setTab(t); }} unread={notifications.length} />}
       {showAdd && <AddClientModal onClose={() => setShowAdd(false)} onCreate={createClient} />}

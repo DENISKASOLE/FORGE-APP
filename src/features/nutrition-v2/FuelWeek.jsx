@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useEdgeSwipeBack } from "../../lib/gestures.js";
 import { BRAND } from "../../theme/tokens.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { buildProgramDays } from "../../lib/programModel.js";
@@ -111,6 +112,7 @@ function WeightCard({ trend }) {
 // tab redesign"). Reads almost entirely from last7DaysOnPlan (shared with
 // FuelToday's "This week" teaser and, later, the coach's roster heatmap).
 export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
+  const swipeRef = useEdgeSwipeBack(onBack);
   const todayISO = isoDate();
   const weekInfo = last7DaysOnPlan(plans, logs, marks, todayISO);
   const progress = weeklyProgress(plans, logs, marks, todayISO, todayISO);
@@ -122,7 +124,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
   }, [client.program, client.trainingLogs]);
 
   return (
-    <div style={{ width: "100%", background: FUEL.bg, color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 16px" }}>
+    <div ref={swipeRef} className="fx-push" style={{ width: "100%", background: FUEL.bg, color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", gap: 10, padding: "2px 0 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button onClick={onBack} aria-label="Back to today" style={{ width: 44, height: 44, borderRadius: 99, background: FUEL.card2, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>

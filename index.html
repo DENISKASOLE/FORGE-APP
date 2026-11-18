@@ -3,29 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
-  <link rel="manifest" href="/manifest.webmanifest" />
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F2EC" />
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0B1513" />
-  <title>FORGE</title>
-
+  <!-- viewport-fit=cover: draw edge to edge on notched iPhones (safe areas handled in CSS). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F5F2EC" />
+  <!-- Installed-app (home screen) behaviour on iPhone -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Forge" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <!-- iPhone launch screens (shown while the app opens), light + dark -->
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1290x2796.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1179x2556.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1284x2778.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1170x2532.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1125x2436.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1242x2688.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-828x1792.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-750x1334.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: light)" href="/splash/light-1242x2208.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1290x2796.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1179x2556.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1284x2778.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1170x2532.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1125x2436.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1242x2688.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-828x1792.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-750x1334.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) and (prefers-color-scheme: dark)" href="/splash/dark-1242x2208.png" />
+  <title>Forge</title>
 
   <script>
     (function () {
+      var theme = "dark";
       try {
         var saved = localStorage.getItem("forge_theme");
-        var theme = saved === "light" || saved === "dark" ? saved : "dark";
-        document.documentElement.setAttribute("data-theme", theme);
-      } catch (e) {
-        document.documentElement.setAttribute("data-theme", "dark");
+        theme = saved === "light" || saved === "dark" ? saved : "dark";
+      } catch (e) {}
+      document.documentElement.setAttribute("data-theme", theme);
+      // Status bar / browser chrome colour = the page colour, so there is no
+      // visible band above the app.
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute("content", theme === "light" ? "#F5F2EC" : "#0B1513");
+      // iPhone zooms the page when you tap a text box smaller than 16px.
+      // maximum-scale=1 stops that auto-zoom; iOS still lets people pinch-zoom.
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+        var v = document.querySelector('meta[name="viewport"]');
+        if (v) v.setAttribute("content", v.getAttribute("content") + ", maximum-scale=1");
       }
     })();
   </script>
+  <style>
+    /* Boot screen: the logo on the page colour until the app has rendered
+       (hidden automatically once #root has content). */
+    html, body { margin: 0; background: #0B1513; }
+    html[data-theme="light"], html[data-theme="light"] body { background: #F5F2EC; }
+    #boot { position: fixed; inset: 0; display: grid; place-items: center; }
+    #boot img { width: 64px; height: auto; animation: boot-pulse 1.4s ease-in-out infinite; }
+    #boot .l { display: none; }
+    html[data-theme="light"] #boot .l { display: block; }
+    html[data-theme="light"] #boot .d { display: none; }
+    #root:not(:empty) + #boot { display: none; }
+    @keyframes boot-pulse { 50% { opacity: .55; transform: scale(.96); } }
+    @media (prefers-reduced-motion: reduce) { #boot img { animation: none; } }
+  </style>
 </head>
 <body>
   <div id="root"></div>
+  <div id="boot" aria-hidden="true"><img class="l" src="/splash/mark-light.png" alt="" /><img class="d" src="/splash/mark-dark.png" alt="" /></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
