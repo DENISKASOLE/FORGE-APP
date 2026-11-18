@@ -10,6 +10,7 @@ import { useIsMobile } from "../../lib/browser.js";
 import { DAYS } from "../../lib/dateUtils.js";
 import { timeLabel } from "../../lib/clientData.js";
 import { usePhotoUrl } from "../../lib/storage.js";
+import { inkOn } from "../../lib/colorUtils.js";
 
 export function ScheduledView({ clients, selectClient }) {
   const isMobile = useIsMobile(520);
@@ -39,7 +40,7 @@ export function ScheduledView({ clients, selectClient }) {
                   <div style={{ fontFamily: BRAND.display, fontSize: 19, fontWeight: 500 }}>{s.client.name}</div>
                   <div style={{ color: BRAND.muted, fontSize: 12 }}>{s.client.goals?.join(" + ") || s.client.goal}</div>
                 </div>
-                <div style={{ width: 44, height: 44, borderRadius: 14, background: s.client.color, color: "#000", display: "grid", placeItems: "center", fontWeight: 500 }}>{s.client.avatar}</div>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: s.client.color, color: inkOn(s.client.color), display: "grid", placeItems: "center", fontWeight: 500 }}>{s.client.avatar}</div>
               </div>
             </Card>
           ))}
@@ -78,7 +79,7 @@ export function ClientCard({ client, onClick }) {
         <span style={{
           alignSelf: "flex-start",
           background: isOnline ? BRAND.blue : BRAND.gold,
-          color: isOnline ? "#fff" : BRAND.btnInk,
+          color: BRAND.btnInk,
           fontSize: 9,
           fontWeight: 600,
           borderRadius: 999,
@@ -158,15 +159,15 @@ export function ClientBottomNav({ tab, setTab, unreadMessages, client }) {
         {tabs.map((item, i) => {
           const active = i === activeIndex;
           return (
-            <button key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ position: "relative", zIndex: 1, flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: BRAND.sans, color: active ? BRAND.text : BRAND.muted }}>
-              <NavIcon name={item.icon} size={22} color={active ? BRAND.text : BRAND.muted} />
+            <button key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ position: "relative", zIndex: 1, flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: BRAND.sans, color: active ? BRAND.gold : BRAND.muted }}>
+              <NavIcon name={item.icon} size={22} color={active ? BRAND.gold : BRAND.muted} />
               <span style={{ fontSize: 11, fontWeight: active ? 600 : 500, whiteSpace: "nowrap" }}>{item.label}</span>
             </button>
           );
         })}
       </div>
-      <button onClick={() => setTab(me.key)} aria-label={me.label} aria-current={meActive ? "page" : undefined} className="glass-dock" style={{ position: "relative", width: 64, height: 64, borderRadius: "50%", padding: 4, flexShrink: 0, cursor: "pointer", pointerEvents: "auto", display: "grid", placeItems: "center", outline: meActive ? `2px solid ${BRAND.text}` : "none", outlineOffset: -2 }}>
-        <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : (client?.color || BRAND.card2), color: "#000", fontFamily: BRAND.display, fontWeight: 600, fontSize: 20 }}>
+      <button onClick={() => setTab(me.key)} aria-label={me.label} aria-current={meActive ? "page" : undefined} className="glass-dock" style={{ position: "relative", width: 64, height: 64, borderRadius: "50%", padding: 4, flexShrink: 0, cursor: "pointer", pointerEvents: "auto", display: "grid", placeItems: "center", outline: meActive ? `2px solid ${BRAND.gold}` : "none", outlineOffset: -2 }}>
+        <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : (client?.color || BRAND.card2), color: inkOn(client?.color), fontFamily: BRAND.display, fontWeight: 600, fontSize: 20 }}>
           {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client?.avatar || client?.name?.[0] || <NavIcon name="me" size={22} color={BRAND.text} />)}
         </div>
         {unreadMessages > 0 && <div style={{ position: "absolute", top: 0, right: 0, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 10, fontWeight: 600, display: "grid", placeItems: "center", border: "2px solid var(--shell)" }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
@@ -196,7 +197,7 @@ export function HubScreen({ title, subtitle, cards, onOpen }) {
 }
 export function ClientAvatar({ client, size = 54 }) {
   const photoUrl = usePhotoUrl(client.photo);
-  return <div style={{ fontFamily: BRAND.display, width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : client.color, color: "#000", fontWeight: 500, fontSize: size * 0.4, overflow: "hidden", flexShrink: 0, border: `2px solid ${client.color}` }}>{photoUrl ? <img src={photoUrl} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client.avatar || (client.name ? client.name[0] : "?"))}</div>;
+  return <div style={{ fontFamily: BRAND.display, width: size, height: size, borderRadius: "50%", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : client.color, color: inkOn(client.color), fontWeight: 500, fontSize: size * 0.4, overflow: "hidden", flexShrink: 0, border: `2px solid ${client.color}` }}>{photoUrl ? <img src={photoUrl} alt={client.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client.avatar || (client.name ? client.name[0] : "?"))}</div>;
 }
 function SettingsSection({ label, children }) {
   return (

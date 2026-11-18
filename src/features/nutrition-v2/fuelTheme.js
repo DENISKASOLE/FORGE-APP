@@ -15,14 +15,14 @@ export const FUEL = {
   // Text sitting on a filled FUEL.text (selected day, "Ate it", "Next").
   onText: "var(--btn-ink)",
   // Text sitting on a filled protein/amber outcome mark.
-  onColor: "#000",
+  onColor: "var(--btn-ink)",
   muted: "var(--ink-2)",
   dim: "var(--ink-3)",
   protein: "var(--green)",
   proteinTrack: "var(--green-bg)",
   proteinSwapped: "color-mix(in srgb, var(--green) 50%, var(--page))",
   amber: "var(--orange)",
-  red: "#ED000A",
+  red: "var(--accent)",
   coral: "var(--red)",
 };
 // Macro colors - the app-wide convention (nutritionV2Theme MACRO_COLORS):

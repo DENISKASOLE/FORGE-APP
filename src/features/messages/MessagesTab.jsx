@@ -6,6 +6,7 @@ import { inputStyle } from "../../components/ui/Field.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { upsertSection } from "../../lib/clientData.js";
+import { inkOn } from "../../lib/colorUtils.js";
 
 export function MessagesTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
@@ -43,7 +44,7 @@ export function MessagesTab({ client, updateClient, isCoach }) {
           const senderName = m.from === "coach" ? "Coach" : client.name;
           return (
             <div key={m.id} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "80%", minWidth: 0 }}>
-              <div style={{ fontFamily: BRAND.sans, background: mine ? client.color : BRAND.card2, color: mine ? "#000" : BRAND.text, borderRadius: 16, padding: "10px 13px", fontWeight: 400, fontSize: 14, lineHeight: 1.5, overflowWrap: "break-word" }}>{m.text}</div>
+              <div style={{ fontFamily: BRAND.sans, background: mine ? client.color : BRAND.card2, color: mine ? inkOn(client.color) : BRAND.text, borderRadius: 16, padding: "10px 13px", fontWeight: 400, fontSize: 14, lineHeight: 1.5, overflowWrap: "break-word" }}>{m.text}</div>
               <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, marginTop: 4, textAlign: mine ? "right" : "left" }}>
                 <span style={{ fontWeight: 600 }}>{senderName}</span> &middot; {new Date(m.date).toLocaleString()}
               </div>

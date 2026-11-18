@@ -145,7 +145,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
 
       {notes?.shared && (
         <div style={{ background: FUEL.card2, border: `1px solid ${FUEL.lineSoft}`, borderRadius: 18, padding: 14, display: "flex", gap: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>D</div>
+          <div style={{ width: 34, height: 34, borderRadius: 99, background: FUEL.red, color: FUEL.onText, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>D</div>
           <div>
             <div style={fuelLbl}>Coach Denis · weekly review</div>
             <div style={{ fontSize: 14, lineHeight: 1.5, marginTop: 6, color: FUEL.text }}>{notes.shared}</div>

@@ -31,6 +31,7 @@ import { MEAL_KEYS } from "../nutrition-v2/nutritionV2Model.js";
 import { planForDate, mealStatus, mergeLegacyMacroLog } from "../nutrition-v2/nutritionV2Math.js";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 import { CoachSidebarShell } from "../coach/CoachSidebarShell.jsx";
+import { inkOn } from "../../lib/colorUtils.js";
 
 // `tab`/`setTab` are optionally controlled: pass them (e.g. from a router
 // route) to drive navigation externally, or omit them to fall back to
@@ -114,7 +115,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
               borderRadius: 999,
               border: `${BRAND.hairline} solid ${tab === k ? client.color : BRAND.line}`,
               background: tab === k ? client.color : BRAND.card2,
-              color: tab === k ? "#000" : BRAND.text,
+              color: tab === k ? inkOn(client.color) : BRAND.text,
               fontSize: isMobile ? 11 : 14,
               fontWeight: 500,
               whiteSpace: "nowrap",
@@ -215,8 +216,8 @@ function InstallPrompt({ color = BRAND.gold }) {
 // surfaces (card bg/text/muted) still use BRAND tokens so Home stays
 // theme-aware (light/dark) and visually consistent with the rest of the
 // app, per "reuse the app's existing dark styling." See DECISIONS.md.
-const HOME_ACCENT = { green: "#5FBE86", orange: "#E0913E", blue: "#5B8FD6", violet: "#9B7BE0" };
-const HOME_TRACK = "#242427";
+const HOME_ACCENT = { green: "var(--green)", orange: "var(--orange)", blue: "var(--blue)", violet: "var(--violet)" };
+const HOME_TRACK = "var(--line-strong)";
 
 function capitalizeFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
@@ -338,7 +339,7 @@ function ClientHome({ client, updateClient, goTo }) {
               </div>
             </div>
           </div>
-          {daysToPayment < 0 && <div style={{ background: BRAND.red, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 600, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>Overdue</div>}
+          {daysToPayment < 0 && <div style={{ background: BRAND.red, borderRadius: 100, padding: "3px 9px", fontFamily: BRAND.sans, fontWeight: 600, fontSize: 9, color: BRAND.btnInk, whiteSpace: "nowrap" }}>Overdue</div>}
         </div>
         <button style={{ width: "100%", background: BRAND.btnBg, border: "none", borderRadius: 12, padding: 12, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 13, color: BRAND.btnInk, cursor: "pointer" }}>Pay Now →</button>
       </div>

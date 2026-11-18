@@ -230,7 +230,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
 
           {notes?.shared && (
             <div style={{ marginTop: 8, background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 14, padding: "8px 12px", display: "flex", gap: 10, alignItems: "center" }}>
-              <div style={{ width: 24, height: 24, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 11, display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 600 }}>D</div>
+              <div style={{ width: 24, height: 24, borderRadius: 99, background: FUEL.red, color: FUEL.onText, fontSize: 11, display: "grid", placeItems: "center", flexShrink: 0, fontWeight: 600 }}>D</div>
               <div style={{ fontSize: 12, lineHeight: 1.4, color: FUEL.muted }}>{notes.shared}</div>
             </div>
           )}

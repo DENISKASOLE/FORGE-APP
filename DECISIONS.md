@@ -1,3 +1,27 @@
+# Talas colours across Forge — decisions log
+
+Nov 2026, Denis: give Forge the Talas member-app colours everywhere
+(source: the Talas Demo artifact's MEMBER APP styles).
+
+- Light mode = Talas member app: page #F5F2EC, white cards, lines
+  #E7E1D7, ink #152321, brand teal #0E5E5A (accent / buttons, white
+  text), gold #F6C76B (--gold), sage/sky/amber/coral/sand semantics.
+- Dark mode = same family on teal-black (#0B1513), cream ink #F3EFE7,
+  lighter teal accent #3FB1A6 with dark ink #06201E so buttons stay
+  readable.
+- No purple anywhere (Talas rule): --violet now holds Talas sand, so fat
+  macro / dinner / birthday tones are sand. Client colour palette swapped
+  to Talas colours; stored old colours (incl. purples) are remapped by
+  client id (`talasColor`).
+- Text on a client colour uses `inkOn()` (lib/colorUtils.js) - picks
+  white or dark ink by contrast; tested to give 3:1+ on every palette
+  colour. Text on the accent uses --btn-ink.
+- Glass/dock/nav styles now read tokens (light = solid white Talas cards
+  with soft shadow). Home rings, Fuel marks/coach avatar, food library
+  kcal colour, PDFs, progress-report charts and the PWA theme colour all
+  moved to Talas colours.
+- Fonts unchanged (Sora + Inter).
+
 # Fuel tab: new look (Log / meal screen / Plan) — decisions log
 
 Nov 2026, Denis approved mockup `fuel-log-v2` (inspired by his reference

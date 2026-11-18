@@ -14,6 +14,7 @@ import { compressImage } from "../../lib/compressImage.js";
 import { uploadClientPhoto, deleteClientPhoto, usePhotoUrl, isStoragePath } from "../../lib/storage.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { HealthScreeningSection } from "../screening/HealthScreeningSection.jsx";
+import { inkOn } from "../../lib/colorUtils.js";
 
 const labelStyle = { fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" };
 const sectionHeadStyle = { fontFamily: BRAND.sans, color: BRAND.dim, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 20, marginBottom: 10, borderTop: `${BRAND.hairline} solid ${BRAND.line}`, paddingTop: 16 };
@@ -130,7 +131,7 @@ export function ProfileTab({ client, updateClient, isCoach = true }) {
       <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 14, textAlign: isMobile ? "center" : "left" }}>Client profile</div>
 
       <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontFamily: BRAND.display, fontWeight: 500, fontSize: 22, border: `${BRAND.hairline} solid ${BRAND.line}`, cursor: "pointer", padding: 0 }}>
+        <button type="button" onClick={() => fileRef.current?.click()} title="Tap to change profile picture" style={{ width: 88, height: 88, borderRadius: 28, background: currentColor, overflow: "hidden", display: "grid", placeItems: "center", color: inkOn(currentColor), fontFamily: BRAND.display, fontWeight: 500, fontSize: 22, border: `${BRAND.hairline} solid ${BRAND.line}`, cursor: "pointer", padding: 0 }}>
           {photoUrl ? <img src={photoUrl} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(client.name || client.avatar)}
         </button>
         <input ref={fileRef} type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={{ display: "none" }} />

@@ -25,7 +25,7 @@ export async function buildPdfDoc(title, subtitle, sections) {
     if (line) lines.push(line);
     return lines.length ? lines : [""];
   }
-  function drawText(text, { size = 10.5, bold = false, color = rgb(0.12, 0.12, 0.14), gap = 6, indent = 0 } = {}) {
+  function drawText(text, { size = 10.5, bold = false, color = rgb(0.082, 0.137, 0.129), gap = 6, indent = 0 } = {}) {
     const f = bold ? boldFont : font;
     for (const l of wrap(text, f, size)) {
       ensureSpace(size + gap);
@@ -33,23 +33,23 @@ export async function buildPdfDoc(title, subtitle, sections) {
       y -= size + gap;
     }
   }
-  function rule() { ensureSpace(14); y -= 4; page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: rgb(0.82, 0.82, 0.85) }); y -= 12; }
+  function rule() { ensureSpace(14); y -= 4; page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: rgb(0.906, 0.882, 0.843) }); y -= 12; }
 
   drawText(title, { size: 21, bold: true, gap: 4 });
-  if (subtitle) drawText(subtitle, { size: 10.5, color: rgb(0.45, 0.45, 0.5), gap: 16 });
+  if (subtitle) drawText(subtitle, { size: 10.5, color: rgb(0.43, 0.48, 0.47), gap: 16 });
   rule();
 
   for (const sec of sections) {
     ensureSpace(28);
-    drawText(sec.heading, { size: 13.5, bold: true, gap: 8, color: rgb(0.55, 0.43, 0.08) });
+    drawText(sec.heading, { size: 13.5, bold: true, gap: 8, color: rgb(0.055, 0.369, 0.353) });
     for (const l of sec.lines || []) drawText(l.label ? `${l.label}: ${l.value ?? "-"}` : l, { size: 10, gap: 7, indent: 2 });
     for (const row of sec.table || []) {
       ensureSpace(13);
       const tagW = 26, nameW = 150;
-      page.drawText(row[0] || "", { x: margin, y, size: 9.5, font: boldFont, color: rgb(0.55, 0.43, 0.08) });
-      page.drawText(row[1] || "", { x: margin + tagW, y, size: 9.5, font: boldFont, color: rgb(0.12, 0.12, 0.14) });
+      page.drawText(row[0] || "", { x: margin, y, size: 9.5, font: boldFont, color: rgb(0.055, 0.369, 0.353) });
+      page.drawText(row[1] || "", { x: margin + tagW, y, size: 9.5, font: boldFont, color: rgb(0.082, 0.137, 0.129) });
       const rest = wrap(row.slice(2).filter(Boolean).join("  ·  "), font, 9);
-      page.drawText(rest[0] || "", { x: margin + tagW + nameW, y, size: 9, font, color: rgb(0.35, 0.35, 0.4) });
+      page.drawText(rest[0] || "", { x: margin + tagW + nameW, y, size: 9, font, color: rgb(0.24, 0.31, 0.3) });
       y -= 15;
     }
     y -= 12;

@@ -23,17 +23,18 @@ export const DEFAULT_CHECKIN_QUESTIONS = [
   { id: "q7", text: "Anything your coach should know?", type: "text" },
 ];
 export const CLIENT_COLORS = [
-  "#E8C547",
-  "#4ECDC4",
-  "#A78BFA",
-  "#6EE7B7",
-  "#FB923C",
-  "#60A5FA",
-  "#F472B6",
-  "#F97316",
-  "#22D3EE",
-  "#84CC16",
-  "#C084FC",
+  // Talas palette (Nov 2026) - teal, gold, sage, sky, coral, sand, amber,
+  // teal 2, mint, clay. No purple.
+  "#0E5E5A",
+  "#F6C76B",
+  "#5FA77F",
+  "#3E8FC4",
+  "#D9644A",
+  "#B4846C",
+  "#E3A23B",
+  "#12807A",
+  "#7FB8A8",
+  "#C98B6B",
 ];
 export const LIFT_FIELDS = [
   { key: "benchPress", label: "Bench" },

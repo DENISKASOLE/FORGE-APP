@@ -141,7 +141,7 @@ function CoreChartsStrip({ model }) {
     ? renderBarChartPNG(training.weeklyVolume.map((w) => short(w.start)), training.weeklyVolume.map((w) => Math.round(w.volume / 100) / 10), { color: C.kcal, suffix: "t", width: 480, height: 120 })
     : null, [training.weeklyVolume]);
   const sessChart = useMemo(() => training.weeklyVolume.length
-    ? renderBarChartPNG(training.weeklyVolume.map((w) => short(w.start)), training.weeklyVolume.map((w) => w.count), { color: C.ink2 || "#5C5C5C", width: 480, height: 120 })
+    ? renderBarChartPNG(training.weeklyVolume.map((w) => short(w.start)), training.weeklyVolume.map((w) => w.count), { color: C.ink2 || "#3D4F4C", width: 480, height: 120 })
     : null, [training.weeklyVolume]);
   const nutritionChart = useMemo(() => {
     const weeks = weeklyLoggedDays(nutrition.days);

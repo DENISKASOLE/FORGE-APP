@@ -8,6 +8,7 @@ import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
 import { upsertSection } from "../../lib/clientData.js";
 import { sendClientChatMessage } from "../../lib/ai.js";
+import { inkOn } from "../../lib/colorUtils.js";
 
 const STARTERS = ["Why am I not progressing?", "What should I eat tonight?", "Give me a high-protein meal using what I have."];
 
@@ -67,7 +68,7 @@ export function ClientAIChat({ client, updateClient }) {
         )}
         {messages.map((m) => (
           <div key={m.id} style={{ alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%", minWidth: 0 }}>
-            <div style={{ fontFamily: BRAND.sans, background: m.role === "user" ? client.color : BRAND.card2, color: m.role === "user" ? "#000" : BRAND.text, borderRadius: 16, padding: "10px 13px", fontWeight: 400, fontSize: 14, lineHeight: 1.5, overflowWrap: "break-word", whiteSpace: "pre-wrap" }}>{m.text}</div>
+            <div style={{ fontFamily: BRAND.sans, background: m.role === "user" ? client.color : BRAND.card2, color: m.role === "user" ? inkOn(client.color) : BRAND.text, borderRadius: 16, padding: "10px 13px", fontWeight: 400, fontSize: 14, lineHeight: 1.5, overflowWrap: "break-word", whiteSpace: "pre-wrap" }}>{m.text}</div>
           </div>
         ))}
         {sending && <div style={{ alignSelf: "flex-start", color: BRAND.muted, fontSize: 13, padding: "0 4px" }}>Thinking...</div>}

@@ -1032,7 +1032,7 @@ export function SessionReport({ client, day, logs, onBack, onEdit, onSaveCoachNo
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <div style={{ fontWeight: 500, fontSize: 15 }}>{e.tag ? <span style={{ color: BRAND.gold, marginRight: 6 }}>{e.tag}</span> : null}{name}</div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {isPb && <span style={{ background: BRAND.green, color: "#000", fontSize: 9, fontWeight: 500, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
+                  {isPb && <span style={{ background: BRAND.green, color: BRAND.btnInk, fontSize: 9, fontWeight: 500, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
                   {short && <span style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500 }}>{loggedSets.length} of {prescribed.sets.length} sets</span>}
                 </div>
               </div>

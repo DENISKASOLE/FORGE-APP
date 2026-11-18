@@ -12,6 +12,7 @@ import { upsertTrainerData, timeLabel } from "../../lib/clientData.js";
 import { CLIENT_COLORS } from "../../lib/constants.js";
 import { autoBookingsFor } from "./coachHelpers.js";
 import { showToast } from "../../components/ui/Toast.jsx";
+import { inkOn } from "../../lib/colorUtils.js";
 
 function fieldLabel(text) {
   return <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" }}>{text}</div>;
@@ -84,7 +85,7 @@ export function Calendar({ clients, refresh, user }) {
                   {days.map((d) => {
                     const b = all.find((x) => (x.date === d.date || x.day === d.name) && timeKey(x.time) === timeKey(slot.label));
                     return (
-                      <td key={d.date} onClick={() => openBooking(d, slot, b)} style={{ height: calendarCellHeight, width: 120, background: b ? b.color : BRAND.card2, color: b ? "#000" : BRAND.dim, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: zoom < 0.75 ? 5 : 8, cursor: "pointer", fontWeight: 500, verticalAlign: "top", overflow: "hidden" }}>
+                      <td key={d.date} onClick={() => openBooking(d, slot, b)} style={{ height: calendarCellHeight, width: 120, background: b ? b.color : BRAND.card2, color: b ? inkOn(b.color) : BRAND.dim, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: zoom < 0.75 ? 5 : 8, cursor: "pointer", fontWeight: 500, verticalAlign: "top", overflow: "hidden" }}>
                         {b ? (
                           <>
                             <div style={{ fontSize: zoom < 0.75 ? 10 : 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.type === "Free Trial" ? "TRIAL" : b.title}</div>

@@ -16,8 +16,8 @@ function makeCanvas(width, height) {
   return { canvas, ctx };
 }
 
-export const AXIS_COLOR = "#B9B4A8";
-export const LABEL_COLOR = "#6B665C";
+export const AXIS_COLOR = "#D9D0C2";
+export const LABEL_COLOR = "#6E7A77";
 
 // Nice round axis ticks for an arbitrary [min, max] - same bucketing idea
 // the "Forge Progress Report" prototype's own niceTicks() uses, so the
@@ -65,7 +65,7 @@ export function renderSeriesChartPNG({
   ctx.font = "500 9.5px Arial, sans-serif";
   nt.ticks.forEach((v) => {
     if (v < lo - 1e-9) return;
-    ctx.strokeStyle = Math.abs(v - lo) < 1e-9 ? AXIS_COLOR : "#ECE4D7";
+    ctx.strokeStyle = Math.abs(v - lo) < 1e-9 ? AXIS_COLOR : "#EFE9DF";
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(padLeft, Y(v)); ctx.lineTo(width - padRight, Y(v)); ctx.stroke();
     ctx.fillStyle = LABEL_COLOR;
@@ -76,7 +76,7 @@ export function renderSeriesChartPNG({
   xLabels.forEach(({ i, label }) => ctx.fillText(label, X(i), height - 6));
 
   series.forEach((s) => {
-    const color = s.color || "#C9A24B";
+    const color = s.color || "#0E5E5A";
     if (s.type === "bars") {
       const frac = s.frac ?? 0.6, off = s.off ?? 0;
       (s.points || []).forEach(({ i, v }) => {
@@ -111,7 +111,7 @@ export function renderSeriesChartPNG({
   return canvas.toDataURL("image/png");
 }
 
-export function renderBarChartPNG(labels, values, { width = 520, height = 220, color = "#C9A24B", suffix = "" } = {}) {
+export function renderBarChartPNG(labels, values, { width = 520, height = 220, color = "#0E5E5A", suffix = "" } = {}) {
   const { canvas, ctx } = makeCanvas(width, height);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
@@ -146,7 +146,7 @@ export function renderBarChartPNG(labels, values, { width = 520, height = 220, c
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = "#2A2820";
+    ctx.fillStyle = "#152321";
     ctx.font = "600 11px Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(v ? `${v}${suffix}` : "-", x + w / 2, y - 6);
@@ -159,7 +159,7 @@ export function renderBarChartPNG(labels, values, { width = 520, height = 220, c
   return canvas.toDataURL("image/png");
 }
 
-export function renderLineChartPNG(labels, values, { width = 520, height = 220, color = "#5FA37B" } = {}) {
+export function renderLineChartPNG(labels, values, { width = 520, height = 220, color = "#3A9A68" } = {}) {
   const { canvas, ctx } = makeCanvas(width, height);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
