@@ -1,3 +1,11 @@
+# Fonts: SF Pro (Inter fallback) — decisions log
+
+Nov 2026, Denis: switch from Bricolage Grotesque + Manrope to the font in
+his reference app (identified as SF Pro). Titles and body now use the
+system stack (-apple-system -> SF Pro on iPhone/Mac, no download), with
+bundled Inter as the fallback elsewhere. Bricolage/Manrope packages
+removed.
+
 # Fuel: full-week plan + eating-out description — decisions log
 
 Nov 2026, Denis: the Plan tab shows every day of the week at once (day,
