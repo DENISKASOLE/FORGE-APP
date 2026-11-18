@@ -146,7 +146,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   ];
   function handleMeOpen(key) { if (key === "settings") setShowSettings(true); else if (key === "whatsapp") window.open("https://wa.me/971567088638", "_blank"); else setTab(key); }
   return (
-    <div data-app="client" style={{ minHeight: "100vh", width: "100%", maxWidth: "100%", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans, paddingBottom: 110 }}>
+    <div data-app="client" style={{ minHeight: "100vh", width: "100%", maxWidth: "100%", overflowX: "hidden", background: BRAND.bg, color: BRAND.text, fontFamily: BRAND.sans, paddingBottom: 120 }}>
       <main style={{ width: "100%", maxWidth: isMobile ? 430 : 760, margin: "0 auto", padding: isMobile ? "14px 10px 0" : "18px 16px 0", boxSizing: "border-box", overflowX: "hidden" }}>
         {parentHub && (
           <button onClick={() => setTab(parentHub)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: BRAND.muted, fontWeight: 500, fontSize: 13, padding: "10px 4px", margin: "-10px 0 4px -4px", minHeight: 44 }}>

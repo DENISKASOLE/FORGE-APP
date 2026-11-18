@@ -140,7 +140,9 @@ export const CLIENT_BOTTOM_NAV = [
 // Floating glass dock (Nov 2026, inspired by MyFitnessPal's iOS bar):
 // the first four tabs share one frosted capsule with a sliding glass pill
 // behind the active one; "Me" sits apart as a round button showing the
-// client's own photo (initial fallback), ringed when active.
+// client's own photo (initial fallback), ringed when active. The dock sits
+// on a solid strip pinned to the bottom so page content never shows
+// through or scrolls behind it (Denis, Nov 2026).
 export function ClientBottomNav({ tab, setTab, unreadMessages, client }) {
   const tabs = CLIENT_BOTTOM_NAV.filter((i) => i.key !== "me_hub");
   const me = CLIENT_BOTTOM_NAV.find((i) => i.key === "me_hub");
@@ -148,7 +150,7 @@ export function ClientBottomNav({ tab, setTab, unreadMessages, client }) {
   const meActive = me.group.includes(tab);
   const photoUrl = usePhotoUrl(client?.photo);
   return (
-    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "0 14px max(12px, env(safe-area-inset-bottom))", pointerEvents: "none" }}>
+    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "10px 14px max(12px, env(safe-area-inset-bottom))", background: "var(--page)", borderTop: `1px solid ${BRAND.line}` }}>
       <div className="glass-dock" style={{ position: "relative", flex: 1, maxWidth: 360, height: 64, borderRadius: 999, display: "flex", padding: 5, pointerEvents: "auto" }}>
         {activeIndex >= 0 && (
           <div aria-hidden="true" className="glass-dock-pill" style={{ position: "absolute", top: 5, bottom: 5, left: `calc(5px + ${activeIndex} * (100% - 10px) / ${tabs.length})`, width: `calc((100% - 10px) / ${tabs.length})`, borderRadius: 999, transition: "left .32s cubic-bezier(.3,1.3,.5,1)" }} />
