@@ -88,7 +88,7 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
   const plannedTotals = mealTotals(meal);
 
   function replaceMealEntries(added) {
-    const kept = entries.filter((e) => e.meal !== meal.key);
+    const kept = entries.filter((e) => e.meal !== meal.key || e.extra);
     return onWrite([...kept, ...added], todayMarks);
   }
 

@@ -144,7 +144,9 @@ export function loggedDayTotals(dateLogEntries) { return sumMacros((dateLogEntri
 //   missed   - nothing logged for a date that's already happened.
 //   future   - the date hasn't happened yet, so there's nothing to judge.
 export function mealOutcomeFor(dateISO, todayISO, meal, dateLogEntries, dateMarks) {
-  const entries = (dateLogEntries || []).filter((e) => e.meal === meal.key);
+  // Extras (foods added on top from the + quick log) never decide a meal's
+  // outcome - only the meal itself being logged does.
+  const entries = (dateLogEntries || []).filter((e) => e.meal === meal.key && !e.extra);
   if (entries.some((e) => e.source === "confirm")) return "planned";
   if (entries.some((e) => e.source === "sub")) return "swapped";
   if (entries.length) return "offplan";

@@ -138,21 +138,17 @@ export const CLIENT_BOTTOM_NAV = [
   { key: "progress_hub", label: "Progress", icon: "progress", group: ["progress_hub", "progress"] },
   { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "ai_coach", "photos", "checkins", "measurements"] },
 ];
-// Floating glass dock (Nov 2026, inspired by MyFitnessPal's iOS bar):
-// the first four tabs share one frosted capsule with a sliding glass pill
-// behind the active one; "Me" sits apart as a round button showing the
-// client's own photo (initial fallback), ringed when active. The dock sits
-// on a solid strip pinned to the bottom so page content never shows
-// through or scrolls behind it (Denis, Nov 2026).
-export function ClientBottomNav({ tab, setTab, unreadMessages, client }) {
+// Client bottom dock (Nov 2026): Home / Train / Fuel / Progress share one
+// capsule with a sliding pill behind the active tab; the round button on
+// the right is a + that opens the quick-log menu (QuickLogMenu). "Me" now
+// lives on the client's photo, top-right of every main screen
+// (MeAvatarButton) instead of in the dock.
+export function ClientBottomNav({ tab, setTab, plusOpen = false, onPlus }) {
   const tabs = CLIENT_BOTTOM_NAV.filter((i) => i.key !== "me_hub");
-  const me = CLIENT_BOTTOM_NAV.find((i) => i.key === "me_hub");
   const activeIndex = tabs.findIndex((i) => i.group.includes(tab));
-  const meActive = me.group.includes(tab);
-  const photoUrl = usePhotoUrl(client?.photo);
   return (
-    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "10px 14px max(12px, env(safe-area-inset-bottom))", background: "var(--page)", borderTop: `1px solid ${BRAND.line}` }}>
-      <div className="glass-dock" style={{ position: "relative", flex: 1, maxWidth: 360, height: 64, borderRadius: 999, display: "flex", padding: 5, pointerEvents: "auto" }}>
+    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: plusOpen ? 1100 : 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "10px 14px max(12px, env(safe-area-inset-bottom))", background: "var(--page)", borderTop: `1px solid ${BRAND.line}` }}>
+      <div className="glass-dock" style={{ position: "relative", flex: 1, maxWidth: 360, height: 64, borderRadius: 999, display: "flex", padding: 5 }}>
         {activeIndex >= 0 && (
           <div aria-hidden="true" className="glass-dock-pill" style={{ position: "absolute", top: 5, bottom: 5, left: `calc(5px + ${activeIndex} * (100% - 10px) / ${tabs.length})`, width: `calc((100% - 10px) / ${tabs.length})`, borderRadius: 999, transition: "left .32s cubic-bezier(.3,1.3,.5,1)" }} />
         )}
@@ -166,21 +162,32 @@ export function ClientBottomNav({ tab, setTab, unreadMessages, client }) {
           );
         })}
       </div>
-      <button onClick={() => setTab(me.key)} aria-label={me.label} aria-current={meActive ? "page" : undefined} className="glass-dock" style={{ position: "relative", width: 64, height: 64, borderRadius: "50%", padding: 4, flexShrink: 0, cursor: "pointer", pointerEvents: "auto", display: "grid", placeItems: "center", outline: meActive ? `2px solid ${BRAND.gold}` : "none", outlineOffset: -2 }}>
-        <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center", background: photoUrl ? BRAND.card2 : (client?.color || BRAND.card2), color: inkOn(client?.color), fontFamily: BRAND.display, fontWeight: 600, fontSize: 20 }}>
-          {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client?.avatar || client?.name?.[0] || <NavIcon name="me" size={22} color={BRAND.text} />)}
-        </div>
-        {unreadMessages > 0 && <div style={{ position: "absolute", top: 0, right: 0, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 10, fontWeight: 600, display: "grid", placeItems: "center", border: "2px solid var(--shell)" }}>{unreadMessages > 9 ? "9+" : unreadMessages}</div>}
+      <button onClick={onPlus} aria-label={plusOpen ? "Close quick log" : "Quick log"} aria-expanded={plusOpen} style={{ width: 64, height: 64, borderRadius: "50%", border: "none", flexShrink: 0, cursor: "pointer", display: "grid", placeItems: "center", background: BRAND.gold, color: BRAND.btnInk, boxShadow: "0 10px 24px -8px color-mix(in srgb, var(--accent) 60%, transparent)" }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{ transition: "transform .2s", transform: plusOpen ? "rotate(45deg)" : "none" }}><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
       </button>
     </nav>
   );
 }
-export function HubScreen({ title, subtitle, cards, onOpen }) {
+// The client's photo, top-right: opens Me. Unread coach messages show as
+// a small badge on it.
+export function MeAvatarButton({ client, unread = 0, onClick, size = 42 }) {
+  const photoUrl = usePhotoUrl(client?.photo);
+  return (
+    <button onClick={onClick} aria-label={unread ? `Me, ${unread} unread messages` : "Me"} style={{ position: "relative", width: size, height: size, borderRadius: "50%", padding: 0, border: `2px solid ${BRAND.gold}`, background: photoUrl ? BRAND.card2 : (client?.color || BRAND.card2), color: inkOn(client?.color), cursor: "pointer", flexShrink: 0, display: "grid", placeItems: "center", fontFamily: BRAND.display, fontWeight: 600, fontSize: size * 0.4 }}>
+      <span style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center" }}>
+        {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client?.avatar || client?.name?.[0] || "?")}
+      </span>
+      {unread > 0 && <span style={{ position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 10, fontWeight: 600, display: "grid", placeItems: "center", border: "2px solid var(--page)" }}>{unread > 9 ? "9+" : unread}</span>}
+    </button>
+  );
+}
+export function HubScreen({ title, subtitle, cards, onOpen, header = null }) {
   const isMobile = useIsMobile(520);
   return (
     <div>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 2 }}>{title}</div>
       <div style={{ color: BRAND.muted, fontSize: 14, fontWeight: 400, marginBottom: 16 }}>{subtitle}</div>
+      {header}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(auto-fit,minmax(150px,1fr))", gap: isMobile ? 12 : 14 }}>
         {cards.map((c) => (
           <button key={c.key} onClick={() => onOpen(c.key)} className="glass" style={{ fontFamily: BRAND.sans, textAlign: "left", cursor: "pointer", padding: 14, color: BRAND.text }}>
