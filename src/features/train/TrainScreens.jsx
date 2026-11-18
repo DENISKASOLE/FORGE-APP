@@ -549,7 +549,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
 }
 
 // ---------- Client: Live Workout Session ----------
-export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit, editing = false }) {
+export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit, editing = false, isCoach = false }) {
   const isMobile = useIsMobile(520);
   const exerciseLibrary = useExerciseLibrary();
   const taxonomyMap = useExerciseTaxonomyMap();
@@ -696,7 +696,9 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       </Card>
     );
   }
-  const swapPanel = (
+  // Coach-only (Nov 2026, Denis): clients follow the planned session and
+  // can't swap the whole workout themselves.
+  const swapPanel = !isCoach ? null : (
     <>
       <button onClick={() => (swappingWorkout ? setSwappingWorkout(false) : openSwapWorkout())} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{swappingWorkout ? "Cancel swap" : "Swap whole workout"}</button>
       {swappingWorkout && (
@@ -731,7 +733,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       )}
     </>
   );
-  if (!step) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div><div style={{ marginTop: 10 }}>{swapPanel}</div><Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
+  if (!step) return <Card style={{ padding: 18 }}><div style={{ color: BRAND.muted }}>No exercises in this session.</div>{swapPanel && <div style={{ marginTop: 10 }}>{swapPanel}</div>}<Button onClick={handleExit} style={{ marginTop: 12 }}>Exit</Button></Card>;
   const restTotal = (rest?.total) || parseSeconds(ex.rest || "") || 120;
   const ringC = 2 * Math.PI * 26;
   const restPct = rest && restLeft > 0 ? restLeft / rest.total : 1;
@@ -1182,7 +1184,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
     const liveWeek = program.weeks.find((w) => w.id === live.weekId);
     const liveWorkout = liveWeek?.workouts.find((w) => w.id === live.workoutId);
     const logsBefore = { ...logs, sessions: (logs?.sessions || []).filter((s) => s.id !== live.id) };
-    return <WorkoutSession client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} editing={live.status === "completed"} />;
+    return <WorkoutSession isCoach={isCoach} client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} editing={live.status === "completed"} />;
   }
   const openDay = openKey ? days.find((d) => d.key === openKey) : null;
   const todayISO = isoDate(new Date());
