@@ -143,9 +143,9 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
         )}
       </button>
       {hasLayers && (
-        <div style={{ minWidth: 0, marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ minWidth: 0, marginTop: 8, display: "flex", flexDirection: "column" }}>
           {loggedLayers(mealEntries).map((l) => (
-            <div key={l.name} style={{ minWidth: 0, display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 10px", borderRadius: 10, background: "var(--card-soft)", border: `1px solid ${FUEL.line}`, fontSize: 12 }}>
+            <div key={l.name} style={{ minWidth: 0, display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0", borderTop: `1px solid color-mix(in srgb, var(--ink) 9%, transparent)`, fontSize: 13 }}>
               <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{l.name}{l.count === 1 && l.qty != null ? <span style={{ color: FUEL.dim }}> · {l.qty}{l.unit === "piece" ? " pc" : ` ${l.unit}`}</span> : null}</span>
               <span style={{ color: FUEL.text, fontWeight: 700, flexShrink: 0 }}>{Math.round(l.kcal)}</span>
             </div>
