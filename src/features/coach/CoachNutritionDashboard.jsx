@@ -13,16 +13,17 @@ import {
 import { cloneVersionWithNewIds } from "../nutrition-v2/nutritionV2Model.js";
 import { dayTypeFor } from "../nutrition-v2/fuelDayType.js";
 import { FUEL, fuelLbl, OUTCOME_MARK } from "../nutrition-v2/fuelTheme.js";
+import { BRAND } from "../../theme/tokens.js";
 
 const DAY_NUMS = [1, 2, 3, 4, 5, 6, 7];
 const DAY_SHORT = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun" };
 const HEATMAP_MEAL_KEYS = [["breakfast", "Bkfst"], ["lunch", "Lunch"], ["snack", "Snack"], ["dinner", "Dinner"]];
 
 function pillBtnStyle(selected) {
-  return { height: 40, padding: "0 16px", borderRadius: 999, border: `1px solid ${selected ? "transparent" : FUEL.lineSoft}`, background: selected ? FUEL.text : FUEL.card, color: selected ? "#000" : FUEL.text, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" };
+  return { height: 40, padding: "0 16px", borderRadius: 999, border: `1px solid ${selected ? "transparent" : FUEL.lineSoft}`, background: selected ? FUEL.text : FUEL.card, color: selected ? FUEL.onText : FUEL.text, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" };
 }
 function actionBtnStyle(emphasized) {
-  return { height: 46, padding: "0 16px", borderRadius: 12, border: `1px solid ${emphasized ? "transparent" : FUEL.lineSoft}`, background: emphasized ? FUEL.text : FUEL.card, color: emphasized ? "#000" : FUEL.text, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 };
+  return { height: 46, padding: "0 16px", borderRadius: 12, border: `1px solid ${emphasized ? "transparent" : FUEL.lineSoft}`, background: emphasized ? FUEL.text : FUEL.card, color: emphasized ? FUEL.onText : FUEL.text, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 };
 }
 function dayShortName(dateISO) {
   return new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
@@ -91,14 +92,14 @@ function RosterTable({ healths, selectedId, onSelect }) {
               const adh = h.week.adherencePct != null ? `${Math.round(h.week.adherencePct * 100)}%` : "—";
               const proteinShort = h.week.avgTarget.protein > 0 && h.week.avg.protein < h.week.avgTarget.protein * 0.85;
               return (
-                <tr key={h.client.id} onClick={() => onSelect(h.client.id)} style={{ borderTop: "1px solid #1f1f1f", background: selectedId === h.client.id ? FUEL.card2 : "transparent", cursor: "pointer" }}>
-                  <td style={{ padding: 12, color: FUEL.text, fontWeight: 700 }}>
+                <tr key={h.client.id} onClick={() => onSelect(h.client.id)} style={{ borderTop: `1px solid ${FUEL.line}`, background: selectedId === h.client.id ? FUEL.card2 : "transparent", cursor: "pointer" }}>
+                  <td style={{ padding: 12, color: FUEL.text, fontWeight: 500 }}>
                     <div>{h.client.name}</div>
-                    <div style={{ fontSize: 11, color: flagColorFor(h.flag, hasPlan), marginTop: 3, fontWeight: 700 }}>{flagText}</div>
+                    <div style={{ fontSize: 11, color: flagColorFor(h.flag, hasPlan), marginTop: 3, fontWeight: 500 }}>{flagText}</div>
                   </td>
-                  <td style={{ padding: "12px 8px", color: FUEL.text, fontWeight: 700 }}>{adh}</td>
-                  <td style={{ padding: "12px 8px", color: proteinShort ? FUEL.amber : FUEL.text, fontWeight: 700 }}>{Math.round(h.week.avg.protein)} / {Math.round(h.week.avgTarget.protein)} g</td>
-                  <td style={{ padding: 12, textAlign: "right", color: FUEL.muted, fontWeight: 700 }}>{fmtTrend(h.trend)}</td>
+                  <td style={{ padding: "12px 8px", color: FUEL.text, fontWeight: 500 }}>{adh}</td>
+                  <td style={{ padding: "12px 8px", color: proteinShort ? FUEL.amber : FUEL.text, fontWeight: 500 }}>{Math.round(h.week.avg.protein)} / {Math.round(h.week.avgTarget.protein)} g</td>
+                  <td style={{ padding: 12, textAlign: "right", color: FUEL.muted, fontWeight: 500 }}>{fmtTrend(h.trend)}</td>
                 </tr>
               );
             })}
@@ -131,8 +132,8 @@ function CheckinCard({ health, onApplied }) {
     <div style={{ background: FUEL.card2, border: `1px solid ${FUEL.lineSoft}`, borderRadius: 22, padding: 18, display: "flex", flexWrap: "wrap", gap: 18, justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ flex: "1 1 320px" }}>
         <div style={fuelLbl}>Weekly check-in · suggested</div>
-        <div style={{ fontSize: 20, marginTop: 6, fontWeight: 700 }}>{suggestion.headline}</div>
-        <div style={{ fontSize: 13, lineHeight: 1.5, color: "#c4c4c4", marginTop: 6, fontWeight: 700 }}>{suggestion.reason}</div>
+        <div style={{ fontSize: 20, marginTop: 6, fontWeight: 500 }}>{suggestion.headline}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.5, color: FUEL.muted, marginTop: 6, fontWeight: 500 }}>{suggestion.reason}</div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <button onClick={() => apply("keep")} disabled={busy} style={actionBtnStyle(suggestion.action === "keep")}>Keep</button>
@@ -147,7 +148,7 @@ function HeatmapCard({ weekOnPlan }) {
   return (
     <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 16 }}>
       <div style={{ ...fuelLbl, marginBottom: 10 }}>Last 7 days · meals</div>
-      <div style={{ display: "grid", gridTemplateColumns: "70px repeat(4, minmax(0, 1fr))", gap: 5, fontSize: 10, color: FUEL.muted, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 6, fontWeight: 700 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "70px repeat(4, minmax(0, 1fr))", gap: 5, fontSize: 10, color: FUEL.muted, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 6, fontWeight: 500 }}>
         <span /> {HEATMAP_MEAL_KEYS.map(([k, l]) => <span key={k}>{l}</span>)}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -176,15 +177,15 @@ function offPlanEntries(logs, todayISO, limit = 6) {
 function OffPlanRow({ entry, onReply }) {
   const photoUrl = usePhotoUrl(entry.photo);
   return (
-    <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "8px 0", borderTop: "1px solid #1f1f1f" }}>
-      <div style={{ width: 52, height: 52, borderRadius: 12, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: FUEL.dim, textAlign: "center", letterSpacing: ".06em", flexShrink: 0, overflow: "hidden", fontWeight: 700 }}>
+    <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "8px 0", borderTop: `1px solid ${FUEL.line}` }}>
+      <div style={{ width: 52, height: 52, borderRadius: 12, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: FUEL.dim, textAlign: "center", letterSpacing: ".06em", flexShrink: 0, overflow: "hidden", fontWeight: 500 }}>
         {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "PHOTO"}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700 }}>{entry.name}</div>
-        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 3, fontWeight: 700 }}>{dayShortName(entry.date)} {entry.meal} · {entry.reason || "—"}</div>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{entry.name}</div>
+        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 3, fontWeight: 500 }}>{dayShortName(entry.date)} {entry.meal} · {entry.reason || "—"}</div>
       </div>
-      <button onClick={onReply} style={{ height: 44, padding: "0 12px", borderRadius: 10, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Reply</button>
+      <button onClick={onReply} style={{ height: 44, padding: "0 12px", borderRadius: 10, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>Reply</button>
     </div>
   );
 }
@@ -193,7 +194,7 @@ function OffPlanCard({ logs, onReply }) {
   return (
     <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 22, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={fuelLbl}>Off-plan this week · {entries.length}</div>
-      {entries.length === 0 && <div style={{ fontSize: 12.5, color: FUEL.dim, fontWeight: 700 }}>Nothing off-plan logged this week.</div>}
+      {entries.length === 0 && <div style={{ fontSize: 12.5, color: FUEL.dim, fontWeight: 500 }}>Nothing off-plan logged this week.</div>}
       {entries.map((e) => <OffPlanRow key={e.id} entry={e} onReply={onReply} />)}
     </div>
   );
@@ -246,8 +247,8 @@ function RotationEditor({ health, onApplied, workoutByDate }) {
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <div style={fuelLbl}>Week rotation</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={copySelectedDayTo} disabled={busy} style={{ height: 40, padding: "0 12px", borderRadius: 10, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Copy {DAY_SHORT[selectedDay]} to...</button>
-          <button onClick={makeEatingOutDay} disabled={busy} style={{ height: 40, padding: "0 12px", borderRadius: 10, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Make eating-out day</button>
+          <button onClick={copySelectedDayTo} disabled={busy} style={{ height: 40, padding: "0 12px", borderRadius: 10, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>Copy {DAY_SHORT[selectedDay]} to...</button>
+          <button onClick={makeEatingOutDay} disabled={busy} style={{ height: 40, padding: "0 12px", borderRadius: 10, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>Make eating-out day</button>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6, overflowX: "auto" }}>
@@ -257,7 +258,7 @@ function RotationEditor({ health, onApplied, workoutByDate }) {
           const { label, training } = dayTypeFor(r, workoutByDate.get(isoDate(dateForDow)));
           const selected = d === selectedDay;
           return (
-            <button key={d} onClick={() => setSelectedDay(d)} style={{ padding: "10px 8px", borderRadius: 12, minWidth: 70, textAlign: "left", cursor: "pointer", fontWeight: 700, background: selected ? FUEL.text : FUEL.card2, color: selected ? "#000" : FUEL.text, border: selected ? "none" : `1px solid ${training ? FUEL.amber : FUEL.line}` }}>
+            <button key={d} onClick={() => setSelectedDay(d)} style={{ padding: "10px 8px", borderRadius: 12, minWidth: 70, textAlign: "left", cursor: "pointer", fontWeight: 500, background: selected ? FUEL.text : FUEL.card2, color: selected ? FUEL.onText : FUEL.text, border: selected ? "none" : `1px solid ${training ? FUEL.amber : FUEL.line}` }}>
               <div style={{ fontSize: 12 }}>{DAY_SHORT[d]}</div>
               <div style={{ fontSize: 10, marginTop: 3, letterSpacing: ".04em", textTransform: "uppercase", opacity: 0.8 }}>{label}</div>
               <div style={{ fontSize: 11, marginTop: 6 }}>{(r.targets?.kcal || 0).toLocaleString()}</div>
@@ -271,9 +272,9 @@ function RotationEditor({ health, onApplied, workoutByDate }) {
           const totals = mealTotals(m);
           return (
             <div key={m.key} style={{ padding: 12, borderRadius: 14, background: FUEL.card2 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700 }}><span>{m.name}</span><span style={{ color: FUEL.muted }}>{m.time}</span></div>
-              <div style={{ fontSize: 13, marginTop: 6, color: "#e5e5e5", lineHeight: 1.4, fontWeight: 700 }}>{foodLine}</div>
-              <div style={{ fontSize: 11, marginTop: 6, color: FUEL.muted, fontWeight: 700 }}>{Math.round(totals.kcal)} kcal · <span style={{ color: FUEL.protein }}>{Math.round(totals.protein)} g</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 500 }}><span>{m.name}</span><span style={{ color: FUEL.muted }}>{m.time}</span></div>
+              <div style={{ fontSize: 13, marginTop: 6, color: FUEL.text, lineHeight: 1.4, fontWeight: 500 }}>{foodLine}</div>
+              <div style={{ fontSize: 11, marginTop: 6, color: FUEL.muted, fontWeight: 500 }}>{Math.round(totals.kcal)} kcal · <span style={{ color: FUEL.protein }}>{Math.round(totals.protein)} g</span></div>
             </div>
           );
         })}
@@ -288,12 +289,12 @@ function SelectedClientPanel({ health, selectClient, onApplied, workoutByDate })
     <div style={{ flex: "999 1 560px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{client.name}</div>
-          <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 3, fontWeight: 700 }}>{client.goal || (client.goals || []).join(" + ") || "No goal set"} · {client.clientType === "Online" ? "Online" : "1:1"} · {kcalTargetsSummary(livePlan)} · {livePlan?.targets?.protein || 0} g protein every day</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>{client.name}</div>
+          <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 3, fontWeight: 500 }}>{client.goal || (client.goals || []).join(" + ") || "No goal set"} · {client.clientType === "Online" ? "Online" : "1:1"} · {kcalTargetsSummary(livePlan)} · {livePlan?.targets?.protein || 0} g protein every day</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => selectClient(client)} style={{ height: 44, padding: "0 16px", borderRadius: 12, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Message</button>
-          <button onClick={() => selectClient(client)} style={{ height: 44, padding: "0 16px", borderRadius: 12, border: "none", background: FUEL.text, color: "#000", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>Edit plan</button>
+          <button onClick={() => selectClient(client)} style={{ height: 44, padding: "0 16px", borderRadius: 12, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>Message</button>
+          <button onClick={() => selectClient(client)} style={{ height: 44, padding: "0 16px", borderRadius: 12, border: "none", background: FUEL.text, color: FUEL.onText, fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>Edit plan</button>
         </div>
       </div>
 
@@ -351,14 +352,14 @@ export function CoachNutritionDashboard({ clients, selectClient, updateClient, o
 
   return (
     <div style={{ background: FUEL.bg, color: FUEL.text, fontFamily: "inherit", padding: 4, display: "flex", flexDirection: "column", gap: 18 }}>
-      <button onClick={onBack} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4, alignSelf: "flex-start" }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12.5, fontWeight: 500, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4, alignSelf: "flex-start" }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         Tools
       </button>
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 14 }}>
         <div>
           <div style={fuelLbl}>Coach · Tools</div>
-          <div style={{ fontSize: 30, textTransform: "uppercase", letterSpacing: ".04em", marginTop: 4, fontWeight: 700 }}>Nutrition</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 4 }}>Nutrition</div>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {filters.map(([k, l]) => <button key={k} onClick={() => setFilter(k)} style={pillBtnStyle(filter === k)}>{l}</button>)}
@@ -366,7 +367,7 @@ export function CoachNutritionDashboard({ clients, selectClient, updateClient, o
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ color: FUEL.muted, fontSize: 13, fontWeight: 700 }}>No clients match this filter.</div>
+        <div style={{ color: FUEL.muted, fontSize: 13, fontWeight: 500 }}>No clients match this filter.</div>
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-start" }}>
           <RosterTable healths={filtered} selectedId={selected?.client.id} onSelect={setSelectedId} />

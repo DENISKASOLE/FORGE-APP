@@ -1,3 +1,27 @@
+# Fuel tab: match the rest of the app (light mode + typography) — decisions log
+
+Nov 2026, Denis: the Fuel tab looked different from the rest of Forge (font
+and display), and light mode didn't change it - it stayed dark. Cause:
+`fuelTheme.js` was a deliberately fixed dark-only hex palette, and the Fuel
+screens used bold (700/800) uppercase text everywhere instead of the app's
+Sora display titles + medium-weight Inter.
+
+- `FUEL` keys now point at the shared CSS-variable tokens (theme.css), so
+  Today, Change-a-meal, My week and the coach Nutrition dashboard follow
+  light/dark like every other screen. Key names unchanged.
+- protein -> `--green`, amber -> `--orange`, coral -> `--red`; brand red
+  #ED000A kept for the coach avatar. New `FUEL.onText` (= `--btn-ink`) for
+  text on a filled white/black surface; `FUEL.onColor` (#000) for marks on
+  green/orange.
+- Leftover hardcoded greys (#e5e5e5, #d4d4d4, #c4c4c4, #1f1f1f, #3a3a3a)
+  replaced with tokens.
+- Typography: page titles ("Fuel", "My week", "Nutrition") use Sora at
+  26/500 like Learn; big numbers use Sora 600; body weight 700 -> 500 and
+  800 -> 600 to match Button/SectionLabel. Small uppercase labels and
+  meal names keep their uppercase tracking.
+- Page background is now transparent so the app's cinematic gradient shows
+  through, as on other tabs.
+
 # Fuel tab redesign: calorie-gauge macro card — decisions log
 
 Denis sent another reference screenshot (a different app's macro

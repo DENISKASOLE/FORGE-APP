@@ -135,7 +135,7 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,.6)", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" }}>
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 64, background: FUEL.card, borderTop: `1px solid ${FUEL.lineSoft}`, borderRadius: "26px 26px 0 0", padding: "10px 20px 24px", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto", color: FUEL.text, fontWeight: 700 }}>
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: 64, background: FUEL.card, borderTop: `1px solid ${FUEL.lineSoft}`, borderRadius: "26px 26px 0 0", padding: "10px 20px 24px", display: "flex", flexDirection: "column", gap: 18, overflowY: "auto", color: FUEL.text, fontWeight: 500 }}>
         <div style={{ width: 40, height: 4, borderRadius: 9, background: FUEL.lineDashed, margin: "0 auto" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -192,7 +192,7 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
                 : <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke={FUEL.text} strokeWidth="2" strokeLinejoin="round" /><circle cx="12" cy="13" r="3.5" fill="none" stroke={FUEL.text} strokeWidth="2" /></svg>}
               <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} style={{ display: "none" }} />
             </label>
-            <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What did you eat?" style={{ flex: 1, height: 52, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, padding: "0 14px", fontSize: 14, fontWeight: 700, fontFamily: "inherit" }} />
+            <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What did you eat?" style={{ flex: 1, height: 52, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card, color: FUEL.text, padding: "0 14px", fontSize: 14, fontWeight: 500, fontFamily: "inherit" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
             {SIZE_OPTIONS.map((s) => (
@@ -203,7 +203,7 @@ export function FuelSwap({ client, plan, meal, todayISO, entries, todayMarks, on
         </div>
 
         <div style={{ flex: 1 }} />
-        <button onClick={saveMain} disabled={saving} style={{ height: 54, borderRadius: 16, background: FUEL.text, color: "#000", border: "none", fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}>{saving ? "Saving..." : `Save ${meal.name.toLowerCase()}`}</button>
+        <button onClick={saveMain} disabled={saving} style={{ height: 54, borderRadius: 16, background: FUEL.text, color: FUEL.onText, border: "none", fontSize: 13, letterSpacing: ".12em", textTransform: "uppercase", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1 }}>{saving ? "Saving..." : `Save ${meal.name.toLowerCase()}`}</button>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ function OnPlanCard({ weekInfo }) {
         <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 6 }}>{weekInfo.onPlanCount} of {weekInfo.totalCount} meals ticked or swapped</div>
       </div>
       <div style={{ textAlign: "center", padding: "12px 14px", borderRadius: 16, background: FUEL.card2 }}>
-        <div style={{ fontSize: 26, color: FUEL.amber }}>{weekInfo.streak}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 600, color: FUEL.amber }}>{weekInfo.streak}</div>
         <div style={{ ...fuelLbl, marginTop: 2 }}>Day streak</div>
       </div>
     </div>
@@ -59,9 +59,9 @@ function DayByDayCard({ weekInfo, workoutByDate }) {
         })}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12, fontSize: 11, color: FUEL.muted }}>
-        <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, background: FUEL.protein, color: "#000", fontSize: 10, textAlign: "center", lineHeight: "14px", verticalAlign: -3 }}>{"✓"}</span> As planned</span>
-        <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, background: FUEL.proteinSwapped, color: "#000", fontSize: 10, textAlign: "center", lineHeight: "14px", verticalAlign: -3 }}>{"⇄"}</span> Swapped</span>
-        <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, background: FUEL.amber, color: "#000", fontSize: 10, textAlign: "center", lineHeight: "14px", verticalAlign: -3 }}>+</span> Off-plan</span>
+        <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, background: FUEL.protein, color: FUEL.onColor, fontSize: 10, textAlign: "center", lineHeight: "14px", verticalAlign: -3 }}>{"✓"}</span> As planned</span>
+        <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, background: FUEL.proteinSwapped, color: FUEL.onColor, fontSize: 10, textAlign: "center", lineHeight: "14px", verticalAlign: -3 }}>{"⇄"}</span> Swapped</span>
+        <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, background: FUEL.amber, color: FUEL.onColor, fontSize: 10, textAlign: "center", lineHeight: "14px", verticalAlign: -3 }}>+</span> Off-plan</span>
         <span><span style={{ display: "inline-block", width: 14, height: 14, borderRadius: 4, border: `1px solid ${FUEL.lineDashed}`, verticalAlign: -3 }} /> Missed</span>
       </div>
     </div>
@@ -73,7 +73,7 @@ function AvgTile({ label, value, target, suffix, barBg, barFg }) {
   return (
     <div style={{ background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 18, padding: 14 }}>
       <div style={fuelLbl}>{label}</div>
-      <div style={{ fontSize: 24, marginTop: 6 }}>{Math.round(value).toLocaleString()}<span style={{ fontSize: 13, color: FUEL.muted }}> / {Math.round(target).toLocaleString()}{suffix}</span></div>
+      <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 600, marginTop: 6 }}>{Math.round(value).toLocaleString()}<span style={{ fontSize: 13, color: FUEL.muted }}> / {Math.round(target).toLocaleString()}{suffix}</span></div>
       <div style={{ height: 6, borderRadius: 9, background: barBg, marginTop: 10 }}><div style={{ width: `${pct}%`, height: 6, borderRadius: 9, background: barFg }} /></div>
     </div>
   );
@@ -97,7 +97,7 @@ function WeightCard({ trend }) {
         <div style={fuelLbl}>Weight · 7-day average</div>
         <div style={{ fontSize: 13, color: FUEL.protein }}>{changeStr}</div>
       </div>
-      <div style={{ fontSize: 24, marginTop: 6 }}>{last.value}<span style={{ fontSize: 13, color: FUEL.muted }}> kg</span></div>
+      <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 600, marginTop: 6 }}>{last.value}<span style={{ fontSize: 13, color: FUEL.muted }}> kg</span></div>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Weight trend" style={{ marginTop: 8, display: "block" }}>
         <polyline points={points} fill="none" stroke={FUEL.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         <circle cx={xs(trend.points.length - 1)} cy={ys(last.value)} r="4" fill={FUEL.text} />
@@ -129,7 +129,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
         </button>
         <div>
           <div style={fuelLbl}>Last 7 days</div>
-          <div style={{ fontSize: 24, textTransform: "uppercase", letterSpacing: ".04em", marginTop: 2, fontWeight: 700 }}>My week</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 4 }}>My week</div>
         </div>
       </div>
 
@@ -148,7 +148,7 @@ export function FuelWeek({ client, plans, logs, marks, notes, onBack }) {
           <div style={{ width: 34, height: 34, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>D</div>
           <div>
             <div style={fuelLbl}>Coach Denis · weekly review</div>
-            <div style={{ fontSize: 14, lineHeight: 1.5, marginTop: 6, color: "#e5e5e5" }}>{notes.shared}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.5, marginTop: 6, color: FUEL.text }}>{notes.shared}</div>
           </div>
         </div>
       )}
