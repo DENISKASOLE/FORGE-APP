@@ -65,8 +65,8 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
           </div>
         </button>
       ) : (
-        <div style={{ width: "100%", height: 168, borderRadius: BRAND.radiusCard, background: "#ffffff", display: "grid", placeItems: "center" }}>
-          <div style={{ fontFamily: BRAND.sans, color: "#000", fontWeight: 500, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.4 }}>No media</div>
+        <div style={{ width: "100%", height: 168, borderRadius: BRAND.radiusCard, background: BRAND.card2, display: "grid", placeItems: "center" }}>
+          <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 500, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.4 }}>No media</div>
         </div>
       )}
 

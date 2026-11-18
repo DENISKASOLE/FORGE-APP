@@ -18,7 +18,7 @@ import { seedFoods } from "./seedData.js";
 const CATEGORY_LABELS = { protein: "Protein", carb: "Carb", fat: "Fat", veg: "Veg", fruit: "Fruit", dairy: "Dairy", drink: "Drink", snack: "Snack", other: "Other" };
 const STATE_OPTIONS = [["", "—"], ["raw", "Raw"], ["cooked", "Cooked"], ["dry", "Dry"]];
 const LABEL_STYLE = { fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.14em" };
-const KCAL_COLOR = "#22D3EE";
+const KCAL_COLOR = "var(--accent)";
 
 function emptyFoodForm() {
   return { id: null, name: "", brand: "", state: "", category: "protein", unit: "g", pieceGrams: "", kcal: "", protein: "", carbs: "", fat: "", fibre: "", groceryName: "", groceryFactor: "1", archived: false, servings: [] };

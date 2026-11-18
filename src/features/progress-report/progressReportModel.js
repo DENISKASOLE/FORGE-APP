@@ -41,7 +41,7 @@ export function categoryForExercise(name, taxonomy) {
 // live preview and the exported PDF can never visually diverge - one
 // chart-rendering code path for both surfaces (DECISIONS.md).
 export const REPORT_COLORS = {
-  ink: "#000000", ink2: "#5C5C5C", muted: "#8A8A8A",
-  kcal: "#C06B1F", protein: "#2E9B68", carbs: "#4472C4", fat: "#7C5CD9",
-  red: "#C3392F", yellow: "#B8860B", line: "#E2D8C8", card: "#F2EBDF",
+  ink: "#152321", ink2: "#3D4F4C", muted: "#6E7A77",
+  kcal: "#0E5E5A", protein: "#3A9A68", carbs: "#3E8FC4", fat: "#B4846C",
+  red: "#C2412D", yellow: "#C98A1E", line: "#E7E1D7", card: "#F4EFE6",
 };

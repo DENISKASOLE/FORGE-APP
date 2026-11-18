@@ -75,7 +75,7 @@ async function makeDrawer(pdfDoc, font, bold) {
     tiles.forEach((t, i) => {
       const col = i % cols, row = Math.floor(i / cols);
       const x = margin + col * (w + gap), ty = y - row * (h + 8);
-      page.drawRectangle({ x, y: ty - h, width: w, height: h, color: rgb(0.949, 0.922, 0.875) });
+      page.drawRectangle({ x, y: ty - h, width: w, height: h, color: rgb(0.957, 0.937, 0.902) });
       page.drawText(safe(t.label), { x: x + 8, y: ty - 14, size: 8, font: bold, color: MUTED });
       page.drawText(safe(t.value), { x: x + 8, y: ty - 32, size: 15, font: bold, color: INK });
       if (t.sub) page.drawText(safe(t.sub).slice(0, 40), { x: x + 8, y: ty - 44, size: 7.5, font, color: MUTED });

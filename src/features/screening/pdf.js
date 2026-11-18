@@ -26,7 +26,7 @@ export async function buildScreeningPdf({ signedName, signaturePngBytes, screeni
     if (line) lines.push(line);
     return lines.length ? lines : [""];
   }
-  function drawParagraphs(text, { size = 10, bold = false, gap = 5, indent = 0, color = rgb(0.12, 0.12, 0.14) } = {}) {
+  function drawParagraphs(text, { size = 10, bold = false, gap = 5, indent = 0, color = rgb(0.082, 0.137, 0.129) } = {}) {
     const f = bold ? boldFont : font;
     for (const paragraph of String(text).split("\n")) {
       if (!paragraph.trim()) { ensureSpace(size + gap); y -= size + gap; continue; }
@@ -40,19 +40,19 @@ export async function buildScreeningPdf({ signedName, signaturePngBytes, screeni
   function rule() {
     ensureSpace(14);
     y -= 4;
-    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: rgb(0.82, 0.82, 0.85) });
+    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: rgb(0.906, 0.882, 0.843) });
     y -= 12;
   }
 
   drawParagraphs(SCREENING_TITLE, { size: 18, bold: true, gap: 10 });
-  drawParagraphs(`Screening version: ${screeningVersion}`, { size: 9, color: rgb(0.45, 0.45, 0.5), gap: 4 });
-  drawParagraphs(`Signed at: ${signedAt}`, { size: 9, color: rgb(0.45, 0.45, 0.5), gap: 16 });
+  drawParagraphs(`Screening version: ${screeningVersion}`, { size: 9, color: rgb(0.43, 0.48, 0.47), gap: 4 });
+  drawParagraphs(`Signed at: ${signedAt}`, { size: 9, color: rgb(0.43, 0.48, 0.47), gap: 16 });
 
   drawParagraphs("Health questions", { size: 12, bold: true, gap: 8 });
   SCREENING_QUESTIONS.forEach((q, i) => {
     const answer = answers?.[q.key] === "yes" ? "YES" : answers?.[q.key] === "no" ? "NO" : "(not answered)";
     drawParagraphs(`${i + 1}. ${q.text}`, { size: 9.5, gap: 3 });
-    drawParagraphs(`Answer: ${answer}`, { size: 9.5, bold: true, gap: 10, indent: 12, color: answer === "YES" ? rgb(0.6, 0.15, 0.15) : rgb(0.12, 0.12, 0.14) });
+    drawParagraphs(`Answer: ${answer}`, { size: 9.5, bold: true, gap: 10, indent: 12, color: answer === "YES" ? rgb(0.6, 0.15, 0.15) : rgb(0.082, 0.137, 0.129) });
   });
 
   if (needsClearance) {

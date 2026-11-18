@@ -43,6 +43,12 @@ export function daysSince(dateStr) {
 export function initials(name = "") {
   return name.split(" ").filter(Boolean).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "??";
 }
+// Stored colours from the old palette (incl. purples) are remapped onto
+// the Talas palette, keeping each client's colour stable via their id.
+export function talasColor(stored, id, index = 0) {
+  const s = String(stored || "").toUpperCase();
+  return CLIENT_COLORS.includes(s) ? s : getClientColor(id, index);
+}
 export function getClientColor(id, index = 0) {
   const raw = String(id || index);
   const seed = raw.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
@@ -140,7 +146,7 @@ export function mapClient(row, dataRows = [], index = 0) {
     goals: profile.goals,
     goal: profile.goals?.[0] || row.goal || "General Fitness",
     profile,
-    color: row.color || profile.color || getClientColor(row.id, index),
+    color: talasColor(row.color || profile.color, row.id, index),
     photo: profile.photo || row.photo || "",
     avatar: initials(row.name),
     packages: sections.packages || row.packages || [],

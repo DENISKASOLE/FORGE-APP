@@ -39,6 +39,7 @@ import { loadTodaysAgenda } from "./coachHelpers.js";
 import { CoachSidebarShell } from "./CoachSidebarShell.jsx";
 import { COACH_NAV, TOOLS } from "./coachNav.js";
 import { timeLabel } from "../../lib/clientData.js";
+import { inkOn } from "../../lib/colorUtils.js";
 
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
@@ -71,7 +72,7 @@ export function AddClientModal({ onClose, onCreate }) {
           <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 6 }}>{form.profile.clientType === "Online" ? "Online clients get Check-ins and Payments instead of Schedule and Packages." : "1:1 clients keep the in-person Schedule and Packages tabs."}</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-          <div style={{ fontFamily: BRAND.display, width: 72, height: 72, borderRadius: BRAND.radiusCard, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: "#000", fontWeight: 500 }}>{photoPreview ? <img src={photoPreview} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
+          <div style={{ fontFamily: BRAND.display, width: 72, height: 72, borderRadius: BRAND.radiusCard, background: form.color, overflow: "hidden", display: "grid", placeItems: "center", color: inkOn(form.color), fontWeight: 500 }}>{photoPreview ? <img src={photoPreview} alt="client" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(form.name)}</div>
           <div style={{ flex: 1 }}>
             <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 6 }}>Client photo</div>
             <input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files?.[0])} style={inputStyle()} />
@@ -248,7 +249,7 @@ export const NOTIF_ICONS = { message: "\u{1F4AC}", birthday: "\u{1F382}", paymen
 // its own fixed category color rather than a shared brand accent.
 function notifTone(n) {
   if (n.type === "payment" && n.severity === 0) return { fg: BRAND.red, bg: BRAND.redBg, border: "rgba(220,80,70,0.2)" };
-  if (n.type === "birthday") return { fg: BRAND.violet, bg: BRAND.violetBg, border: "rgba(183,156,232,0.18)" };
+  if (n.type === "birthday") return { fg: BRAND.violet, bg: BRAND.violetBg, border: "color-mix(in srgb, var(--violet) 25%, transparent)" };
   if (n.type === "payment") return { fg: BRAND.green, bg: BRAND.greenBg, border: "rgba(102,199,155,0.15)" };
   if (n.type === "food" || n.type === "no_nutrition_log" || n.type === "nutrition_adherence" || n.type === "heavy_extras") return { fg: BRAND.yellow, bg: BRAND.yellowBg, border: "rgba(240,190,60,0.18)" };
   return { fg: BRAND.orange, bg: BRAND.orangeBg, border: "rgba(255,159,69,0.18)" };
