@@ -2,10 +2,20 @@ import { useEffect, useState } from "react";
 
 const THEME_KEY = "forge_theme";
 
+const THEME_VERSION_KEY = "forge_theme_v";
+
+// Light is the default for every user (Nov 18 2026). Anyone on an older
+// stored value is moved to light once; after that, a dark choice made in
+// Settings is kept.
 export function getStoredTheme() {
-  if (typeof localStorage === "undefined") return "dark";
-  const saved = localStorage.getItem(THEME_KEY);
-  return saved === "light" || saved === "dark" ? saved : "dark";
+  if (typeof localStorage === "undefined") return "light";
+  try {
+    if (localStorage.getItem(THEME_VERSION_KEY) !== "2") {
+      localStorage.setItem(THEME_KEY, "light");
+      localStorage.setItem(THEME_VERSION_KEY, "2");
+    }
+  } catch { /* private mode: fall through to light */ }
+  return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
 }
 
 export function applyTheme(theme) {
