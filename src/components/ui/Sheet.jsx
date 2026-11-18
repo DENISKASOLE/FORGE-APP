@@ -4,6 +4,7 @@ export function Sheet({ title, onClose, children, maxWidth = 520 }) {
   return (
     <div
       onClick={onClose}
+      className="fx-scrim"
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", zIndex: 1000,
         display: "flex", alignItems: "flex-end", justifyContent: "center",
@@ -11,11 +12,11 @@ export function Sheet({ title, onClose, children, maxWidth = 520 }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glass"
+        className="glass fx-sheet"
         style={{
           width: "100%", maxWidth, maxHeight: "88vh", overflow: "auto",
           borderBottom: "none",
-          borderRadius: "24px 24px 0 0", padding: "10px 18px 24px",
+          borderRadius: "24px 24px 0 0", padding: "10px 18px calc(24px + env(safe-area-inset-bottom))",
           // Overrides .glass's translucent fill. A sheet is a form, not a
           // floating card - the page showing through it was making every
           // label and placeholder compete with whatever was behind it.

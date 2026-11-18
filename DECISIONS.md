@@ -1,3 +1,29 @@
+# Native-app feel pass — decisions log
+
+Nov 2026, Denis: "make it feel like a real app, not a static PWA".
+- Page frame: the document itself scrolls now (was an inner #root box -
+  broke tap-status-bar-to-top and native bounce); overflow-x: clip.
+  Status-bar band removed (--shell = page colour) and theme-color follows
+  the in-app theme.
+- Installed app: viewport-fit=cover, apple-mobile-web-app-* tags,
+  proper apple-touch-icon / 192 / 512 / maskable icons, iPhone launch
+  screens (light + dark, 9 sizes), in-page boot logo until React renders,
+  stale public/manifest.webmanifest removed (plugin manifest is the only
+  one), manifest id + display_override.
+- Touch: no tap flash, no double-tap zoom delay, no long-press callout or
+  text selection on UI (inputs stay selectable), no sideways bounce;
+  iPhone no longer zooms into small text boxes (maximum-scale=1 on iOS
+  only - pinch zoom still works there).
+- Motion (respects reduce-motion): tab fade-up, pushed screens slide in,
+  bottom sheets slide up with a fading scrim, + menu pops, coach screens
+  animate too.
+- Navigation: swipe from the left edge goes back on sub-screens (Me
+  pages, Fuel meal screen, This week); each bottom tab remembers its
+  scroll position.
+- Updates: checks for a new version whenever the app returns to the
+  foreground (and hourly); reloads only when it won't interrupt (in the
+  background or just reopened), so "close and reopen" isn't needed.
+
 # Client Home "Today" redesign — decisions log
 
 Nov 2026, Denis approved mockup home-redesign ("exactly like that").

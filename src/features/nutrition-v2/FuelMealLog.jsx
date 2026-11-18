@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useEdgeSwipeBack } from "../../lib/gestures.js";
 import { BRAND } from "../../theme/tokens.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { uid } from "../../lib/uid.js";
@@ -52,6 +53,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
   const [sheet, setSheet] = useState(false);
   const [saving, setSaving] = useState(false);
   const sheetSaved = useRef(false);
+  const swipeRef = useEdgeSwipeBack(onBack);
   const [outOpen, setOutOpen] = useState(false);
   const [outText, setOutText] = useState("");
   const selected = options.find((o) => o.id === optId) || options[0];
@@ -103,7 +105,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
   const shownTotals = shownItems.reduce((t, it) => { const m = itemMacros(it); return { kcal: t.kcal + m.kcal, protein: t.protein + m.protein, carbs: t.carbs + m.carbs, fat: t.fat + m.fat }; }, emptyMacros());
 
   return (
-    <div style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", padding: "2px 0 16px" }}>
+    <div ref={swipeRef} className="fx-push" style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", padding: "2px 0 16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 40px", alignItems: "center" }}>
         <button onClick={onBack} aria-label="Back" style={{ width: 40, height: 40, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", cursor: "pointer", color: FUEL.text }}><Chevron dir="left" color={FUEL.text} /></button>
         <div style={{ textAlign: "center" }}>

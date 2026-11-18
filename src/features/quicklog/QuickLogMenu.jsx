@@ -103,8 +103,8 @@ export function QuickLogMenu({ client, updateClient, open, onClose, view: viewPr
     <>
       {open && (
         <>
-          <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(10,20,19,.45)", zIndex: 1050 }} />
-          <div role="dialog" aria-label="Quick log" style={{ position: "fixed", left: 10, right: 10, bottom: "calc(98px + env(safe-area-inset-bottom))", zIndex: 1060, maxWidth: 460, margin: "0 auto", background: "var(--sheet)", border: `1px solid ${BRAND.line}`, borderRadius: 28, padding: 14, boxShadow: "0 24px 60px -10px rgba(0,0,0,.45)", fontFamily: BRAND.sans, color: BRAND.text }}>
+          <div onClick={onClose} className="fx-scrim" style={{ position: "fixed", inset: 0, background: "rgba(10,20,19,.45)", zIndex: 1050 }} />
+          <div role="dialog" aria-label="Quick log" className="fx-pop" style={{ position: "fixed", left: 10, right: 10, bottom: "calc(98px + env(safe-area-inset-bottom))", zIndex: 1060, maxWidth: 460, margin: "0 auto", background: "var(--sheet)", border: `1px solid ${BRAND.line}`, borderRadius: 28, padding: 14, boxShadow: "0 24px 60px -10px rgba(0,0,0,.45)", fontFamily: BRAND.sans, color: BRAND.text }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {[["food", Ico.search, BRAND.gold, "Log food"], ["barcode", Ico.barcode, "var(--orange)", "Scan barcode"]].map(([k, ic, c, l]) => (
                 <button key={k} onClick={() => go(k)} style={{ background: BRAND.card2, border: "none", borderRadius: 18, padding: "16px 10px", cursor: "pointer", color: BRAND.text, fontFamily: "inherit", fontSize: 14, fontWeight: 600 }}>

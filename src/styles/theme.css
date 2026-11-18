@@ -11,7 +11,7 @@
 
 
 :root, [data-theme="light"]{
-  --shell:#EFEBE3; --page:#F5F2EC; --card:#FFFFFF; --card-soft:#FBF9F5; --chip:#F2EEE6;
+  --shell:#F5F2EC; --page:#F5F2EC; --card:#FFFFFF; --card-soft:#FBF9F5; --chip:#F2EEE6;
   /* Opaque surface for bottom sheets. */
   --sheet:#FFFFFF;
   --line:#E7E1D7; --line-soft:#F1ECE3; --line-strong:#D9D0C2;
@@ -38,7 +38,7 @@
 }
 :root:not([data-theme="light"]),
 [data-theme="dark"]{
-  --shell:#08110F; --page:#0B1513; --card:rgba(220,240,235,.055); --card-soft:rgba(220,240,235,.035); --chip:rgba(220,240,235,.075);
+  --shell:#0B1513; --page:#0B1513; --card:rgba(220,240,235,.055); --card-soft:rgba(220,240,235,.035); --chip:rgba(220,240,235,.075);
   --sheet:#13201E;
   --line:rgba(220,240,235,.10); --line-soft:rgba(220,240,235,.06); --line-strong:rgba(220,240,235,.20);
   --ink:#F3EFE7; --ink-2:#AAB9B5; --ink-3:#74857F;
@@ -67,13 +67,75 @@
 
 * { box-sizing: border-box; }
 
-html, body, #root {
-  height: 100%;
+/* The page itself scrolls (not an inner box): that's what gives iOS's
+   tap-the-status-bar-to-scroll-to-top, momentum and the native bounce.
+   overflow-x: clip stops sideways overflow WITHOUT turning the element
+   into its own scroll container (overflow-x: hidden did, which made #root
+   the scroller). */
+html, body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
   background: var(--shell);
   color: var(--ink);
+}
+html { height: 100%; }
+body, #root { min-height: 100%; overflow-x: clip; }
+#root { width: 100%; max-width: 100%; }
+@supports not (overflow: clip) {
+  body, #root { overflow-x: hidden; }
+}
+
+/* ---------------------------------------------------------------------
+   Native-app feel (Nov 2026). What makes a web app stop feeling like a
+   web page on a phone:
+   - no grey flash when tapping, no double-tap zoom delay
+   - no "copy / look up" callout or text selection when long-pressing UI
+     (text you type and chat messages stay selectable)
+   - no sideways page bounce; vertical bounce kept (iOS apps do that)
+   - safe areas respected on notched phones (viewport-fit=cover)
+--------------------------------------------------------------------- */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  overscroll-behavior-x: none;
+}
+body {
+  overscroll-behavior-x: none;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+button, [role="button"], nav, label, img, svg, .no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable="true"], .selectable, .selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+img { -webkit-user-drag: none; }
+
+/* ---------- Motion (screens, sheets, menus) ---------- */
+@keyframes fx-fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes fx-push { from { opacity: .4; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes fx-sheet { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fx-scrim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fx-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes fx-modal { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.fx-screen { animation: fx-fade-up .22s cubic-bezier(.2,.8,.2,1) both; }
+.fx-push { animation: fx-push .28s cubic-bezier(.2,.8,.2,1) both; }
+.fx-sheet { animation: fx-sheet .34s cubic-bezier(.32,.72,0,1) both; }
+.fx-scrim { animation: fx-scrim .2s ease both; }
+.fx-pop { animation: fx-pop .24s cubic-bezier(.2,.8,.2,1) both; transform-origin: 85% 100%; }
+.fx-modal { animation: fx-modal .2s cubic-bezier(.2,.8,.2,1) both; }
+/* Pressable cards shrink slightly under the finger, like native lists. */
+.pressable { transition: transform .12s ease; }
+.pressable:active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-screen, .fx-push, .fx-sheet, .fx-scrim, .fx-pop, .fx-modal { animation: none !important; }
+  .pressable:active, button:not(:disabled):active { transform: none; }
 }
 
 img, video { max-width: 100%; }

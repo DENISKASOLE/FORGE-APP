@@ -7,14 +7,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "icons/icon-192.png", "icons/icon-512.png"],
+      includeAssets: ["favicon.svg", "icons/*.png", "splash/mark-*.png"],
       manifest: {
+        id: "/",
         name: "Forge Coach",
         short_name: "Forge",
         description: "Personal training coaching app by Denis",
         theme_color: "#0E5E5A",
         background_color: "#F5F2EC",
         display: "standalone",
+        display_override: ["standalone"],
         orientation: "portrait",
         start_url: "/",
         scope: "/",
@@ -28,11 +30,18 @@ export default defineConfig({
             src: "/icons/icon-512.png",
             sizes: "512x512",
             type: "image/png"
+          },
+          {
+            src: "/icons/icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable"
           }
         ]
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globIgnores: ["**/splash/light-*.png", "**/splash/dark-*.png"],
         // forge-mcp's OAuth endpoints (DECISIONS.md "forge-mcp") live on
         // this same origin via vercel.json rewrites. Workbox's generated
         // service worker otherwise registers an unrestricted

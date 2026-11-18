@@ -17,20 +17,29 @@ createRoot(document.getElementById("root")).render(
 );
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
-  // The generated service worker takes over active tabs on every deploy
-  // (skipWaiting + clientsClaim), which otherwise leaves an already-open
-  // tab running old JS against a new worker - a real source of the "app
-  // just closes" reports, since any mismatch between the two can throw.
-  // Reloading once when control actually changes keeps a client always on
-  // one consistent, fully-loaded version instead of a stale in-between one.
-  // The `refreshing` guard matters because "controllerchange" can fire more
-  // than once per page life (e.g. a second update arriving before this
-  // reload finishes) - without it a slow reload could restart and loop.
+  navigator.serviceWorker.register("/sw.js").then((reg) => {
+    // Native apps update in the background; a home-screen web app only
+    // checks when it's fully restarted. Check every time the app comes back
+    // to the foreground (and hourly while open) so a new deploy is picked
+    // up without the client having to close and reopen it.
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+  });
+  // The new worker takes over (skipWaiting + clientsClaim) and we reload
+  // once so the page never runs old JS against a new worker. To avoid
+  // yanking the screen from under someone mid-task, reload right away only
+  // if the app is in the background or was just reopened (first few
+  // seconds); otherwise wait until they next leave the app.
   let refreshing = false;
+  let shownAt = Date.now();
+  let pending = false;
+  const reload = () => { if (refreshing) return; refreshing = true; window.location.reload(); };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") shownAt = Date.now();
+    else if (pending) reload();
+  });
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (refreshing) return;
-    refreshing = true;
-    window.location.reload();
+    if (document.visibilityState !== "visible" || Date.now() - shownAt < 6000) reload();
+    else pending = true;
   });
 }
