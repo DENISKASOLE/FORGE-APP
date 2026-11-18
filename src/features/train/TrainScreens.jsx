@@ -4,7 +4,6 @@ import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field, inputStyle } from "../../components/ui/Field.jsx";
-import { Mini } from "../../components/ui/Mini.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { VideoPlayerModal } from "../../components/ui/VideoPlayerModal.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
@@ -689,11 +688,11 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     const pbs = detectSessionPBs(finished, logsBefore);
     return (
       <Card style={{ padding: isMobile ? 14 : 18 }}>
-        <div style={{ textAlign: "center", marginBottom: 14 }}><div style={{ fontSize: 30, fontWeight: 500, color: BRAND.gold }}>Session Complete</div><div style={{ color: BRAND.muted }}>{finished.workoutName} · Week {finished.weekNum}</div></div>
+        <div style={{ textAlign: "center", marginBottom: 14 }}><div style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em", color: BRAND.gold }}>Session Complete</div><div style={{ color: BRAND.muted }}>{finished.workoutName} · Week {finished.weekNum}</div></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginBottom: 14 }}>
-          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>DURATION</div><div style={{ fontWeight: 500, fontSize: 20 }}>{fStats.durationSec ? fmtClock(fStats.durationSec) : "-"}</div></div>
-          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>VOLUME</div><div style={{ fontWeight: 500, fontSize: 20 }}>{fStats.volume.toLocaleString()}kg</div></div>
-          <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500 }}>SETS</div><div style={{ fontWeight: 500, fontSize: 20 }}>{fStats.setsDone}/{fStats.setsTotal}</div></div>
+          <div style={{ background: tint(BRAND.gold, 14), border: `1px solid color-mix(in srgb, ${BRAND.gold} 35%, transparent)`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 800 }}>DURATION</div><div style={{ fontWeight: 800, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{fStats.durationSec ? fmtClock(fStats.durationSec) : "-"}</div></div>
+          <div style={{ background: tint(BRAND.blue, 14), border: `1px solid color-mix(in srgb, ${BRAND.blue} 35%, transparent)`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.blue, fontSize: 11, fontWeight: 800 }}>VOLUME</div><div style={{ fontWeight: 800, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{fStats.volume.toLocaleString()}kg</div></div>
+          <div style={{ background: tint(BRAND.green, 14), border: `1px solid color-mix(in srgb, ${BRAND.green} 35%, transparent)`, borderRadius: BRAND.radiusCard, padding: 12, textAlign: "center", overflow: "hidden" }}><div style={{ color: BRAND.green, fontSize: 11, fontWeight: 800 }}>SETS</div><div style={{ fontWeight: 800, fontSize: 20, fontVariantNumeric: "tabular-nums" }}>{fStats.setsDone}/{fStats.setsTotal}</div></div>
         </div>
         {pbs.length > 0 && <div style={{ background: BRAND.greenBg, border: `${BRAND.hairline} solid ${BRAND.green}`, borderRadius: BRAND.radiusCard, padding: 12, marginBottom: 14 }}><div style={{ color: BRAND.green, fontWeight: 500, marginBottom: 6 }}>Personal bests</div>{pbs.map((pb) => <div key={pb.name} style={{ fontWeight: 500 }}>{pb.name}: <span style={{ color: BRAND.green }}>{pb.detail}</span></div>)}</div>}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 10 }}>
@@ -754,8 +753,8 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
     <InjuryBanner client={client} />
     <div style={{ display: "grid", gap: 14, maxWidth: "100%", overflowX: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer", padding: 0 }}>‹ Exit</button>
-        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: "5px 11px", fontWeight: 500, color: BRAND.gold, fontSize: 13 }}>{editing ? "Editing" : (elapsed > 0 ? fmtClock(elapsed) : "0:00")}</div>
+        <button onClick={handleExit} style={{ background: "none", border: "none", color: BRAND.gold, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer", padding: 0 }}>‹ Exit</button>
+        <div style={{ background: BRAND.gold, borderRadius: 999, padding: "6px 14px", fontWeight: 800, color: "var(--btn-ink)", fontSize: 14, fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", gap: 6 }}>{!editing && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--gold)" }} />}{editing ? "Editing" : (elapsed > 0 ? fmtClock(elapsed) : "0:00")}</div>
       </div>
       {swapPanel}
       {isSuperset ? (
@@ -779,10 +778,11 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       <>
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>Exercise {cur + 1} of {total}</div>
-          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "right" }}>{session.workoutName || workout?.name}</div>
+          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em" }}>Exercise {cur + 1} of {total}</div>
+          <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: "right" }}>{session.workoutName || workout?.name}</div>
         </div>
-        <div style={{ fontSize: 26, fontWeight: 500, textTransform: "uppercase", lineHeight: 1.05, marginTop: 6 }}>{effectiveName}</div>
+        <div style={{ display: "flex", gap: 4, marginTop: 8 }}>{Array.from({ length: total }, (_, i) => <div key={i} style={{ flex: 1, height: 5, borderRadius: 99, background: i < cur ? BRAND.green : i === cur ? BRAND.gold : "var(--line)" }} />)}</div>
+        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em", textTransform: "uppercase", lineHeight: 1.05, marginTop: 12 }}>{effectiveName}</div>
         {exMeta?.muscleGroup && <div style={{ marginTop: 6 }}><MuscleGroupTag muscleGroup={exMeta.muscleGroup} needsReview={exMeta.needsReview} /></div>}
         {entry.substitutedName && <div style={{ color: BRAND.muted, fontSize: 11, fontWeight: 400, marginTop: 3 }}>Substituted for {entry.name}</div>}
         {block && block.type !== "straight" && <div style={{ color: BRAND.gold, fontSize: 10, fontWeight: 500, textTransform: "uppercase", marginTop: 4 }}>{entry.tag} · {block.type}</div>}
@@ -791,10 +791,10 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
         <div style={{ position: "relative", height: 168 }}><img src={thumb.thumb} alt="Exercise" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,0,0,.45)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", border: "1.5px solid rgba(255,255,255,.85)", display: "grid", placeItems: "center", color: "#fff", fontSize: 20, paddingLeft: 3 }}>▶</div></div></div>
         {(ex.tempo || week?.targetRpe || ex.rest) && <div style={{ display: "flex", gap: 8, padding: 12, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div>}
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
-      {ex.note && <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 500 }}>Coach: </span>{ex.note}</div>}
+      {ex.note && <div style={{ background: tint(BRAND.gold, 10), borderLeft: `4px solid ${BRAND.gold}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 800 }}>Coach: </span>{ex.note}</div>}
       <SetLogRows entry={entry} timed={timed} lastSets={lastSets} best={best} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
       <div>
-        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
+        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: "transparent", border: `1.5px solid ${BRAND.gold}`, borderRadius: 999, color: BRAND.gold, fontWeight: 700, cursor: "pointer", fontSize: 13, padding: "9px 16px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
         {subbing && <div style={{ marginTop: 8 }}>
           <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
@@ -851,19 +851,32 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
 
 
 // ---------- Program calendar: shared bits ----------
-export function DayPill({ day, compact = false }) {
-  const base = { fontSize: compact ? 8 : 9, fontWeight: 500, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
+// Teal hero surface used for the top card of each Train screen.
+const HERO = { background: "linear-gradient(140deg, var(--accent) 0%, var(--accent-deep) 100%)", color: "var(--btn-ink)", border: "none", boxShadow: "0 4px 14px color-mix(in srgb, var(--accent) 20%, transparent)" };
+const HERO_SUB = { color: "color-mix(in srgb, var(--btn-ink) 78%, transparent)" };
+const HERO_KICKER = { color: "color-mix(in srgb, var(--btn-ink) 85%, transparent)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em" };
+function tint(c, pct = 14) { return `color-mix(in srgb, ${c} ${pct}%, var(--card))`; }
+export function DayPill({ day, compact = false, onAccent = false }) {
+  const base = { fontSize: compact ? 8 : 9, fontWeight: 700, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
   if (day.isRest) return <div style={{ ...base, background: "transparent", color: BRAND.dim, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest</div>;
-  if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid color-mix(in srgb, ${BRAND.green} 40%, transparent)` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
-  if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.yellow, border: `1px solid color-mix(in srgb, ${BRAND.yellow} 40%, transparent)` }}>{day.workout.name}</div>;
-  if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>{day.workout.name}</div>;
-  return <div style={{ ...base, background: BRAND.gold, color: BRAND.btnInk }}>{day.workout.name}</div>;
+  if (day.state === "completed") return <div style={{ ...base, background: BRAND.green, color: "#fff" }}>✓ {day.workout.name}</div>;
+  if (day.state === "missed") return <div style={{ ...base, background: tint(BRAND.yellow, 22), color: BRAND.yellow, border: `1px solid color-mix(in srgb, ${BRAND.yellow} 50%, transparent)` }}>{day.workout.name}</div>;
+  if (day.state === "in_progress") return <div style={{ ...base, background: onAccent ? "var(--btn-ink)" : "transparent", color: BRAND.gold, border: `1px solid ${onAccent ? "var(--btn-ink)" : BRAND.gold}` }}>{day.workout.name}</div>;
+  return <div style={{ ...base, background: onAccent ? "var(--btn-ink)" : BRAND.gold, color: onAccent ? "var(--accent)" : BRAND.btnInk }}>{day.workout.name}</div>;
 }
+function dayBg(day) {
+  if (day.isRest) return "transparent";
+  if (day.state === "today" || day.state === "in_progress") return HERO.background;
+  if (day.state === "completed") return tint(BRAND.green, 14);
+  if (day.state === "missed") return tint(BRAND.yellow, 14);
+  return BRAND.card;
+}
+const isHot = (d) => d.state === "today" || d.state === "in_progress";
 export function dayBorder(day) {
   if (day.state === "today" || day.state === "in_progress") return BRAND.gold;
-  if (day.state === "completed") return `color-mix(in srgb, ${BRAND.green} 33%, transparent)`;
-  if (day.state === "missed") return `color-mix(in srgb, ${BRAND.yellow} 33%, transparent)`;
-  return BRAND.line;
+  if (day.state === "completed") return `color-mix(in srgb, ${BRAND.green} 55%, transparent)`;
+  if (day.state === "missed") return `color-mix(in srgb, ${BRAND.yellow} 55%, transparent)`;
+  return "var(--line-strong)";
 }
 export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) {
   const isMobile = useIsMobile(520);
@@ -891,31 +904,31 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
           const isSelected = w.weekNum === week.weekNum;
           return (
             <div key={w.id} ref={isSelected ? selectedChipRef : null} style={{ flexShrink: 0 }}>
-              <Button variant={isSelected ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px" }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>
+              <Button variant={isSelected ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px" }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>
             </div>
           );
         })}
       </div>
       {(week.label || week.focus || week.targetRpe) && (
-        <Card style={{ background: BRAND.card2, padding: 12 }}>
-          <div style={{ color: BRAND.gold, fontWeight: 500 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
+        <Card flat style={{ background: tint(BRAND.gold, 10), border: `1px solid color-mix(in srgb, ${BRAND.gold} 30%, transparent)`, padding: 12 }}>
+          <div style={{ color: BRAND.gold, fontWeight: 700 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
           {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
         </Card>
       )}
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.dim, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>
-          <span>This week</span><span>{done} of {training.length}</span>
+        <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>
+          <span>This week</span><span style={{ color: BRAND.gold }}>{done} of {training.length} done</span>
         </div>
-        <div style={{ height: 4, background: BRAND.card2, borderRadius: 3, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: BRAND.gold }} />
+        <div style={{ height: 8, background: "var(--line)", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", borderRadius: 99, width: `${training.length ? (done / training.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${BRAND.gold}, ${BRAND.green})`, transition: "width .4s ease" }} />
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: isMobile ? 4 : 6 }}>
         {weekDaysList.map((d) => (
-          <button key={d.key} onClick={() => onOpen(d)} style={{ background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusControl, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
-            <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LETTER[d.dow - 1]}</div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
-            <DayPill day={d} compact />
+          <button key={d.key} onClick={() => onOpen(d)} style={{ background: dayBg(d), border: isHot(d) ? "none" : `1px ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusControl, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
+            <div style={{ color: isHot(d) ? HERO_SUB.color : BRAND.muted, fontSize: 9, fontWeight: 700 }}>{DOW_LETTER[d.dow - 1]}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: isHot(d) ? "var(--btn-ink)" : BRAND.text }}>{d.date.getDate()}</div>
+            <DayPill day={d} compact onAccent={isHot(d)} />
           </button>
         ))}
       </div>
@@ -928,18 +941,18 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
 export function DaySection({ title, days, onOpen }) {
   return (
     <div>
-      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>{title}</div>
+      <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>{title}</div>
       {days.map((d) => {
         const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
         return (
-          <button key={d.key} onClick={() => onOpen(d)} style={{ width: "100%", textAlign: "left", background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusCard, padding: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+          <button key={d.key} onClick={() => onOpen(d)} className="pressable" style={{ width: "100%", textAlign: "left", background: dayBg(d), border: isHot(d) ? "none" : `1px ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, boxShadow: isHot(d) ? HERO.boxShadow : "none", color: isHot(d) ? "var(--btn-ink)" : BRAND.text, borderRadius: BRAND.radiusCard, padding: isHot(d) ? 16 : 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
             <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
-              <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LABEL[d.dow - 1].toUpperCase()}</div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
+              <div style={{ color: isHot(d) ? HERO_SUB.color : BRAND.muted, fontSize: 10, fontWeight: 700 }}>{DOW_LABEL[d.dow - 1].toUpperCase()}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color: isHot(d) ? "var(--btn-ink)" : BRAND.text }}>{d.date.getDate()}</div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 500, fontSize: 15, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
-              <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2 }}>
+              <div style={{ fontWeight: 700, fontSize: isHot(d) ? 18 : 16, letterSpacing: "-0.01em", color: d.isRest ? BRAND.muted : "inherit" }}>{d.isRest ? "Rest day" : d.workout.name}</div>
+              <div style={{ color: isHot(d) ? HERO_SUB.color : BRAND.muted, fontSize: 12, fontWeight: 500, marginTop: 2 }}>
                 {d.isRest
                   ? (d.note || "Recovery")
                   : d.state === "completed"
@@ -947,10 +960,10 @@ export function DaySection({ title, days, onOpen }) {
                     : `${exerciseCountOf(d.workout)} exercises`}
               </div>
             </div>
-            {d.state === "today" && <span style={{ background: BRAND.gold, color: BRAND.btnInk, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Start</span>}
-            {d.state === "in_progress" && <span style={{ border: `${BRAND.hairline} solid ${BRAND.gold}`, color: BRAND.gold, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Resume</span>}
-            {d.state === "completed" && <span style={{ color: BRAND.green, fontSize: 16, fontWeight: 500 }}>✓</span>}
-            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.yellow}`, color: BRAND.yellow, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
+            {d.state === "today" && <span style={{ background: "var(--btn-ink)", color: "var(--accent)", fontSize: 13, fontWeight: 800, borderRadius: 999, padding: "8px 16px", flexShrink: 0 }}>Start ›</span>}
+            {d.state === "in_progress" && <span style={{ background: "var(--btn-ink)", color: "var(--accent)", fontSize: 13, fontWeight: 800, borderRadius: 999, padding: "8px 16px", flexShrink: 0 }}>Resume ›</span>}
+            {d.state === "completed" && <span style={{ width: 28, height: 28, borderRadius: "50%", background: BRAND.green, color: "#fff", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 800, flexShrink: 0 }}>✓</span>}
+            {d.state === "missed" && <span style={{ background: BRAND.yellow, color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, padding: "5px 10px", flexShrink: 0 }}>MISSED</span>}
           </button>
         );
       })}
@@ -972,7 +985,7 @@ export function ProgramMonthView({ days, cursor, setCursor, currentWeek, onOpen 
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Button variant="dark" onClick={() => shift(-1)} style={{ padding: "8px 14px" }}>‹</Button>
-        <div style={{ fontWeight: 500, fontSize: 16 }}>{cursor.toLocaleString("en-GB", { month: "long", year: "numeric" })}</div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>{cursor.toLocaleString("en-GB", { month: "long", year: "numeric" })}</div>
         <Button variant="dark" onClick={() => shift(1)} style={{ padding: "8px 14px" }}>›</Button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 4 }}>
@@ -980,18 +993,18 @@ export function ProgramMonthView({ days, cursor, setCursor, currentWeek, onOpen 
         {cells.map(({ date, inMonth, day }, i) => (
           <button key={i} disabled={!day} onClick={() => day && onOpen(day)} style={{
             aspectRatio: "1 / 1.2", minWidth: 0, boxSizing: "border-box",
-            background: day && !day.isRest ? BRAND.card : "transparent",
-            border: `${BRAND.hairline} ${day?.isRest ? "dashed" : "solid"} ${day ? dayBorder(day) : BRAND.line}`,
+            background: day ? dayBg(day) : "transparent",
+            border: day && isHot(day) ? "none" : `1px ${day?.isRest ? "dashed" : "solid"} ${day ? dayBorder(day) : BRAND.line}`,
             borderRadius: BRAND.radiusControl, padding: 4, display: "flex", flexDirection: "column", justifyContent: "space-between",
             opacity: inMonth ? 1 : 0.28, cursor: day ? "pointer" : "default",
             boxShadow: day && day.weekNum === currentWeek ? `inset 0 0 0 1px ${BRAND.card2}` : "none",
           }}>
-            <div style={{ fontSize: 10, fontWeight: 500, color: day?.state === "today" ? BRAND.gold : BRAND.muted, textAlign: "left" }}>{date.getDate()}</div>
-            {day && <DayPill day={day} compact />}
+            <div style={{ fontSize: 11, fontWeight: 800, color: day && isHot(day) ? "var(--btn-ink)" : BRAND.text, textAlign: "left" }}>{date.getDate()}</div>
+            {day && <DayPill day={day} compact onAccent={isHot(day)} />}
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: BRAND.dim, fontSize: 10, fontWeight: 400 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", color: BRAND.muted, fontSize: 11, fontWeight: 600 }}>
         <span><span style={{ color: BRAND.green }}>✓</span> Completed</span>
         <span style={{ color: BRAND.gold }}>■ Scheduled</span>
         <span>▢ Rest</span>
@@ -1013,25 +1026,25 @@ export function SessionReport({ client, day, logs, onBack, onEdit, onSaveCoachNo
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
-      <Card>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+      <Card flat style={HERO}>
+        <div style={HERO_KICKER}>
           {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 4 }}>
-          <div style={{ fontSize: 24, fontWeight: 500 }}>{day.workout.name}</div>
-          {onEdit && <Button variant="dark" onClick={() => onEdit(session)}>Edit logs</Button>}
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em" }}>{day.workout.name}</div>
+          {onEdit && <Button variant="dark" onClick={() => onEdit(session)} style={{ fontWeight: 700 }}>Edit logs</Button>}
         </div>
-        <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>
-          Completed{stats.durationSec > 0 ? ` · ${fmtClock(stats.durationSec)}` : ""}{session.sessionRpe ? ` · Session RPE ${session.sessionRpe}` : ""}
+        <div style={{ ...HERO_SUB, fontSize: 13, fontWeight: 600, marginTop: 3 }}>
+          ✓ Completed{stats.durationSec > 0 ? ` · ${fmtClock(stats.durationSec)}` : ""}{session.sessionRpe ? ` · Session RPE ${session.sessionRpe}` : ""}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 14 }}>
-          <Mini label="Volume" value={`${stats.volume.toLocaleString()} kg`} />
-          <Mini label="Sets" value={`${stats.setsDone} / ${stats.setsTotal}`} />
-          <Mini label="PBs" value={String(pbs.length)} />
+          <HeroStat label="Volume" value={`${stats.volume.toLocaleString()} kg`} />
+          <HeroStat label="Sets" value={`${stats.setsDone} / ${stats.setsTotal}`} />
+          <HeroStat label="PBs" value={String(pbs.length)} />
         </div>
       </Card>
       <div>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>What was done</div>
+        <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>What was done</div>
         {(session.entries || []).map((e) => {
           const name = e.substitutedName || e.name;
           const timed = isTimedExercise(name);
@@ -1041,11 +1054,11 @@ export function SessionReport({ client, day, logs, onBack, onEdit, onSaveCoachNo
           const short = prescribed && loggedSets.length > 0 && loggedSets.length < (prescribed.sets?.length || 0);
           if (!loggedSets.length) return null;
           return (
-            <Card key={e.id} style={{ padding: 13, marginBottom: 8 }}>
+            <Card key={e.id} flat style={{ padding: 13, marginBottom: 8, borderLeft: `4px solid ${isPb ? BRAND.green : BRAND.gold}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <div style={{ fontWeight: 500, fontSize: 15 }}>{e.tag ? <span style={{ color: BRAND.gold, marginRight: 6 }}>{e.tag}</span> : null}{name}</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{e.tag ? <TagBadge tag={e.tag} /> : null}{name}</div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {isPb && <span style={{ background: BRAND.green, color: BRAND.btnInk, fontSize: 9, fontWeight: 500, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
+                  {isPb && <span style={{ background: BRAND.green, color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, padding: "3px 8px" }}>PB</span>}
                   {short && <span style={{ color: BRAND.yellow, fontSize: 10, fontWeight: 500 }}>{loggedSets.length} of {prescribed.sets.length} sets</span>}
                 </div>
               </div>
@@ -1057,13 +1070,13 @@ export function SessionReport({ client, day, logs, onBack, onEdit, onSaveCoachNo
                   const target = prescribed?.sets?.[i];
                   return (
                     <div key={i} style={{ display: "grid", gridTemplateColumns: "20px 1fr auto", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}`, fontSize: 13 }}>
-                      <span style={{ color: BRAND.dim, fontSize: 10, fontWeight: 500 }}>{i + 1}</span>
-                      <span style={{ fontWeight: 500 }}>
+                      <span style={{ color: BRAND.muted, fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
+                      <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                         {fmtLoggedSet(s, timed)}
-                        {up > 0 && <span style={{ color: BRAND.green, fontSize: 11, marginLeft: 6 }}>↑ +{up}</span>}
+                        {up > 0 && <span style={{ color: BRAND.green, fontSize: 11, fontWeight: 800, marginLeft: 6 }}>↑ +{up}</span>}
                         {target && <span style={{ color: BRAND.dim, fontWeight: 400, fontSize: 11, marginLeft: 8 }}>target {fmtSetTarget(target, prescribed)}</span>}
                       </span>
-                      <span style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500 }}>{s.rpe ? `RPE ${s.rpe}` : ""}</span>
+                      <span style={{ color: BRAND.gold, fontSize: 11, fontWeight: 700 }}>{s.rpe ? `RPE ${s.rpe}` : ""}</span>
                     </div>
                   );
                 })}
@@ -1101,12 +1114,12 @@ export function DayDetail({ day, onBack, onStart, canStart }) {
     return (
       <div style={{ display: "grid", gap: 14 }}>
         <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
-        <Card>
-          <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+        <Card flat style={HERO}>
+          <div style={HERO_KICKER}>
             {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
           </div>
-          <div style={{ fontSize: 24, fontWeight: 500, marginTop: 4 }}>Rest day</div>
-          <div style={{ color: BRAND.muted, fontSize: 14, marginTop: 10, lineHeight: 1.5 }}>{day.note || "No session scheduled. Recover well."}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 4 }}>Rest day</div>
+          <div style={{ ...HERO_SUB, fontSize: 14, marginTop: 10, lineHeight: 1.5 }}>{day.note || "No session scheduled. Recover well."}</div>
         </Card>
       </div>
     );
@@ -1114,30 +1127,30 @@ export function DayDetail({ day, onBack, onStart, canStart }) {
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <Button variant="ghost" onClick={onBack} style={{ justifySelf: "start", padding: "8px 14px" }}>‹ Back</Button>
-      <Card>
-        <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+      <Card flat style={HERO}>
+        <div style={HERO_KICKER}>
           {day.date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · Week {day.weekNum}
         </div>
-        <div style={{ fontSize: 24, fontWeight: 500, marginTop: 4 }}>{day.workout.name}</div>
-        <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 3 }}>{exerciseCountOf(day.workout)} exercises</div>
-        {day.workout.note && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 8 }}>{day.workout.note}</div>}
+        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 4 }}>{day.workout.name}</div>
+        <div style={{ ...HERO_SUB, fontSize: 13, fontWeight: 600, marginTop: 3 }}>{exerciseCountOf(day.workout)} exercises</div>
+        {day.workout.note && <div style={{ ...HERO_SUB, fontSize: 13, marginTop: 8 }}>{day.workout.note}</div>}
       </Card>
       <Card>
         {(day.workout.blocks || []).map((b, bi) => (b.exercises || []).map((ex, ei) => {
           const exMeta = getExerciseMeta(ex.name, { dbMetaByName: taxonomyMap });
           return (
-          <div key={ex.id} style={{ display: "flex", gap: 10, alignItems: "baseline", padding: "8px 0", borderTop: bi === 0 && ei === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
-            <span style={{ color: BRAND.gold, fontWeight: 500, minWidth: 26, fontSize: 12 }}>{exerciseTag(b, bi, ei)}</span>
-            <span style={{ fontWeight: 500, flex: 1 }}>{ex.name}</span>
+          <div key={ex.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: bi === 0 && ei === 0 ? "none" : `${BRAND.hairline} solid ${BRAND.lineSoft}` }}>
+            <TagBadge tag={exerciseTag(b, bi, ei)} />
+            <span style={{ fontWeight: 700, flex: 1, minWidth: 0 }}>{ex.name}</span>
             {exMeta?.muscleGroup && <MuscleGroupTag muscleGroup={exMeta.muscleGroup} />}
-            <span style={{ color: BRAND.muted, fontSize: 12 }}>{fmtExerciseSummary(ex)}</span>
+            <span style={{ color: BRAND.gold, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{fmtExerciseSummary(ex)}</span>
           </div>
           );
         }))}
         {exerciseCountOf(day.workout) === 0 && <div style={{ color: BRAND.muted }}>Empty workout.</div>}
       </Card>
       {canStart
-        ? <Button onClick={() => onStart(day)} style={{ width: "100%" }}>{day.state === "in_progress" ? "Continue session" : "Start session"}</Button>
+        ? <Button onClick={() => onStart(day)} style={{ width: "100%", fontSize: 16, fontWeight: 800, padding: "16px 18px" }}>{day.state === "in_progress" ? "Continue session" : "Start session"}</Button>
         : isFuture
           ? <Card style={{ background: BRAND.card2, textAlign: "center" }}><div style={{ color: BRAND.dim, fontSize: 13 }}>Opens {day.date.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} — this week comes first.</div></Card>
           : null}
@@ -1201,11 +1214,12 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   const todayISO = isoDate(new Date());
   return (
     <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}>
-      <Card style={{ padding: isMobile ? 12 : 16 }}>
+      <Card flat={!!program} style={{ ...(program ? HERO : {}), padding: isMobile ? 16 : 18 }}>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 500 }}>{program ? `${client.name}'s Program` : "No program yet"}</div>
-            {program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
+            {program && <div style={HERO_KICKER}>Your training</div>}
+            <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", marginTop: program ? 4 : 0 }}>{program ? `${client.name}'s Program` : "No program yet"}</div>
+            {program && <div style={{ ...HERO_SUB, fontSize: 13, fontWeight: 600, marginTop: 2 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
@@ -1223,12 +1237,12 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       {program && !openDay && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
-              Week {weekNum} of {program.weeks.length}
+            <div style={{ color: BRAND.text, fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Week {weekNum} <span style={{ color: BRAND.muted, fontWeight: 600 }}>of {program.weeks.length}</span>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <Button variant={mode === "week" ? "gold" : "dark"} onClick={() => setMode("week")} style={{ fontSize: 12, padding: "7px 14px" }}>Week</Button>
-              <Button variant={mode === "month" ? "gold" : "dark"} onClick={() => setMode("month")} style={{ fontSize: 12, padding: "7px 14px" }}>Month</Button>
+              <Button variant={mode === "week" ? "gold" : "dark"} onClick={() => setMode("week")} style={{ fontSize: 12, fontWeight: 700, padding: "7px 14px" }}>Week</Button>
+              <Button variant={mode === "month" ? "gold" : "dark"} onClick={() => setMode("month")} style={{ fontSize: 12, fontWeight: 700, padding: "7px 14px" }}>Month</Button>
             </div>
           </div>
           {mode === "week"
@@ -1295,4 +1309,16 @@ export function useExerciseTaxonomyMap() {
     return () => { active = false; };
   }, []);
   return map;
+}
+
+function HeroStat({ label, value }) {
+  return (
+    <div style={{ background: "color-mix(in srgb, var(--btn-ink) 14%, transparent)", borderRadius: 12, padding: "10px 12px", minWidth: 0 }}>
+      <div style={{ ...HERO_SUB, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+      <div style={{ fontWeight: 800, fontSize: 16, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+    </div>
+  );
+}
+function TagBadge({ tag }) {
+  return <span style={{ display: "inline-grid", placeItems: "center", minWidth: 26, height: 22, padding: "0 6px", marginRight: 8, borderRadius: 7, background: tint(BRAND.gold, 16), color: BRAND.gold, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{tag}</span>;
 }
