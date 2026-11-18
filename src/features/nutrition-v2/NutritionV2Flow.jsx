@@ -5,6 +5,8 @@ import { CoachPlanBuilderV2 } from "./CoachPlanBuilderV2.jsx";
 import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
 import { FuelToday } from "./FuelToday.jsx";
 import { FuelWeek } from "./FuelWeek.jsx";
+import { FuelPlanView } from "./FuelPlanView.jsx";
+import { isoDate } from "../../lib/dateUtils.js";
 
 // Unified replacement for food_log/macros/prescribed_plan (DECISIONS.md
 // "Nutrition redesign"), restyled per the approved Fuel tab redesign
@@ -43,9 +45,12 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", gap: 8 }}>
           <Chip selected={coachTab === "builder"} onClick={() => setCoachTab("builder")}>Plan builder</Chip>
+          <Chip selected={coachTab === "week"} onClick={() => setCoachTab("week")}>Week plan</Chip>
           <Chip selected={coachTab === "review"} onClick={() => setCoachTab("review")}>Weekly review</Chip>
         </div>
-        {coachTab === "builder" ? <CoachPlanBuilderV2 client={client} updateClient={updateClient} /> : <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach plans={plans} logs={logs} marks={marks} />}
+        {coachTab === "builder" && <CoachPlanBuilderV2 client={client} updateClient={updateClient} />}
+        {coachTab === "week" && <FuelPlanView coach plans={plans} dateISO={isoDate()} todayISO={isoDate()} />}
+        {coachTab === "review" && <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach plans={plans} logs={logs} marks={marks} />}
       </div>
     );
   }

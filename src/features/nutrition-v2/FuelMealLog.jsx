@@ -52,6 +52,8 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
   const [sheet, setSheet] = useState(false);
   const [saving, setSaving] = useState(false);
   const sheetSaved = useRef(false);
+  const [outOpen, setOutOpen] = useState(false);
+  const [outText, setOutText] = useState("");
   const selected = options.find((o) => o.id === optId) || options[0];
   const logged = entries.filter((e) => e.meal === meal.key);
   const dateLabel = new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -76,10 +78,12 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
     write(added, selected.isToday ? `${meal.name} logged${editing ? " with your amounts" : " as planned"}.` : `${meal.name} logged as swapped.`);
   }
   function logEatingOut() {
+    const desc = outText.trim();
+    if (!desc) { showToast("Describe what you ate first.", "warn"); return; }
     const estimate = meal.eatingOutEstimate && Object.keys(meal.eatingOutEstimate).length ? meal.eatingOutEstimate : mealTotals(meal);
     write([{
-      id: uid(), date: dateISO, meal: meal.key, name: "Eating out", foodId: null, qty: null, unit: null,
-      macros: { ...emptyMacros(), ...estimate }, source: "quick", time: nowHHMM(), planItemId: null, estimate: true, replaces: null, reason: "Eating out", photo: null,
+      id: uid(), date: dateISO, meal: meal.key, name: `Eating out: ${desc}`, foodId: null, qty: null, unit: null,
+      macros: { ...emptyMacros(), ...estimate }, source: "quick", time: nowHHMM(), planItemId: null, estimate: true, replaces: null, reason: "Eating out", note: desc, photo: null,
     }], `${meal.name} logged as eating out.`);
   }
   async function clearLog() {
@@ -166,7 +170,16 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {!editing && <ActionRow title="Change amounts" sub="Ate more or less of this meal" icon={ScaleIcon} onClick={() => setEditing(true)} />}
             {editing && <ActionRow title="Back to planned amounts" sub="Undo your amount changes" icon={ScaleIcon} onClick={() => { setEditing(false); setQtys({}); }} />}
-            <ActionRow title="Eating out" sub="Log a coach estimate for a restaurant meal" icon={OutIcon} onClick={logEatingOut} />
+            <ActionRow title="Eating out" sub="Describe what you ate at the restaurant" icon={OutIcon} onClick={() => setOutOpen(!outOpen)} />
+            {outOpen && (
+              <div style={{ padding: 12, borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.lineSoft}`, display: "flex", flexDirection: "column", gap: 8 }}>
+                <label htmlFor="eat-out" style={{ fontSize: 13, fontWeight: 500 }}>What did you eat?</label>
+                <textarea id="eat-out" value={outText} onChange={(e) => setOutText(e.target.value)} autoFocus rows={3} placeholder="e.g. Grilled chicken shawarma plate, half the fries, Diet Coke"
+                  style={{ width: "100%", boxSizing: "border-box", resize: "none", borderRadius: 12, border: `1px solid ${FUEL.line}`, background: "var(--sheet)", color: FUEL.text, padding: "10px 12px", fontSize: 15, fontFamily: "inherit" }} />
+                <div style={{ fontSize: 12, color: FUEL.dim }}>Grilled protein first, one starch, skip fried food and sweet drinks. Coach Denis sees this.</div>
+                <button onClick={logEatingOut} disabled={saving || !outText.trim()} style={{ height: 44, borderRadius: 12, border: "none", background: FUEL.text, color: FUEL.onText, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Log eating out</button>
+              </div>
+            )}
             <ActionRow title="Log something else" sub="Describe it or snap a photo" icon={<PlusIcon color={FUEL.text} />} onClick={() => setSheet(true)} />
           </div>
         </>

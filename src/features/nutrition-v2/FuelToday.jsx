@@ -211,7 +211,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
       </div>
 
       {view === "plan" ? (
-        <FuelPlanView plans={plans} dateISO={dateISO} />
+        <FuelPlanView plans={plans} dateISO={dateISO} todayISO={todayISO} />
       ) : (
         <>
           <WeekStrip plans={plans} logs={logs} marks={marks} dateISO={dateISO} todayISO={todayISO} onSelect={setDateISO} />
