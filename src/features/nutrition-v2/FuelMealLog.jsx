@@ -103,7 +103,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
   const shownTotals = shownItems.reduce((t, it) => { const m = itemMacros(it); return { kcal: t.kcal + m.kcal, protein: t.protein + m.protein, carbs: t.carbs + m.carbs, fat: t.fat + m.fat }; }, emptyMacros());
 
   return (
-    <div style={{ width: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", padding: "2px 0 16px" }}>
+    <div style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", padding: "2px 0 16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 40px", alignItems: "center" }}>
         <button onClick={onBack} aria-label="Back" style={{ width: 40, height: 40, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", cursor: "pointer", color: FUEL.text }}><Chevron dir="left" color={FUEL.text} /></button>
         <div style={{ textAlign: "center" }}>
@@ -124,7 +124,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
       )}
 
       {extras.length > 0 && (
-        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.line}` }}>
+        <div style={{ minWidth: 0, marginTop: 10, padding: "8px 12px", borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.line}` }}>
           <div style={{ ...fuelLbl, marginBottom: 4 }}>Also added</div>
           {extras.map((x) => (
             <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
@@ -139,7 +139,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
       {options.length > 1 && (
         <>
           <div style={{ ...fuelLbl, margin: "16px 2px 8px" }}>Coach's options</div>
-          <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+          <div style={{ minWidth: 0, display: "flex", gap: 6, overflowX: "auto" }}>
             {options.map((o) => {
               const on = o.id === selected.id;
               return (
@@ -153,7 +153,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
         </>
       )}
 
-      <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 18, background: FUEL.card, border: `1px solid ${FUEL.line}` }}>
+      <div style={{ minWidth: 0, marginTop: 10, padding: "12px 14px", borderRadius: 18, background: FUEL.card, border: `1px solid ${FUEL.line}` }}>
         <div style={{ fontSize: 15, fontWeight: 500 }}>{selected.title}</div>
         <MacroLine t={shownTotals} style={{ display: "block", marginTop: 2 }} />
         <div style={{ marginTop: 6 }}>

@@ -119,7 +119,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
   const t = sumEntries(mealEntries);
   const planned = mealTotals(meal);
   return (
-    <div style={{ background: FUEL.card, border: `1px solid ${isNext ? FUEL.lineSoft : FUEL.line}`, borderRadius: 18, padding: "10px 12px" }}>
+    <div style={{ minWidth: 0, background: FUEL.card, border: `1px solid ${isNext ? FUEL.lineSoft : FUEL.line}`, borderRadius: 18, padding: "10px 12px" }}>
       <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, color: FUEL.text, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -141,9 +141,9 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
         )}
       </button>
       {hasLayers && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ minWidth: 0, marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
           {loggedLayers(mealEntries).map((l) => (
-            <div key={l.name} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 10px", borderRadius: 10, background: "var(--card-soft)", border: `1px solid ${FUEL.line}`, fontSize: 12 }}>
+            <div key={l.name} style={{ minWidth: 0, display: "flex", justifyContent: "space-between", gap: 10, padding: "6px 10px", borderRadius: 10, background: "var(--card-soft)", border: `1px solid ${FUEL.line}`, fontSize: 12 }}>
               <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.name}{l.count === 1 && l.qty != null ? <span style={{ color: FUEL.dim }}> · {l.qty}{l.unit === "piece" ? " pc" : ` ${l.unit}`}</span> : null}</span>
               <span style={{ color: FUEL.muted, flexShrink: 0 }}>{Math.round(l.kcal)}</span>
             </div>
@@ -204,7 +204,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
   );
 
   return (
-    <div style={{ width: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", paddingBottom: 12 }}>
+    <div style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", paddingBottom: 12 }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingTop: 2 }}>
         <div style={{ display: "flex" }}><div style={{ display: "flex", background: FUEL.card2, border: `1px solid ${FUEL.line}`, borderRadius: 999, padding: 3 }}>{seg("log", "Log")}{seg("plan", "Plan")}</div></div>
         <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Fuel</div>
@@ -246,7 +246,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
           {!plan ? (
             <div style={{ marginTop: 10, color: FUEL.muted, fontSize: 13 }}>No meals prescribed for this day.</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {orderedMeals.map((meal) => (
                 <MealRow key={meal.key} meal={meal} outcome={mealOutcomeFor(dateISO, todayISO, meal, entries, dateMarks)} isNext={meal.key === firstOpenKey && dateISO === todayISO}
                   mealEntries={entries.filter((e) => e.meal === meal.key)} onOpen={() => setOpenMealKey(meal.key)} />
