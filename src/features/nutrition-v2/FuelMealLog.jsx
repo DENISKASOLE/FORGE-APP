@@ -30,7 +30,7 @@ function ActionRow({ title, sub, icon, onClick }) {
     <button onClick={onClick} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 12px", borderRadius: 16, background: FUEL.card, border: "1px solid var(--line-strong)", color: FUEL.text, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
       <div style={{ width: 36, height: 36, borderRadius: 99, background: "color-mix(in srgb, var(--accent) 14%, var(--card))", color: FUEL.red, display: "grid", placeItems: "center", flexShrink: 0 }}>{icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>{title}</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>{title}</div>
         <div style={{ fontSize: 12, fontWeight: 500, color: FUEL.muted, marginTop: 1 }}>{sub}</div>
       </div>
       <Chevron dir="right" color={FUEL.dim} />
@@ -109,8 +109,8 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
       <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 40px", alignItems: "center" }}>
         <button onClick={onBack} aria-label="Back" style={{ width: 40, height: 40, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", cursor: "pointer", color: FUEL.text }}><Chevron dir="left" color={FUEL.text} /></button>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em" }}>{cap(meal.name)}</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: FUEL.red }}>{dateLabel} · {meal.time}</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" }}>{cap(meal.name)}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: FUEL.red }}>{dateLabel} · {meal.time}</div>
         </div>
         <div />
       </div>
@@ -118,7 +118,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
       {logged.length > 0 && (
         <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 16, background: FUEL.proteinTrack, border: `1px solid ${FUEL.line}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: FUEL.protein }}>✓ Logged at {logged[0].time || "—"}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: FUEL.protein }}>✓ Logged at {logged[0].time || "—"}</span>
             {editable && <button onClick={clearLog} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 4 }}>Clear</button>}
           </div>
           <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2 }}>Logging again replaces what's here.</div>
@@ -140,13 +140,13 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
 
       {options.length > 1 && (
         <>
-          <div style={{ ...fuelLbl, color: FUEL.text, fontWeight: 800, margin: "16px 2px 8px" }}>Coach's options</div>
+          <div style={{ ...fuelLbl, color: FUEL.text, fontWeight: 600, margin: "16px 2px 8px" }}>Coach's options</div>
           <div style={{ minWidth: 0, display: "flex", gap: 6, overflowX: "auto" }}>
             {options.map((o) => {
               const on = o.id === selected.id;
               return (
                 <button key={o.id} onClick={() => { setOptId(o.id); setEditing(false); setQtys({}); }} style={{ flex: "1 0 30%", minWidth: 0, padding: "9px 10px", borderRadius: 12, border: `1.5px solid ${on ? FUEL.red : "var(--line-strong)"}`, background: on ? "color-mix(in srgb, var(--accent) 10%, var(--card))" : FUEL.card, color: FUEL.text, textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: on ? FUEL.red : FUEL.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: on ? FUEL.red : FUEL.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title}</div>
                   <div style={{ fontSize: 11, color: FUEL.dim, marginTop: 2 }}>{Math.round(o.totals.kcal)} kcal · {Math.round(o.totals.protein)}P</div>
                 </button>
               );
@@ -156,7 +156,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
       )}
 
       <div style={{ minWidth: 0, marginTop: 10, padding: "12px 14px", borderRadius: 18, background: FUEL.card, border: "1px solid var(--line-strong)", borderTop: `4px solid ${FUEL.red}` }}>
-        <div style={{ fontSize: 17, fontWeight: 800 }}>{selected.title}</div>
+        <div style={{ fontSize: 17, fontWeight: 600 }}>{selected.title}</div>
         <MacroLine t={shownTotals} style={{ display: "block", marginTop: 2 }} />
         <div style={{ marginTop: 6 }}>
           {shownItems.map((it) => (
@@ -169,7 +169,7 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
                   <button onClick={() => step(it, 1)} aria-label="More" style={stepBtn}>+</button>
                 </span>
               ) : (
-                <span style={{ color: FUEL.text, fontWeight: 700, flexShrink: 0 }}>{Math.round(itemMacros(it).kcal)}</span>
+                <span style={{ color: FUEL.text, fontWeight: 600, flexShrink: 0 }}>{Math.round(itemMacros(it).kcal)}</span>
               )}
             </div>
           ))}
@@ -179,21 +179,21 @@ export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, e
 
       {editable ? (
         <>
-          <button onClick={logSelected} disabled={saving || !selected.meal.items.length} style={{ marginTop: 12, height: 52, borderRadius: 14, border: "none", background: "linear-gradient(140deg, var(--accent) 0%, var(--accent-deep) 100%)", boxShadow: "0 4px 14px color-mix(in srgb, var(--accent) 25%, transparent)", color: FUEL.onText, fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+          <button onClick={logSelected} disabled={saving || !selected.meal.items.length} style={{ marginTop: 12, height: 52, borderRadius: 14, border: "none", background: "linear-gradient(140deg, var(--accent) 0%, var(--accent-deep) 100%)", boxShadow: "0 4px 14px color-mix(in srgb, var(--accent) 25%, transparent)", color: FUEL.onText, fontSize: 16, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             {editing ? "Log with these amounts" : selected.isToday ? "Log as planned" : `Log ${selected.title}`}
           </button>
-          <div style={{ ...fuelLbl, color: FUEL.text, fontWeight: 800, margin: "18px 2px 8px" }}>Something different?</div>
+          <div style={{ ...fuelLbl, color: FUEL.text, fontWeight: 600, margin: "18px 2px 8px" }}>Something different?</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {!editing && <ActionRow title="Change amounts" sub="Ate more or less of this meal" icon={ScaleIcon} onClick={() => setEditing(true)} />}
             {editing && <ActionRow title="Back to planned amounts" sub="Undo your amount changes" icon={ScaleIcon} onClick={() => { setEditing(false); setQtys({}); }} />}
             <ActionRow title="Eating out" sub="Describe what you ate at the restaurant" icon={OutIcon} onClick={() => setOutOpen(!outOpen)} />
             {outOpen && (
               <div style={{ padding: 12, borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.lineSoft}`, display: "flex", flexDirection: "column", gap: 8 }}>
-                <label htmlFor="eat-out" style={{ fontSize: 14, fontWeight: 800 }}>What did you eat?</label>
+                <label htmlFor="eat-out" style={{ fontSize: 14, fontWeight: 600 }}>What did you eat?</label>
                 <textarea id="eat-out" value={outText} onChange={(e) => setOutText(e.target.value)} autoFocus rows={3} placeholder="e.g. Grilled chicken shawarma plate, half the fries, Diet Coke"
                   style={{ width: "100%", boxSizing: "border-box", resize: "none", borderRadius: 12, border: `1px solid ${FUEL.line}`, background: "var(--sheet)", color: FUEL.text, padding: "10px 12px", fontSize: 15, fontFamily: "inherit" }} />
                 <div style={{ fontSize: 12, color: FUEL.dim }}>Grilled protein first, one starch, skip fried food and sweet drinks. Coach Denis sees this.</div>
-                <button onClick={logEatingOut} disabled={saving || !outText.trim()} style={{ height: 46, borderRadius: 12, border: "none", background: FUEL.red, color: FUEL.onText, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>Log eating out</button>
+                <button onClick={logEatingOut} disabled={saving || !outText.trim()} style={{ height: 46, borderRadius: 12, border: "none", background: FUEL.red, color: FUEL.onText, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Log eating out</button>
               </div>
             )}
             <ActionRow title="Log something else" sub="Describe it or snap a photo" icon={<PlusIcon color={FUEL.red} />} onClick={() => setSheet(true)} />
