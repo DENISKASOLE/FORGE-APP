@@ -12,7 +12,7 @@ export function SetLogRows({ entry, timed, lastSets, best, prog, rpePickerFor, s
           Best · <span style={{ color: BRAND.gold }}>{fmtLoggedSet(best.set, timed)}</span>{best.date ? ` · ${best.date}` : ""}
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, padding: "0 6px 6px" }}>{["Set", "Kg", "Reps", "RPE", ""].map((h, hi) => <div key={hi} style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: hi >= 1 && hi <= 3 ? "center" : "left" }}>{h}</div>)}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 0.7fr 38px", gap: 6, padding: "0 6px 6px" }}>{["Set", "Kg", "Reps", "RPE", ""].map((h, hi) => <div key={hi} style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", textAlign: hi >= 1 && hi <= 3 ? "center" : "left" }}>{h}</div>)}</div>
       {entry.sets.map((s, si) => {
         const prev = lastSets[si] || {};
         return (
@@ -36,7 +36,7 @@ export function SetLogRows({ entry, timed, lastSets, best, prog, rpePickerFor, s
           </div>
         );
       })}
-      <button onClick={() => addSet(entry.id)} style={{ fontFamily: BRAND.sans, width: "100%", marginTop: 2, padding: "12px", borderRadius: BRAND.radiusControl, border: `1.5px dashed color-mix(in srgb, ${BRAND.gold} 45%, transparent)`, background: "transparent", color: BRAND.gold, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer" }}>+ Add set</button>
+      <button onClick={() => addSet(entry.id)} style={{ fontFamily: BRAND.sans, width: "100%", marginTop: 2, padding: "12px", borderRadius: BRAND.radiusControl, border: `1.5px dashed var(--line-strong)`, background: "transparent", color: BRAND.gold, fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.14em", cursor: "pointer" }}>+ Add set</button>
       {prog && (
         <div style={{ fontFamily: BRAND.sans, color: prog.reason === "plateau" ? BRAND.gold : BRAND.muted, fontSize: 12, fontWeight: 500, marginTop: 12, textAlign: "center" }}>
           {prog.ai

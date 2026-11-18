@@ -71,7 +71,7 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
       )}
 
       <div>
-        <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{effectiveName}</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.1 }}>{effectiveName}</div>
         <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 4 }}>{fmtExerciseSummary(ex) || "—"}</div>
         {exMeta?.muscleGroup && <div style={{ marginTop: 6 }}><MuscleGroupTag muscleGroup={exMeta.muscleGroup} needsReview={exMeta.needsReview} /></div>}
       </div>
