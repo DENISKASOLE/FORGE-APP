@@ -19,7 +19,7 @@ function fmtHeaderDate(dateISO) {
 
 function DayTypeChip({ label, training }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, background: FUEL.card2, border: `1px solid ${FUEL.line}`, borderRadius: 999, padding: "8px 12px", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: FUEL.text, fontWeight: 700, flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, background: FUEL.card2, border: `1px solid ${FUEL.line}`, borderRadius: 999, padding: "8px 12px", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: FUEL.text, fontWeight: 500, flexShrink: 0 }}>
       <span style={{ width: 7, height: 7, borderRadius: 99, background: training ? FUEL.amber : FUEL.lineDashed }} />{label}
     </div>
   );
@@ -44,18 +44,18 @@ function CalorieGauge({ kcalEaten, kcalGoal }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
       <div style={{ textAlign: "center", flexShrink: 0, minWidth: 0 }}>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>{Math.round(kcalEaten).toLocaleString()}</div>
-        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 700 }}>eaten</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 600 }}>{Math.round(kcalEaten).toLocaleString()}</div>
+        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 500 }}>eaten</div>
       </div>
       <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Calories left" style={{ flexShrink: 0 }}>
         <circle cx="70" cy="70" r={r} fill="none" stroke={FUEL.card2} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 70 70)" />
         <circle cx="70" cy="70" r={r} fill="none" stroke={FUEL.text} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 70 70)" />
-        <text x="70" y="67" textAnchor="middle" fill={FUEL.text} fontSize="26" fontWeight="800" fontFamily={BRAND.sans}>{left.toLocaleString()}</text>
-        <text x="70" y="87" textAnchor="middle" fill={FUEL.muted} fontSize="12" fontWeight="700" fontFamily={BRAND.sans}>left</text>
+        <text x="70" y="67" textAnchor="middle" fill={FUEL.text} fontSize="26" fontWeight="600" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
+        <text x="70" y="87" textAnchor="middle" fill={FUEL.muted} fontSize="12" fontWeight="500" fontFamily={BRAND.sans}>left</text>
       </svg>
       <div style={{ textAlign: "center", flexShrink: 0, minWidth: 0 }}>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>{Math.round(kcalGoal).toLocaleString()}</div>
-        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 700 }}>goal</div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 600 }}>{Math.round(kcalGoal).toLocaleString()}</div>
+        <div style={{ fontSize: 11, color: FUEL.muted, marginTop: 2, fontWeight: 500 }}>goal</div>
       </div>
     </div>
   );
@@ -76,7 +76,7 @@ function MacroBarRow({ now, target }) {
         const pct = t > 0 ? Math.min(100, (n / t) * 100) : 0;
         return (
           <div key={key}>
-            <div style={{ fontSize: 14 }}><span style={{ fontWeight: 800 }}>{meta.label}</span> <span style={{ color: FUEL.muted, fontWeight: 700 }}>({n}/{t}g)</span></div>
+            <div style={{ fontSize: 14 }}><span style={{ fontWeight: 600 }}>{meta.label}</span> <span style={{ color: FUEL.muted, fontWeight: 500 }}>({n}/{t}g)</span></div>
             <div style={{ height: 5, borderRadius: 9, background: FUEL.card2, marginTop: 8 }}><div style={{ width: `${pct}%`, height: 5, borderRadius: 9, background: meta.color }} /></div>
           </div>
         );
@@ -103,9 +103,9 @@ function WeekStrip({ plans, workoutByDate, dateISO, todayISO, onSelect }) {
     <div style={{ padding: "16px 20px 0", display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
       {days.map((d) => (
         <button key={d.name} onClick={() => onSelect(d.cellISO)} style={{ textAlign: "center", padding: "8px 0", borderRadius: 12, background: d.isSelected ? FUEL.text : FUEL.card, border: d.isSelected ? "none" : `1px solid ${d.isToday ? FUEL.lineSoft : FUEL.line}`, cursor: "pointer", fontFamily: "inherit" }}>
-          <div style={{ fontSize: 10, letterSpacing: ".08em", color: d.isSelected ? "#000" : FUEL.muted, fontWeight: 700 }}>{d.name.toUpperCase()}</div>
-          <div style={{ fontSize: 15, marginTop: 3, color: d.isSelected ? "#000" : FUEL.text, fontWeight: 700 }}>{d.num}</div>
-          <div style={{ width: 5, height: 5, borderRadius: 99, margin: "5px auto 0", background: d.isSelected ? "#000" : (d.training ? FUEL.amber : FUEL.lineDashed) }} />
+          <div style={{ fontSize: 10, letterSpacing: ".08em", color: d.isSelected ? FUEL.onText : FUEL.muted, fontWeight: 500 }}>{d.name.toUpperCase()}</div>
+          <div style={{ fontSize: 15, marginTop: 3, color: d.isSelected ? FUEL.onText : FUEL.text, fontWeight: 500 }}>{d.num}</div>
+          <div style={{ width: 5, height: 5, borderRadius: 99, margin: "5px auto 0", background: d.isSelected ? FUEL.onText : (d.training ? FUEL.amber : FUEL.lineDashed) }} />
         </button>
       ))}
     </div>
@@ -116,8 +116,8 @@ function DateNavRow({ dateISO, todayISO, onChange }) {
     <div style={{ margin: "14px 20px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
       <button onClick={() => onChange(addDaysISO(dateISO, -1))} aria-label="Previous day" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, color: FUEL.text, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{"‹"}</button>
       <div style={{ textAlign: "center", minWidth: 120 }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>{fmtHeaderDate(dateISO)}</div>
-        {dateISO !== todayISO && <button onClick={() => onChange(todayISO)} style={{ marginTop: 2, background: "none", border: "none", color: FUEL.amber, fontSize: 11, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Jump to today</button>}
+        <div style={{ fontSize: 15, fontWeight: 500 }}>{fmtHeaderDate(dateISO)}</div>
+        {dateISO !== todayISO && <button onClick={() => onChange(todayISO)} style={{ marginTop: 2, background: "none", border: "none", color: FUEL.amber, fontSize: 11, fontWeight: 500, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", padding: 0 }}>Jump to today</button>}
       </div>
       <button onClick={() => onChange(addDaysISO(dateISO, 1))} aria-label="Next day" style={{ width: 36, height: 36, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, color: FUEL.text, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{"›"}</button>
     </div>
@@ -142,40 +142,40 @@ function MealCard({ meal, totals, outcome, isNext, entries, editable, onAte, onU
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {done ? (
             <div style={{ width: 26, height: 26, borderRadius: 99, background: FUEL.protein, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke={FUEL.onColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
           ) : (
-            <div style={{ width: 26, height: 26, borderRadius: 99, border: "2px solid #3a3a3a", flexShrink: 0 }} />
+            <div style={{ width: 26, height: 26, borderRadius: 99, border: `2px solid ${FUEL.lineDashed}`, flexShrink: 0 }} />
           )}
           <div>
-            <div style={{ fontSize: 15, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.text, fontWeight: 700 }}>{meal.name}</div>
-            <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2, fontWeight: 700 }}>{meal.time} · {Math.round(totals.kcal)} kcal · <span style={{ color: FUEL.protein }}>{Math.round(totals.protein)} g protein</span></div>
+            <div style={{ fontSize: 15, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.text, fontWeight: 500 }}>{meal.name}</div>
+            <div style={{ fontSize: 12, color: FUEL.muted, marginTop: 2, fontWeight: 500 }}>{meal.time} · {Math.round(totals.kcal)} kcal · <span style={{ color: FUEL.protein }}>{Math.round(totals.protein)} g protein</span></div>
           </div>
         </div>
-        {isNext && !done && <div style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", background: FUEL.text, color: "#000", borderRadius: 99, padding: "5px 9px", fontWeight: 700, flexShrink: 0 }}>Next</div>}
+        {isNext && !done && <div style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", background: FUEL.text, color: FUEL.onText, borderRadius: 99, padding: "5px 9px", fontWeight: 500, flexShrink: 0 }}>Next</div>}
       </div>
 
       {!done ? (
         <>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {meal.items.map((it) => (
-              <div key={it.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 14, color: "#e5e5e5", padding: "8px 0", borderTop: "1px solid #1f1f1f", fontWeight: 700 }}>
+              <div key={it.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 14, color: FUEL.text, padding: "8px 0", borderTop: `1px solid ${FUEL.line}`, fontWeight: 500 }}>
                 <span>{it.name}</span><span style={{ color: FUEL.muted, whiteSpace: "nowrap" }}>{it.qty}{it.unit === "piece" ? "" : it.unit}</span>
               </div>
             ))}
-            {meal.note && <div style={{ fontSize: 12, color: FUEL.amber, lineHeight: 1.4, fontWeight: 700 }}>{meal.note}</div>}
+            {meal.note && <div style={{ fontSize: 12, color: FUEL.amber, lineHeight: 1.4, fontWeight: 500 }}>{meal.note}</div>}
           </div>
           {editable && (
             <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-              <button onClick={onAte} style={{ gridColumn: "span 2", height: 48, borderRadius: 14, border: "none", background: FUEL.text, color: "#000", fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Ate it</button>
-              <button onClick={onSwap} style={{ height: 48, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card2, color: FUEL.text, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Swap</button>
+              <button onClick={onAte} style={{ gridColumn: "span 2", height: 48, borderRadius: 14, border: "none", background: FUEL.text, color: FUEL.onText, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 500, cursor: "pointer" }}>Ate it</button>
+              <button onClick={onSwap} style={{ height: 48, borderRadius: 14, border: `1px solid ${FUEL.lineSoft}`, background: FUEL.card2, color: FUEL.text, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 500, cursor: "pointer" }}>Swap</button>
             </div>
           )}
         </>
       ) : (
-        <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: FUEL.muted, fontWeight: 700 }}>
+        <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: FUEL.muted, fontWeight: 500 }}>
           <span>{doneNoteFor(meal, entries)}</span>
-          {editable && <button onClick={onUndo} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", padding: "10px 0", cursor: "pointer", fontWeight: 700 }}>Undo</button>}
+          {editable && <button onClick={onUndo} style={{ background: "none", border: "none", color: FUEL.muted, fontSize: 12, textDecoration: "underline", padding: "10px 0", cursor: "pointer", fontWeight: 500 }}>Undo</button>}
         </div>
       )}
     </div>
@@ -251,7 +251,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
       <div style={{ padding: "6px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={fuelLbl}>{new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}{client.program ? ` · Week ${currentProgramWeek(client.program)}` : ""}</div>
-          <div style={{ fontSize: 30, letterSpacing: ".04em", textTransform: "uppercase", marginTop: 4, fontWeight: 700 }}>Fuel</div>
+          <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 4 }}>Fuel</div>
         </div>
         <DayTypeChip label={chip.label} training={chip.training} />
       </div>
@@ -264,23 +264,23 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
         <div style={{ borderTop: `1px solid ${FUEL.line}`, paddingTop: 16 }}>
           <MacroBarRow now={totals} target={target} />
         </div>
-        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 700, textAlign: "center" }}>{tally.onPlan} of {orderedMeals.length || 4} meals on plan</div>
+        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 500, textAlign: "center" }}>{tally.onPlan} of {orderedMeals.length || 4} meals on plan</div>
       </div>
 
       {notes?.shared && (
         <div style={{ margin: "12px 20px 0", background: FUEL.card, border: `1px solid ${FUEL.line}`, borderRadius: 16, padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <div style={{ width: 28, height: 28, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 700 }}>D</div>
-          <div style={{ fontSize: 13, lineHeight: 1.45, color: "#d4d4d4", fontWeight: 700 }}>{notes.shared}</div>
+          <div style={{ width: 28, height: 28, borderRadius: 99, background: FUEL.red, color: "#fff", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 500 }}>D</div>
+          <div style={{ fontSize: 13, lineHeight: 1.45, color: FUEL.text, fontWeight: 500 }}>{notes.shared}</div>
         </div>
       )}
 
       <div style={{ padding: "22px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div style={fuelLbl}>{planLabel}</div>
-        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 700 }}>Signed by Coach Denis</div>
+        <div style={{ fontSize: 12, color: FUEL.muted, fontWeight: 500 }}>Signed by Coach Denis</div>
       </div>
 
       {!plan ? (
-        <div style={{ margin: "0 20px", color: FUEL.muted, fontSize: 13, fontWeight: 700 }}>No meals prescribed for this day.</div>
+        <div style={{ margin: "0 20px", color: FUEL.muted, fontSize: 13, fontWeight: 500 }}>No meals prescribed for this day.</div>
       ) : (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           {orderedMeals.map((meal) => {
@@ -304,7 +304,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
       )}
 
       {editable && (
-        <button onClick={() => { const target = orderedMeals.find((m) => m.key === firstOpenKey) || orderedMeals[orderedMeals.length - 1]; if (target) setSwapMeal(target); else showToast("No meals prescribed for this day.", "info"); }} style={{ margin: "16px 20px 0", height: 54, borderRadius: 16, border: "1px dashed #3a3a3a", color: FUEL.text, background: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 700 }}>
+        <button onClick={() => { const target = orderedMeals.find((m) => m.key === firstOpenKey) || orderedMeals[orderedMeals.length - 1]; if (target) setSwapMeal(target); else showToast("No meals prescribed for this day.", "info"); }} style={{ margin: "16px 20px 0", height: 54, borderRadius: 16, border: `1px dashed ${FUEL.lineDashed}`, color: FUEL.text, background: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer", fontWeight: 500 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke={FUEL.text} strokeWidth="2.4" strokeLinecap="round" /></svg>
           Ate something off-plan
         </button>
@@ -313,7 +313,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
       <button onClick={() => (onOpenWeek ? onOpenWeek() : showToast("My week is coming in a later step.", "info"))} style={{ margin: "12px 20px 0", padding: "14px 16px", borderRadius: 16, background: FUEL.card, border: `1px solid ${FUEL.line}`, color: FUEL.text, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", textAlign: "left" }}>
         <div>
           <div style={fuelLbl}>This week</div>
-          <div style={{ fontSize: 15, marginTop: 4, fontWeight: 700 }}>{weekInfo.streak}-day streak · {weekInfo.onPlanPct != null ? Math.round(weekInfo.onPlanPct * 100) : "—"}% on plan</div>
+          <div style={{ fontSize: 15, marginTop: 4, fontWeight: 500 }}>{weekInfo.streak}-day streak · {weekInfo.onPlanPct != null ? Math.round(weekInfo.onPlanPct * 100) : "—"}% on plan</div>
         </div>
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke={FUEL.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
