@@ -1,3 +1,14 @@
+# Fuel: full-week plan + eating-out description — decisions log
+
+Nov 2026, Denis: the Plan tab shows every day of the week at once (day,
+date, day type, total kcal, each meal with time, foods and note) instead
+of a one-day picker; the same view is a new "Week plan" chip on the
+coach's per-client Nutrition tab. Each day resolves its own plan version,
+so a new plan starting mid-week shows correctly. Eating out on the meal
+screen now opens a "What did you eat?" box and won't log without a
+description; the entry is named "Eating out: <description>" and keeps
+the coach's estimate macros.
+
 # Talas colours across Forge — decisions log
 
 Nov 2026, Denis: give Forge the Talas member-app colours everywhere
