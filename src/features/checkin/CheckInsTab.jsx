@@ -2,7 +2,6 @@
 // available - no Saturday window. Five steps in a full-screen flow; sending
 // again in the same week updates that week's check-in.
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { supabase } from "../../supabaseClient.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate } from "../../lib/dateUtils.js";
@@ -103,16 +102,7 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
     if (existing) return;
     try { localStorage.setItem(DRAFT_KEY(client.id), JSON.stringify(form)); } catch { /* ignore */ }
   }, [form, existing, client.id]);
-  useEffect(() => {
-    const el = document.getElementById("checkin-scroll");
-    if (el) el.scrollTop = 0;
-  }, [step]);
-  // Full screen: lock the page behind the check-in.
-  useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prevOverflow; };
-  }, []);
+  useEffect(() => { window.scrollTo(0, 0); }, [step]);
 
   const w = parseFloat(String(form.weight).replace(",", "."));
   const diff = prev != null && Number.isFinite(w) && w > 0 ? Math.round((w - prev) * 10) / 10 : null;
@@ -249,28 +239,26 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
   ];
   const last = step === steps.length - 1;
 
-  return createPortal(
-    <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "var(--page)", display: "flex", flexDirection: "column", fontFamily: "'Inter Variable', Inter, system-ui, sans-serif" }}>
-      <div style={{ padding: "calc(env(safe-area-inset-top, 0px) + 16px) 20px 0", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "var(--ink-3)", marginBottom: 12 }}>
-          <button type="button" onClick={() => { setTried(false); if (step === 0) onClose(); else setStep(step - 1); }} aria-label={step === 0 ? "Close" : "Back"}
-            style={{ display: "flex", alignItems: "center", gap: 6, height: 46, padding: step === 0 ? 0 : "0 18px 0 12px", width: step === 0 ? 46 : "auto", justifyContent: "center", borderRadius: 999, border: "1px solid var(--line-strong)", background: "var(--card)", color: "var(--ink)", fontSize: 17, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            {step === 0 ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
-            ) : (
-              <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>Back</>
-            )}
-          </button>
-          <span style={{ fontSize: 15 }}>{step + 1} of {steps.length}</span>
-        </div>
-        <div style={{ height: 5, borderRadius: 9, background: "var(--line)", overflow: "hidden" }}>
-          <i style={{ display: "block", height: "100%", width: `${((step + 1) / steps.length) * 100}%`, background: "var(--accent)", borderRadius: 9, transition: "width .3s" }} />
-        </div>
+  // Shown in the page itself (bottom bar and avatar stay), using the full
+  // page height; Next sticks just above the bottom bar.
+  return (
+    <div style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", color: "var(--ink)", minHeight: "calc(100vh - 220px)", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "var(--ink-3)", marginBottom: 12 }}>
+        <button type="button" onClick={() => { setTried(false); if (step === 0) onClose(); else setStep(step - 1); }} aria-label={step === 0 ? "Close" : "Back"}
+          style={{ display: "flex", alignItems: "center", gap: 6, height: 46, padding: step === 0 ? 0 : "0 18px 0 12px", width: step === 0 ? 46 : "auto", justifyContent: "center", borderRadius: 999, border: "1px solid var(--line-strong)", background: "var(--card)", color: "var(--ink)", fontSize: 17, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          {step === 0 ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          ) : (
+            <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>Back</>
+          )}
+        </button>
+        <span style={{ fontSize: 15 }}>{step + 1} of {steps.length}</span>
       </div>
-      <div id="checkin-scroll" style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-        <div style={{ padding: "20px 20px 24px", maxWidth: 520, margin: "0 auto", boxSizing: "border-box" }}>{steps[step]}</div>
+      <div style={{ height: 5, borderRadius: 9, background: "var(--line)", overflow: "hidden" }}>
+        <i style={{ display: "block", height: "100%", width: `${((step + 1) / steps.length) * 100}%`, background: "var(--accent)", borderRadius: 9, transition: "width .3s" }} />
       </div>
-      <div style={{ padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+      <div style={{ padding: "20px 4px 16px", flex: 1 }}>{steps[step]}</div>
+      <div style={{ position: "sticky", bottom: "calc(env(safe-area-inset-bottom, 0px) + 92px)", zIndex: 5, padding: "10px 0 6px", background: "linear-gradient(to bottom, transparent, var(--page) 30%)" }}>
         {tried && missing.length > 0 && (
           <div style={{ textAlign: "center", color: "var(--red)", fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>
             {missing.length === 1 ? "Answer the question in red to continue" : `Answer the ${missing.length} questions in red to continue`}
@@ -280,8 +268,7 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
           {last ? (saving ? "Sending…" : existing ? `Update check-in` : `Send to ${coach}`) : "Next"}
         </button>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 
@@ -326,6 +313,7 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
     return Number.isFinite(n) && n > 0 ? n : null;
   };
 
+  if (flow) return <CheckinFlow client={client} coachName={coachName} existing={current} onClose={() => setFlow(false)} onSent={sent} />;
   return (
     <div style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", color: "var(--ink)" }}>
       <div style={C.kick}>Check-in</div>
@@ -387,7 +375,6 @@ export function CheckInsTab({ client, updateClient, isCoach }) {
         })}
       </div>
 
-      {flow && <CheckinFlow client={client} coachName={coachName} existing={current} onClose={() => setFlow(false)} onSent={sent} />}
     </div>
   );
 }
