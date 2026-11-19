@@ -113,6 +113,7 @@ export function BodyCompositionCard({ client, updateClient, isCoach }) {
   const manual = client.bodyComposition || [];
   const [metric, setMetric] = useState("weight");
   const [editing, setEditing] = useState(null); // null | "new" | scan
+  const [allScans, setAllScans] = useState(false);
   const wSeries = weightSeries(client, scans);
   const latestWeight = wSeries.length ? { value: wSeries[wSeries.length - 1].value, date: wSeries[wSeries.length - 1].date, change: wSeries.length > 1 ? Math.round((wSeries[wSeries.length - 1].value - wSeries[wSeries.length - 2].value) * 10) / 10 : null } : (client.weight ? { value: client.weight, change: null } : null);
   const now = { weight: latestWeight, bodyFat: latestWithChange(scans, "bodyFat"), leanMass: latestWithChange(scans, "leanMass") };
@@ -184,8 +185,16 @@ export function BodyCompositionCard({ client, updateClient, isCoach }) {
 
       {scans.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ ...lbl, marginBottom: 6 }}>Scans</div>
-          {scans.slice(0, 8).map((s, i) => (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div style={lbl}>{allScans ? "Scans" : "Latest scan"}</div>
+            {scans.length > 1 && (
+              <button type="button" onClick={() => setAllScans((v) => !v)} aria-expanded={allScans} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", padding: "4px 0", cursor: "pointer", color: "var(--accent)", fontSize: 12.5, fontWeight: 600, fontFamily: BRAND.sans }}>
+                {allScans ? "Show less" : `All scans (${scans.length})`}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: allScans ? "rotate(180deg)" : "none", transition: "transform .2s" }}><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+            )}
+          </div>
+          {(allScans ? scans : scans.slice(0, 1)).map((s, i) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderTop: i ? `1px solid ${BRAND.line}` : "none", fontFamily: BRAND.sans }}>
               <button onClick={() => isCoach && setEditing(s)} style={{ flex: 1, minWidth: 0, display: "flex", gap: 10, alignItems: "baseline", background: "none", border: "none", padding: 0, cursor: isCoach ? "pointer" : "default", textAlign: "left", color: BRAND.text, fontFamily: "inherit" }}>
                 <span style={{ fontSize: 13, fontWeight: 600, width: 74, flexShrink: 0 }}>{fmtDate(s.date)}</span>
