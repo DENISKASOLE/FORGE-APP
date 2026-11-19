@@ -173,12 +173,15 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
   function patchCue(i, v) { setCues((prev) => prev.map((c, ci) => (ci === i ? v : c))); }
   async function save() {
     if (!name.trim()) { showToast("Give this exercise a name.", "warn"); return; }
-    if (!muscleGroup) { showToast("Pick a muscle group.", "warn"); return; }
-    if (!movementPattern) { showToast("Pick a movement pattern.", "warn"); return; }
-    if (cues.some((c) => !c.trim())) { showToast("Fill in all 3 coaching cues.", "warn"); return; }
+    // Only the name is required - muscle group, pattern and cues are
+    // optional so an old exercise can be saved with just a new video link.
+    const url = videoUrl.trim();
+    if (url && !/^https?:\/\//i.test(url)) { showToast("Video link should start with https://", "warn"); return; }
     setSaving(true);
-    await onSave({ name: name.trim(), videoUrl: videoUrl.trim(), muscleGroup, movementPattern, coachingCues: cues.map((c) => c.trim()) });
+    const filled = cues.map((c) => c.trim());
+    await onSave({ name: name.trim(), videoUrl: url, muscleGroup, movementPattern, coachingCues: filled.some(Boolean) ? filled.filter(Boolean) : [] });
     setSaving(false);
+    showToast(initial ? "Exercise updated" : "Exercise added");
   }
   return (
     <div style={modalBackdrop()}>
@@ -204,7 +207,7 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
             </select>
           </label>
         </div>
-        <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Coaching cues (3)</div>
+        <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Coaching cues (optional)</div>
         {[0, 1, 2].map((i) => (
           <div key={i} style={{ marginTop: i ? 8 : 0 }}>
             <Field label={i === 0 ? "Setup" : i === 1 ? "Execution" : "Common fault to avoid"} value={cues[i]} onChange={(v) => patchCue(i, v)} placeholder={i === 0 ? "e.g. Pin shoulder blades back and down" : i === 1 ? "e.g. Lower to mid-chest, elbows tucked ~45°" : "e.g. Don't let elbows flare out"} />
@@ -684,7 +687,10 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const lastSets = entry ? lastSessionSetsFor(logsBefore, effectiveName) : [];
   const best = entry ? bestSetFor(logsBefore, effectiveName) : null;
   const exMeta = entry ? getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises }) : null;
-  const thumb = getVideoThumb(ex.videoUrl);
+  // The library's current link wins, so editing a video in the Exercise
+  // Library updates every program that already uses that exercise.
+  const libVideo = customExercises.find((it) => it.name === effectiveName && it.videoUrl)?.videoUrl;
+  const thumb = getVideoThumb(libVideo || ex.videoUrl);
   const subbing = entry ? subFor === entry.id : false;
   const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
   const prog = entry ? (suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets)) : null;
