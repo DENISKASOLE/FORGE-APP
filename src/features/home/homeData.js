@@ -96,7 +96,7 @@ export function proteinStreak(client, dateISO) {
   return streak;
 }
 
-const ENERGY_WORDS = { struggling: 3, steady: 5, strong: 8, "crushing it": 10 };
+const ENERGY_WORDS = { struggling: 3, steady: 5, strong: 8, "crushing it": 10, drained: 2, low: 4, ok: 6, good: 8, great: 10 };
 // Energy out of 10: today's mood when logged, else the latest check-in's
 // energy answer.
 export function energyInfo(client, dateISO) {
@@ -104,6 +104,7 @@ export function energyInfo(client, dateISO) {
   if (mood) return { value: mood * 2, source: "Today's mood" };
   const ci = [...(client.checkIns || [])].sort((a, b) => (a.date || "").localeCompare(b.date || "")).reverse();
   for (const c of ci) {
+    if (c.values?.energy) return { value: c.values.energy * 2, source: "From check-in" };
     const a = (c.answers || []).find((x) => /energy/i.test(x.question || ""));
     if (!a) continue;
     const s = String(a.answer || "").trim().toLowerCase();

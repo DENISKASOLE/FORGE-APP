@@ -1,296 +1,356 @@
-import { useEffect, useState } from "react";
+// Weekly check-in (Nov 2026 redesign, see lib/checkinV2.js). Always
+// available - no Saturday window. Five steps in a full-screen flow; sending
+// again in the same week updates that week's check-in.
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseClient.js";
-import { BRAND } from "../../theme/tokens.js";
-import { Button } from "../../components/ui/Button.jsx";
-import { Card } from "../../components/ui/Card.jsx";
-import { inputStyle, textareaStyle } from "../../components/ui/Field.jsx";
-import { modalBackdrop } from "../../components/ui/modal.js";
-import { useIsMobile } from "../../lib/browser.js";
 import { uid } from "../../lib/uid.js";
-import { isoDate, currentStreakWeeks, isCheckInDue, hasSubmittedThisCheckInWindow } from "../../lib/dateUtils.js";
-import { daysSince, upsertSection, upsertTrainerData } from "../../lib/clientData.js";
-import { DEFAULT_CHECKIN_QUESTIONS } from "../../lib/constants.js";
+import { isoDate } from "../../lib/dateUtils.js";
+import { upsertSection } from "../../lib/clientData.js";
 import { compressImage } from "../../lib/compressImage.js";
 import { uploadClientPhoto, usePhotoUrl } from "../../lib/storage.js";
 import { showToast } from "../../components/ui/Toast.jsx";
+import {
+  FEEL_SCALES, TRAINING_FEEL, ADHERENCE, PHOTO_SLOTS,
+  emptyCheckinForm, thisWeeksCheckin, weekLabel, sessionsThisWeek, previousWeight,
+  buildCheckinEntry, upsertCheckin, formFromEntry, trendSeries, checkinWeek,
+} from "../../lib/checkinV2.js";
 
-async function loadCheckInTemplate(trainerId) {
-  if (!trainerId) return DEFAULT_CHECKIN_QUESTIONS;
-  const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "checkin_template").maybeSingle();
-  return data?.data?.questions?.length ? data.data.questions : DEFAULT_CHECKIN_QUESTIONS;
+const C = {
+  kick: { fontSize: 11, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--accent)" },
+  h1: { fontSize: 26, fontWeight: 700, letterSpacing: "-.02em", margin: "6px 0 4px", color: "var(--ink)" },
+  h2: { fontSize: 21, fontWeight: 700, letterSpacing: "-.02em", margin: "4px 0 16px", lineHeight: 1.2, color: "var(--ink)" },
+  sub: { fontSize: 14, color: "var(--ink-2)", lineHeight: 1.45 },
+  card: { background: "var(--card)", border: "1px solid var(--line-strong)", borderRadius: 20, padding: 16 },
+  lab: { fontSize: 11, color: "var(--ink-3)", fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 6 },
+  q: { fontSize: 15, fontWeight: 600, margin: "16px 0 8px", color: "var(--ink)" },
+  btn: { height: 52, borderRadius: 999, background: "var(--accent)", color: "#fff", border: "none", width: "100%", fontWeight: 600, fontSize: 16, cursor: "pointer", fontFamily: "inherit" },
+  ta: { width: "100%", boxSizing: "border-box", minHeight: 70, borderRadius: 16, border: "1.5px solid var(--line-strong)", background: "var(--card)", padding: "12px 14px", fontSize: 15, color: "var(--ink)", fontFamily: "inherit", resize: "vertical", outline: "none" },
+};
+const tile = (on) => ({
+  borderRadius: 14, background: on ? "color-mix(in srgb, var(--accent) 10%, var(--card))" : "var(--card)",
+  border: `1.5px solid ${on ? "var(--accent)" : "var(--line-strong)"}`, cursor: "pointer", fontFamily: "inherit", color: on ? "var(--accent)" : "var(--ink)",
+});
+const DRAFT_KEY = (id) => `forge_checkin_draft_${id}`;
+const fmtDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+function useCoachName(trainerId) {
+  const [name, setName] = useState("");
+  useEffect(() => {
+    let off = false;
+    if (!trainerId) return undefined;
+    supabase.from("trainers").select("name").eq("id", trainerId).maybeSingle().then(({ data }) => {
+      if (!off && data?.name) setName(String(data.name).trim().split(/\s+/)[0]);
+    }, () => {});
+    return () => { off = true; };
+  }, [trainerId]);
+  return name;
 }
-const CHECKIN_QUESTION_TYPES = [["text", "Text"], ["scale", "1-10 Scale"], ["choice", "Multiple Choice"]];
 
-function CheckInTemplateEditor({ trainerId, template, onSave, onClose }) {
-  const [questions, setQuestions] = useState(template.map((q) => ({ type: "text", ...q })));
-  const [newQ, setNewQ] = useState("");
-  function updateQ(id, patch) { setQuestions((qs) => qs.map((q) => (q.id === id ? { ...q, ...patch } : q))); }
-  function deleteQ(id) { setQuestions((qs) => qs.filter((q) => q.id !== id)); }
-  function addQ() { if (!newQ.trim()) return; setQuestions((qs) => [...qs, { id: uid(), text: newQ.trim(), type: "text" }]); setNewQ(""); }
-  async function save() { await upsertTrainerData(trainerId, "checkin_template", { questions }); onSave(questions); }
+function Options({ items, value, onPick }) {
   return (
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 560, maxHeight: "85vh", overflow: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text }}>Weekly Check-in Questions</div>
-          <Button variant="ghost" onClick={onClose}>X</Button>
-        </div>
-        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>These questions go to every client's weekly check-in. Scale and Multiple Choice let clients tap an answer instead of typing.</div>
-        {questions.map((q) => (
-          <div key={q.id} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusCard, padding: 12, marginBottom: 10 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <input value={q.text} onChange={(e) => updateQ(q.id, { text: e.target.value })} style={inputStyle()} />
-              <button onClick={() => deleteQ(q.id)} style={{ fontFamily: BRAND.sans, background: "transparent", border: "none", color: BRAND.yellow, fontWeight: 500, cursor: "pointer", fontSize: 18, padding: "0 6px" }}>x</button>
-            </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: q.type === "choice" ? 8 : 0 }}>
-              {CHECKIN_QUESTION_TYPES.map(([val, label]) => {
-                const selected = q.type === val;
-                return (
-                  <button key={val} onClick={() => updateQ(q.id, { type: val, options: val === "choice" ? (q.options || ["Struggling", "Steady", "Strong", "Crushing It"]) : undefined })} style={{ fontFamily: BRAND.sans, background: selected ? "var(--btn-bg)" : BRAND.panel, color: selected ? "var(--btn-ink)" : BRAND.muted, border: `${BRAND.hairline} solid ${selected ? "transparent" : BRAND.line}`, borderRadius: 999, padding: "8px 12px", fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer" }}>{label}</button>
-                );
-              })}
-            </div>
-            {q.type === "choice" && (
-              <input value={(q.options || []).join(", ")} onChange={(e) => updateQ(q.id, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })} placeholder="Options, comma separated" style={inputStyle({ fontSize: 13 })} />
-            )}
-          </div>
-        ))}
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <input value={newQ} onChange={(e) => setNewQ(e.target.value)} placeholder="Add a question..." style={inputStyle()} onKeyDown={(e) => e.key === "Enter" && addQ()} />
-          <Button variant="dark" onClick={addQ}>Add</Button>
-        </div>
-        <Button onClick={save} style={{ width: "100%", marginTop: 16 }}>Save Questions</Button>
-      </Card>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      {items.map((it) => (
+        <button key={it} type="button" onClick={() => onPick(it)} style={{ ...tile(value === it), padding: "13px 12px", fontSize: 14, fontWeight: 500, textAlign: "left" }}>{it}</button>
+      ))}
     </div>
   );
 }
-// Attaching a photo here writes straight into transformPhotos - the same
-// section the Photos tab reads from - so it shows up there automatically,
-// with no separate "check-in photos" store to keep in sync. checkInId on
-// the saved photo just lets the check-in history show its own thumbnail
-// back; the Photos tab doesn't need it and ignores it.
-function CheckInPhotoPicker({ file, previewUrl, onPick, onClear }) {
+
+function FaceScale({ scale, value, onPick }) {
   return (
-    <div>
-      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.14em" }}>Progress photo (optional)</div>
-      {previewUrl ? (
-        <div style={{ position: "relative", width: 140 }}>
-          <img src={previewUrl} alt="preview" style={{ width: 140, aspectRatio: "3/4", objectFit: "cover", borderRadius: 14 }} />
-          <button onClick={onClear} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,.7)", border: "none", color: "#fff", borderRadius: 999, width: 26, height: 26, fontWeight: 500, cursor: "pointer" }}>x</button>
-        </div>
-      ) : (
-        <label style={{ display: "grid", placeItems: "center", width: 140, aspectRatio: "3/4", background: BRAND.card2, border: `2px dashed ${BRAND.line}`, borderRadius: 14, cursor: "pointer", color: BRAND.muted, fontWeight: 500, fontSize: 12, textAlign: "center", padding: 8 }}>
-          📷 Add photo
-          <input type="file" accept="image/*" capture="environment" onChange={(e) => onPick(e.target.files?.[0])} style={{ display: "none" }} />
-        </label>
-      )}
-      <div style={{ color: BRAND.dim, fontSize: 11, marginTop: 6 }}>Lands in your Photos tab so your coach can track visual progress alongside your answers.</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
+      {scale.options.map(([emoji, word], i) => (
+        <button key={word} type="button" onClick={() => onPick(i + 1)} style={{ ...tile(value === i + 1), height: 56, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 20, padding: 0 }}>
+          {emoji}<small style={{ fontSize: 9.5, color: value === i + 1 ? "var(--accent)" : "var(--ink-3)", marginTop: 2, fontWeight: 500 }}>{word}</small>
+        </button>
+      ))}
     </div>
   );
 }
-function CheckInThumb({ photo }) {
-  const url = usePhotoUrl(photo.image);
-  if (!url) return null;
-  return <img src={url} alt="Progress photo" style={{ width: 34, height: 34, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />;
-}
-function computeCheckInFlags(template, answers) {
-  const low = ["Struggling", "Poor", "Fair", "50-74%", "Below 50%"];
-  const flags = [];
-  template.forEach((q) => {
-    const a = answers[q.id];
-    if (!a) return;
-    if (low.includes(a)) flags.push({ q: q.text, a });
-    else if (q.type === "scale" && Number(a) > 0 && Number(a) <= 4) flags.push({ q: q.text, a: a + "/10" });
-  });
-  return flags;
-}
-export function CheckInsTab({ client, updateClient, isCoach }) {
-  const isMobile = useIsMobile(520);
-  const [template, setTemplate] = useState(DEFAULT_CHECKIN_QUESTIONS);
-  const [loadingTemplate, setLoadingTemplate] = useState(true);
-  const [showEditor, setShowEditor] = useState(false);
-  const [answers, setAnswers] = useState({});
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [open, setOpen] = useState(null);
-  const [step, setStep] = useState(0);
-  const submissions = client.checkIns || [];
-  const lastSubmission = submissions[submissions.length - 1];
-  const daysSinceLast = lastSubmission ? daysSince(lastSubmission.date) : null;
-  const dueForCheckIn = isCheckInDue(submissions);
-  const submittedThisWindow = hasSubmittedThisCheckInWindow(submissions);
-  const streak = currentStreakWeeks(submissions.map((s) => s.date));
-  useEffect(() => { loadCheckInTemplate(client.trainer_id).then((qs) => { setTemplate(qs); setLoadingTemplate(false); }); }, [client.trainer_id]);
-  function setAnswer(id, v) { setAnswers((a) => ({ ...a, [id]: v })); }
-  const perStep = 2;
-  const pages = [];
-  for (let i = 0; i < template.length; i += perStep) pages.push(template.slice(i, i + perStep));
-  const totalSteps = pages.length + 1;
-  const isReview = step >= pages.length;
-  const liveFlags = computeCheckInFlags(template, answers);
-  function pickPhoto(file) {
-    if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  }
-  function clearPhoto() {
-    setPhotoFile(null);
-    setPhotoPreview("");
-  }
-  async function submit() {
-    setSaving(true);
-    const checkInId = uid();
-    let photoId = null;
-    let nextPhotos = client.transformPhotos || [];
-    // Photo upload is best-effort: a failed upload shouldn't block the
-    // check-in itself from being submitted - the answers matter more, and
-    // the client can always add the photo from the Photos tab directly.
-    if (photoFile) {
-      try {
-        const blob = await compressImage(photoFile);
-        const path = await uploadClientPhoto(client.id, "transform", blob);
-        photoId = uid();
-        nextPhotos = [{ id: photoId, image: path, type: "Progress", date: isoDate(), checkInId }, ...nextPhotos];
-        await upsertSection(client.id, "transformPhotos", nextPhotos);
-      } catch (error) {
-        nextPhotos = client.transformPhotos || [];
-        showToast(error.message || "Check-in saved, but the photo couldn't upload. Add it from Photos instead.", "warn");
-      }
-    }
-    const entry = { id: checkInId, date: isoDate(), answers: template.map((q) => ({ question: q.text, answer: answers[q.id] || "" })), flags: liveFlags, photoId };
-    const next = [...submissions, entry];
-    await upsertSection(client.id, "checkins", { submissions: next });
-    // One combined update rather than two sequential calls - updateClient
-    // replaces the whole client object, so a second call spreading the
-    // pre-upload `client` would silently drop the photo just added above.
-    updateClient({ ...client, checkIns: next, transformPhotos: nextPhotos });
-    setAnswers({}); setStep(0); setSaving(false);
-    clearPhoto();
-  }
-  function renderQuestion(q) {
+
+function PhotoSlot({ slot, preview, onPick, onClear }) {
+  if (preview) {
     return (
-      <div key={q.id}>
-        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.14em" }}>{q.text}</div>
-        {q.type === "scale" && (
-          <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-              const selected = String(answers[q.id]) === String(n);
-              return (
-                <button key={n} onClick={() => setAnswer(q.id, String(n))} style={{ fontFamily: BRAND.sans, flex: 1, minWidth: 0, height: 40, borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${selected ? "transparent" : BRAND.line}`, background: selected ? "var(--btn-bg)" : BRAND.card2, color: selected ? "var(--btn-ink)" : BRAND.muted, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>{n}</button>
-              );
-            })}
-          </div>
-        )}
-        {q.type === "choice" && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {(q.options || []).map((opt) => {
-              const selected = answers[q.id] === opt;
-              return (
-                <button key={opt} onClick={() => setAnswer(q.id, opt)} style={{ fontFamily: BRAND.sans, flex: 1, minWidth: 72, textAlign: "center", padding: "11px 4px", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${selected ? "transparent" : BRAND.line}`, background: selected ? "var(--btn-bg)" : BRAND.card2, color: selected ? "var(--btn-ink)" : BRAND.muted, fontWeight: 500, fontSize: 12, whiteSpace: "nowrap", cursor: "pointer" }}>{opt}</button>
-              );
-            })}
-          </div>
-        )}
-        {(!q.type || q.type === "text") && (
-          <textarea value={answers[q.id] || ""} onChange={(e) => setAnswer(q.id, e.target.value)} placeholder="Type your answer..." style={textareaStyle({ minHeight: 64 })} />
-        )}
+      <div style={{ position: "relative", height: 150 }}>
+        <img src={preview} alt={slot} style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 20 }} />
+        <button type="button" onClick={onClear} aria-label={`Remove ${slot} photo`} style={{ position: "absolute", top: 6, right: 6, width: 26, height: 26, borderRadius: 99, border: "none", background: "rgba(0,0,0,.6)", color: "#fff", cursor: "pointer" }}>✕</button>
+        <div style={{ position: "absolute", bottom: 6, left: 8, color: "#fff", fontSize: 12, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>{slot}</div>
       </div>
     );
   }
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
-      <Card style={{ padding: isMobile ? 12 : 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 800, letterSpacing: "-0.4px", color: BRAND.text }}>Weekly Check-in</div>
-            {streak >= 2 && <span style={{ fontFamily: BRAND.sans, background: "color-mix(in srgb, var(--accent) 10%, transparent)", color: BRAND.gold, borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 600 }}>🔥 {streak}-week streak</span>}
-          </div>
-          {isCoach && <Button variant="dark" onClick={() => setShowEditor(true)}>Edit Questions</Button>}
-        </div>
-        <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.6, marginTop: 4 }}>{lastSubmission ? `Last check-in: ${lastSubmission.date} (${daysSinceLast} day${daysSinceLast === 1 ? "" : "s"} ago)` : "No check-ins submitted yet."}</div>
-      </Card>
-      {!isCoach && !loadingTemplate && !dueForCheckIn && (
-        <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, padding: isMobile ? 14 : 18, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 18 }}>{submittedThisWindow ? "✓" : "📅"}</span>
-          <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 13, lineHeight: 1.5 }}>
-            {submittedThisWindow ? "You're checked in for this week — nice work. The next one opens Saturday." : "This week's check-in window has closed. The next one opens Saturday."}
-          </div>
+    <label style={{ ...C.card, height: 150, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderStyle: "dashed", color: "var(--ink-3)", fontSize: 13, cursor: "pointer", padding: 0 }}>
+      <span style={{ fontSize: 22, lineHeight: 1 }}>＋</span>{slot}
+      <input type="file" accept="image/*" onChange={(e) => onPick(e.target.files?.[0])} style={{ display: "none" }} />
+    </label>
+  );
+}
+
+function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
+  const [form, setForm] = useState(() => {
+    if (existing) return formFromEntry(existing);
+    try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY(client.id)) || "null"); if (d) return { ...emptyCheckinForm(), ...d }; } catch { /* ignore */ }
+    return emptyCheckinForm();
+  });
+  const [step, setStep] = useState(0);
+  const [photos, setPhotos] = useState({});
+  const [saving, setSaving] = useState(false);
+  const sessions = useMemo(() => sessionsThisWeek(client), [client]);
+  const prev = useMemo(() => previousWeight(client), [client]);
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  useEffect(() => {
+    if (existing) return;
+    try { localStorage.setItem(DRAFT_KEY(client.id), JSON.stringify(form)); } catch { /* ignore */ }
+  }, [form, existing, client.id]);
+  useEffect(() => {
+    const el = document.getElementById("checkin-scroll");
+    if (el) el.scrollTop = 0;
+  }, [step]);
+
+  const w = parseFloat(String(form.weight).replace(",", "."));
+  const diff = prev != null && Number.isFinite(w) && w > 0 ? Math.round((w - prev) * 10) / 10 : null;
+  const ready = [
+    Number.isFinite(w) && w > 0,
+    FEEL_SCALES.every((s) => form[s.key]),
+    form.trainingFeel && form.adherence && form.pain,
+    true,
+    form.overall > 0,
+  ];
+
+  function pickPhoto(slot, file) {
+    if (!file) return;
+    setPhotos((p) => ({ ...p, [slot]: { file, url: URL.createObjectURL(file) } }));
+  }
+  async function send() {
+    setSaving(true);
+    const id = existing?.id || uid();
+    let nextPhotos = client.transformPhotos || [];
+    const photoIds = [...(existing?.photoIds || (existing?.photoId ? [existing.photoId] : []))];
+    let failed = false;
+    for (const slot of PHOTO_SLOTS) {
+      const p = photos[slot];
+      if (!p) continue;
+      try {
+        const blob = await compressImage(p.file);
+        const path = await uploadClientPhoto(client.id, "transform", blob);
+        const pid = uid();
+        photoIds.push(pid);
+        nextPhotos = [{ id: pid, image: path, type: slot, date: isoDate(), checkInId: id, weight: Number.isFinite(w) ? String(w) : "" }, ...nextPhotos];
+      } catch { failed = true; }
+    }
+    if (nextPhotos !== client.transformPhotos) upsertSection(client.id, "transformPhotos", nextPhotos);
+    const entry = buildCheckinEntry(form, { id, sessions, photoIds });
+    const next = upsertCheckin(client.checkIns, entry);
+    await upsertSection(client.id, "checkins", { submissions: next });
+    try { localStorage.removeItem(DRAFT_KEY(client.id)); } catch { /* ignore */ }
+    if (failed) showToast("Check-in sent. A photo couldn't upload – add it from Photos.", "warn");
+    setSaving(false);
+    onSent({ ...client, checkIns: next, transformPhotos: nextPhotos }, !!existing);
+  }
+
+  const coach = coachName ? `Coach ${coachName}` : "your coach";
+  const steps = [
+    <>
+      <div style={C.kick}>Your body</div><h2 style={C.h2}>Current weight</h2>
+      <label style={{ ...C.card, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6, padding: "22px 0" }}>
+        <input inputMode="decimal" value={form.weight} onChange={(e) => set({ weight: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="0.0" aria-label="Current weight in kg"
+          style={{ width: 150, textAlign: "right", border: "none", outline: "none", background: "transparent", fontSize: 56, fontWeight: 700, letterSpacing: "-.03em", color: "var(--ink)", fontFamily: "inherit", padding: 0 }} />
+        <span style={{ fontSize: 18, color: "var(--ink-3)" }}>kg</span>
+      </label>
+      {diff != null && (
+        <div style={{ textAlign: "center", fontSize: 13, fontWeight: 600, marginTop: 8, color: diff === 0 ? "var(--ink-3)" : "var(--green)" }}>
+          {diff === 0 ? "Same as last week" : `${diff > 0 ? "+" : "−"}${Math.abs(diff).toFixed(1)} kg since last week`}
         </div>
       )}
-      {!isCoach && !loadingTemplate && dueForCheckIn && (
-        <div style={{
-          background: "color-mix(in srgb, var(--card) 65%, transparent)", backdropFilter: "blur(20px)",
-          border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
-          borderRadius: 20, padding: isMobile ? 14 : 18,
-          boxShadow: "0 0 32px color-mix(in srgb, var(--accent) 6%, transparent)",
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, letterSpacing: "-0.4px", color: BRAND.gold }}>{isReview ? "Review & submit" : "Your check-in is due"}</div>
-            <div style={{ fontFamily: BRAND.sans, color: BRAND.dim, fontSize: 11, fontWeight: 500 }}>{Math.min(step + 1, totalSteps)} / {totalSteps}</div>
-          </div>
-          <div style={{ height: 4, background: BRAND.card2, borderRadius: 999, overflow: "hidden", marginBottom: 18 }}>
-            <div style={{ height: 4, width: `${((step + 1) / totalSteps) * 100}%`, background: BRAND.gold, borderRadius: 999, transition: "width .3s" }} />
-          </div>
-          {!isReview && <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>{pages[step].map((q) => (
-            <div key={q.id} className="glass-soft" style={{ padding: "14px 16px" }}>
-              {renderQuestion(q)}
-            </div>
-          ))}</div>}
-          {isReview && (
-            <div style={{ display: "grid", gap: 10 }}>
-              {template.map((q) => (
-                <div key={q.id} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 8 }}>
-                  <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{q.text}</div>
-                  <div style={{ fontFamily: BRAND.sans, color: answers[q.id] ? BRAND.text : BRAND.dim, fontSize: 13, lineHeight: 1.6, marginTop: 2 }}>{answers[q.id] || "-"}</div>
-                </div>
-              ))}
-              <div style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10 }}>
-                <CheckInPhotoPicker file={photoFile} previewUrl={photoPreview} onPick={pickPhoto} onClear={clearPhoto} />
-              </div>
-              <div style={{ fontFamily: BRAND.sans, marginTop: 4, color: liveFlags.length ? BRAND.yellow : BRAND.green, fontSize: 12, fontWeight: 500 }}>{liveFlags.length ? `⚑ ${liveFlags.length} thing${liveFlags.length === 1 ? "" : "s"} flagged for your coach` : "✓ Nothing flagged"}</div>
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-            {step > 0 && <Button variant="dark" onClick={() => setStep(step - 1)} style={{ flex: 1 }}>Back</Button>}
-            {!isReview && <Button onClick={() => setStep(step + 1)} style={{ flex: 2, boxShadow: "0 6px 20px color-mix(in srgb, var(--accent) 22%, transparent)" }}>Continue →</Button>}
-            {isReview && <Button onClick={submit} disabled={saving} style={{ flex: 2, boxShadow: "0 8px 24px color-mix(in srgb, var(--accent) 26%, transparent)" }}>{saving ? "Submitting..." : "Submit Check-in →"}</Button>}
-          </div>
+      <div style={{ ...C.q, marginTop: 24 }}>Waist <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>(optional)</span></div>
+      <label style={{ ...C.card, display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: 999 }}>
+        <input inputMode="decimal" value={form.waist} onChange={(e) => set({ waist: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="at the belly button"
+          style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 15, color: "var(--ink)", fontFamily: "inherit", padding: 0 }} />
+        <span style={{ color: "var(--ink-2)" }}>cm</span>
+      </label>
+    </>,
+    <>
+      <div style={C.kick}>How you felt</div><h2 style={C.h2}>Rate your week</h2>
+      {FEEL_SCALES.map((s) => (
+        <div key={s.key}><div style={C.q}>{s.label}</div><FaceScale scale={s} value={form[s.key]} onPick={(v) => set({ [s.key]: v })} /></div>
+      ))}
+    </>,
+    <>
+      <div style={C.kick}>Training &amp; food</div><h2 style={C.h2}>How did the plan go?</h2>
+      <div style={{ ...C.card, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "color-mix(in srgb, var(--accent) 8%, var(--card))" }}>
+        <span style={{ fontSize: 14, color: "var(--ink)" }}>Sessions logged this week</span>
+        <b style={{ fontSize: 18, color: "var(--accent)" }}>{sessions.planned ? `${sessions.done} of ${sessions.planned}` : sessions.done}</b>
+      </div>
+      <div style={C.q}>How did training feel?</div>
+      <Options items={TRAINING_FEEL} value={form.trainingFeel} onPick={(v) => set({ trainingFeel: v })} />
+      <div style={C.q}>How closely did you follow your meal plan?</div>
+      <Options items={ADHERENCE} value={form.adherence} onPick={(v) => set({ adherence: v })} />
+      <div style={C.q}>Any pain or injury?</div>
+      <Options items={["No", "Yes"]} value={form.pain} onPick={(v) => set({ pain: v })} />
+      {form.pain === "Yes" && (
+        <textarea value={form.painNote} onChange={(e) => set({ painNote: e.target.value })} placeholder="Where does it hurt, and when?" style={{ ...C.ta, marginTop: 8 }} />
+      )}
+    </>,
+    <>
+      <div style={C.kick}>Your words</div><h2 style={C.h2}>Looking back, looking ahead</h2>
+      <div style={C.q}>Your biggest win this week</div>
+      <textarea value={form.win} onChange={(e) => set({ win: e.target.value })} placeholder="Big or small – it counts" style={C.ta} />
+      <div style={C.q}>What got in the way?</div>
+      <textarea value={form.obstacle} onChange={(e) => set({ obstacle: e.target.value })} placeholder="Work, travel, sleep, cravings…" style={C.ta} />
+      <div style={C.q}>What do you want help with next week?</div>
+      <textarea value={form.help} onChange={(e) => set({ help: e.target.value })} placeholder="e.g. ideas for quick lunches" style={C.ta} />
+    </>,
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={C.kick}>Progress photos</div>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", padding: "4px 10px", borderRadius: 99, background: "var(--chip)", color: "var(--ink-2)" }}>Optional</span>
+      </div>
+      <h2 style={{ ...C.h2, marginBottom: 6 }}>Same spot, same light</h2>
+      <div style={{ ...C.sub, marginBottom: 14 }}>Photos are optional. Skip them if you like – you can still send your check-in.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        {PHOTO_SLOTS.map((slot) => (
+          <PhotoSlot key={slot} slot={slot} preview={photos[slot]?.url} onPick={(f) => pickPhoto(slot, f)} onClear={() => setPhotos((p) => { const n = { ...p }; delete n[slot]; return n; })} />
+        ))}
+      </div>
+      <div style={{ ...C.q, marginTop: 24 }}>Overall, how was your week?</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+          const on = form.overall === n;
+          return <button key={n} type="button" onClick={() => set({ overall: n })} style={{ padding: "10px 0", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", background: on ? "var(--accent)" : "var(--card)", color: on ? "#fff" : "var(--ink)", border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}` }}>{n}</button>;
+        })}
+      </div>
+      <div style={C.q}>Anything else for your coach?</div>
+      <textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Optional" style={C.ta} />
+    </>,
+  ];
+  const last = step === steps.length - 1;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "var(--page)", display: "flex", flexDirection: "column", fontFamily: "'Inter Variable', Inter, system-ui, sans-serif" }}>
+      <div style={{ padding: "calc(env(safe-area-inset-top, 0px) + 16px) 20px 0", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "var(--ink-3)", marginBottom: 10, minHeight: 32 }}>
+          <button type="button" onClick={() => (step === 0 ? onClose() : setStep(step - 1))} style={{ background: "none", border: "none", color: "var(--ink-2)", fontSize: step === 0 ? 20 : 15, cursor: "pointer", padding: "4px 0", fontFamily: "inherit" }} aria-label={step === 0 ? "Close" : "Back"}>{step === 0 ? "✕" : "‹ Back"}</button>
+          <span>{step + 1} of {steps.length}</span>
+        </div>
+        <div style={{ height: 5, borderRadius: 9, background: "var(--line)", overflow: "hidden" }}>
+          <i style={{ display: "block", height: "100%", width: `${((step + 1) / steps.length) * 100}%`, background: "var(--accent)", borderRadius: 9, transition: "width .3s" }} />
+        </div>
+      </div>
+      <div id="checkin-scroll" style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ padding: "20px 20px 24px", maxWidth: 520, margin: "0 auto", boxSizing: "border-box" }}>{steps[step]}</div>
+      </div>
+      <div style={{ padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+        <button type="button" disabled={!ready[step] || saving} onClick={() => (last ? send() : setStep(step + 1))} style={{ ...C.btn, opacity: !ready[step] || saving ? 0.45 : 1 }}>
+          {last ? (saving ? "Sending…" : existing ? `Update check-in` : `Send to ${coach}`) : "Next"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Trend({ label, values, color }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>{label}</div>
+      <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 28 }}>
+        {values.map((v, i) => <i key={i} style={{ width: 8, height: `${Math.max(8, (v || 0) * 100)}%`, borderRadius: 3, background: v ? color : "var(--line)" }} />)}
+      </div>
+    </div>
+  );
+}
+
+function HistoryPhotos({ photos }) {
+  return <div style={{ display: "flex", gap: 6, marginTop: 4 }}>{photos.map((p) => <Thumb key={p.id} photo={p} />)}</div>;
+}
+function Thumb({ photo }) {
+  const url = usePhotoUrl(photo.image);
+  if (!url) return null;
+  return <img src={url} alt={photo.type} style={{ width: 54, height: 72, borderRadius: 10, objectFit: "cover" }} />;
+}
+
+export function CheckInsTab({ client, updateClient, isCoach }) {
+  const [flow, setFlow] = useState(false);
+  const [open, setOpen] = useState(null);
+  const coachName = useCoachName(client.trainer_id);
+  const submissions = client.checkIns || [];
+  const current = thisWeeksCheckin(submissions);
+  const v2Count = submissions.filter((s) => s.v === 2).length;
+  const history = [...submissions].reverse();
+
+  function sent(nextClient, wasUpdate) {
+    updateClient(nextClient);
+    setFlow(false);
+    showToast(wasUpdate ? "Check-in updated" : `Sent to ${coachName ? `Coach ${coachName}` : "your coach"}`);
+  }
+  const weightOf = (s) => {
+    if (s.values?.weight) return s.values.weight;
+    const a = (s.answers || []).find((x) => /weight/i.test(x.question));
+    const n = a ? parseFloat(String(a.answer).replace(/[^0-9.]/g, "")) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  return (
+    <div style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", color: "var(--ink)" }}>
+      <div style={C.kick}>Check-in</div>
+      <h1 style={C.h1}>Weekly check-in</h1>
+      <div style={{ ...C.sub, marginBottom: 16 }}>{isCoach ? "Every check-in this client has sent." : `2 minutes. ${coachName ? `Coach ${coachName}` : "Your coach"} reads every answer.`}</div>
+
+      {!isCoach && (
+        <div style={{ background: "linear-gradient(140deg, var(--accent), var(--accent-deep))", color: "#fff", borderRadius: 22, padding: 18 }}>
+          <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase" }}>This week · {weekLabel()}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, margin: "6px 0 4px" }}>{current ? "You're checked in ✓" : "Ready when you are"}</div>
+          <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.45 }}>{current ? `Sent ${fmtDay(current.date)}. Something changed? Update it any time this week.` : "Best done Saturday or Sunday morning."}</div>
+          <button type="button" onClick={() => setFlow(true)} style={{ ...C.btn, background: "#fff", color: "var(--accent)", marginTop: 16 }}>{current ? "Update check-in" : "Start check-in"}</button>
         </div>
       )}
-      <Card style={{ padding: isMobile ? 12 : 16 }}>
-        <div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 10 }}>History</div>
-        {submissions.length === 0 && <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14 }}>No check-ins yet.</div>}
-        {[...submissions].reverse().map((s) => {
-          // Matched by checkInId rather than trusting the stored photoId
-          // alone, so this self-heals if the photo was later deleted from
-          // the Photos tab - it just stops showing instead of dangling.
-          const photo = s.photoId ? (client.transformPhotos || []).find((p) => p.checkInId === s.id) : null;
+
+      {v2Count >= 2 && (
+        <>
+          <div style={{ ...C.lab, marginTop: 22 }}>Last {Math.min(6, v2Count)} weeks</div>
+          <div style={{ ...C.card, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <Trend label="Energy" values={trendSeries(submissions, "energy")} color="var(--accent)" />
+            <Trend label="Sleep" values={trendSeries(submissions, "sleep")} color="var(--violet)" />
+            <Trend label="On plan" values={trendSeries(submissions, "adherence")} color="var(--green)" />
+          </div>
+        </>
+      )}
+
+      <div style={{ ...C.lab, marginTop: 22 }}>History</div>
+      <div style={{ ...C.card, padding: "4px 16px" }}>
+        {history.length === 0 && <div style={{ padding: "14px 0", color: "var(--ink-3)", fontSize: 14 }}>No check-ins yet.</div>}
+        {history.map((s, i) => {
+          const wt = weightOf(s);
+          const overall = s.values?.overall;
+          const photos = (client.transformPhotos || []).filter((p) => p.checkInId === s.id);
+          const isOpen = open === s.id;
+          const flags = s.flags?.length || 0;
           return (
-            <div key={s.id} onClick={() => setOpen(open === s.id ? null : s.id)} style={{ borderTop: `${BRAND.hairline} solid ${BRAND.lineSoft}`, paddingTop: 10, marginTop: 10, cursor: "pointer" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: BRAND.sans, minWidth: 0 }}>
-                  {photo && <CheckInThumb photo={photo} />}
-                  <span style={{ fontWeight: 500, fontSize: 14, color: BRAND.text }}>{s.date}</span>
-                  {s.flags && s.flags.length > 0 && <span style={{ color: BRAND.yellow, fontSize: 11, fontWeight: 500 }}>{"⚑"} {s.flags.length}</span>}
-                </div>
-                <span style={{ fontFamily: BRAND.sans, color: BRAND.blue, fontSize: 12, fontWeight: 500, flexShrink: 0 }}>{open === s.id ? "Hide" : "View"}</span>
-              </div>
-              {open === s.id && (
-                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                  {s.answers.map((a, i) => (
-                    <div key={i}>
-                      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>{a.question}</div>
-                      <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontSize: 13, lineHeight: 1.6 }}>{a.answer || "-"}</div>
+            <div key={s.id || i} style={{ borderBottom: i === history.length - 1 ? "none" : "1px solid var(--line)" }}>
+              <button type="button" onClick={() => setOpen(isOpen ? null : s.id)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 0", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", color: "var(--ink)", textAlign: "left" }}>
+                <span style={{ fontWeight: 600, fontSize: 15 }}>{fmtDay(s.date)}{checkinWeek(s) === checkinWeek({ date: isoDate() }) ? <span style={{ color: "var(--accent)", fontWeight: 500, fontSize: 12 }}>  · this week</span> : null}</span>
+                <span style={{ color: "var(--ink-3)", fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
+                  {isCoach && flags > 0 && <span style={{ color: "var(--red)", fontWeight: 600 }}>⚑ {flags}</span>}
+                  {[wt ? `${wt} kg` : "", overall ? `Week ${overall}/10` : ""].filter(Boolean).join(" · ")}
+                  <span style={{ fontSize: 16 }}>{isOpen ? "⌃" : "›"}</span>
+                </span>
+              </button>
+              {isOpen && (
+                <div style={{ paddingBottom: 14, display: "grid", gap: 8 }}>
+                  {(s.answers || []).filter((a) => String(a.answer || "").trim()).map((a, j) => (
+                    <div key={j}>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{a.question}</div>
+                      <div style={{ fontSize: 14, lineHeight: 1.45, whiteSpace: "pre-wrap" }}>{a.answer}</div>
                     </div>
                   ))}
+                  {photos.length > 0 && <HistoryPhotos photos={photos} />}
                 </div>
               )}
             </div>
           );
         })}
-      </Card>
-      {showEditor && <CheckInTemplateEditor trainerId={client.trainer_id} template={template} onSave={(qs) => { setTemplate(qs); setShowEditor(false); }} onClose={() => setShowEditor(false)} />}
+      </div>
+
+      {flow && <CheckinFlow client={client} coachName={coachName} existing={current} onClose={() => setFlow(false)} onSent={sent} />}
     </div>
   );
 }
