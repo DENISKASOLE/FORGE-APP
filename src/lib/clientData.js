@@ -169,6 +169,8 @@ export function mapClient(row, dataRows = [], index = 0) {
     messages: sections.messages?.list || [],
     aiChat: sections.ai_chat?.list || [],
     bodyAnalysis: sections.body_analysis?.reports || [],
+    // Body composition scans entered by the coach (Nov 2026; replaces AI-read reports).
+    bodyComposition: sections.body_composition?.scans || [],
     intake: sections.intake || null,
     trainingLogs: sections.training_logs || null,
     // "prescribed plan" nutrition mode (NUTRITION_SPEC.md) - a third

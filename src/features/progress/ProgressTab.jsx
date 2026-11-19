@@ -4,13 +4,12 @@ import { Button } from "../../components/ui/Button.jsx";
 import { useIsMobile } from "../../lib/browser.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { sessionForWorkout, sessionStatsV2, detectSessionPBs, sessionEntriesV2 } from "../../lib/trainingLogs.js";
-import { weightHistoryFromCheckins } from "../../lib/clientMetrics.js";
 import { MEASUREMENT_FIELDS } from "../../lib/constants.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { generateClientSummary, getTrainingInsight } from "../../lib/ai.js";
 import { CheckInsTab } from "../checkin/CheckInsTab.jsx";
 import { TransformPhotos } from "./TransformPhotos.jsx";
-import { BodyAnalysisCard } from "./BodyAnalysis.jsx";
+import { BodyCompositionCard } from "./BodyComposition.jsx";
 import { MeasurementsEditor } from "../progress-report/MeasurementsEditor.jsx";
 import { ProgressReportBuilder } from "../progress-report/ProgressReportBuilder.jsx";
 
@@ -240,27 +239,6 @@ function VolumeTrendChart({ volumes, color = BRAND.gold }) {
     </svg>
   );
 }
-function WeightSparkline({ points, color = BRAND.green }) {
-  const w = 300, h = 60, pad = 6;
-  const values = points.map((p) => p.value);
-  const min = Math.min(...values), max = Math.max(...values);
-  const span = max - min || 1;
-  const coords = points.map((p, i) => {
-    const x = pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
-    const y = h - pad - ((p.value - min) / span) * (h - pad * 2);
-    return [x, y];
-  });
-  const path = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const areaPath = `${path} L${coords[coords.length - 1][0].toFixed(1)},${h} L${coords[0][0].toFixed(1)},${h} Z`;
-  const last = coords[coords.length - 1];
-  return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block" }}>
-      <path d={areaPath} fill={color} opacity={0.12} />
-      <path d={path} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
-      <circle cx={last[0]} cy={last[1]} r={3.5} fill={color} />
-    </svg>
-  );
-}
 export function overallAdherence(program, logs) {
   if (!program?.weeks?.length) return { done: 0, total: 0, pct: 0 };
   let done = 0, total = 0;
@@ -319,10 +297,6 @@ export function ProgressTab({ client, updateClient, isCoach }) {
   const volPrev = volumeTrend.volumes[volumeTrend.volumes.length - 2];
   const volNow = volumeTrend.volumes[volumeTrend.volumes.length - 1];
   const volumeDeltaPct = volPrev > 0 ? Math.round(((volNow - volPrev) / volPrev) * 100) : null;
-  const weightHistory = weightHistoryFromCheckins(client.checkIns, client.measurementsHistory);
-  const latestWeight = weightHistory[weightHistory.length - 1]?.value ?? client.weight ?? null;
-  const prevWeight = weightHistory.length >= 2 ? weightHistory[weightHistory.length - 2].value : null;
-  const weightDelta = latestWeight != null && prevWeight != null ? +(latestWeight - prevWeight).toFixed(1) : null;
   const measurementEntries = MEASUREMENT_FIELDS.filter(([k]) => client.measurements?.[k]).slice(0, 3);
 
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
@@ -341,34 +315,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
 
     {isCoach && <AIClientSummaryCard client={client} />}
 
-    {updateClient && <BodyAnalysisCard client={client} updateClient={updateClient} isCoach={isCoach} />}
-
-    <div style={{ background: "color-mix(in srgb, var(--card) 70%, transparent)", backdropFilter: "blur(20px)", border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, overflow: "hidden" }}>
-      <div style={{ padding: "15px 17px 0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 6 }}>Body Weight</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-              <span style={{ fontFamily: BRAND.display, fontSize: 34, fontWeight: 800, color: BRAND.text, letterSpacing: "-1px" }}>{latestWeight != null ? latestWeight : "–"}</span>
-              <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>kg</span>
-            </div>
-            {weightDelta != null && (
-              <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: weightDelta <= 0 ? BRAND.greenBg : "rgba(220,80,70,0.12)", border: `1px solid ${weightDelta <= 0 ? "rgba(102,199,155,0.2)" : "rgba(220,80,70,0.2)"}`, borderRadius: 100, padding: "3px 8px" }}>
-                  <span style={{ fontFamily: BRAND.sans, fontWeight: 700, fontSize: 9, color: weightDelta <= 0 ? BRAND.green : BRAND.red }}>{weightDelta > 0 ? "+" : ""}{weightDelta} kg</span>
-                </span>
-                <span style={{ fontFamily: BRAND.sans, fontSize: 9, color: BRAND.muted }}>since last check-in</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <div style={{ padding: "8px 10px 12px" }}>
-        {weightHistory.length >= 2 ? <WeightSparkline points={weightHistory} /> : (
-          <div style={{ padding: "14px 4px 4px", fontFamily: BRAND.sans, fontSize: 11, color: BRAND.dim }}>Log your weight in weekly check-ins to see a trend here.</div>
-        )}
-      </div>
-    </div>
+    <BodyCompositionCard client={client} updateClient={updateClient} isCoach={isCoach} />
 
     <div style={{ display: "flex", gap: 8 }}>
       <div className="glass-soft" style={{ flex: 1, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
