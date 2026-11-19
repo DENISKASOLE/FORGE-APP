@@ -183,7 +183,8 @@ export function BodyCompositionCard({ client, updateClient, isCoach }) {
         <Trend points={series} color={m.color} unit={m.unit} />
       </div>
 
-      {scans.length > 0 && (
+      {/* Scan list is coach-only; clients see just the analytics (Denis, Nov 19 2026). */}
+      {isCoach && scans.length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <div style={lbl}>{allScans ? "Scans" : "Latest scan"}</div>
