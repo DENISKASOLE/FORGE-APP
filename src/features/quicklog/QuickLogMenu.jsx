@@ -131,3 +131,13 @@ export function QuickLogMenu({ client, updateClient, open, onClose, view: viewPr
     </>
   );
 }
+
+// A single habit sheet (steps / water / sleep) for other screens, e.g.
+// Progress > Habits "Log today's habits".
+export function HabitSheet({ kind, client, updateClient, onClose }) {
+  const props = { client, updateClient, onClose };
+  if (kind === "steps") return <StepsSheet {...props} />;
+  if (kind === "water") return <ChoiceSheet {...props} title="Water today" field="water" options={WATER_LITERS} suffix=" L" />;
+  if (kind === "sleep") return <ChoiceSheet {...props} title="Sleep last night" field="sleep" options={SLEEP_HOURS} suffix=" h" />;
+  return null;
+}

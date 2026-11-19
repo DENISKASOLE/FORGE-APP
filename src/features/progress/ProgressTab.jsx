@@ -12,6 +12,7 @@ import { TransformPhotos } from "./TransformPhotos.jsx";
 import { BodyCompositionCard } from "./BodyComposition.jsx";
 import { MeasurementsEditor } from "../progress-report/MeasurementsEditor.jsx";
 import { ProgressReportBuilder } from "../progress-report/ProgressReportBuilder.jsx";
+import { HabitsTab } from "./HabitsTab.jsx";
 
 function AITrainingInsightCard({ client }) {
   const [insight, setInsight] = useState(null);
@@ -254,6 +255,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [showProgressReport, setShowProgressReport] = useState(false);
   const [showMeasurements, setShowMeasurements] = useState(false);
+  const [showHabits, setShowHabits] = useState(false);
   const logs = client.trainingLogs;
   const volumeTrend = weeklyVolumeTrend(logs, 4);
   const pbs = recentPBsAcrossHistory(logs, 5);
@@ -262,8 +264,17 @@ export function ProgressTab({ client, updateClient, isCoach }) {
   const volumeDeltaPct = volPrev > 0 ? Math.round(((volNow - volPrev) / volPrev) * 100) : null;
   const measurementEntries = MEASUREMENT_FIELDS.filter(([k]) => client.measurements?.[k]).slice(0, 3);
 
+  // Coach "Habits" (Nov 2026): the client's steps / sleep / water, opened
+  // from the button next to Measurements and Progress Report.
+  if (isCoach && showHabits) {
+    return <div style={{ display: "grid", gap: 12 }}>
+      <div><Button variant="ghost" onClick={() => setShowHabits(false)}>‹ Back to progress</Button></div>
+      <HabitsTab client={client} updateClient={updateClient} isCoach />
+    </div>;
+  }
+
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12, maxWidth: "100%", overflowX: "hidden" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
       <div>
         <div style={{ fontFamily: BRAND.sans, fontSize: 9, fontWeight: 400, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>PROGRESS</div>
         <div style={{ fontFamily: BRAND.display, fontSize: isMobile ? 24 : 28, fontWeight: 800, letterSpacing: "-0.5px", color: BRAND.text }}>Progress</div>
@@ -272,6 +283,7 @@ export function ProgressTab({ client, updateClient, isCoach }) {
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <Button variant="ghost" onClick={() => setShowMeasurements(true)} style={{ flexShrink: 0 }}>Measurements</Button>
           <Button variant="dark" onClick={() => setShowProgressReport(true)} style={{ flexShrink: 0 }}>Progress Report</Button>
+          <Button onClick={() => { setShowHabits(true); window.scrollTo(0, 0); }} style={{ flexShrink: 0 }}>Habits</Button>
         </div>
       )}
     </div>
@@ -339,11 +351,12 @@ export function ProgressTab({ client, updateClient, isCoach }) {
 
 export function ProgressHub({ client, updateClient, isCoach }) {
   const [sub, setSub] = useState("trends");
-  const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"]];
+  const tabs = [["trends", "Trends"], ["photos", "Photos"], ["checkins", "Check-in"], ["habits", "Habits"]];
   return <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14 }}>
     <div style={{ display: "flex", gap: 6, overflowX: "auto", minWidth: 0 }}>{tabs.map(([k, l]) => <button key={k} onClick={() => setSub(k)} style={{ fontFamily: BRAND.sans, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", whiteSpace: "nowrap", padding: "9px 15px", borderRadius: 999, cursor: "pointer", color: sub === k ? BRAND.btnInk : BRAND.muted, background: sub === k ? BRAND.gold : BRAND.card2, border: `${BRAND.hairline} solid ${sub === k ? "transparent" : BRAND.line}` }}>{l}</button>)}</div>
     {sub === "trends" && <ProgressTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {sub === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {sub === "habits" && <HabitsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
   </div>;
 }
