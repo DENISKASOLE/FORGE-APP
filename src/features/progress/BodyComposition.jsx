@@ -149,8 +149,7 @@ export function BodyCompositionCard({ client, updateClient, isCoach }) {
     <div className="glass" style={{ padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
         <div>
-          <div style={lbl}>Body composition</div>
-          <div style={{ fontFamily: BRAND.display, fontWeight: 700, fontSize: 18, color: BRAND.text, marginTop: 3 }}>Body composition analytics</div>
+          <div style={{ fontFamily: BRAND.display, fontWeight: 700, fontSize: 18, color: BRAND.text }}>Body composition analytics</div>
           {scans[0] && <div style={{ fontFamily: BRAND.sans, fontSize: 12, color: BRAND.muted, marginTop: 2 }}>Last scan {fmtDate(scans[0].date)}</div>}
         </div>
         {isCoach && <Button onClick={() => setEditing("new")} style={{ flexShrink: 0 }}>+ Add scan</Button>}
@@ -200,9 +199,9 @@ export function BodyCompositionCard({ client, updateClient, isCoach }) {
         </div>
       )}
 
-      {!scans.length && (
+      {!scans.length && isCoach && (
         <div style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.dim, lineHeight: 1.5, marginTop: 12 }}>
-          {isCoach ? "Add a scan with weight, body fat and lean mass from an InBody or DEXA report." : "Your coach will add your body composition results here after your scan."}
+          Add a scan with weight, body fat and lean mass from an InBody or DEXA report.
         </div>
       )}
 
