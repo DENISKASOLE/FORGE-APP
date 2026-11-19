@@ -33,7 +33,8 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
   const exMeta = getExerciseMeta(effectiveName, { dbMetaByName: taxonomyMap, customItems: customExercises });
   const aiProg = useProgressionSuggestion(effectiveName, prog, exMeta, lastSets, timed);
   const displayProg = aiProg ? { ...prog, ai: aiProg } : prog;
-  const thumb = getVideoThumb(ex.videoUrl);
+  const libVideo = (customExercises || []).find((it) => it.name === effectiveName && it.videoUrl)?.videoUrl;
+  const thumb = getVideoThumb(libVideo || ex.videoUrl);
   const letters = group.map((_, i) => GROUP_LETTERS[i] || String(i + 1));
   const subbing = subFor === entry.id;
   const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
