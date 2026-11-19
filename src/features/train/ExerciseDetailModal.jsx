@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
@@ -14,7 +15,7 @@ export function ExerciseDetailModal({ name, videoUrl, meta, onClose }) {
   const [playingVideo, setPlayingVideo] = useState(false);
   const thumb = getVideoThumb(videoUrl);
   const cues = meta?.cues || [];
-  return (
+  return createPortal(
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 440, maxHeight: "88vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -61,6 +62,7 @@ export function ExerciseDetailModal({ name, videoUrl, meta, onClose }) {
         )}
       </Card>
       {playingVideo && thumb && <VideoPlayerModal videoId={thumb.videoId} title={name} onClose={() => setPlayingVideo(false)} />}
-    </div>
+    </div>,
+    document.body
   );
 }
