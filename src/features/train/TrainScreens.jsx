@@ -184,9 +184,11 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
     setSaving(false);
     showToast(initial ? "Exercise updated" : "Exercise added");
   }
+  // Pinned to the top of the screen (not the page), so it opens right
+  // where the coach is, with no scrolling to find it.
   return createPortal(
-    <div style={modalBackdrop()}>
-      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "88vh", overflow: "auto" }}>
+    <div style={{ ...modalBackdrop(), alignItems: "flex-start", paddingTop: "max(16px, env(safe-area-inset-top))", overflowY: "auto" }}>
+      <Card style={{ width: "100%", maxWidth: 420, maxHeight: "calc(100dvh - 32px)", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ fontSize: 18, fontWeight: 500 }}>{initial ? "Edit Exercise" : "New Exercise"}</div>
           <Button variant="ghost" onClick={onClose}>X</Button>
