@@ -309,4 +309,72 @@ export function registerAllTools(server: any, supabase: any) {
     await writeSection(supabase, client_id, "body_composition", { scans });
     return toolText({ saved: true, client: client.name, scan });
   });
+
+  // Food log (Nov 2026) - same `nutrition_v2_logs` section the client's Fuel
+  // tab reads: { "YYYY-MM-DD": [entry, ...] }. Lets the coach hand Claude a
+  // food diary (PDF, photos, notes) and have every meal logged in one go.
+  const MealKey = z.enum(["breakfast", "lunch", "dinner", "snack"]);
+  const LogEntrySchema = z.object({
+    date: isoDateStr(),
+    meal: MealKey,
+    name: z.string().min(1),
+    qty: z.number().positive().optional(),
+    unit: z.string().optional(),
+    time: z.string().regex(/^\d{2}:\d{2}$/, "HH:MM").optional(),
+    kcal: z.number().min(0),
+    protein: z.number().min(0),
+    carbs: z.number().min(0),
+    fat: z.number().min(0),
+  });
+
+  server.registerTool("get_food_log", {
+    title: "Get a client's food log",
+    description: "Everything a client logged in the Fuel tab between two dates (inclusive), grouped by day, with each day's calorie and macro totals.",
+    inputSchema: z.object({ client_id: uuid(), from: isoDateStr(), to: isoDateStr() }),
+    annotations: { readOnlyHint: true },
+  }, async ({ client_id, from, to }: { client_id: string; from: string; to: string }) => {
+    await clientRow(supabase, client_id);
+    const logs = (await sectionData(supabase, client_id, "nutrition_v2_logs")) || {};
+    const days = Object.keys(logs).filter((d) => d >= from && d <= to).sort().map((date) => {
+      const entries = (logs[date] || []).map((e: any) => ({ meal: e.meal, name: e.name, qty: e.qty, unit: e.unit, time: e.time, ...(e.macros || {}), source: e.source }));
+      const total = entries.reduce((t: any, e: any) => ({ kcal: t.kcal + (e.kcal || 0), protein: t.protein + (e.protein || 0), carbs: t.carbs + (e.carbs || 0), fat: t.fat + (e.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
+      return { date, total, entries };
+    });
+    return toolText(days);
+  });
+
+  server.registerTool("log_meals", {
+    title: "Log meals for a client",
+    description: "Adds food entries to a client's Fuel log, many days at once (e.g. from a food diary PDF). Each entry: date, meal (breakfast/lunch/dinner/snack), food name, optional qty+unit and time, and its kcal/protein/carbs/fat. Running it again with the same entries does not duplicate them. Set replace_days to true to first remove entries Claude logged earlier on those dates (the client's own entries are never removed).",
+    inputSchema: z.object({
+      client_id: uuid(),
+      entries: z.array(LogEntrySchema).min(1).max(400),
+      replace_days: z.boolean().optional(),
+    }),
+  }, async ({ client_id, entries, replace_days }: { client_id: string; entries: any[]; replace_days?: boolean }) => {
+    const client = await clientRow(supabase, client_id);
+    const logs: Record<string, any[]> = { ...((await sectionData(supabase, client_id, "nutrition_v2_logs")) || {}) };
+    const r1 = (n: number) => Math.round(n * 10) / 10;
+    const keyOf = (e: any) => [e.date, e.meal, String(e.name).trim().toLowerCase(), Math.round(e.macros?.kcal ?? e.kcal ?? 0)].join("|");
+    const dates = [...new Set(entries.map((e) => e.date))];
+    if (replace_days) dates.forEach((d) => { logs[d] = (logs[d] || []).filter((e: any) => e.enteredBy !== "claude"); });
+    let added = 0, skipped = 0;
+    for (const e of entries) {
+      const day = logs[e.date] || [];
+      const entry = {
+        id: crypto.randomUUID(), date: e.date, meal: e.meal, name: e.name.trim(), foodId: null,
+        qty: e.qty ?? 1, unit: e.unit || "serving",
+        macros: { kcal: r1(e.kcal), protein: r1(e.protein), carbs: r1(e.carbs), fat: r1(e.fat) },
+        source: "quick", time: e.time || "", planItemId: null, estimate: false, replaces: null, reason: null, photo: null, extra: true,
+        enteredBy: "claude", enteredAt: new Date().toISOString(),
+      };
+      if (day.some((x: any) => keyOf(x) === keyOf(entry))) { skipped++; continue; }
+      logs[e.date] = [...day, entry];
+      added++;
+    }
+    await writeSection(supabase, client_id, "nutrition_v2_logs", logs);
+    const totals = dates.sort().map((d) => ({ date: d, kcal: Math.round((logs[d] || []).reduce((t: number, x: any) => t + (x.macros?.kcal || 0), 0)), entries: (logs[d] || []).length }));
+    return toolText({ saved: true, client: client.name, added, skipped_duplicates: skipped, days: totals });
+  });
+
 }
