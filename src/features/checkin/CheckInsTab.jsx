@@ -239,10 +239,10 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
   ];
   const last = step === steps.length - 1;
 
-  // Shown in the page itself (bottom bar and avatar stay), using the full
-  // page height; Next sticks just above the bottom bar.
+  // Shown in the page itself (bottom bar and avatar stay). Next sits after
+  // the last question in normal flow - never pinned over the questions.
   return (
-    <div style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", color: "var(--ink)", minHeight: "calc(100vh - 220px)", display: "flex", flexDirection: "column" }}>
+    <div style={{ fontFamily: "'Inter Variable', Inter, system-ui, sans-serif", color: "var(--ink)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "var(--ink-3)", marginBottom: 12 }}>
         <button type="button" onClick={() => { setTried(false); if (step === 0) onClose(); else setStep(step - 1); }} aria-label={step === 0 ? "Close" : "Back"}
           style={{ display: "flex", alignItems: "center", gap: 6, height: 46, padding: step === 0 ? 0 : "0 18px 0 12px", width: step === 0 ? 46 : "auto", justifyContent: "center", borderRadius: 999, border: "1px solid var(--line-strong)", background: "var(--card)", color: "var(--ink)", fontSize: 17, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
@@ -257,8 +257,8 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
       <div style={{ height: 5, borderRadius: 9, background: "var(--line)", overflow: "hidden" }}>
         <i style={{ display: "block", height: "100%", width: `${((step + 1) / steps.length) * 100}%`, background: "var(--accent)", borderRadius: 9, transition: "width .3s" }} />
       </div>
-      <div style={{ padding: "20px 4px 16px", flex: 1 }}>{steps[step]}</div>
-      <div style={{ position: "sticky", bottom: "calc(env(safe-area-inset-bottom, 0px) + 92px)", zIndex: 5, padding: "10px 0 6px", background: "linear-gradient(to bottom, transparent, var(--page) 30%)" }}>
+      <div style={{ padding: "20px 4px 8px" }}>{steps[step]}</div>
+      <div style={{ padding: "8px 0 24px" }}>
         {tried && missing.length > 0 && (
           <div style={{ textAlign: "center", color: "var(--red)", fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>
             {missing.length === 1 ? "Answer the question in red to continue" : `Answer the ${missing.length} questions in red to continue`}
