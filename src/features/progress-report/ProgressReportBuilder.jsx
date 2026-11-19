@@ -14,7 +14,8 @@ import { sharePdfBlob, safeFilename } from "../../lib/pdf.js";
 import { buildProgressReportPDF } from "../../lib/progressReportPdf.js";
 import { REPORT_PERIODS, COMPARISON_OPTIONS } from "./progressReportModel.js";
 import { buildReportModel } from "./progressReportMath.js";
-import { ReportPreview } from "./ReportPreview.jsx";
+import { ReportPreview } from "./PdfPagePreview.jsx";
+import { buildInsights } from "./reportInsights.js";
 
 const label = { fontFamily: BRAND.sans, fontSize: 10, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 };
 
@@ -57,7 +58,7 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
   const [customA, setCustomA] = useState("");
   const [customB, setCustomB] = useState(isoDate());
   const [cmp, setCmp] = useState("prev");
-  const [offMap, setOffMap] = useState({});
+  const [offMap] = useState({});
   const [trainerName, setTrainerName] = useState("Coach");
   const [notes, setNotes] = useState(() => normalizeReportNotes(client.progressReportNotes));
   const [saving, setSaving] = useState(false);
@@ -80,8 +81,9 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
     () => buildReportModel(client, trainerName, { period, customA, customB, cmp, offMap }),
     [client, trainerName, period, customA, customB, cmp, offMap]
   );
+  // Suggestions shown as placeholders (computed without the coach's own text).
+  const autoIns = useMemo(() => buildInsights(model, {}), [model]);
 
-  function setWin(i, value) { setNotes((n) => { const wins = n.wins.slice(); wins[i] = value; return { ...n, wins }; }); }
   function setPrio(i, value) { setNotes((n) => { const prios = n.prios.slice(); prios[i] = value; return { ...n, prios }; }); }
   function setGoal(i, field, value) { setNotes((n) => { const goals = n.goals.map((g) => g.slice()); goals[i][field] = value; return { ...n, goals }; }); }
 
@@ -135,42 +137,20 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
       </div>
 
       <div>
-        <div style={label}>Sections in this report</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {model.sections.map((s) => (
-            <label key={s.key} style={{ display: "flex", gap: 8, alignItems: "center", opacity: s.available ? 1 : 0.5, cursor: s.fixed || !s.available ? "default" : "pointer" }}>
-              <input type="checkbox" checked={s.included} disabled={s.fixed || !s.available} onChange={() => setOffMap((m) => ({ ...m, [s.key]: !m[s.key] }))} />
-              <span style={{ fontFamily: BRAND.sans, fontSize: 12.5, color: BRAND.text }}>{s.label}</span>
-              {!s.available && <span style={{ fontFamily: BRAND.sans, fontSize: 10.5, color: BRAND.muted }}>no data</span>}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div>
         <div style={label}>Coach notes</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <label>
-            <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Coach summary</div>
-            <textarea value={notes.summary} onChange={(e) => setNotes((n) => ({ ...n, summary: e.target.value }))} placeholder="Shown at the top of the report and on the review page..." style={textareaStyle({ minHeight: 70 })} />
+            <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Your note to the client</div>
+            <textarea value={notes.summary} onChange={(e) => setNotes((n) => ({ ...n, summary: e.target.value }))} placeholder="A few sentences to the client, in your words. Shown in the box near the top." style={textareaStyle({ minHeight: 70 })} />
           </label>
-          {[0, 1, 2].map((i) => (
-            <label key={i}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted }}>Win {i + 1}{notes.wins[i] == null ? " (from data)" : " (edited)"}</span>
-                {notes.wins[i] != null && <button type="button" onClick={() => setWin(i, null)} style={{ background: "none", border: "none", color: BRAND.gold, fontSize: 10.5, cursor: "pointer" }}>Reset to data</button>}
-              </div>
-              <textarea value={notes.wins[i] ?? model.wins[i]?.text ?? ""} onChange={(e) => setWin(i, e.target.value)} style={textareaStyle({ minHeight: 44 })} />
-            </label>
-          ))}
           <label>
-            <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Main challenge</div>
-            <textarea value={notes.challenge || model.challenge} onChange={(e) => setNotes((n) => ({ ...n, challenge: e.target.value }))} style={textareaStyle({ minHeight: 60 })} />
+            <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Headline (blank = written from the data)</div>
+            <input value={notes.headline || ""} onChange={(e) => setNotes((n) => ({ ...n, headline: e.target.value }))} placeholder={autoIns.headline} style={inputStyle()} />
           </label>
           {[0, 1, 2].map((i) => (
             <label key={i}>
-              <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Priority {i + 1}</div>
-              <input value={notes.prios[i] || ""} onChange={(e) => setPrio(i, e.target.value)} style={inputStyle()} />
+              <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, marginBottom: 4 }}>Focus {i + 1} for the next 4 weeks{i === 0 ? " (blank = suggested)" : ""}</div>
+              <input value={notes.prios[i] || ""} onChange={(e) => setPrio(i, e.target.value)} placeholder={autoIns.priorities[i]?.title || ""} style={inputStyle()} />
             </label>
           ))}
           {[0, 1, 2].map((i) => (
@@ -244,7 +224,7 @@ export function ProgressReportBuilder({ client, updateClient, onClose }) {
 
         <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: `${BRAND.hairline} solid ${BRAND.line}` }}>
           <div style={{ fontFamily: BRAND.sans, fontSize: 11, color: BRAND.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {model.includedSections.length} sections · {safeFilename(client.name)}_progress-report_{model.period.from}_{model.period.to}.pdf
+            {safeFilename(client.name)}_progress-report_{model.period.from}_{model.period.to}.pdf
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: BRAND.sans, fontSize: 11.5, color: BRAND.muted }}>

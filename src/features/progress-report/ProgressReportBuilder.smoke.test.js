@@ -5,8 +5,8 @@ describe("progress-report UI module load", () => {
     const mod = await import("./ProgressReportBuilder.jsx");
     expect(typeof mod.ProgressReportBuilder).toBe("function");
   });
-  it("ReportPreview.jsx loads without throwing", async () => {
-    const mod = await import("./ReportPreview.jsx");
+  it("PdfPagePreview.jsx loads without throwing", async () => {
+    const mod = await import("./PdfPagePreview.jsx");
     expect(typeof mod.ReportPreview).toBe("function");
   });
 });
