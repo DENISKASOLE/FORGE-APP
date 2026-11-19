@@ -39,10 +39,20 @@ import { ExerciseDetailModal } from "./ExerciseDetailModal.jsx";
 import { CoachAssistantModal } from "../coach/CoachAssistant.jsx";
 import { useProgressionSuggestion } from "./useProgressionSuggestion.js";
 
+// Coach's own exercises. Last copy kept on the device so the library and
+// workout swaps still work offline.
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
-  const { data } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "custom_exercise_library").maybeSingle();
-  return Array.isArray(data?.data?.items) ? data.data.items : [];
+  const key = `forge_custom_exercises_${trainerId}`;
+  try {
+    const { data, error } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "custom_exercise_library").maybeSingle();
+    if (error) throw error;
+    const items = Array.isArray(data?.data?.items) ? data.data.items : [];
+    writeJson(key, items);
+    return items;
+  } catch {
+    return readJson(key, []) || [];
+  }
 }
 
 export async function downloadProgramPDF2(client, program) {
@@ -76,7 +86,6 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
   const [detailFor, setDetailFor] = useState(null); // exercise name, or null
   const [muscleFilter, setMuscleFilter] = useState(null);
   const [patternFilter, setPatternFilter] = useState(null);
-  const exerciseLibrary = useExerciseLibrary();
   const taxonomyMap = useExerciseTaxonomyMap();
 
   useEffect(() => { loadExerciseLibraryData(trainerId).then((data) => { setItems(data); setLoading(false); }); }, [trainerId]);
@@ -92,9 +101,9 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
   }
   async function remove(id) { await persist(items.filter((it) => it.id !== id)); }
 
-  const customNames = new Set(items.map((it) => it.name));
-  const builtInRows = exerciseLibrary.filter((n) => !customNames.has(n)).map((n) => ({ id: n, name: n, isCustom: false, videoUrl: "" }));
-  const allRows = [...items.map((it) => ({ ...it, isCustom: true })), ...builtInRows].sort((a, b) => a.name.localeCompare(b.name));
+  // Only the coach's own exercises (with videos) - the built-in list is no
+  // longer offered (Denis, Nov 19 2026).
+  const allRows = items.map((it) => ({ ...it, isCustom: true })).sort((a, b) => a.name.localeCompare(b.name));
   const rowsWithMeta = allRows.map((r) => ({ ...r, meta: getExerciseMeta(r.name, { dbMetaByName: taxonomyMap, customItems: items }) }));
   const filteredRows = rowsWithMeta.filter((r) => {
     if (muscleFilter && r.meta?.muscleGroup !== muscleFilter) return false;
@@ -110,7 +119,7 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
       </div>
       <div>
         <div style={{ fontSize: 26, fontWeight: 500 }}>Exercise Library</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Browse every exercise, or add your own with a video link so it's ready to pick whenever you're building a program.</div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>Your exercises with video. These are the only exercises offered when you build a program.</div>
       </div>
       <Button onClick={() => { setEditingItem(null); setShowAdd(true); }} style={{ width: "100%" }}>+ Add Exercise</Button>
 
@@ -126,7 +135,7 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
       {loading ? (
         <Card><div style={{ color: BRAND.muted }}>Loading...</div></Card>
       ) : filteredRows.length === 0 ? (
-        <Card><div style={{ color: BRAND.muted }}>No exercises match this filter.</div></Card>
+        <Card><div style={{ color: BRAND.muted }}>{items.length ? "No exercises match this filter." : "No exercises yet. Tap + Add Exercise to add your first one."}</div></Card>
       ) : (
         filteredRows.map((r) => {
           const t = getVideoThumb(r.videoUrl);
@@ -266,13 +275,11 @@ export function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMove
   const [openEx, setOpenEx] = useState(null);
   const [playingVideo, setPlayingVideo] = useState(null);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [pickSource, setPickSource] = useState("library");
   const [customLibrary, setCustomLibrary] = useState([]);
   useEffect(() => { if (trainerId) loadExerciseLibraryData(trainerId).then(setCustomLibrary); }, [trainerId, showLibrary]);
   const customVideoMap = Object.fromEntries(customLibrary.filter((it) => it.videoUrl).map((it) => [it.name, it.videoUrl]));
-  const exerciseLibrary = useExerciseLibrary();
-  const customNames = customLibrary.map((it) => it.name);
-  const suggestions = !addSearch ? [] : (pickSource === "mine" ? customNames : exerciseLibrary).filter((n) => n.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 20);
+  const customNames = customLibrary.map((it) => it.name).sort((a, b) => a.localeCompare(b));
+  const suggestions = !addSearch ? [] : customNames.filter((n) => n.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 20);
   function patch(p) { onChange({ ...block, ...p }); }
   function patchEx(ei, p) { patch({ exercises: block.exercises.map((e, i) => (i === ei ? { ...e, ...p } : e)) }); }
   function addExercise(name) { const ex = newExercise(name); if (customVideoMap[name]) ex.videoUrl = customVideoMap[name]; patch({ exercises: [...block.exercises, ex] }); setAddSearch(""); }
@@ -341,20 +348,18 @@ export function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMove
         );
       })}
       <div style={{ marginTop: 10 }}>
-        <div style={{ display: "flex", gap: 6, background: BRAND.panel, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 3, marginBottom: 8 }}>
-          <button onClick={() => setPickSource("library")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "library" ? BRAND.gold : "transparent", color: pickSource === "library" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>Exercise Library</button>
-          <button onClick={() => setPickSource("mine")} style={{ flex: 1, padding: "8px 0", borderRadius: 999, border: "none", background: pickSource === "mine" ? BRAND.gold : "transparent", color: pickSource === "mine" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>My Exercises{customLibrary.length ? ` (${customLibrary.length})` : ""}</button>
-        </div>
-        <input placeholder={pickSource === "mine" ? "Search your exercises..." : (block.exercises.length ? "Add exercise to this block..." : "Search first exercise...")} value={addSearch} onChange={(e) => setAddSearch(e.target.value)} style={inputStyle()} />
-        {pickSource === "mine" && customLibrary.length === 0 && (
+        <input placeholder={block.exercises.length ? "Add one of your exercises..." : "Search your exercises..."} value={addSearch} onChange={(e) => setAddSearch(e.target.value)} style={inputStyle()} />
+        {customLibrary.length === 0 && (
           <div style={{ marginTop: 8, textAlign: "center", padding: 12 }}>
-            <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 8 }}>No custom exercises yet.</div>
+            <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 8 }}>No exercises in your library yet.</div>
             <button onClick={() => setShowLibrary(true)} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "8px 14px", color: BRAND.gold, fontWeight: 500, fontSize: 12, cursor: "pointer" }}>+ Add your first exercise</button>
           </div>
         )}
         {addSearch && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
           {suggestions.map((n) => <button key={n} onClick={() => addExercise(n)} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ {n}</button>)}
-          {pickSource === "library" && <button onClick={() => addExercise(addSearch.trim())} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>+ Custom: {addSearch.trim()}</button>}
+          {suggestions.length === 0 && customLibrary.length > 0 && (
+            <button onClick={() => setShowLibrary(true)} style={{ background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 999, padding: "6px 12px", fontWeight: 500, cursor: "pointer" }}>Not in your library - + Add new exercise</button>
+          )}
         </div>}
       </div>
       {showLibrary && <ExerciseLibraryEditor trainerId={trainerId} onClose={() => setShowLibrary(false)} />}
@@ -551,11 +556,12 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
 // ---------- Client: Live Workout Session ----------
 export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit, editing = false, isCoach = false }) {
   const isMobile = useIsMobile(520);
-  const exerciseLibrary = useExerciseLibrary();
   const taxonomyMap = useExerciseTaxonomyMap();
   const trainerId = client?.trainer_id;
   const [customExercises, setCustomExercises] = useState([]);
   useEffect(() => { if (trainerId) loadExerciseLibraryData(trainerId).then(setCustomExercises); }, [trainerId]);
+  // Swap / add suggestions come from the coach's own exercises only.
+  const exerciseLibrary = useMemo(() => customExercises.map((it) => it.name).filter(Boolean).sort((a, b) => a.localeCompare(b)), [customExercises]);
   const [subFor, setSubFor] = useState(null);
   const [subQuery, setSubQuery] = useState("");
   const [addingExercise, setAddingExercise] = useState(false);
