@@ -7,6 +7,7 @@
 //   waist / VO2 max / resting HR -> measurementsHistory
 //   body fat -> latest body analysis report
 //   mood -> moodLog (section mood_log)
+import { scansFor, latestWithChange } from "../../lib/bodyComposition.js";
 import { isoDate, startOfWeek, addDays } from "../../lib/dateUtils.js";
 import { normalizeLogs, normalizePlans } from "../../lib/nutritionV2.js";
 import { habitLogFor } from "../../lib/nutrition.js";
@@ -75,14 +76,8 @@ export function measurementInfo(client, key, dateISO, days = 28) {
 }
 
 export function bodyFatInfo(client) {
-  const reports = Array.isArray(client.bodyAnalysis) ? client.bodyAnalysis : [];
-  const dated = reports.map((r) => ({ r, date: r.extracted?.testDate || r.date || "" })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  for (let i = dated.length - 1; i >= 0; i--) {
-    const m = (dated[i].r.extracted?.metrics || []).find((x) => x.key === "body_fat_percent" || /body\s*fat/i.test(x.label || ""));
-    const v = m ? parseFloat(m.value) : NaN;
-    if (!isNaN(v)) return { value: v, date: dated[i].date };
-  }
-  return null;
+  const bf = latestWithChange(scansFor(client), "bodyFat");
+  return bf ? { value: bf.value, date: bf.date } : null;
 }
 
 // Consecutive days, counting back from dateISO, where protein eaten met the

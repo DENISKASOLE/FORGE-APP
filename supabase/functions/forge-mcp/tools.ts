@@ -273,4 +273,40 @@ export function registerAllTools(server: any, supabase: any) {
     await writeSection(supabase, client_id, "nutrition_v2_plans", nextPlans);
     return toolText({ saved: true, live: !!publish, plan: draft });
   });
+
+  // Body composition scans (Nov 2026) - same `body_composition` section the
+  // app's Progress > Body composition card reads. Lets the coach hand a
+  // scan report to Claude and have the numbers filled in.
+  server.registerTool("get_body_composition", {
+    title: "Get body composition scans",
+    description: "A client's body composition scans (date, body weight kg, body fat %, lean body mass kg), newest first.",
+    inputSchema: z.object({ client_id: uuid() }),
+    annotations: { readOnlyHint: true },
+  }, async ({ client_id }: { client_id: string }) => {
+    await clientRow(supabase, client_id);
+    const raw = await sectionData(supabase, client_id, "body_composition");
+    return toolText(raw?.scans || []);
+  });
+
+  server.registerTool("add_body_composition_scan", {
+    title: "Add a body composition scan",
+    description: "Saves one scan from an InBody/DEXA/bioimpedance report: date plus any of body weight (kg), body fat (%) and lean body mass (kg). If lean mass is missing but weight and body fat are given, it is worked out as weight x (1 - body fat/100). A scan on the same date replaces the earlier one. Only enter numbers printed on the report - never estimate.",
+    inputSchema: z.object({
+      client_id: uuid(),
+      date: isoDateStr(),
+      weight_kg: z.number().positive().optional(),
+      body_fat_percent: z.number().min(1).max(70).optional(),
+      lean_body_mass_kg: z.number().positive().optional(),
+    }),
+  }, async ({ client_id, date, weight_kg, body_fat_percent, lean_body_mass_kg }: { client_id: string; date: string; weight_kg?: number; body_fat_percent?: number; lean_body_mass_kg?: number }) => {
+    if (weight_kg == null && body_fat_percent == null && lean_body_mass_kg == null) throw new Error("Give at least one of weight_kg, body_fat_percent, lean_body_mass_kg.");
+    const client = await clientRow(supabase, client_id);
+    const r1 = (n: number | undefined | null) => (n == null ? null : Math.round(n * 10) / 10);
+    const lean = lean_body_mass_kg ?? (weight_kg != null && body_fat_percent != null ? weight_kg * (1 - body_fat_percent / 100) : null);
+    const scan = { id: crypto.randomUUID(), date, weight: r1(weight_kg), bodyFat: r1(body_fat_percent), leanMass: r1(lean), storagePath: "", fileName: "", enteredAt: new Date().toISOString(), enteredBy: "claude" };
+    const raw = await sectionData(supabase, client_id, "body_composition");
+    const scans = [scan, ...((raw?.scans || []).filter((s: any) => s.date !== date))].sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)));
+    await writeSection(supabase, client_id, "body_composition", { scans });
+    return toolText({ saved: true, client: client.name, scan });
+  });
 }
