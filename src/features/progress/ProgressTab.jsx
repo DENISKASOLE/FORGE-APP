@@ -176,28 +176,6 @@ export function recentPBsAcrossHistory(logs, limit = 5) {
   }
   return found.slice(-limit).reverse();
 }
-function currentStreakWeeks(logs) {
-  const completed = (logs?.sessions || []).filter((s) => s.status === "completed" && s.date);
-  if (!completed.length) return 0;
-  const isoWeek = (dateStr) => {
-    const d = new Date(dateStr);
-    const target = new Date(d.valueOf());
-    const dayNr = (d.getDay() + 6) % 7;
-    target.setDate(target.getDate() - dayNr + 3);
-    const firstThursday = new Date(target.getFullYear(), 0, 4);
-    const diff = target - firstThursday;
-    return `${target.getFullYear()}-W${1 + Math.round(diff / (7 * 24 * 3600 * 1000))}`;
-  };
-  const weeksWithSessions = new Set(completed.map((s) => isoWeek(s.date)));
-  let streak = 0;
-  const cursor = new Date();
-  for (;;) {
-    const wk = isoWeek(isoDate(cursor));
-    if (weeksWithSessions.has(wk)) { streak += 1; cursor.setDate(cursor.getDate() - 7); }
-    else break;
-  }
-  return streak;
-}
 function VolumeTrendChart({ volumes, color = BRAND.gold }) {
   const w = 300, h = 84, pad = 8;
   const max = Math.max(1, ...volumes);
@@ -272,28 +250,13 @@ function weeklyVolumeTrend(logs, weeksBack = 4) {
   });
   return { labels, volumes };
 }
-function buildProgressInsight(streak, volumeTrend, pbs) {
-  const parts = [];
-  if (streak >= 2) parts.push(`${streak}-week streak${streak >= 4 ? ", your longest yet" : ""}`);
-  const v = volumeTrend.volumes;
-  if (v.length >= 2 && v[v.length - 2] > 0) {
-    const change = Math.round(((v[v.length - 1] - v[v.length - 2]) / v[v.length - 2]) * 100);
-    if (change >= 10) parts.push(`volume up ${change}% this week`);
-  }
-  if (parts.length === 0 && pbs.length > 0) parts.push(`new PB on ${pbs[0].name}`);
-  if (parts.length === 0) return { text: "Keep logging sessions to start seeing trends here." };
-  return { text: parts.join(" — ") };
-}
 export function ProgressTab({ client, updateClient, isCoach }) {
   const isMobile = useIsMobile(520);
   const [showProgressReport, setShowProgressReport] = useState(false);
   const [showMeasurements, setShowMeasurements] = useState(false);
   const logs = client.trainingLogs;
-  const streak = currentStreakWeeks(logs);
   const volumeTrend = weeklyVolumeTrend(logs, 4);
   const pbs = recentPBsAcrossHistory(logs, 5);
-  const adherence = overallAdherence(client.program, logs);
-  const insight = buildProgressInsight(streak, volumeTrend, pbs);
   const volPrev = volumeTrend.volumes[volumeTrend.volumes.length - 2];
   const volNow = volumeTrend.volumes[volumeTrend.volumes.length - 1];
   const volumeDeltaPct = volPrev > 0 ? Math.round(((volNow - volPrev) / volPrev) * 100) : null;
@@ -316,15 +279,6 @@ export function ProgressTab({ client, updateClient, isCoach }) {
     {isCoach && <AIClientSummaryCard client={client} />}
 
     <BodyCompositionCard client={client} updateClient={updateClient} isCoach={isCoach} />
-
-    <div style={{ display: "flex", gap: 8 }}>
-      <div className="glass-soft" style={{ flex: 1, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>STREAK</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.gold }}>{streak} <span style={{ fontFamily: BRAND.sans, fontWeight: 400, fontSize: 10, color: BRAND.muted }}>wks</span></div></div>
-      </div>
-      <div className="glass-soft" style={{ flex: 1, background: BRAND.greenBg, padding: "11px 13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div><div style={{ fontFamily: BRAND.sans, fontSize: 8, color: BRAND.muted, letterSpacing: "0.1em", marginBottom: 4 }}>ADHERENCE</div><div style={{ fontFamily: BRAND.display, fontWeight: 800, fontSize: 20, color: BRAND.green }}>{adherence.total ? `${adherence.pct}%` : "–"}</div></div>
-      </div>
-    </div>
 
     <div>
       <div style={{ fontFamily: BRAND.sans, fontSize: 8, fontWeight: 500, color: BRAND.muted, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 7 }}>Personal Records</div>
@@ -375,11 +329,8 @@ export function ProgressTab({ client, updateClient, isCoach }) {
       </div>
     </div>
 
-    <div className="glass-soft" style={{ padding: 14 }}>
-      <div style={{ fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 13 }}>{insight.text}</div>
-    </div>
-
-    <AITrainingInsightCard client={client} />
+    {/* AI training insight: coach only (removed from the client app Nov 19 2026). */}
+    {isCoach && <AITrainingInsightCard client={client} />}
 
     {showProgressReport && <ProgressReportBuilder client={client} updateClient={updateClient} onClose={() => setShowProgressReport(false)} />}
     {showMeasurements && <MeasurementsEditor client={client} updateClient={updateClient} onClose={() => setShowMeasurements(false)} />}
