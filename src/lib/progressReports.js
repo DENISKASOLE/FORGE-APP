@@ -20,7 +20,7 @@ export async function saveLatestMeasurementsSnapshot(clientId, existingProgressS
 }
 
 export function emptyReportNotes() {
-  return { summary: "", challenge: "", prios: ["", "", ""], wins: [null, null, null], goals: [["", ""], ["", ""], ["", ""]], reflOn: false, refl: "" };
+  return { headline: "", summary: "", challenge: "", prios: ["", "", ""], wins: [null, null, null], goals: [["", ""], ["", ""], ["", ""]], reflOn: false, refl: "" };
 }
 export function normalizeReportNotes(raw) { return { ...emptyReportNotes(), ...(raw && typeof raw === "object" ? raw : {}) }; }
 export async function saveReportNotes(clientId, notes) { return await upsertSection(clientId, "progress_report_notes", notes); }

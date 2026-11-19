@@ -1,265 +1,281 @@
-// PDF export for the Progress Report (DECISIONS.md), built with pdf-lib -
-// same convention as every other PDF in this app (buildPdfDoc), not the
-// prototype's own window.print() approach (confirmed with Denis). A
-// separate builder from buildPdfDoc, which is text/table-only and backs
-// the Program PDF: one page per report section here, with grids/tables
-// and embedded chart images buildPdfDoc was never written to share.
+// Progress Report PDF (redesigned Nov 19 2026 - Denis: "the worst report
+// ever designed... make it more meaningful to the client, think like an
+// executive").
+//
+// Two pages, written for the client, not the coach:
+//   Page 1 "Your month at a glance": headline verdict, a four-pillar
+//          scorecard (training, nutrition, sleep, body weight) with a
+//          plain status each, biggest wins, the coach's note and the three
+//          things to focus on next.
+//   Page 2 "The detail": sessions per week, strength changes and personal
+//          bests, calories vs target, measurements, goals.
+// Sections with no data are left out instead of printing "Not enough
+// data" placeholders. Charts are drawn as vector shapes (crisp, no canvas).
+// The story itself (headline, statuses, wins, priorities) comes from
+// features/progress-report/reportInsights.js.
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { renderBarChartPNG, renderSeriesChartPNG, dataUrlToBytes } from "./reportCharts.js";
-import { REPORT_COLORS, REPORT_SECTION_LABELS } from "../features/progress-report/progressReportModel.js";
+import { REPORT_COLORS } from "../features/progress-report/progressReportModel.js";
+import { buildInsights, niceName, shortDate, weeklySessions } from "../features/progress-report/reportInsights.js";
 
-const PAGE = { width: 595.28, height: 841.89, margin: 40 };
+const W = 595.28, H = 841.89, M = 44, CW = W - M * 2;
+const hex = (h) => { const n = parseInt(h.slice(1), 16); return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
+const C = {
+  ink: hex(REPORT_COLORS.ink), ink2: hex("#3D4F4C"), muted: hex("#6E7A77"), faint: hex("#A3ABA8"),
+  teal: hex("#0E5E5A"), tealDeep: hex("#0A4744"), tealSoft: hex("#E3EFEC"), gold: hex("#F6C76B"),
+  page: hex("#FFFFFF"), card: hex("#F6F2EB"), line: hex("#E7E1D7"), white: rgb(1, 1, 1),
+  carbs: hex(REPORT_COLORS.carbs), green: hex("#3A9A68"),
+};
 
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
-}
-const INK = hexToRgb(REPORT_COLORS.ink), MUTED = hexToRgb(REPORT_COLORS.muted);
-
-function short(iso) { return iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""; }
-
-// pdf-lib's StandardFonts use WinAnsi encoding, which can't represent a
-// lot of ordinary-looking Unicode - the arrow in a data-sourced win like
-// "8kg x 12 -> 10kg x 12" (originally "→"), smart quotes, em dashes,
-// bullets. Coach-typed notes can contain any of this too. Replace the
-// common cases with readable ASCII, then strip anything still outside
-// WinAnsi's range as a last resort so a draw call can never throw.
-const PDF_TEXT_REPLACEMENTS = [
-  [/[→⇒]/g, "->"], [/[←⇐]/g, "<-"], [/×/g, "x"],
-  [/[‘’]/g, "'"], [/[“”]/g, '"'],
-  [/[–—]/g, "-"], [/…/g, "..."], [/•/g, "-"],
-];
-function safe(str) {
+const REPL = [[/[→⇒]/g, "->"], [/[←⇐]/g, "<-"], [/×/g, "x"], [/[‘’]/g, "'"], [/[“”]/g, '"'], [/[–—]/g, "-"], [/…/g, "..."], [/•/g, "-"]];
+export function safe(str) {
   let s = String(str ?? "");
-  for (const [re, repl] of PDF_TEXT_REPLACEMENTS) s = s.replace(re, repl);
+  for (const [re, r] of REPL) s = s.replace(re, r);
   return Array.from(s).map((ch) => (ch.codePointAt(0) <= 0xff ? ch : "?")).join("");
 }
 
-async function makeDrawer(pdfDoc, font, bold) {
-  const { width, height, margin } = PAGE;
-  const maxWidth = width - margin * 2;
-  let page = null, y = height - margin;
-
-  function newPage(label) {
-    page = pdfDoc.addPage([width, height]);
-    y = height - margin;
-    page.drawText("FORGE", { x: margin, y, size: 9, font: bold, color: MUTED });
-    const safeLabel = safe(label);
-    page.drawText(safeLabel, { x: width - margin - font.widthOfTextAtSize(safeLabel, 9), y, size: 9, font, color: MUTED });
-    y -= 20;
-    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: MUTED });
-    y -= 18;
-  }
-  function wrap(text, f, size, w = maxWidth) {
-    const words = safe(text).split(" ");
-    const lines = []; let line = "";
-    for (const word of words) {
+function makeKit(doc, f) {
+  let page = null;
+  const T = (txt, x, y, { size = 10, font = f.reg, color = C.ink, align = "left", w = 0 } = {}) => {
+    const s = safe(txt);
+    const tw = font.widthOfTextAtSize(s, size);
+    const dx = align === "right" ? w - tw : align === "center" ? (w - tw) / 2 : 0;
+    page.drawText(s, { x: x + dx, y, size, font, color });
+    return tw;
+  };
+  const wrap = (txt, size, w, font = f.reg) => {
+    const out = []; let line = "";
+    for (const word of safe(txt).split(/\s+/)) {
       const test = line ? `${line} ${word}` : word;
-      if (f.widthOfTextAtSize(test, size) > w && line) { lines.push(line); line = word; } else line = test;
+      if (font.widthOfTextAtSize(test, size) > w && line) { out.push(line); line = word; } else line = test;
     }
-    if (line) lines.push(line);
-    return lines.length ? lines : [""];
-  }
-  function text(str, { size = 10.5, isBold = false, color = INK, gap = 6, indent = 0, w } = {}) {
-    for (const l of wrap(str, isBold ? bold : font, size, w)) {
-      if (y < margin + size) return;
-      page.drawText(l, { x: margin + indent, y, size, font: isBold ? bold : font, color });
-      y -= size + gap;
-    }
-  }
-  function heading(str) { text(str, { size: 15, isBold: true, gap: 10 }); }
-  function label(str) { text(str, { size: 9, isBold: true, color: MUTED, gap: 8 }); }
-  function statTiles(tiles) {
-    if (!tiles.length) return;
-    const cols = Math.min(tiles.length, 3), gap = 10, w = (maxWidth - gap * (cols - 1)) / cols, h = 52;
-    tiles.forEach((t, i) => {
-      const col = i % cols, row = Math.floor(i / cols);
-      const x = margin + col * (w + gap), ty = y - row * (h + 8);
-      page.drawRectangle({ x, y: ty - h, width: w, height: h, color: rgb(0.957, 0.937, 0.902) });
-      page.drawText(safe(t.label), { x: x + 8, y: ty - 14, size: 8, font: bold, color: MUTED });
-      page.drawText(safe(t.value), { x: x + 8, y: ty - 32, size: 15, font: bold, color: INK });
-      if (t.sub) page.drawText(safe(t.sub).slice(0, 40), { x: x + 8, y: ty - 44, size: 7.5, font, color: MUTED });
-    });
-    const rows = Math.ceil(tiles.length / cols);
-    y -= rows * (h + 8) + 6;
-  }
-  function table(columns, rows) {
-    const colW = columns.map((c) => c.width || maxWidth / columns.length);
-    let x = margin;
-    columns.forEach((c, i) => { page.drawText(safe(c.label), { x, y, size: 8, font: bold, color: MUTED }); x += colW[i]; });
-    y -= 6;
-    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.75, color: MUTED });
-    y -= 12;
-    for (const row of rows) {
-      if (y < margin + 14) { text(`+ ${rows.length - rows.indexOf(row)} more rows not shown`, { size: 8.5, color: MUTED }); break; }
-      x = margin;
-      columns.forEach((c, i) => { page.drawText(safe(row[c.key] ?? ""), { x, y, size: 9, font, color: INK }); x += colW[i]; });
-      y -= 14;
-    }
-    y -= 8;
-  }
-  async function chartImage(dataUrl, h = 140) {
-    if (!dataUrl) return;
-    const png = await pdfDoc.embedPng(dataUrlToBytes(dataUrl));
-    if (y - h < margin) return;
-    page.drawImage(png, { x: margin, y: y - h, width: maxWidth, height: h });
-    y -= h + 10;
-  }
-  function footer(pageNum, total) {
-    page.drawLine({ start: { x: margin, y: margin - 4 }, end: { x: width - margin, y: margin - 4 }, thickness: 0.5, color: MUTED });
-    page.drawText(`Page ${pageNum} of ${total}`, { x: width - margin - 60, y: margin - 16, size: 8, font, color: MUTED });
-  }
-  return { newPage, text, heading, label, statTiles, table, chartImage, footer, get y() { return y; } };
+    if (line) out.push(line);
+    return out;
+  };
+  const para = (txt, x, y, w, { size = 10, font = f.reg, color = C.ink, lh = 1.45, max = 99 } = {}) => {
+    const lines = wrap(txt, size, w, font).slice(0, max);
+    lines.forEach((l, i) => page.drawText(l, { x, y: y - i * size * lh, size, font, color }));
+    return lines.length * size * lh;
+  };
+  const rect = (x, y, w, h, color, opts = {}) => page.drawRectangle({ x, y, width: w, height: h, color, ...opts });
+  const round = (x, y, w, h, r, color) => {
+    // pdf-lib has no rounded rect primitive; build one from an SVG path.
+    const p = `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} H ${r} A ${r} ${r} 0 0 1 0 ${h - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
+    page.drawSvgPath(p, { x, y: y + h, color, borderWidth: 0 });
+  };
+  const line = (x1, y1, x2, y2, color = C.line, t = 0.75, dash) => page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: t, color, dashArray: dash });
+  const dot = (x, y, r, color) => page.drawCircle({ x, y, size: r, color });
+  return {
+    newPage() { page = doc.addPage([W, H]); return page; },
+    T, wrap, para, rect, round, line, dot, f,
+  };
 }
 
-async function summaryPage(d, model, notes) {
-  d.heading(model.client.name);
-  d.text(`${short(model.period.from)} - ${short(model.period.to)} · ${model.period.days} days${model.comparison.window ? ` · vs ${short(model.comparison.window.a)} - ${short(model.comparison.window.b)}` : ""}`, { color: MUTED, gap: 14 });
-  const tiles = [];
-  const { body, training, nutrition } = model;
-  if (body.weight.length) { const ch = body.weight[body.weight.length - 1].value - body.weight[0].value; tiles.push({ label: "Weight change", value: `${ch > 0 ? "+" : ""}${ch.toFixed(1)} kg`, sub: `${body.weight.length} readings` }); }
-  if (training.planned) tiles.push({ label: "Sessions completed", value: `${training.completedCount}/${training.planned}`, sub: `${Math.round(training.completionRate * 100)}% of planned` });
-  if (training.planned) tiles.push({ label: "Training volume", value: `${(training.totalVolume / 1000).toFixed(1)} t`, sub: `${training.sessions.length} workouts` });
-  if (nutrition.totalDays) tiles.push({ label: "Nutrition logging", value: `${nutrition.loggedCount}/${nutrition.totalDays}`, sub: "days logged" });
-  d.statTiles(tiles);
-  if (body.weight.length >= 2) {
-    const all = [...body.weight.map((p) => p.value), ...body.weightRoll.map((p) => p.value)];
-    const dates = [...new Set([...body.weight.map((p) => p.date), ...body.weightRoll.map((p) => p.date)])].sort();
-    const idx = Object.fromEntries(dates.map((dt, i) => [dt, i]));
-    d.label("BODY WEIGHT");
-    await d.chartImage(renderSeriesChartPNG({
-      width: 520, height: 110, yMin: Math.min(...all) - 0.3, yMax: Math.max(...all) + 0.3, yCount: 3, xCount: dates.length,
-      series: [
-        { type: "line", points: body.weightRoll.map((p) => ({ i: idx[p.date], v: p.value })), color: REPORT_COLORS.ink, width: 1.6 },
-        { type: "dots", points: body.weight.map((p) => ({ i: idx[p.date], v: p.value })), color: REPORT_COLORS.kcal, r: 2.6 },
-      ],
-    }), 90);
-  }
-  if (model.wins.length) {
-    d.label("PERIOD HIGHLIGHTS");
-    model.wins.forEach((w, i) => d.text(`${i + 1}. ${notes.wins[i] ?? w.text}`, { size: 10, gap: 8 }));
-  }
+function footer(k, model, n, total) {
+  const coach = model.trainerName && model.trainerName !== "Coach" ? `Coach ${model.trainerName}` : "your coach";
+  k.line(M, 34, W - M, 34, C.line, 0.75);
+  k.T(`Forge Performance  ·  Prepared by ${coach}  ·  ${shortDate(model.generatedAt)} ${new Date(`${model.generatedAt}T00:00:00`).getFullYear()}`, M, 20, { size: 8, color: C.muted });
+  k.T(`${n} / ${total}`, M, 20, { size: 8, color: C.muted, align: "right", w: CW });
+}
+function sectionTitle(k, txt, y) {
+  k.T(txt.toUpperCase(), M, y, { size: 9, font: k.f.bold, color: C.teal });
+  return y - 16;
+}
+
+// ---------------- page 1 ----------------
+function pageOne(k, model, ins, notes) {
+  const { f } = k;
+  // Header band
+  k.rect(0, H - 168, W, 168, C.teal);
+  k.rect(0, H - 168, W, 3, C.gold);
+  k.T("FORGE PERFORMANCE", M, H - 48, { size: 9, font: f.bold, color: C.gold });
+  k.T("Progress report", M, H - 48, { size: 9, color: C.white, align: "right", w: CW });
+  k.T(niceName(model.client.name), M, H - 92, { size: 30, font: f.bold, color: C.white });
+  k.T(`${ins.period}  ·  ${model.period.days} days`, M, H - 116, { size: 11, color: hex("#CFE3DF") });
+  k.para(ins.headline, M, H - 146, CW, { size: 15, font: f.bold, color: C.white, max: 1 });
+
+  let y = H - 200;
+  // Coach note
   if (notes.summary?.trim()) {
-    d.label("FROM YOUR COACH");
-    d.text(notes.summary, { size: 10.5, gap: 6 });
+    const lines = k.wrap(notes.summary.trim(), 10.5, CW - 28, f.ital).slice(0, 5);
+    const h = 26 + lines.length * 15;
+    k.round(M, y - h, CW, h, 10, C.card);
+    k.rect(M, y - h, 3, h, C.gold);
+    k.T("FROM YOUR COACH", M + 16, y - 16, { size: 8, font: f.bold, color: C.muted });
+    lines.forEach((l, i) => k.T(l, M + 16, y - 32 - i * 15, { size: 10.5, font: f.ital, color: C.ink }));
+    y -= h + 20;
   }
-}
-async function bodyPage(d, model) {
-  d.heading("Body metrics");
-  const chart = model.body.weight.length >= 2 ? renderSeriesChartPNG({
-    width: 520, height: 160,
-    yMin: Math.min(...model.body.weight.map((p) => p.value)) - 0.3, yMax: Math.max(...model.body.weight.map((p) => p.value)) + 0.3, yCount: 4,
-    xCount: Math.max(model.body.weight.length, 2),
-    series: [{ type: "dots", points: model.body.weight.map((p, i) => ({ i, v: p.value })), color: REPORT_COLORS.kcal }],
-  }) : null;
-  d.label("BODY WEIGHT");
-  if (chart) await d.chartImage(chart); else d.text("Not enough weight readings in this period.", { color: MUTED });
-  const latest = model.body.measurements.latest, prev = model.body.measurements.prev;
-  d.label("MEASUREMENTS");
-  if (latest) {
-    const fields = Object.keys(latest).filter((k) => k !== "id" && k !== "date" && !isNaN(parseFloat(latest[k])));
-    d.table([{ key: "f", label: "Site", width: 220 }, { key: "v", label: "Latest", width: 150 }, { key: "d", label: "vs previous", width: 150 }],
-      fields.map((k) => ({ f: k, v: latest[k], d: prev?.[k] != null ? `${(latest[k] - prev[k]).toFixed(1)}` : "-" })));
-  } else d.text("No measurements recorded this period.", { color: MUTED });
-}
-async function trainingPage(d, model) {
-  d.heading("Training performance");
-  d.statTiles([
-    { label: "Planned", value: model.training.planned },
-    { label: "Completed", value: model.training.completedCount, sub: `${Math.round(model.training.completionRate * 100)}%` },
-    { label: "Missed", value: model.training.missed },
-  ]);
-  d.label("COMPLETED VOLUME PER WEEK");
-  if (model.training.weeklyVolume.length) {
-    const chart = renderBarChartPNG(model.training.weeklyVolume.map((w) => short(w.start)), model.training.weeklyVolume.map((w) => Math.round(w.volume / 100) / 10), { color: REPORT_COLORS.kcal, suffix: "t" });
-    await d.chartImage(chart);
-  } else d.text("No completed sessions with set data in this period.", { color: MUTED });
-  const prog = model.training.progression.filter((p) => p.hasData);
-  d.label("STRENGTH PROGRESSION");
-  if (prog.length) {
-    d.table([{ key: "n", label: "Exercise", width: 180 }, { key: "f", label: "First", width: 130 }, { key: "l", label: "Latest", width: 130 }, { key: "c", label: "Change", width: 80 }],
-      prog.map((p) => ({ n: p.name, f: `${p.first.load}kg x ${p.first.reps}`, l: `${p.last.load}kg x ${p.last.reps}`, c: `${p.change > 0 ? "+" : ""}${p.change}kg` })));
-  } else d.text("Not enough repeated sets to show progression.", { color: MUTED });
-  d.label("PERSONAL BESTS");
-  if (model.training.pbs.length) model.training.pbs.forEach((pb) => d.text(`${short(pb.date)} - ${pb.name}: ${pb.detail}`, { size: 9.5, gap: 6 }));
-  else d.text("No personal bests set this period.", { color: MUTED });
-}
-async function nutritionPage(d, model) {
-  d.heading("Nutrition performance");
-  const { nutrition } = model;
-  d.statTiles([
-    { label: "Logging consistency", value: `${nutrition.loggedCount}/${nutrition.totalDays}` },
-    { label: "Meal adherence", value: nutrition.adherence != null ? `${Math.round(nutrition.adherence * 100)}%` : "N/A" },
-    { label: "Target attainment", value: nutrition.loggedCount ? `${nutrition.kcalWithinTarget}/${nutrition.loggedCount}` : "-" },
-  ]);
-  d.label("LOGGED CALORIES PER DAY");
-  const logged = nutrition.days.filter((x) => x.has);
-  if (logged.length) await d.chartImage(renderBarChartPNG(logged.map((x) => short(x.date)), logged.map((x) => x.totals.kcal), { color: REPORT_COLORS.kcal }));
-  else d.text("No logged days in this period.", { color: MUTED });
-}
-async function heartPage(d, model) {
-  d.heading("Heart rate & workout energy");
-  d.label("WORKOUT HEART RATE");
-  if (model.heart.hasHr) {
-    const pts = model.heart.hr;
-    const vals = pts.flatMap((p) => [p.avg, p.max]).filter((v) => v != null);
-    await d.chartImage(renderSeriesChartPNG({
-      width: 520, height: 150, yMin: Math.min(...vals) - 8, yMax: Math.max(...vals) + 6, xCount: Math.max(pts.length, 2),
-      series: [{ type: "triangles", points: pts.filter((p) => p.max != null).map((p, i) => ({ i, v: p.max })), color: REPORT_COLORS.ink }, { type: "dots", points: pts.filter((p) => p.avg != null).map((p, i) => ({ i, v: p.avg })), color: REPORT_COLORS.kcal }],
-    }));
-  } else d.text("No heart-rate data logged for sessions this period.", { color: MUTED });
-  d.label("ESTIMATED CALORIES BURNED");
-  if (model.heart.hasKcal) d.table([{ key: "d", label: "Date", width: 200 }, { key: "k", label: "Est. kcal", width: 200 }], model.heart.kcal.map((k) => ({ d: short(k.date), k: k.value })));
-  else d.text("Not recorded for sessions this period.", { color: MUTED });
-}
-async function recoveryPage(d, model) {
-  d.heading("Recovery & behaviour");
-  const { recovery } = model;
-  d.label("SLEEP, HOURS");
-  if (recovery.sleep.length >= 2) await d.chartImage(renderBarChartPNG(recovery.sleep.map((s) => short(s.date)), recovery.sleep.map((s) => s.value), { color: REPORT_COLORS.fat, suffix: "h" }), 110);
-  else d.text("Not enough sleep entries this period.", { color: MUTED });
-  d.label("STEPS");
-  if (recovery.steps.length >= 2) await d.chartImage(renderBarChartPNG(recovery.steps.map((s) => short(s.date)), recovery.steps.map((s) => s.value), { color: REPORT_COLORS.muted }), 110);
-  else d.text("Not enough step entries this period.", { color: MUTED });
-  d.label("WEEKLY CHECK-INS");
-  if (recovery.checkins.hasCheck) {
-    d.table([{ key: "d", label: "Date", width: 150 }, { key: "e", label: "Energy", width: 120 }, { key: "s", label: "Soreness", width: 120 }, { key: "st", label: "Stress", width: 120 }],
-      recovery.checkins.checks.map((c) => ({ d: short(c.date), e: c.energy ?? "-", s: c.soreness ?? "-", st: c.stress ?? "-" })));
-  } else d.text("No matching check-in scale questions configured.", { color: MUTED });
-}
-function reviewPage(d, model, notes) {
-  d.heading("Coach review & next period");
-  if (notes.summary?.trim()) d.text(notes.summary, { size: 10.5, gap: 10 });
-  if (model.wins.length) {
-    d.label("TOP WINS");
-    model.wins.forEach((w, i) => d.text(`${i + 1}. ${notes.wins[i] ?? w.text}`, { size: 10, gap: 7 }));
+
+  // Scorecard
+  y = sectionTitle(k, "How you did", y);
+  const gap = 10, cw = (CW - gap) / 2, ch = 92;
+  ins.pillars.forEach((p, i) => {
+    const x = M + (i % 2) * (cw + gap), top = y - Math.floor(i / 2) * (ch + gap);
+    k.round(x, top - ch, cw, ch, 10, C.card);
+    k.T(p.title, x + 14, top - 20, { size: 10, font: f.bold, color: C.ink2 });
+    // status pill
+    const st = p.status, label = st.label, pw = f.bold.widthOfTextAtSize(label, 7.5) + 14;
+    const col = p.neutral ? C.teal : hex(st.color);
+    k.round(x + cw - 14 - pw, top - 25, pw, 14, 7, col);
+    k.T(label, x + cw - 14 - pw, top - 21, { size: 7.5, font: f.bold, color: C.white, align: "center", w: pw });
+    const vw = k.T(p.value, x + 14, top - 48, { size: 20, font: f.bold, color: C.ink });
+    if (p.unit) k.T(p.unit, x + 14 + vw + 6, top - 48, { size: 9, color: C.muted });
+    if (p.bar != null) {
+      k.round(x + 14, top - 60, cw - 28, 5, 2.5, C.line);
+      k.round(x + 14, top - 60, Math.max(5, (cw - 28) * Math.min(1, p.bar)), 5, 2.5, col);
+    }
+    k.para(p.line, x + 14, top - 76, cw - 28, { size: 8.5, color: C.muted, max: 2, lh: 1.3 });
+  });
+  y -= 2 * ch + gap + 26;
+
+  // Wins
+  if (ins.wins.length) {
+    y = sectionTitle(k, "Your biggest wins", y);
+    const n = ins.wins.length, wg = 10, ww = (CW - wg * (n - 1)) / n, wh = 76;
+    ins.wins.forEach((w, i) => {
+      const x = M + i * (ww + wg);
+      k.round(x, y - wh, ww, wh, 10, C.tealSoft);
+      k.T(w.big, x + 14, y - 32, { size: 22, font: f.bold, color: C.teal });
+      k.T(w.title, x + 14, y - 50, { size: 9.5, font: f.bold, color: C.ink, w: ww - 28 });
+      k.para(w.line, x + 14, y - 63, ww - 28, { size: 8.5, color: C.muted, max: 1 });
+    });
+    y -= wh + 26;
   }
-  const challenge = notes.challenge || model.challenge;
-  if (challenge?.trim()) { d.label("MAIN CHALLENGE"); d.text(challenge, { size: 10, gap: 10 }); }
-  const prios = notes.prios.filter((p) => p && p.trim());
-  if (prios.length) { d.label("PRIORITIES"); prios.forEach((p, i) => d.text(`${i + 1}. ${p}`, { size: 10.5, gap: 7 })); }
-  const goals = notes.goals.filter((g) => g[0] || g[1]);
-  if (goals.length) { d.label("GOALS"); d.table([{ key: "g", label: "Goal", width: 220 }, { key: "m", label: "Measure and target", width: 280 }], goals.map((g) => ({ g: g[0] || "-", m: g[1] || "-" }))); }
-  if (notes.reflOn && notes.refl?.trim()) { d.label("CLIENT REFLECTION"); d.text(`"${notes.refl}"`, { size: 10.5 }); }
-  if (!notes.summary?.trim() && !model.wins.length && !challenge?.trim() && !prios.length && !goals.length) {
-    d.text("Add coach notes in the report builder to fill out this page.", { color: MUTED });
+
+  // Next steps
+  y = sectionTitle(k, "Your focus for the next 4 weeks", y);
+  ins.priorities.forEach((p, i) => {
+    k.dot(M + 11, y - 6, 11, C.teal);
+    k.T(String(i + 1), M, y - 10, { size: 11, font: f.bold, color: C.white, align: "center", w: 22 });
+    k.T(p.title, M + 34, y - 4, { size: 11.5, font: f.bold, color: C.ink });
+    const h = p.line ? k.para(p.line, M + 34, y - 19, CW - 34, { size: 9.5, color: C.muted, max: 2, lh: 1.35 }) : 0;
+    y -= 28 + Math.max(0, h - 10);
+  });
+}
+
+// ---------------- page 2 ----------------
+function barChart(k, x, y, w, h, bars, { color, target, labelFmt = (v) => String(v), maxV } = {}) {
+  const { f } = k;
+  const top = Math.max(maxV || 0, target || 0, ...bars.map((b) => b.v), 1) * 1.12;
+  const bw = Math.min(46, (w / bars.length) * 0.62), step = w / bars.length;
+  k.line(x, y, x + w, y, C.line, 0.75);
+  bars.forEach((b, i) => {
+    const bh = (b.v / top) * h, bx = x + i * step + (step - bw) / 2;
+    if (b.ghost) k.round(bx, y, bw, (b.ghost / top) * h, 4, C.line);
+    if (bh > 0) k.round(bx, y, bw, Math.max(bh, 3), 4, b.color || color);
+    if (b.v > 0 || b.ghost) k.T(labelFmt(b.v), bx - 10, y + Math.max(bh, b.ghost ? (b.ghost / top) * h : 0) + 4, { size: 7.5, font: f.bold, color: C.ink2, align: "center", w: bw + 20 });
+    k.T(b.label, bx - 14, y - 12, { size: 7.5, color: C.muted, align: "center", w: bw + 28 });
+  });
+  if (target) {
+    const ty = y + (target / top) * h;
+    k.line(x, ty, x + w, ty, C.ink2, 0.8, [3, 3]);
+    k.T(`Target ${Math.round(target).toLocaleString("en-GB")}`, x, ty + 4, { size: 7.5, color: C.ink2, align: "right", w });
   }
 }
 
-const PAGE_BUILDERS = { summary: summaryPage, body: bodyPage, training: trainingPage, nutrition: nutritionPage, heart: heartPage, recovery: recoveryPage, review: reviewPage };
+function pageTwo(k, model, notes) {
+  const { f } = k;
+  k.T("The detail", M, H - 64, { size: 22, font: f.bold, color: C.ink });
+  k.T(`${niceName(model.client.name)}  ·  ${shortDate(model.period.from)} - ${shortDate(model.period.to)}`, M, H - 82, { size: 10, color: C.muted });
+  let y = H - 116;
 
-export async function buildProgressReportPDF(model, notes) {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const d = await makeDrawer(pdfDoc, font, bold);
-  const keys = model.includedSections;
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    d.newPage(REPORT_SECTION_LABELS[key] || key);
-    await PAGE_BUILDERS[key](d, model, notes);
-    d.footer(i + 1, keys.length);
+  // Training
+  const t = model.training;
+  const wk = weeklySessions(model);
+  const perWeek = Math.max(1, Math.round((t.planned || 0) / Math.max(1, wk.length || Math.round(model.period.days / 7))));
+  if (t.planned) {
+    y = sectionTitle(k, "Training - sessions per week", y);
+    barChart(k, M, y - 96, CW, 80, wk.map((w) => ({ label: `w/c ${shortDate(w.start)}`, v: w.done, ghost: perWeek, color: w.done >= perWeek ? C.green : C.teal })), { maxV: perWeek, labelFmt: (v) => `${v} / ${perWeek}` });
+    k.T(`Grey = planned (${perWeek} a week)   Teal = done   Green = full week`, M, y - 124, { size: 7.5, color: C.muted });
+    y -= 146;
+
+    const prog = (t.progression || []).filter((p) => p.hasData && p.change !== 0).sort((a, b) => b.change - a.change).slice(0, 6);
+    const pbs = t.pbs || [];
+    if (prog.length || pbs.length) {
+      y = sectionTitle(k, "Strength", y);
+      const colX = [M, M + 250, M + 340, M + 430];
+      ["Exercise", "Start", "Now", "Change"].forEach((h, i) => k.T(h, colX[i], y, { size: 8, font: f.bold, color: C.muted }));
+      y -= 8; k.line(M, y, W - M, y); y -= 14;
+      prog.forEach((p) => {
+        k.T(niceName(p.name), colX[0], y, { size: 9.5, color: C.ink });
+        k.T(`${p.first.load} kg x ${p.first.reps}`, colX[1], y, { size: 9.5, color: C.ink2 });
+        k.T(`${p.last.load} kg x ${p.last.reps}`, colX[2], y, { size: 9.5, color: C.ink2 });
+        k.T(`${p.change > 0 ? "+" : ""}${p.change} kg`, colX[3], y, { size: 9.5, font: f.bold, color: p.change > 0 ? C.green : hex("#C2412D") });
+        y -= 17;
+      });
+      if (pbs.length) {
+        y -= 4;
+        k.T(`Personal bests (${pbs.length})`, M, y, { size: 9, font: f.bold, color: C.ink2 }); y -= 15;
+        pbs.slice(0, 6).forEach((pb) => { k.dot(M + 3, y + 3, 2, C.gold); k.T(`${niceName(pb.name)}  -  ${pb.detail}  (${shortDate(pb.date)})`, M + 12, y, { size: 9, color: C.ink }); y -= 14; });
+      }
+      y -= 16;
+    }
   }
-  const bytes = await pdfDoc.save();
+
+  // Nutrition
+  const n = model.nutrition;
+  const logged = (n.days || []).filter((d) => d.has);
+  if (logged.length) {
+    const target = logged.map((d) => d.target?.kcal).filter(Boolean)[0] || 0;
+    y = sectionTitle(k, "Nutrition - calories on the days you logged", y);
+    const bars = logged.slice(-14).map((d) => {
+      const v = Math.round(d.totals.kcal || 0);
+      const within = target && Math.abs(v - target) <= target * 0.1;
+      return { label: shortDate(d.date), v, color: within ? C.green : C.carbs };
+    });
+    barChart(k, M, y - 96, CW, 76, bars, { target, labelFmt: (v) => v.toLocaleString("en-GB") });
+    y -= 120;
+    const avgK = Math.round(logged.reduce((s, d) => s + (d.totals.kcal || 0), 0) / logged.length);
+    const avgP = Math.round(logged.reduce((s, d) => s + (d.totals.protein || 0), 0) / logged.length);
+    const tP = logged.map((d) => d.target?.protein).filter(Boolean)[0];
+    k.T(`Average ${avgK.toLocaleString("en-GB")} kcal${target ? ` (target ${Math.round(target).toLocaleString("en-GB")})` : ""}   ·   protein ${avgP} g a day${tP ? ` (target ${Math.round(tP)} g)` : ""}   ·   green = within 10% of target`, M, y, { size: 8, color: C.muted });
+    y -= 30;
+  }
+
+  // Measurements
+  const m = model.body.measurements || {};
+  const latest = m.latest, prev = m.prev;
+  const fields = latest ? Object.keys(latest).filter((key) => !["id", "date", "weight"].includes(key) && !isNaN(parseFloat(latest[key]))) : [];
+  if (fields.length && y > 160) {
+    y = sectionTitle(k, "Measurements", y);
+    fields.slice(0, 8).forEach((key, i) => {
+      const x = M + (i % 4) * (CW / 4), yy = y - Math.floor(i / 4) * 42;
+      k.T(niceName(key.replace(/([A-Z])/g, " $1")), x, yy, { size: 8, color: C.muted });
+      k.T(`${latest[key]} cm`, x, yy - 15, { size: 13, font: f.bold, color: C.ink });
+      if (prev?.[key] != null) { const d = latest[key] - prev[key]; k.T(`${d > 0 ? "+" : ""}${d.toFixed(1)}`, x + 62, yy - 15, { size: 9, font: f.bold, color: d < 0 ? C.green : C.muted }); }
+    });
+    y -= Math.ceil(Math.min(fields.length, 8) / 4) * 42 + 14;
+  }
+
+  // Goals + reflection
+  const goals = (notes.goals || []).filter((g) => g[0] || g[1]);
+  if (goals.length && y > 120) {
+    y = sectionTitle(k, "Goals", y);
+    goals.forEach((g) => { k.T(g[0] || "-", M, y, { size: 10, font: f.bold, color: C.ink }); k.T(g[1] || "", M + 200, y, { size: 10, color: C.ink2 }); y -= 17; });
+    y -= 12;
+  }
+  if (notes.reflOn && notes.refl?.trim() && y > 100) {
+    y = sectionTitle(k, "In your words", y);
+    k.para(`"${notes.refl.trim()}"`, M, y, CW, { size: 10.5, font: f.ital, color: C.ink2, max: 4 });
+  }
+}
+
+function hasDetail(model, notes) {
+  return model.training.planned || (model.nutrition.days || []).some((d) => d.has) || model.body.measurements?.latest || (notes.goals || []).some((g) => g[0] || g[1]);
+}
+
+export async function buildProgressReportPDF(model, notes = {}) {
+  const doc = await PDFDocument.create();
+  doc.setTitle(`${model.client.name} - progress report`);
+  const f = {
+    reg: await doc.embedFont(StandardFonts.Helvetica),
+    bold: await doc.embedFont(StandardFonts.HelveticaBold),
+    ital: await doc.embedFont(StandardFonts.HelveticaOblique),
+  };
+  const k = makeKit(doc, f);
+  const ins = buildInsights(model, notes);
+  const total = hasDetail(model, notes) ? 2 : 1;
+  k.newPage(); pageOne(k, model, ins, notes); footer(k, model, 1, total);
+  if (total === 2) { k.newPage(); pageTwo(k, model, notes); footer(k, model, 2, total); }
+  const bytes = await doc.save();
   return new Blob([bytes], { type: "application/pdf" });
 }
