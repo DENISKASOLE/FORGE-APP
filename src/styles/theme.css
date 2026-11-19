@@ -132,8 +132,8 @@ html[data-focus="workout"] .me-top-row { display: none !important; }
 @keyframes fx-scrim { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fx-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes fx-modal { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
-.fx-screen { animation: fx-fade-up .22s cubic-bezier(.2,.8,.2,1) both; }
-.fx-push { animation: fx-push .28s cubic-bezier(.2,.8,.2,1) both; }
+.fx-screen { animation: fx-fade-up .22s cubic-bezier(.2,.8,.2,1) backwards; }
+.fx-push { animation: fx-push .28s cubic-bezier(.2,.8,.2,1) backwards; }
 .fx-sheet { animation: fx-sheet .34s cubic-bezier(.32,.72,0,1) both; }
 .fx-scrim { animation: fx-scrim .2s ease both; }
 .fx-pop { animation: fx-pop .24s cubic-bezier(.2,.8,.2,1) both; transform-origin: 85% 100%; }

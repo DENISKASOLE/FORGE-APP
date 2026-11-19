@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../../supabaseClient.js";
 import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
@@ -183,7 +184,7 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
     setSaving(false);
     showToast(initial ? "Exercise updated" : "Exercise added");
   }
-  return (
+  return createPortal(
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 420, maxHeight: "88vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -215,7 +216,8 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
         ))}
         <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 14 }}>{saving ? "Saving..." : initial ? "Save Changes" : "+ Add Exercise"}</Button>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }
 export function ExerciseLibraryEditor({ trainerId, onClose }) {
@@ -237,7 +239,7 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
   }
   async function remove(id) { await persist(items.filter((it) => it.id !== id)); }
 
-  return (
+  return createPortal(
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -270,7 +272,8 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
         )}
         {showAdd && <AddCustomExerciseModal initial={editingItem} onClose={() => { setShowAdd(false); setEditingItem(null); }} onSave={saveItem} />}
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }
 export function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMoveDown, isMobile, trainerId }) {
