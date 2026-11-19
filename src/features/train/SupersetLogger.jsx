@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { SwapExercise } from "./SwapExercise.jsx";
 import { BRAND } from "../../theme/tokens.js";
 import { isTimedExercise } from "../../lib/browser.js";
 import { getVideoThumb } from "../../lib/exerciseVideos.js";
 import { fmtExerciseSummary, lastSessionSetsFor, bestSetFor, suggestProgression, suggestPlateauBump } from "../../lib/trainingLogs.js";
-import { inputStyle } from "../../components/ui/Field.jsx";
 import { getExerciseMeta } from "../../lib/exerciseMeta.js";
 import { MuscleGroupTag } from "./ExerciseTag.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
@@ -16,11 +16,10 @@ const GROUP_LETTERS = "ABCDEFGH";
 // exercise (see groupSessionSteps in lib/trainingLogs.js) - this component
 // only changes which entry is currently visible, and that choice is local,
 // unsaved screen state.
-export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, customExercises = [], rpePickerFor, setRpePickerFor, patchSet, patchEntry, addSet, toggleDone, exerciseLibrary = [], onPlayVideo, onExit }) {
+export function SupersetLogger({ isCoach = false, group, exById, logsBefore, taxonomyMap = {}, customExercises = [], rpePickerFor, setRpePickerFor, patchSet, patchEntry, addSet, toggleDone, onPlayVideo, onExit }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [justCompleted, setJustCompleted] = useState(false);
   const [subFor, setSubFor] = useState(null);
-  const [subQuery, setSubQuery] = useState("");
   const active = Math.min(activeIdx, group.length - 1);
   const entry = group[active];
   const meta = exById[entry.exerciseId];
@@ -37,7 +36,6 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
   const thumb = getVideoThumb(libVideo || ex.videoUrl);
   const letters = group.map((_, i) => GROUP_LETTERS[i] || String(i + 1));
   const subbing = subFor === entry.id;
-  const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
 
   function selectTab(i) { setActiveIdx(i); setJustCompleted(false); setSubFor(null); }
   function handleToggleDone(en, si) {
@@ -97,16 +95,7 @@ export function SupersetLogger({ group, exById, logsBefore, taxonomyMap = {}, cu
 
       <SetLogRows entry={entry} timed={timed} lastSets={lastSets} best={best} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={handleToggleDone} doneColor={BRAND.green} />
 
-      <div>
-        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
-        {subbing && <div style={{ marginTop: 8 }}>
-          <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {entry.substitutedName && <button onClick={() => { patchEntry(entry.id, { substitutedName: "" }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>Use original: {entry.name}</button>}
-            {suggestions.map((n) => <button key={n} onClick={() => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>{n}</button>)}
-          </div>
-        </div>}
-      </div>
+      <SwapExercise entry={entry} library={customExercises} programSubs={ex.substitutes} isCoach={isCoach} open={subbing} onToggle={() => setSubFor(subbing ? null : entry.id)} onPick={(n) => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} />
 
       {justCompleted && (
         <div style={{ fontFamily: BRAND.sans, textAlign: "center", color: BRAND.blue, fontSize: 12, fontWeight: 500 }}>Tap {nextLabel} for the next set</div>

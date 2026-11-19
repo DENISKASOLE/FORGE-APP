@@ -11,6 +11,8 @@ import { VideoPlayerModal } from "../../components/ui/VideoPlayerModal.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
 import { SetLogRows } from "./SetLogRows.jsx";
 import { SupersetLogger } from "./SupersetLogger.jsx";
+import { SwapExercise, SubstitutePicker } from "./SwapExercise.jsx";
+import { substitutesFor } from "../../lib/substitutes.js";
 import { showToast } from "../../components/ui/Toast.jsx";
 import { confirmDialog, promptDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { useIsMobile, isTimedExercise } from "../../lib/browser.js";
@@ -149,6 +151,7 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
                     <MuscleGroupTag muscleGroup={r.meta?.muscleGroup} needsReview={r.meta?.needsReview} />
                     <MovementPatternTag movementPattern={r.meta?.movementPattern} />
+                    {(r.substitutes || []).length > 0 && <span style={{ fontSize: 11, color: BRAND.muted, fontWeight: 500 }}>⇄ {r.substitutes.length} swap{r.substitutes.length === 1 ? "" : "s"}</span>}
                   </div>
                 </div>
               </button>
@@ -158,17 +161,18 @@ export function ExerciseLibraryScreen({ trainerId, onBack }) {
           );
         })
       )}
-      {showAdd && <AddCustomExerciseModal initial={editingItem} onClose={() => { setShowAdd(false); setEditingItem(null); }} onSave={saveItem} />}
+      {showAdd && <AddCustomExerciseModal initial={editingItem} allNames={items.map((it) => it.name)} onClose={() => { setShowAdd(false); setEditingItem(null); }} onSave={saveItem} />}
       {detailRow && <ExerciseDetailModal name={detailRow.name} videoUrl={detailRow.videoUrl} meta={detailRow.meta} onClose={() => setDetailFor(null)} />}
     </div>
   );
 }
-export function AddCustomExerciseModal({ initial, onClose, onSave }) {
+export function AddCustomExerciseModal({ initial, onClose, onSave, allNames = [] }) {
   const [name, setName] = useState(initial?.name || "");
   const [videoUrl, setVideoUrl] = useState(initial?.videoUrl || "");
   const [muscleGroup, setMuscleGroup] = useState(initial?.muscleGroup || "");
   const [movementPattern, setMovementPattern] = useState(initial?.movementPattern || "");
   const [cues, setCues] = useState(() => { const c = initial?.coachingCues || []; return [c[0] || "", c[1] || "", c[2] || ""]; });
+  const [substitutes, setSubstitutes] = useState(initial?.substitutes || []);
   const [saving, setSaving] = useState(false);
   const thumb = getVideoThumb(videoUrl);
   function patchCue(i, v) { setCues((prev) => prev.map((c, ci) => (ci === i ? v : c))); }
@@ -180,7 +184,7 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
     if (url && !/^https?:\/\//i.test(url)) { showToast("Video link should start with https://", "warn"); return; }
     setSaving(true);
     const filled = cues.map((c) => c.trim());
-    await onSave({ name: name.trim(), videoUrl: url, muscleGroup, movementPattern, coachingCues: filled.some(Boolean) ? filled.filter(Boolean) : [] });
+    await onSave({ name: name.trim(), videoUrl: url, muscleGroup, movementPattern, coachingCues: filled.some(Boolean) ? filled.filter(Boolean) : [], substitutes });
     setSaving(false);
     showToast(initial ? "Exercise updated" : "Exercise added");
   }
@@ -216,6 +220,8 @@ export function AddCustomExerciseModal({ initial, onClose, onSave }) {
             <Field label={i === 0 ? "Setup" : i === 1 ? "Execution" : "Common fault to avoid"} value={cues[i]} onChange={(v) => patchCue(i, v)} placeholder={i === 0 ? "e.g. Pin shoulder blades back and down" : i === 1 ? "e.g. Lower to mid-chest, elbows tucked ~45°" : "e.g. Don't let elbows flare out"} />
           </div>
         ))}
+        <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Substitutes (swaps clients can pick)</div>
+        <SubstitutePicker value={substitutes} onChange={setSubstitutes} names={allNames} exclude={name} hint="Clients can only swap to these. You can change them for one client inside their program." />
         <Button onClick={save} disabled={saving} style={{ width: "100%", marginTop: 14 }}>{saving ? "Saving..." : initial ? "Save Changes" : "+ Add Exercise"}</Button>
       </Card>
     </div>,
@@ -272,7 +278,7 @@ export function ExerciseLibraryEditor({ trainerId, onClose }) {
             );
           })
         )}
-        {showAdd && <AddCustomExerciseModal initial={editingItem} onClose={() => { setShowAdd(false); setEditingItem(null); }} onSave={saveItem} />}
+        {showAdd && <AddCustomExerciseModal initial={editingItem} allNames={items.map((it) => it.name)} onClose={() => { setShowAdd(false); setEditingItem(null); }} onSave={saveItem} />}
       </Card>
     </div>,
     document.body
@@ -352,6 +358,16 @@ export function BlockEditor({ block, index, onChange, onDelete, onMoveUp, onMove
                 {getVideoThumb(ex.videoUrl) && (() => { const t = getVideoThumb(ex.videoUrl); return <button onClick={() => setPlayingVideo({ videoId: t.videoId, title: ex.name })} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "inline-block", position: "relative", marginTop: 8 }}><img src={t.thumb} alt="Exercise video" style={{ width: 140, height: 79, objectFit: "cover", borderRadius: BRAND.radiusControl, border: `${BRAND.hairline} solid ${BRAND.line}` }} /><div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", color: "#fff", fontSize: 12 }}>▶</div></div></button>; })()}
               </label>
             </div>}
+            {open && (() => {
+              const libSubs = substitutesFor(ex.name, customLibrary);
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ color: BRAND.muted, fontSize: 10, fontWeight: 500, marginBottom: 3 }}>Swaps for this client</div>
+                  <SubstitutePicker value={ex.substitutes || []} onChange={(v) => patchEx(ei, { substitutes: v })} names={customNames} exclude={ex.name}
+                    hint={(ex.substitutes || []).length ? "Only these swaps are offered to this client for this exercise." : libSubs.length ? `Using the library swaps: ${libSubs.join(", ")}. Add swaps here to use different ones for this client only.` : "No library swaps set. Add swaps here, or set them in the Exercise Library."} />
+                </div>
+              );
+            })()}
           </div>
         );
       })}
@@ -571,7 +587,6 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   // Swap / add suggestions come from the coach's own exercises only.
   const exerciseLibrary = useMemo(() => customExercises.map((it) => it.name).filter(Boolean).sort((a, b) => a.localeCompare(b)), [customExercises]);
   const [subFor, setSubFor] = useState(null);
-  const [subQuery, setSubQuery] = useState("");
   const [addingExercise, setAddingExercise] = useState(false);
   const [addQuery, setAddQuery] = useState("");
   const [swappingWorkout, setSwappingWorkout] = useState(false);
@@ -697,7 +712,6 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
   const libVideo = customExercises.find((it) => it.name === effectiveName && it.videoUrl)?.videoUrl;
   const thumb = getVideoThumb(libVideo || ex.videoUrl);
   const subbing = entry ? subFor === entry.id : false;
-  const suggestions = subQuery ? exerciseLibrary.filter((n) => n.toLowerCase().includes(subQuery.toLowerCase())).slice(0, 10) : [];
   const prog = entry ? (suggestPlateauBump(logsBefore, effectiveName) || suggestProgression(lastSets)) : null;
   const aiProg = useProgressionSuggestion(effectiveName, prog, exMeta, lastSets, timed);
   const displayProg = aiProg ? { ...prog, ai: aiProg } : prog;
@@ -777,6 +791,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       {swapPanel}
       {isSuperset ? (
         <SupersetLogger
+          isCoach={isCoach}
           group={step.entries}
           exById={exById}
           logsBefore={logsBefore}
@@ -810,16 +825,7 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
       </button> : (ex.tempo || week?.targetRpe || ex.rest) ? <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{ex.tempo && <span style={{ ...chip, color: BRAND.btnInk, background: BRAND.gold }}>Tempo {ex.tempo}</span>}{week?.targetRpe && <span style={{ ...chip, color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>Target RPE {week.targetRpe}</span>}{ex.rest && <span style={{ ...chip, color: BRAND.muted, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest {ex.rest}</span>}</div> : null}
       {ex.note && <div style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: BRAND.radiusControl, padding: 10, fontSize: 13 }}><span style={{ color: BRAND.gold, fontWeight: 500 }}>Coach: </span>{ex.note}</div>}
       <SetLogRows entry={entry} timed={timed} lastSets={lastSets} best={best} prog={displayProg} rpePickerFor={rpePickerFor} setRpePickerFor={setRpePickerFor} patchSet={patchSet} addSet={addSet} toggleDone={toggleDone} />
-      <div>
-        <button onClick={() => { setSubFor(subbing ? null : entry.id); setSubQuery(""); }} style={{ background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, color: BRAND.muted, fontWeight: 500, cursor: "pointer", fontSize: 12, padding: "9px 14px" }}>{subbing ? "Cancel" : "Swap exercise"}</button>
-        {subbing && <div style={{ marginTop: 8 }}>
-          <input placeholder="Search a substitute..." value={subQuery} onChange={(e) => setSubQuery(e.target.value)} style={inputStyle()} />
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {entry.substitutedName && <button onClick={() => { patchEntry(entry.id, { substitutedName: "" }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>Use original: {entry.name}</button>}
-            {suggestions.map((n) => <button key={n} onClick={() => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} style={{ background: BRAND.panel, color: BRAND.text, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: "6px 10px", fontWeight: 500, cursor: "pointer" }}>{n}</button>)}
-          </div>
-        </div>}
-      </div>
+      <SwapExercise entry={entry} library={customExercises} programSubs={ex.substitutes} isCoach={isCoach} open={subbing} onToggle={() => setSubFor(subbing ? null : entry.id)} onPick={(n) => { patchEntry(entry.id, { substitutedName: n }); setSubFor(null); }} />
       </>
       )}
       <Card style={{ display: "flex", alignItems: "center", gap: 14 }}>
