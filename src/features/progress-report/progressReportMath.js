@@ -234,6 +234,11 @@ export function checkinsFor(checkIns, fromISO, toISO) {
       }
       return null;
     };
+    // New check-ins (lib/checkinV2.js) store 1-5 taps in `values`.
+    if (c.v === 2 && c.values) {
+      const x2 = (v) => (v ? v * 2 : null);
+      return { date: c.date, energy: x2(c.values.energy), soreness: null, stress: x2(c.values.stress) };
+    }
     return { date: c.date, energy: pick(CHECKIN_KEYWORDS.energy), soreness: pick(CHECKIN_KEYWORDS.soreness), stress: pick(CHECKIN_KEYWORDS.stress) };
   }).filter((r) => r.energy != null || r.soreness != null || r.stress != null);
   return { hasCheck: rows.length > 0, checks: rows };
