@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { DeleteAccountScreen } from "./DeleteAccount.jsx";
 import { supabase } from "../../supabaseClient.js";
 import { BRAND } from "../../theme/tokens.js";
 import { Button } from "../../components/ui/Button.jsx";
@@ -229,6 +230,7 @@ export function ClientSettingsModal({ client, onClose }) {
   const [changing, setChanging] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [deleting, setDeleting] = useState(false);
   async function updatePassword() {
     if (!newPassword || newPassword.length < 6) { setMessage("Password must be at least 6 characters."); return; }
     setChanging(true); setMessage("");
@@ -241,6 +243,7 @@ export function ClientSettingsModal({ client, onClose }) {
     await supabase.auth.signOut();
     onClose();
   }
+  if (deleting) return <DeleteAccountScreen client={client} onClose={() => setDeleting(false)} />;
   return (
     <div style={modalBackdrop()}>
       <Card style={{ width: "100%", maxWidth: 460, padding: 0, overflow: "hidden" }}>
@@ -267,6 +270,7 @@ export function ClientSettingsModal({ client, onClose }) {
             <SettingsRow title="About FORGE" sub={client.name} right={<span style={{ fontFamily: BRAND.sans, fontSize: 9, color: BRAND.muted }}>v1.0.0</span>} last />
           </SettingsSection>
           <button onClick={logout} style={{ width: "100%", background: BRAND.redBg, border: `${BRAND.hairline} solid rgba(220,80,70,0.18)`, borderRadius: 14, padding: 14, color: BRAND.red, fontFamily: BRAND.sans, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Log Out</button>
+          <button onClick={() => setDeleting(true)} style={{ background: "none", border: "none", padding: "6px 0 2px", color: BRAND.red, fontFamily: BRAND.sans, fontSize: 13, fontWeight: 500, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>Delete my account</button>
         </div>
       </Card>
     </div>
