@@ -2,6 +2,7 @@
 // available - no Saturday window. Five steps in a full-screen flow; sending
 // again in the same week updates that week's check-in.
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../../supabaseClient.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate } from "../../lib/dateUtils.js";
@@ -106,16 +107,39 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
     const el = document.getElementById("checkin-scroll");
     if (el) el.scrollTop = 0;
   }, [step]);
+  // Full screen: lock the page behind the check-in.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
 
   const w = parseFloat(String(form.weight).replace(",", "."));
   const diff = prev != null && Number.isFinite(w) && w > 0 ? Math.round((w - prev) * 10) / 10 : null;
-  const ready = [
-    Number.isFinite(w) && w > 0,
-    FEEL_SCALES.every((s) => form[s.key]),
-    form.trainingFeel && form.adherence && form.pain,
-    true,
-    form.overall > 0,
+  // Required answers per step; text boxes, waist and photos are optional.
+  const missingByStep = [
+    Number.isFinite(w) && w > 0 ? [] : ["weight"],
+    FEEL_SCALES.filter((s) => !form[s.key]).map((s) => s.key),
+    [!form.trainingFeel && "trainingFeel", !form.adherence && "adherence", !form.pain && "pain"].filter(Boolean),
+    [],
+    form.overall > 0 ? [] : ["overall"],
   ];
+  const [tried, setTried] = useState(false);
+  const missing = missingByStep[step];
+  const miss = (k) => tried && missing.includes(k);
+  const reqLabel = (text, k) => (
+    <div style={{ ...C.q, color: miss(k) ? "var(--red)" : "var(--ink)" }}>{text}{miss(k) && <span style={{ fontWeight: 500, fontSize: 13 }}>  · required</span>}</div>
+  );
+  function next() {
+    if (missing.length) {
+      setTried(true);
+      const el = document.querySelector(`[data-q="${missing[0]}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setTried(false);
+    if (step === 4) send(); else setStep(step + 1);
+  }
 
   function pickPhoto(slot, file) {
     if (!file) return;
@@ -151,8 +175,8 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
   const coach = coachName ? `Coach ${coachName}` : "your coach";
   const steps = [
     <>
-      <div style={C.kick}>Your body</div><h2 style={C.h2}>Current weight</h2>
-      <label style={{ ...C.card, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6, padding: "22px 0" }}>
+      <div style={C.kick}>Your body</div><h2 style={{ ...C.h2, color: miss("weight") ? "var(--red)" : "var(--ink)" }}>Current weight</h2>
+      <label data-q="weight" style={{ ...C.card, ...(miss("weight") ? { borderColor: "var(--red)" } : null), display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6, padding: "22px 0" }}>
         <input inputMode="decimal" value={form.weight} onChange={(e) => set({ weight: e.target.value.replace(/[^0-9.,]/g, "") })} placeholder="0.0" aria-label="Current weight in kg"
           style={{ width: 150, textAlign: "right", border: "none", outline: "none", background: "transparent", fontSize: 56, fontWeight: 700, letterSpacing: "-.03em", color: "var(--ink)", fontFamily: "inherit", padding: 0 }} />
         <span style={{ fontSize: 18, color: "var(--ink-3)" }}>kg</span>
@@ -172,7 +196,7 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
     <>
       <div style={C.kick}>How you felt</div><h2 style={C.h2}>Rate your week</h2>
       {FEEL_SCALES.map((s) => (
-        <div key={s.key}><div style={C.q}>{s.label}</div><FaceScale scale={s} value={form[s.key]} onPick={(v) => set({ [s.key]: v })} /></div>
+        <div key={s.key} data-q={s.key}>{reqLabel(s.label, s.key)}<FaceScale scale={s} value={form[s.key]} onPick={(v) => set({ [s.key]: v })} /></div>
       ))}
     </>,
     <>
@@ -181,11 +205,11 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
         <span style={{ fontSize: 14, color: "var(--ink)" }}>Sessions logged this week</span>
         <b style={{ fontSize: 18, color: "var(--accent)" }}>{sessions.planned ? `${sessions.done} of ${sessions.planned}` : sessions.done}</b>
       </div>
-      <div style={C.q}>How did training feel?</div>
+      <div data-q="trainingFeel">{reqLabel("How did training feel?", "trainingFeel")}</div>
       <Options items={TRAINING_FEEL} value={form.trainingFeel} onPick={(v) => set({ trainingFeel: v })} />
-      <div style={C.q}>How closely did you follow your meal plan?</div>
+      <div data-q="adherence">{reqLabel("How closely did you follow your meal plan?", "adherence")}</div>
       <Options items={ADHERENCE} value={form.adherence} onPick={(v) => set({ adherence: v })} />
-      <div style={C.q}>Any pain or injury?</div>
+      <div data-q="pain">{reqLabel("Any pain or injury?", "pain")}</div>
       <Options items={["No", "Yes"]} value={form.pain} onPick={(v) => set({ pain: v })} />
       {form.pain === "Yes" && (
         <textarea value={form.painNote} onChange={(e) => set({ painNote: e.target.value })} placeholder="Where does it hurt, and when?" style={{ ...C.ta, marginTop: 8 }} />
@@ -212,7 +236,7 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
           <PhotoSlot key={slot} slot={slot} preview={photos[slot]?.url} onPick={(f) => pickPhoto(slot, f)} onClear={() => setPhotos((p) => { const n = { ...p }; delete n[slot]; return n; })} />
         ))}
       </div>
-      <div style={{ ...C.q, marginTop: 24 }}>Overall, how was your week?</div>
+      <div data-q="overall" style={{ marginTop: 8 }}>{reqLabel("Overall, how was your week?", "overall")}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4 }}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
           const on = form.overall === n;
@@ -225,12 +249,19 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
   ];
   const last = step === steps.length - 1;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "var(--page)", display: "flex", flexDirection: "column", fontFamily: "'Inter Variable', Inter, system-ui, sans-serif" }}>
+  return createPortal(
+    <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "var(--page)", display: "flex", flexDirection: "column", fontFamily: "'Inter Variable', Inter, system-ui, sans-serif" }}>
       <div style={{ padding: "calc(env(safe-area-inset-top, 0px) + 16px) 20px 0", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "var(--ink-3)", marginBottom: 10, minHeight: 32 }}>
-          <button type="button" onClick={() => (step === 0 ? onClose() : setStep(step - 1))} style={{ background: "none", border: "none", color: "var(--ink-2)", fontSize: step === 0 ? 20 : 15, cursor: "pointer", padding: "4px 0", fontFamily: "inherit" }} aria-label={step === 0 ? "Close" : "Back"}>{step === 0 ? "✕" : "‹ Back"}</button>
-          <span>{step + 1} of {steps.length}</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, color: "var(--ink-3)", marginBottom: 12 }}>
+          <button type="button" onClick={() => { setTried(false); if (step === 0) onClose(); else setStep(step - 1); }} aria-label={step === 0 ? "Close" : "Back"}
+            style={{ display: "flex", alignItems: "center", gap: 6, height: 46, padding: step === 0 ? 0 : "0 18px 0 12px", width: step === 0 ? 46 : "auto", justifyContent: "center", borderRadius: 999, border: "1px solid var(--line-strong)", background: "var(--card)", color: "var(--ink)", fontSize: 17, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            {step === 0 ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            ) : (
+              <><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>Back</>
+            )}
+          </button>
+          <span style={{ fontSize: 15 }}>{step + 1} of {steps.length}</span>
         </div>
         <div style={{ height: 5, borderRadius: 9, background: "var(--line)", overflow: "hidden" }}>
           <i style={{ display: "block", height: "100%", width: `${((step + 1) / steps.length) * 100}%`, background: "var(--accent)", borderRadius: 9, transition: "width .3s" }} />
@@ -240,11 +271,17 @@ function CheckinFlow({ client, coachName, existing, onClose, onSent }) {
         <div style={{ padding: "20px 20px 24px", maxWidth: 520, margin: "0 auto", boxSizing: "border-box" }}>{steps[step]}</div>
       </div>
       <div style={{ padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)", maxWidth: 520, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-        <button type="button" disabled={!ready[step] || saving} onClick={() => (last ? send() : setStep(step + 1))} style={{ ...C.btn, opacity: !ready[step] || saving ? 0.45 : 1 }}>
+        {tried && missing.length > 0 && (
+          <div style={{ textAlign: "center", color: "var(--red)", fontSize: 13.5, fontWeight: 600, marginBottom: 8 }}>
+            {missing.length === 1 ? "Answer the question in red to continue" : `Answer the ${missing.length} questions in red to continue`}
+          </div>
+        )}
+        <button type="button" disabled={saving} onClick={next} style={{ ...C.btn, opacity: missing.length || saving ? 0.5 : 1 }}>
           {last ? (saving ? "Sending…" : existing ? `Update check-in` : `Send to ${coach}`) : "Next"}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
