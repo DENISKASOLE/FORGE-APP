@@ -6,6 +6,7 @@ import { upsertSection } from "../../lib/clientData.js";
 import { currentProgramWeek, workoutForDay, exerciseCountOf } from "../../lib/programModel.js";
 import { sessionForWorkout, parseSeconds } from "../../lib/trainingLogs.js";
 import { MeAvatarButton } from "../client-shell/ClientShellUI.jsx";
+import { NotificationBell } from "./NotificationBell.jsx";
 import { MOODS, weekOf, dayNutrition, habitsFor, habitGoals, weightInfo, measurementInfo, bodyFatInfo, proteinStreak, energyInfo, shortDate } from "./homeData.js";
 
 const card = { background: BRAND.card, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 20, boxSizing: "border-box", minWidth: 0 };
@@ -106,7 +107,7 @@ export function HomeDaily({ client, updateClient, goTo, unread = 0, openLog }) {
     // the layout full-width and scales text, rings and tiles together.
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, maxWidth: "100%", zoom: 0.9 }}>
       <div style={{ display: "grid", gridTemplateColumns: "42px 1fr 42px", alignItems: "center", paddingTop: 2 }}>
-        <div />
+        {goTo ? <NotificationBell client={client} goTo={goTo} /> : <div />}
         <div style={{ textAlign: "center", fontFamily: BRAND.display, fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>Today</div>
         {goTo ? <MeAvatarButton client={client} unread={unread} onClick={() => goTo("me_hub")} size={42} /> : <div />}
       </div>
