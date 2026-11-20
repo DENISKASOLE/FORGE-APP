@@ -878,14 +878,14 @@ export function DayPill({ day, compact = false }) {
   const base = { fontSize: compact ? 8 : 9, fontWeight: 500, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
   if (day.isRest) return <div style={{ ...base, background: "transparent", color: BRAND.dim, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest</div>;
   if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid color-mix(in srgb, ${BRAND.green} 40%, transparent)` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
-  if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.yellow, border: `1px solid color-mix(in srgb, ${BRAND.yellow} 40%, transparent)` }}>{day.workout.name}</div>;
+  if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.red, border: `1px solid color-mix(in srgb, ${BRAND.red} 40%, transparent)` }}>{day.workout.name}</div>;
   if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>{day.workout.name}</div>;
   return <div style={{ ...base, background: BRAND.gold, color: BRAND.btnInk }}>{day.workout.name}</div>;
 }
 export function dayBorder(day) {
   if (day.state === "today" || day.state === "in_progress") return BRAND.gold;
   if (day.state === "completed") return `color-mix(in srgb, ${BRAND.green} 33%, transparent)`;
-  if (day.state === "missed") return `color-mix(in srgb, ${BRAND.yellow} 33%, transparent)`;
+  if (day.state === "missed") return `color-mix(in srgb, ${BRAND.red} 33%, transparent)`;
   return BRAND.line;
 }
 export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) {
@@ -974,7 +974,7 @@ export function DaySection({ title, days, onOpen }) {
             {d.state === "today" && <span style={{ background: BRAND.gold, color: BRAND.btnInk, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Start</span>}
             {d.state === "in_progress" && <span style={{ border: `${BRAND.hairline} solid ${BRAND.gold}`, color: BRAND.gold, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Resume</span>}
             {d.state === "completed" && <span style={{ color: BRAND.green, fontSize: 16, fontWeight: 500 }}>✓</span>}
-            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.yellow}`, color: BRAND.yellow, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
+            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.red}`, color: BRAND.red, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
           </button>
         );
       })}
