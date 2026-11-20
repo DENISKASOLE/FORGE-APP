@@ -10,7 +10,7 @@ import { modalBackdrop } from "../../components/ui/modal.js";
 import { VideoPlayerModal } from "../../components/ui/VideoPlayerModal.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
 import { PageHeader, PillSwitch, DayStrip } from "../../components/ui/Screen.jsx";
-import { screenCard, screenLabel, tint } from "../../components/ui/screenStyles.js";
+import { screenCard, tint } from "../../components/ui/screenStyles.js";
 import { SetLogRows } from "./SetLogRows.jsx";
 import { SupersetLogger } from "./SupersetLogger.jsx";
 import { SwapExercise, SubstitutePicker } from "./SwapExercise.jsx";
@@ -901,15 +901,6 @@ function dayDot(d) {
 function weekVolume(list) {
   return list.filter((d) => d.session?.status === "completed").reduce((n, d) => n + (sessionStatsV2(d.session).volume || 0), 0);
 }
-function setsOf(workout) {
-  return (workout?.blocks || []).reduce((n, b) => n + (b.exercises || []).reduce((m, e) => m + (e.sets?.length || 0), 0), 0);
-}
-function exerciseLine(e) {
-  const s = e.sets?.[0] || {};
-  const reps = s.targetReps || s.reps || "";
-  const load = s.targetLoad || s.load || "";
-  return [e.sets?.length ? `${e.sets.length} × ${reps || "—"}` : "", load ? `${load}${/[a-z]/i.test(String(load)) ? "" : "kg"}` : ""].filter(Boolean).join(" · ");
-}
 
 // Train week view (Nov 2026 restyle to match Home / Progress): Home-style
 // day strip with status dots, two summary tiles, a big Today card with
@@ -921,79 +912,58 @@ export function ProgramWeekView({ program, days, weekNum, onOpen, onStart }) {
   const training = weekDaysList.filter((d) => !d.isRest);
   const done = training.filter((d) => d.state === "completed").length;
   const todayISO = isoDate(new Date());
-  const today = weekDaysList.find((d) => d.dateISO === todayISO && !d.isRest);
-  const rest = weekDaysList.filter((d) => d !== today);
   const vol = weekVolume(weekDaysList);
   const prevVol = weekVolume(prevWeekDays);
   const volPct = prevVol > 0 ? Math.round(((vol - prevVol) / prevVol) * 100) : null;
   const stripDays = weekDaysList.map((d) => ({ iso: d.dateISO, name: DOW_LABEL[d.dow - 1].slice(0, 3), num: d.date.getDate(), dot: dayDot(d), day: d }));
   const selectedIso = weekDaysList.some((d) => d.dateISO === todayISO) ? todayISO : null;
-  const exercises = today ? (today.workout.blocks || []).flatMap((b) => b.exercises || []) : [];
-  const mins = today ? Math.max(15, Math.round((setsOf(today.workout) * 2.5) / 5) * 5) : 0;
-  const tile = { ...screenCard, padding: 14 };
+  const tile = { ...screenCard, padding: "10px 12px" };
+  // Compact so the whole week fits on one phone screen (Denis, Nov 20).
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 10 }}>
       <DayStrip days={stripDays} value={selectedIso} todayISO={todayISO} onSelect={(d) => onOpen(d.day)} />
       {(week.label || week.focus || week.targetRpe) && (
-        <div style={{ ...screenCard, padding: "12px 14px" }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
-          {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 2 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
+        <div style={{ ...screenCard, padding: "10px 12px" }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
+          {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 2 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div style={tile}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{week.weekNum === currentProgramWeek(program) ? "This week" : `Week ${week.weekNum}`}</div>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 8 }}>{done}<span style={{ fontSize: 15, fontWeight: 600, color: BRAND.dim }}> / {training.length}</span></div>
-          <div style={{ height: 6, borderRadius: 9, background: "var(--line-strong)", margin: "8px 0 4px", overflow: "hidden" }}><div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: "var(--accent)", borderRadius: 9 }} /></div>
-          <div style={{ fontSize: 12, color: BRAND.dim }}>sessions done</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{week.weekNum === currentProgramWeek(program) ? "This week" : `Week ${week.weekNum}`}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 2 }}>{done}<span style={{ fontSize: 13, fontWeight: 600, color: BRAND.dim }}> / {training.length} sessions</span></div>
+          <div style={{ height: 5, borderRadius: 9, background: "var(--line-strong)", marginTop: 6, overflow: "hidden" }}><div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: "var(--accent)", borderRadius: 9 }} /></div>
         </div>
         <div style={tile}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>Volume</div>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 8, whiteSpace: "nowrap" }}>{vol.toLocaleString()}<span style={{ fontSize: 14, fontWeight: 600 }}>kg</span></div>
-          <div style={{ fontSize: 12, marginTop: 12, fontWeight: 600, color: volPct == null ? BRAND.dim : volPct >= 0 ? "var(--green)" : "var(--red)" }}>{volPct == null ? "lifted this week" : `${volPct >= 0 ? "▲" : "▼"} ${Math.abs(volPct)}% vs last week`}</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Volume</div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 2, whiteSpace: "nowrap" }}>{vol.toLocaleString()}<span style={{ fontSize: 13, fontWeight: 600 }}>kg</span></div>
+          <div style={{ fontSize: 11, marginTop: 2, fontWeight: 600, color: volPct == null || vol === 0 ? BRAND.dim : volPct >= 0 ? "var(--green)" : "var(--red)" }}>{volPct == null || vol === 0 ? "lifted this week" : `${volPct >= 0 ? "▲" : "▼"} ${Math.abs(volPct)}% vs last week`}</div>
         </div>
       </div>
-      {today && (
-        <div style={{ ...screenCard, padding: 16 }}>
-          <div style={{ ...screenLabel, color: "var(--accent)" }}>Today · {DOW_LABEL[today.dow - 1].slice(0, 3)} {today.date.getDate()}</div>
-          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>{today.workout.name}</div>
-          <div style={{ fontSize: 14, color: BRAND.muted }}>{exercises.length} exercise{exercises.length === 1 ? "" : "s"} · ~{mins} min</div>
-          <div style={{ marginTop: 8 }}>
-            {exercises.map((e, i) => (
-              <div key={e.id || i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderTop: i ? `1px solid ${BRAND.line}` : "none", fontSize: 14 }}>
-                <span style={{ fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textTransform: "capitalize" }}>{String(e.name || "").toLowerCase()}</span>
-                <span style={{ color: BRAND.muted, flexShrink: 0 }}>{exerciseLine(e)}</span>
-              </div>
-            ))}
-          </div>
-          {today.state === "completed" ? (
-            <button type="button" onClick={() => onOpen(today)} style={{ marginTop: 12, width: "100%", height: 50, borderRadius: 999, border: "1px solid var(--green)", background: tint("var(--green)"), color: "var(--green)", fontSize: 16, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>✓ Done · see your report</button>
-          ) : (
-            <button type="button" onClick={() => (onStart ? onStart(today) : onOpen(today))} style={{ marginTop: 12, width: "100%", height: 50, borderRadius: 999, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontSize: 16, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{today.state === "in_progress" ? "Resume workout" : "Start workout"}</button>
-          )}
-        </div>
-      )}
-      <div style={{ ...screenLabel, margin: "6px 2px -2px" }}>This week</div>
-      <div style={{ display: "grid", gap: 8 }}>
-        {rest.map((d) => {
+      <div style={{ display: "grid", gap: 6 }}>
+        {weekDaysList.map((d) => {
           const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
+          const isToday = d.dateISO === todayISO;
+          const canStart = isToday && !d.isRest && d.state !== "completed";
           return (
-            <button key={d.key} type="button" onClick={() => onOpen(d)} style={{ ...screenCard, width: "100%", textAlign: "left", padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontFamily: "inherit", color: BRAND.text, background: d.isRest ? "transparent" : BRAND.card }}>
-              <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", color: BRAND.dim }}>{DOW_LABEL[d.dow - 1].slice(0, 3).toUpperCase()}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: d.isRest ? BRAND.dim : BRAND.text }}>{d.date.getDate()}</div>
+            <div key={d.key} role="button" tabIndex={0} onClick={() => onOpen(d)} onKeyDown={(e) => { if (e.key === "Enter") onOpen(d); }}
+              style={{ ...screenCard, padding: d.isRest ? "6px 12px" : "9px 12px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", color: BRAND.text, background: d.isRest ? "transparent" : BRAND.card, ...(isToday && !d.isRest ? { border: "1px solid var(--accent)" } : null) }}>
+              <div style={{ width: 34, textAlign: "center", flexShrink: 0, lineHeight: 1.1 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".06em", color: isToday ? "var(--accent)" : BRAND.dim }}>{DOW_LABEL[d.dow - 1].slice(0, 3).toUpperCase()}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: d.isRest ? BRAND.dim : isToday ? "var(--accent)" : BRAND.text }}>{d.date.getDate()}</div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
-                <div style={{ fontSize: 13, color: BRAND.muted, marginTop: 2 }}>
-                  {d.isRest ? (d.note || "Recovery") : stats ? `${stats.setsDone} sets · ${stats.volume.toLocaleString()} kg` : `${exerciseCountOf(d.workout)} exercises`}
-                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: d.isRest ? BRAND.muted : BRAND.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.isRest ? "Rest day" : d.workout.name}</div>
+                {!d.isRest && <div style={{ fontSize: 12, color: BRAND.muted }}>{stats ? `${stats.setsDone} sets · ${stats.volume.toLocaleString()} kg` : `${exerciseCountOf(d.workout)} exercises`}</div>}
               </div>
-              {d.state === "completed" && <span aria-label="Done" style={{ width: 34, height: 34, borderRadius: 99, background: "var(--green)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, flexShrink: 0 }}>✓</span>}
-              {d.state === "missed" && <span style={{ fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 99, background: "var(--orange-bg)", color: "var(--orange)" }}>Missed</span>}
-              {d.state === "in_progress" && <span style={{ fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 99, background: tint(), color: "var(--accent)" }}>Resume</span>}
-              {!d.isRest && !["completed", "missed", "in_progress"].includes(d.state) && <span style={{ color: BRAND.dim, fontSize: 18 }}>›</span>}
-            </button>
+              {canStart && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onStart ? onStart(d) : onOpen(d); }} style={{ flexShrink: 0, height: 34, padding: "0 16px", borderRadius: 999, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{d.state === "in_progress" ? "Resume" : "Start"}</button>
+              )}
+              {!canStart && d.state === "completed" && <span aria-label="Done" style={{ width: 28, height: 28, borderRadius: 99, background: "var(--green)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>✓</span>}
+              {!canStart && d.state === "missed" && <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 99, background: "var(--orange-bg)", color: "var(--orange)" }}>Missed</span>}
+              {!canStart && d.state === "in_progress" && <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 99, background: tint(), color: "var(--accent)" }}>Resume</span>}
+              {!canStart && !d.isRest && !["completed", "missed", "in_progress"].includes(d.state) && <span style={{ color: BRAND.dim, fontSize: 16 }}>›</span>}
+            </div>
           );
         })}
       </div>
