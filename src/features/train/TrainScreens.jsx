@@ -876,8 +876,8 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
 // ---------- Program calendar: shared bits ----------
 export function DayPill({ day, compact = false }) {
   const base = { fontSize: compact ? 8 : 9, fontWeight: 500, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
-  // Rest: same filled tag as a training day, in cream (Denis, Nov 20).
-  if (day.isRest) return <div style={{ ...base, background: BRAND.card2, color: BRAND.muted }}>Rest</div>;
+  // Rest: same filled tag as a training day, in the carbs blue (Denis, Nov 20).
+  if (day.isRest) return <div style={{ ...base, background: "var(--blue)", color: "#fff" }}>Rest</div>;
   if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid color-mix(in srgb, ${BRAND.green} 40%, transparent)` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
   if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.red, border: `1px solid color-mix(in srgb, ${BRAND.red} 40%, transparent)` }}>{day.workout.name}</div>;
   if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>{day.workout.name}</div>;
