@@ -9,8 +9,6 @@ import { Mini } from "../../components/ui/Mini.jsx";
 import { modalBackdrop } from "../../components/ui/modal.js";
 import { VideoPlayerModal } from "../../components/ui/VideoPlayerModal.jsx";
 import { InjuryBanner } from "../../components/ui/InjuryBanner.jsx";
-import { PageHeader, PillSwitch, DayStrip } from "../../components/ui/Screen.jsx";
-import { screenCard, tint } from "../../components/ui/screenStyles.js";
 import { SetLogRows } from "./SetLogRows.jsx";
 import { SupersetLogger } from "./SupersetLogger.jsx";
 import { SwapExercise, SubstitutePicker } from "./SwapExercise.jsx";
@@ -890,83 +888,95 @@ export function dayBorder(day) {
   if (day.state === "missed") return `color-mix(in srgb, ${BRAND.yellow} 33%, transparent)`;
   return BRAND.line;
 }
-const shortDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-function dayDot(d) {
-  if (d.isRest) return null;
-  if (d.state === "completed") return "var(--green)";
-  if (d.state === "missed") return "var(--orange)";
-  if (d.state === "in_progress") return "var(--accent)";
-  return "var(--ink-3)";
-}
-function weekVolume(list) {
-  return list.filter((d) => d.session?.status === "completed").reduce((n, d) => n + (sessionStatsV2(d.session).volume || 0), 0);
-}
-
-// Train week view (Nov 2026 restyle to match Home / Progress): Home-style
-// day strip with status dots, two summary tiles, a big Today card with
-// the exercises and one Start button, then the rest of the week.
-export function ProgramWeekView({ program, days, weekNum, onOpen, onStart }) {
+export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) {
+  const isMobile = useIsMobile(520);
   const week = program.weeks.find((w) => w.weekNum === weekNum) || program.weeks[0];
+  // Keeps the selected week chip in view without a manual scroll - a
+  // 12-week program's chip row overflows the screen, and whichever week
+  // is "current" can land anywhere in it (not necessarily near the start).
+  const selectedChipRef = useRef(null);
+  useEffect(() => {
+    selectedChipRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [weekNum]);
   const weekDaysList = days.filter((d) => d.weekNum === week.weekNum).sort((a, b) => a.dow - b.dow);
-  const prevWeekDays = days.filter((d) => d.weekNum === week.weekNum - 1);
   const training = weekDaysList.filter((d) => !d.isRest);
   const done = training.filter((d) => d.state === "completed").length;
   const todayISO = isoDate(new Date());
-  const vol = weekVolume(weekDaysList);
-  const prevVol = weekVolume(prevWeekDays);
-  const volPct = prevVol > 0 ? Math.round(((vol - prevVol) / prevVol) * 100) : null;
-  const stripDays = weekDaysList.map((d) => ({ iso: d.dateISO, name: DOW_LABEL[d.dow - 1].slice(0, 3), num: d.date.getDate(), dot: dayDot(d), day: d }));
-  const selectedIso = weekDaysList.some((d) => d.dateISO === todayISO) ? todayISO : null;
-  const tile = { ...screenCard, padding: "10px 12px" };
-  // Compact so the whole week fits on one phone screen (Denis, Nov 20).
+  const today = weekDaysList.filter((d) => d.dateISO === todayISO);
+  const upcoming = weekDaysList.filter((d) => d.dateISO > todayISO);
+  const past = weekDaysList.filter((d) => d.dateISO < todayISO && !d.isRest);
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      <DayStrip days={stripDays} value={selectedIso} todayISO={todayISO} onSelect={(d) => onOpen(d.day)} />
-      {(week.label || week.focus || week.targetRpe) && (
-        <div style={{ ...screenCard, padding: "10px 12px" }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
-          {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 2 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <div style={tile}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{week.weekNum === currentProgramWeek(program) ? "This week" : `Week ${week.weekNum}`}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 2 }}>{done}<span style={{ fontSize: 13, fontWeight: 600, color: BRAND.dim }}> / {training.length} sessions</span></div>
-          <div style={{ height: 5, borderRadius: 9, background: "var(--line-strong)", marginTop: 6, overflow: "hidden" }}><div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: "var(--accent)", borderRadius: 9 }} /></div>
-        </div>
-        <div style={tile}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Volume</div>
-          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 2, whiteSpace: "nowrap" }}>{vol.toLocaleString()}<span style={{ fontSize: 13, fontWeight: 600 }}>kg</span></div>
-          <div style={{ fontSize: 11, marginTop: 2, fontWeight: 600, color: volPct == null || vol === 0 ? BRAND.dim : volPct >= 0 ? "var(--green)" : "var(--red)" }}>{volPct == null || vol === 0 ? "lifted this week" : `${volPct >= 0 ? "▲" : "▼"} ${Math.abs(volPct)}% vs last week`}</div>
-        </div>
-      </div>
-      <div style={{ display: "grid", gap: 6 }}>
-        {weekDaysList.map((d) => {
-          const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
-          const isToday = d.dateISO === todayISO;
-          const canStart = isToday && !d.isRest && d.state !== "completed";
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+        {program.weeks.map((w) => {
+          const wd = days.filter((d) => d.weekNum === w.weekNum && !d.isRest);
+          const allDone = wd.length > 0 && wd.every((d) => d.state === "completed");
+          const isSelected = w.weekNum === week.weekNum;
           return (
-            <div key={d.key} role="button" tabIndex={0} onClick={() => onOpen(d)} onKeyDown={(e) => { if (e.key === "Enter") onOpen(d); }}
-              style={{ ...screenCard, padding: d.isRest ? "6px 12px" : "9px 12px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", color: BRAND.text, background: d.isRest ? "transparent" : BRAND.card, ...(isToday && !d.isRest ? { border: "1px solid var(--accent)" } : null) }}>
-              <div style={{ width: 34, textAlign: "center", flexShrink: 0, lineHeight: 1.1 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".06em", color: isToday ? "var(--accent)" : BRAND.dim }}>{DOW_LABEL[d.dow - 1].slice(0, 3).toUpperCase()}</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: d.isRest ? BRAND.dim : isToday ? "var(--accent)" : BRAND.text }}>{d.date.getDate()}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: d.isRest ? BRAND.muted : BRAND.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.isRest ? "Rest day" : d.workout.name}</div>
-                {!d.isRest && <div style={{ fontSize: 12, color: BRAND.muted }}>{stats ? `${stats.setsDone} sets · ${stats.volume.toLocaleString()} kg` : `${exerciseCountOf(d.workout)} exercises`}</div>}
-              </div>
-              {canStart && (
-                <button type="button" onClick={(e) => { e.stopPropagation(); onStart ? onStart(d) : onOpen(d); }} style={{ flexShrink: 0, height: 34, padding: "0 16px", borderRadius: 999, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{d.state === "in_progress" ? "Resume" : "Start"}</button>
-              )}
-              {!canStart && d.state === "completed" && <span aria-label="Done" style={{ width: 28, height: 28, borderRadius: 99, background: "var(--green)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>✓</span>}
-              {!canStart && d.state === "missed" && <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 99, background: "var(--orange-bg)", color: "var(--orange)" }}>Missed</span>}
-              {!canStart && d.state === "in_progress" && <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 99, background: tint(), color: "var(--accent)" }}>Resume</span>}
-              {!canStart && !d.isRest && !["completed", "missed", "in_progress"].includes(d.state) && <span style={{ color: BRAND.dim, fontSize: 16 }}>›</span>}
+            <div key={w.id} ref={isSelected ? selectedChipRef : null} style={{ flexShrink: 0 }}>
+              <Button variant={isSelected ? "gold" : "dark"} onClick={() => setWeekNum(w.weekNum)} style={{ fontSize: 13, padding: "8px 14px" }}>W{w.weekNum}{allDone ? " ✓" : ""}</Button>
             </div>
           );
         })}
       </div>
+      {(week.label || week.focus || week.targetRpe) && (
+        <Card style={{ background: BRAND.card2, padding: 12 }}>
+          <div style={{ color: BRAND.gold, fontWeight: 500 }}>Week {week.weekNum}{week.label ? `: ${week.label}` : ""}</div>
+          {(week.focus || week.targetRpe) && <div style={{ color: BRAND.muted, fontSize: 12, marginTop: 4 }}>{[week.focus, week.targetRpe && `Target RPE ${week.targetRpe}`].filter(Boolean).join(" · ")}</div>}
+        </Card>
+      )}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", color: BRAND.dim, fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>
+          <span>This week</span><span>{done} of {training.length}</span>
+        </div>
+        <div style={{ height: 4, background: BRAND.card2, borderRadius: 3, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: BRAND.gold }} />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: isMobile ? 4 : 6 }}>
+        {weekDaysList.map((d) => (
+          <button key={d.key} onClick={() => onOpen(d)} style={{ background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusControl, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
+            <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LETTER[d.dow - 1]}</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
+            <DayPill day={d} compact />
+          </button>
+        ))}
+      </div>
+      {today.length > 0 && <DaySection title="Today" days={today} onOpen={onOpen} />}
+      {upcoming.length > 0 && <DaySection title="Coming up" days={upcoming} onOpen={onOpen} />}
+      {past.length > 0 && <DaySection title="Done this week" days={past} onOpen={onOpen} />}
+    </div>
+  );
+}
+export function DaySection({ title, days, onOpen }) {
+  return (
+    <div>
+      <div style={{ color: BRAND.gold, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>{title}</div>
+      {days.map((d) => {
+        const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
+        return (
+          <button key={d.key} onClick={() => onOpen(d)} style={{ width: "100%", textAlign: "left", background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusCard, padding: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+            <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
+              <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LABEL[d.dow - 1].toUpperCase()}</div>
+              <div style={{ fontSize: 16, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, fontSize: 15, color: d.isRest ? BRAND.muted : BRAND.text }}>{d.isRest ? "Rest day" : d.workout.name}</div>
+              <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 2 }}>
+                {d.isRest
+                  ? (d.note || "Recovery")
+                  : d.state === "completed"
+                    ? `Completed · ${stats.setsDone} sets · ${stats.volume.toLocaleString()}kg`
+                    : `${exerciseCountOf(d.workout)} exercises`}
+              </div>
+            </div>
+            {d.state === "today" && <span style={{ background: BRAND.gold, color: BRAND.btnInk, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Start</span>}
+            {d.state === "in_progress" && <span style={{ border: `${BRAND.hairline} solid ${BRAND.gold}`, color: BRAND.gold, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>Resume</span>}
+            {d.state === "completed" && <span style={{ color: BRAND.green, fontSize: 16, fontWeight: 500 }}>✓</span>}
+            {d.state === "missed" && <span style={{ border: `1px solid ${BRAND.yellow}`, color: BRAND.yellow, fontSize: 10, fontWeight: 500, borderRadius: 999, padding: "4px 10px" }}>MISSED</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1220,16 +1230,20 @@ export function ProgramTab({ client, updateClient, isCoach }) {
   const openDay = openKey ? days.find((d) => d.key === openKey) : null;
   const todayISO = isoDate(new Date());
   return (
-    <div style={{ display: "grid", gap: isMobile ? 12 : 14 }}>
-      <PageHeader kicker="Training" title={program ? (program.name && !/^program$/i.test(program.name) ? program.name : `${client.name.split(" ")[0]}'s program`) : "No program yet"}
-        sub={program ? [`Week ${currentProgramWeek(program)} of ${program.weeks?.length || 0}`, program.goal, program.startDate ? `${program.startDate > todayISO ? "starts" : "started"} ${shortDate(program.startDate)}` : ""].filter(Boolean).join(" · ") : null} />
-      {isCoach && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {program && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
-          <Button variant="dark" onClick={() => setAssistant(true)}>Ask AI ✨</Button>
-          <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>
+    <div style={{ display: "grid", gap: isMobile ? 10 : 14 }}>
+      <Card style={{ padding: isMobile ? 12 : 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 500 }}>{program ? `${client.name}'s Program` : "No program yet"}</div>
+            {program && <div style={{ color: BRAND.muted, fontSize: 13 }}>{program.goal} · {program.weeks?.length || 0} weeks{program.startDate ? ` · starts ${program.startDate}` : ""}</div>}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {program && isCoach && <Button variant="dark" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); const { blob, filename } = await downloadProgramPDF2(client, program); await sharePdfBlob(blob, filename, `${client.name}'s Program`); setPdfBusy(false); }}>{pdfBusy ? "..." : "Share"}</Button>}
+            {isCoach && <Button variant="dark" onClick={() => setAssistant(true)}>Ask AI ✨</Button>}
+            {isCoach && <Button variant="dark" onClick={() => setBuilder(true)}>{program ? "Edit Program" : "Build Program"}</Button>}
+          </div>
         </div>
-      )}
+      </Card>
       {!program && <Card><div style={{ color: BRAND.muted }}>{isCoach ? "No program assigned. Click Build Program to design one." : "Your coach hasn't assigned a program yet."}</div></Card>}
       {program && openDay && (
         openDay.state === "completed"
@@ -1238,10 +1252,17 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       )}
       {program && !openDay && (
         <>
-          <PillSwitch value={mode} outlined={mode === "week" ? [`w${weekNum}`] : []} onChange={(k) => { if (k === "month" || k === "week") setMode(k); else { setMode("week"); setWeekNum(Number(k.slice(1))); } }}
-            items={[["week", "Week"], ["month", "Month"], ...program.weeks.map((w) => [`w${w.weekNum}`, `W${w.weekNum}${days.filter((d) => d.weekNum === w.weekNum && !d.isRest).every((d) => d.state === "completed") && days.some((d) => d.weekNum === w.weekNum && !d.isRest) ? " ✓" : ""}`])]} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+              Week {weekNum} of {program.weeks.length}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Button variant={mode === "week" ? "gold" : "dark"} onClick={() => setMode("week")} style={{ fontSize: 12, padding: "7px 14px" }}>Week</Button>
+              <Button variant={mode === "month" ? "gold" : "dark"} onClick={() => setMode("month")} style={{ fontSize: 12, padding: "7px 14px" }}>Month</Button>
+            </div>
+          </div>
           {mode === "week"
-            ? <ProgramWeekView program={program} days={days} weekNum={weekNum} setWeekNum={setWeekNum} onOpen={(d) => setOpenKey(d.key)} onStart={startOrContinue} />
+            ? <ProgramWeekView program={program} days={days} weekNum={weekNum} setWeekNum={setWeekNum} onOpen={(d) => setOpenKey(d.key)} />
             : <ProgramMonthView days={days} cursor={monthCursor} setCursor={setMonthCursor} currentWeek={currentProgramWeek(program)} onOpen={(d) => setOpenKey(d.key)} />}
         </>
       )}
