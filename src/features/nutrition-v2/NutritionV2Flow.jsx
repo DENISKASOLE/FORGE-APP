@@ -66,6 +66,7 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
   return (
     <FuelToday
       client={client}
+      updateClient={updateClient}
       plans={plans}
       logs={logs}
       marks={marks}

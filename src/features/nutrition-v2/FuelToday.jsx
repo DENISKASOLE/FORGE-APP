@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { BRAND } from "../../theme/tokens.js";
 import { isoDate, startOfWeek, addDays, DAYS } from "../../lib/dateUtils.js";
 import { mealTotals, planForDate, mealOutcomeFor, dayOnPlanTally, mergeLegacyMacroLog } from "./nutritionV2Math.js";
+import { MEAL_KEYS, newPlanMeal } from "./nutritionV2Model.js";
 import { FuelMealLog } from "./FuelMealLog.jsx";
 import { FuelPlanView } from "./FuelPlanView.jsx";
 import { FUEL, fuelLbl, MACRO_COLOR } from "./fuelTheme.js";
@@ -16,6 +17,8 @@ function CalorieGauge({ kcalEaten, kcalGoal }) {
   const trackLen = C * 0.75;
   const pct = kcalGoal > 0 ? Math.max(0, Math.min(1, kcalEaten / kcalGoal)) : 0;
   const left = Math.max(Math.round(kcalGoal - kcalEaten), 0);
+  // No plan = no goal: show what was eaten instead of "kcal left".
+  const free = !(kcalGoal > 0);
   const side = (v, l) => (
     <div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
       <div style={{ fontFamily: BRAND.display, fontSize: 18, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{Math.round(v).toLocaleString()}</div>
@@ -24,14 +27,14 @@ function CalorieGauge({ kcalEaten, kcalGoal }) {
   );
   return (
     <div style={{ display: "flex", alignItems: "center", padding: "2px 10px 0", color: FUEL.text }}>
-      {side(kcalEaten, "eaten")}
+      {free ? <div style={{ flex: 1 }} /> : side(kcalEaten, "eaten")}
       <svg width="100" height="92" viewBox="0 0 124 114" role="img" aria-label={`${left} calories left`} style={{ flexShrink: 0 }}>
         <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.lineSoft} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${trackLen.toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
         <circle cx="62" cy="62" r={r} fill="none" stroke={FUEL.red} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`${(trackLen * pct).toFixed(1)} ${C.toFixed(1)}`} transform="rotate(135 62 62)" />
-        <text x="62" y="62" textAnchor="middle" fill={FUEL.text} fontSize="27" fontWeight="600" fontFamily={BRAND.display}>{left.toLocaleString()}</text>
-        <text x="62" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="11" fontWeight="600" fontFamily={BRAND.sans}>kcal left</text>
+        <text x="62" y="62" textAnchor="middle" fill={FUEL.text} fontSize="27" fontWeight="600" fontFamily={BRAND.display}>{(free ? Math.round(kcalEaten) : left).toLocaleString()}</text>
+        <text x="62" y="80" textAnchor="middle" fill={FUEL.muted} fontSize="11" fontWeight="600" fontFamily={BRAND.sans}>{free ? "kcal today" : "kcal left"}</text>
       </svg>
-      {side(kcalGoal, "goal")}
+      {free ? <div style={{ flex: 1 }} /> : side(kcalGoal, "goal")}
     </div>
   );
 }
@@ -46,7 +49,7 @@ function MacroBars({ now, target }) {
         return (
           <div key={key} style={{ minWidth: 0 }}>
             <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: FUEL.muted }}>{label}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", marginTop: 1, fontVariantNumeric: "tabular-nums" }}>{n}<span style={{ color: FUEL.dim, fontWeight: 600, fontSize: 12 }}> / {t}g</span></div>
+            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", marginTop: 1, fontVariantNumeric: "tabular-nums" }}>{n}<span style={{ color: FUEL.dim, fontWeight: 600, fontSize: 12 }}>{t > 0 ? ` / ${t}g` : "g"}</span></div>
             <div style={{ height: 5, borderRadius: 9, background: `color-mix(in srgb, ${MACRO_COLOR[key]} 18%, transparent)`, marginTop: 5, overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", borderRadius: 9, background: MACRO_COLOR[key] }} /></div>
           </div>
         );
@@ -110,10 +113,10 @@ function sumEntries(list) {
   return list.reduce((t, e) => ({ kcal: t.kcal + (e.macros?.kcal || 0), protein: t.protein + (e.macros?.protein || 0), carbs: t.carbs + (e.macros?.carbs || 0), fat: t.fat + (e.macros?.fat || 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
 }
 
-function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
+function MealRow({ meal, outcome, isNext, mealEntries, onOpen, free = false }) {
   // The tick means the meal itself is logged; extras added from the +
   // quick log show as layers but don't tick the meal.
-  const logged = mealEntries.some((e) => !e.extra);
+  const logged = free ? mealEntries.length > 0 : mealEntries.some((e) => !e.extra);
   const hasLayers = mealEntries.length > 0;
   const t = sumEntries(mealEntries);
   const planned = mealTotals(meal);
@@ -125,13 +128,13 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>{cap(meal.name)}</span>
             {outcome === "swapped" && <span style={pill(FUEL.proteinTrack, FUEL.protein)}>Swapped</span>}
-            {outcome === "offplan" && logged && <span style={pill("var(--orange-bg)", FUEL.amber)}>Off-plan</span>}
-            {isNext && !logged && <span style={pill(FUEL.red, FUEL.onText)}>Next</span>}
+            {!free && outcome === "offplan" && logged && <span style={pill("var(--orange-bg)", FUEL.amber)}>Off-plan</span>}
+            {!free && isNext && !logged && <span style={pill(FUEL.red, FUEL.onText)}>Next</span>}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: FUEL.muted, marginTop: 2 }}>
             {hasLayers
               ? <><span style={{ color: FUEL.text, fontWeight: 600 }}>{Math.round(t.kcal)} kcal</span> · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
-              : <><span style={{ color: FUEL.text, fontWeight: 600 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
+              : free ? <>Tap to log</> : <><span style={{ color: FUEL.text, fontWeight: 600 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
           </div>
         </div>
         {logged ? (
@@ -164,7 +167,7 @@ function pill(bg, fg) {
 // logged foods show as small layers under the meal here. Same data layer
 // as before (planForDate, log entries, mealOutcomeFor) - new UI only.
 // Viewing a date after today is read-only.
-export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWeek }) {
+export function FuelToday({ client, updateClient, plans, logs, marks, notes, onWrite, onOpenWeek }) {
   const todayISO = isoDate();
   const [dateISO, setDateISO] = useState(todayISO);
   const [view, setView] = useState("log");
@@ -178,7 +181,11 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
     const legacyDay = client.nutrition?.macro_log?.[dateISO];
     return legacyDay ? mergeLegacyMacroLog(legacyDay, dateISO) : existing;
   }, [logs, dateISO, client.nutrition]);
-  const orderedMeals = plan?.meals ? [...plan.meals].sort((a, b) => a.time.localeCompare(b.time)) : [];
+  // No plan (default for anyone without one, Nov 2026): the same screen
+  // with the four standard meals and free logging - search, barcode,
+  // photo/description, eating out. No targets, no on-plan tally.
+  const free = !plan;
+  const orderedMeals = plan?.meals ? [...plan.meals].sort((a, b) => a.time.localeCompare(b.time)) : MEAL_KEYS.map((k) => newPlanMeal(k)).sort((a, b) => a.time.localeCompare(b.time));
   const totals = sumEntries(entries);
   const target = plan?.targets || {};
   const tally = plan ? dayOnPlanTally(plan, dateISO, todayISO, entries, dateMarks) : { onPlan: 0, total: 0 };
@@ -187,7 +194,7 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
 
   if (openMeal) {
     return (
-      <FuelMealLog client={client} plan={plan} meal={openMeal} dateISO={dateISO} entries={entries} dateMarks={dateMarks} editable={editable}
+      <FuelMealLog client={client} updateClient={updateClient} free={free} plan={plan} meal={openMeal} dateISO={dateISO} entries={entries} dateMarks={dateMarks} editable={editable}
         onWrite={(nextEntries, nextMarks) => onWrite(dateISO, nextEntries, nextMarks)} onBack={() => setOpenMealKey(null)} />
     );
   }
@@ -223,16 +230,16 @@ export function FuelToday({ client, plans, logs, marks, notes, onWrite, onOpenWe
             </div>
           )}
 
-          <div style={{ textAlign: "right", margin: "8px 4px 0", fontSize: 12, fontWeight: 600, color: FUEL.protein }}>{tally.onPlan} of {orderedMeals.length} on plan</div>
+          {free
+            ? <div style={{ margin: "8px 4px 0", fontSize: 12, color: FUEL.muted }}>No plan yet - log what you eat and your coach will see it.</div>
+            : <div style={{ textAlign: "right", margin: "8px 4px 0", fontSize: 12, fontWeight: 600, color: FUEL.protein }}>{tally.onPlan} of {orderedMeals.length} on plan</div>}
           <div style={{ ...fuelLbl, color: FUEL.text, fontWeight: 600, fontSize: 13, letterSpacing: ".1em", margin: "10px 2px 0" }}>{dateISO === todayISO ? "Today's meals" : "Meals"}</div>
 
-          {!plan ? (
-            <div style={{ marginTop: 10, color: FUEL.muted, fontSize: 13 }}>No meals prescribed for this day.</div>
-          ) : (
+          {(
             <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {orderedMeals.map((meal) => (
                 <MealRow key={meal.key} meal={meal} outcome={mealOutcomeFor(dateISO, todayISO, meal, entries, dateMarks)} isNext={meal.key === firstOpenKey && dateISO === todayISO}
-                  mealEntries={entries.filter((e) => e.meal === meal.key)} onOpen={() => setOpenMealKey(meal.key)} />
+                  mealEntries={entries.filter((e) => e.meal === meal.key)} onOpen={() => setOpenMealKey(meal.key)} free={free} />
               ))}
             </div>
           )}

@@ -10,12 +10,12 @@ const chip = (on) => ({ padding: "8px 12px", borderRadius: 12, border: `1px soli
 const primary = { width: "100%", height: 50, borderRadius: 14, border: "none", background: BRAND.btnBg, color: BRAND.btnInk, fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" };
 
 // Step 2 of both flows: pick a serving + amount + which meal, then add.
-function ServingStep({ client, updateClient, food, onDone, onBack }) {
+function ServingStep({ client, updateClient, food, onDone, onBack, mealKey: fixedMeal, dateISO }) {
   const [servings, setServings] = useState(food.servings?.length ? food.servings : null);
   const [idx, setIdx] = useState(0);
   const [qty, setQty] = useState(1);
-  const { meals, defaultKey } = mealChoices(client);
-  const [mealKey, setMealKey] = useState(defaultKey);
+  const { meals, defaultKey } = mealChoices(client, dateISO);
+  const [mealKey, setMealKey] = useState(fixedMeal || defaultKey);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (servings) return;
@@ -32,7 +32,7 @@ function ServingStep({ client, updateClient, food, onDone, onBack }) {
     if (!s || qty <= 0) return;
     setSaving(true);
     try {
-      await addFoodEntry(client, updateClient, foodEntry({ food, serving: s, qty, mealKey }));
+      await addFoodEntry(client, updateClient, foodEntry({ food, serving: s, qty, mealKey, ...(dateISO ? { dateISO } : {}) }));
       if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
       showToast(`Added to ${mealName}.`, "success");
       onDone();
@@ -87,13 +87,13 @@ function ServingStep({ client, updateClient, food, onDone, onBack }) {
 }
 const stepBtn = { width: 36, height: 36, borderRadius: 99, border: `1px solid ${BRAND.line}`, background: BRAND.card2, color: BRAND.text, fontSize: 18, cursor: "pointer", display: "grid", placeItems: "center", padding: 0 };
 
-export function FoodSearchSheet({ client, updateClient, onClose }) {
+export function FoodSearchSheet({ client, updateClient, onClose, mealKey, dateISO }) {
   const [q, setQ] = useState("");
   const [food, setFood] = useState(null);
   const { results, loading } = useFatSecretResults(q);
   return (
     <Sheet title={food ? "Add food" : "Log food"} onClose={onClose}>
-      {food ? <ServingStep client={client} updateClient={updateClient} food={food} onDone={onClose} onBack={() => setFood(null)} /> : (
+      {food ? <ServingStep client={client} updateClient={updateClient} food={food} onDone={onClose} onBack={() => setFood(null)} mealKey={mealKey} dateISO={dateISO} /> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 320 }}>
           <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search foods, e.g. banana, Greek yogurt" style={inputS} aria-label="Search foods" />
           {loading && <div style={{ color: BRAND.muted, fontSize: 13 }}>Searching…</div>}
@@ -115,7 +115,7 @@ export function FoodSearchSheet({ client, updateClient, onClose }) {
 // Camera barcode scanner (ZXing, loaded only when opened). On a hit it
 // looks the code up on FatSecret and moves to the serving step. Typing
 // the number works as a fallback (no camera permission, damaged label).
-export function BarcodeSheet({ client, updateClient, onClose, onSearchInstead }) {
+export function BarcodeSheet({ client, updateClient, onClose, onSearchInstead, mealKey, dateISO }) {
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
   const busyRef = useRef(false);
@@ -158,7 +158,7 @@ export function BarcodeSheet({ client, updateClient, onClose, onSearchInstead })
   }, [food, attempt]);
 
   if (food) {
-    return <Sheet title="Add food" onClose={onClose}><ServingStep client={client} updateClient={updateClient} food={food} onDone={onClose} onBack={() => { setFood(null); busyRef.current = false; setStatus("starting"); }} /></Sheet>;
+    return <Sheet title="Add food" onClose={onClose}><ServingStep client={client} updateClient={updateClient} food={food} onDone={onClose} mealKey={mealKey} dateISO={dateISO} onBack={() => { setFood(null); busyRef.current = false; setStatus("starting"); }} /></Sheet>;
   }
   const msg = { starting: "Starting camera…", scanning: "Point the camera at the barcode.", looking: "Looking it up…", notfound: "Barcode not found. Try again, type the number, or search by name.", nocamera: "Camera not available. Type the barcode number below or search by name." }[status];
   return (
