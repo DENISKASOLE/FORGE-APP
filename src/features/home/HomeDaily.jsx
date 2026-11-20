@@ -107,8 +107,8 @@ export function HomeDaily({ client, updateClient, goTo, openLog }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, maxWidth: "100%", zoom: 0.9 }}>
       {/* Nov 20 2026: brand left, bell right (Me moved to the bottom dock). */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingTop: 2 }}>
-        {/* Brand mark: a small teal circle with "Forge" (Denis, Nov 20). */}
-        <div aria-label="Forge Performance" style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "grid", placeItems: "center", fontFamily: BRAND.display, fontSize: 11, fontWeight: 800, letterSpacing: ".02em", boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>Forge</div>
+        {/* Brand mark: a small teal circle with the letter F (Denis, Nov 20). */}
+        <div aria-label="Forge Performance" style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "grid", placeItems: "center", fontFamily: BRAND.display, fontSize: 22, fontWeight: 800, lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,.12)" }}>F</div>
         <div style={{ textAlign: "center", fontFamily: BRAND.display, fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>Today</div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>{goTo ? <NotificationBell client={client} goTo={goTo} /> : null}</div>
       </div>
