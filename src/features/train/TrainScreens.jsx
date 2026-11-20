@@ -903,7 +903,8 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
   const done = training.filter((d) => d.state === "completed").length;
   const todayISO = isoDate(new Date());
   const today = weekDaysList.filter((d) => d.dateISO === todayISO);
-  const upcoming = weekDaysList.filter((d) => d.dateISO > todayISO);
+  // Rest days show in the week strip only, not in Coming up (Denis, Nov 20).
+  const upcoming = weekDaysList.filter((d) => d.dateISO > todayISO && !d.isRest);
   const past = weekDaysList.filter((d) => d.dateISO < todayISO && !d.isRest);
   return (
     <div style={{ display: "grid", gap: 14 }}>
