@@ -2,7 +2,7 @@
 // available - no Saturday window. Five steps in a full-screen flow; sending
 // again in the same week updates that week's check-in.
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../../supabaseClient.js";
+import { useCoachName } from "../../lib/useCoachName.js";
 import { uid } from "../../lib/uid.js";
 import { isoDate } from "../../lib/dateUtils.js";
 import { upsertSection } from "../../lib/clientData.js";
@@ -32,19 +32,6 @@ const tile = (on) => ({
 });
 const DRAFT_KEY = (id) => `forge_checkin_draft_${id}`;
 const fmtDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-
-function useCoachName(trainerId) {
-  const [name, setName] = useState("");
-  useEffect(() => {
-    let off = false;
-    if (!trainerId) return undefined;
-    supabase.from("trainers").select("name").eq("id", trainerId).maybeSingle().then(({ data }) => {
-      if (!off && data?.name) setName(String(data.name).trim().split(/\s+/)[0]);
-    }, () => {});
-    return () => { off = true; };
-  }, [trainerId]);
-  return name;
-}
 
 function Options({ items, value, onPick }) {
   return (

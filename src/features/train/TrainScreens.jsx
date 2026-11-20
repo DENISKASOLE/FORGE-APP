@@ -922,7 +922,7 @@ export function ProgramWeekView({ program, days, weekNum, onOpen, onStart }) {
   const done = training.filter((d) => d.state === "completed").length;
   const todayISO = isoDate(new Date());
   const today = weekDaysList.find((d) => d.dateISO === todayISO && !d.isRest);
-  const rest = weekDaysList.filter((d) => d !== today && !d.isRest);
+  const rest = weekDaysList.filter((d) => d !== today);
   const vol = weekVolume(weekDaysList);
   const prevVol = weekVolume(prevWeekDays);
   const volPct = prevVol > 0 ? Math.round(((vol - prevVol) / prevVol) * 100) : null;
@@ -944,7 +944,7 @@ export function ProgramWeekView({ program, days, weekNum, onOpen, onStart }) {
         <div style={tile}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>{week.weekNum === currentProgramWeek(program) ? "This week" : `Week ${week.weekNum}`}</div>
           <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 8 }}>{done}<span style={{ fontSize: 15, fontWeight: 600, color: BRAND.dim }}> / {training.length}</span></div>
-          <div style={{ height: 6, borderRadius: 9, background: "var(--line-strong)", margin: "8px 0 4px", overflow: "hidden" }}><div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: "var(--green)", borderRadius: 9 }} /></div>
+          <div style={{ height: 6, borderRadius: 9, background: "var(--line-strong)", margin: "8px 0 4px", overflow: "hidden" }}><div style={{ height: "100%", width: `${training.length ? (done / training.length) * 100 : 0}%`, background: "var(--accent)", borderRadius: 9 }} /></div>
           <div style={{ fontSize: 12, color: BRAND.dim }}>sessions done</div>
         </div>
         <div style={tile}>
@@ -973,7 +973,7 @@ export function ProgramWeekView({ program, days, weekNum, onOpen, onStart }) {
           )}
         </div>
       )}
-      <div style={{ ...screenLabel, margin: "6px 2px -2px" }}>{today ? "Rest of the week" : "This week"}</div>
+      <div style={{ ...screenLabel, margin: "6px 2px -2px" }}>This week</div>
       <div style={{ display: "grid", gap: 8 }}>
         {rest.map((d) => {
           const stats = d.session?.status === "completed" ? sessionStatsV2(d.session) : null;
@@ -1268,8 +1268,8 @@ export function ProgramTab({ client, updateClient, isCoach }) {
       )}
       {program && !openDay && (
         <>
-          <PillSwitch value={mode === "month" ? "month" : `w${weekNum}`} onChange={(k) => { if (k === "month") setMode("month"); else { setMode("week"); setWeekNum(Number(k.slice(1))); } }}
-            items={[["month", "Month"], ...program.weeks.map((w) => [`w${w.weekNum}`, `W${w.weekNum}${days.filter((d) => d.weekNum === w.weekNum && !d.isRest).every((d) => d.state === "completed") && days.some((d) => d.weekNum === w.weekNum && !d.isRest) ? " ✓" : ""}`])]} />
+          <PillSwitch value={mode} outlined={mode === "week" ? [`w${weekNum}`] : []} onChange={(k) => { if (k === "month" || k === "week") setMode(k); else { setMode("week"); setWeekNum(Number(k.slice(1))); } }}
+            items={[["week", "Week"], ["month", "Month"], ...program.weeks.map((w) => [`w${w.weekNum}`, `W${w.weekNum}${days.filter((d) => d.weekNum === w.weekNum && !d.isRest).every((d) => d.state === "completed") && days.some((d) => d.weekNum === w.weekNum && !d.isRest) ? " ✓" : ""}`])]} />
           {mode === "week"
             ? <ProgramWeekView program={program} days={days} weekNum={weekNum} setWeekNum={setWeekNum} onOpen={(d) => setOpenKey(d.key)} onStart={startOrContinue} />
             : <ProgramMonthView days={days} cursor={monthCursor} setCursor={setMonthCursor} currentWeek={currentProgramWeek(program)} onOpen={(d) => setOpenKey(d.key)} />}

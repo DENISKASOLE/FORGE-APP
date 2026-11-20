@@ -4,7 +4,7 @@
 // used sparingly - solid only for today's date and one main button per
 // screen; selected switches and tags use a light teal tint.
 import { BRAND } from "../../theme/tokens.js";
-import { screenLabel, tint } from "./screenStyles.js";
+import { screenLabel } from "./screenStyles.js";
 
 
 export function PageHeader({ kicker, title, sub, right }) {
@@ -21,15 +21,16 @@ export function PageHeader({ kicker, title, sub, right }) {
 }
 
 // Pill switches, same as Progress' Trends / Photos / Check-in row.
-export function PillSwitch({ items, value, onChange, style }) {
+export function PillSwitch({ items, value, onChange, style, outlined = [] }) {
   return (
     <div style={{ display: "flex", gap: 6, overflowX: "auto", minWidth: 0, paddingBottom: 2, ...style }}>
       {items.map(([k, label, extra]) => {
-        const on = k === value;
+        const on = k === value || outlined.includes(k);
+        const solid = k === value;
         return (
           <button key={k} type="button" onClick={() => onChange(k)} aria-pressed={on} ref={extra?.ref}
             style={{ flexShrink: 0, fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".12em", whiteSpace: "nowrap", padding: "9px 14px", borderRadius: 999, cursor: "pointer",
-              color: on ? "var(--accent)" : BRAND.muted, background: on ? tint() : BRAND.card2, border: `1px solid ${on ? "var(--accent)" : BRAND.line}` }}>
+              color: solid ? BRAND.btnInk : on ? "var(--accent)" : BRAND.muted, background: solid ? BRAND.btnBg : on ? BRAND.card : BRAND.card2, border: `1px solid ${on ? "var(--accent)" : BRAND.line}` }}>
             {label}
           </button>
         );

@@ -8,6 +8,7 @@ import { FuelPlanView } from "./FuelPlanView.jsx";
 import { FUEL, MACRO_COLOR } from "./fuelTheme.js";
 import { PlusIcon, CheckIcon } from "./fuelUi.jsx";
 import { PageHeader, PillSwitch, DayStrip } from "../../components/ui/Screen.jsx";
+import { useCoachName } from "../../lib/useCoachName.js";
 import { screenCard, screenLabel, tint } from "../../components/ui/screenStyles.js";
 
 // Calories card (Nov 2026 restyle): a full ring like Home's, "kcal left"
@@ -100,6 +101,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen, free = false }) {
   const hasLayers = mealEntries.length > 0;
   const t = sumEntries(mealEntries);
   const planned = mealTotals(meal);
+  const loggedTime = mealEntries.find((e) => e.time)?.time || "";
   return (
     <div style={{ ...screenCard, padding: 14 }}>
       <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, color: FUEL.text, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
@@ -108,11 +110,11 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen, free = false }) {
             <span style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>{cap(meal.name)}</span>
             {outcome === "swapped" && <span style={pill(FUEL.proteinTrack, FUEL.protein)}>Swapped</span>}
             {!free && outcome === "offplan" && logged && <span style={pill("var(--orange-bg)", FUEL.amber)}>Off-plan</span>}
-            {!free && isNext && !logged && <span style={pill(tint(), "var(--accent)")}>Next</span>}
+            {!free && isNext && !logged && <span style={pill("var(--btn-bg)", "var(--btn-ink)")}>Next</span>}
           </div>
           <div style={{ fontSize: 13, fontWeight: 500, color: FUEL.muted, marginTop: 2 }}>
             {hasLayers
-              ? <><span style={{ color: FUEL.text, fontWeight: 600 }}>{Math.round(t.kcal)} kcal</span> · <span style={{ color: MACRO_COLOR.carbs }}>{Math.round(t.carbs)}C</span> · <span style={{ color: MACRO_COLOR.fat }}>{Math.round(t.fat)}F</span> · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
+              ? <>{loggedTime ? `${loggedTime} · ` : ""}{Math.round(t.kcal)} kcal · <span style={{ color: MACRO_COLOR.protein }}>{Math.round(t.protein)}P</span></>
               : free ? <>Tap to log</> : <><span style={{ color: FUEL.text, fontWeight: 600 }}>{meal.time}</span> · {Math.round(planned.kcal)} kcal planned</>}
           </div>
         </div>
@@ -151,6 +153,7 @@ export function FuelToday({ client, updateClient, plans, logs, marks, notes, onW
   const [dateISO, setDateISO] = useState(todayISO);
   const [view, setView] = useState("log");
   const [openMealKey, setOpenMealKey] = useState(null);
+  const coachName = useCoachName(client.trainer_id);
   const editable = dateISO <= todayISO;
   const plan = planForDate(plans, dateISO);
   const dateMarks = marks?.[dateISO] || {};
@@ -180,7 +183,7 @@ export function FuelToday({ client, updateClient, plans, logs, marks, notes, onW
 
   const version = planVersionForDate(plans, dateISO);
   const title = dateISO === todayISO ? "Today" : new Date(`${dateISO}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
-  const sub = free ? "No plan yet - log what you eat" : `Plan v${version?.version || ""} from your coach · ${Math.round(target.kcal || 0).toLocaleString()} kcal`;
+  const sub = free ? "No plan yet - log what you eat" : `Plan v${version?.version || ""} from ${coachName ? `Coach ${coachName}` : "your coach"} · ${Math.round(target.kcal || 0).toLocaleString()} kcal`;
 
   return (
     <div style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", gap: 12, paddingBottom: 12 }}>
