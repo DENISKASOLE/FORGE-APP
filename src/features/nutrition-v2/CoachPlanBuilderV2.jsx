@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile } from "../../lib/browser.js";
 import { showToast } from "../../components/ui/Toast.jsx";
-import { promptDialog } from "../../components/ui/ConfirmDialog.jsx";
+import { promptDialog, confirmDialog } from "../../components/ui/ConfirmDialog.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
 import { uid } from "../../lib/uid.js";
 import { loadFoodLibrary, loadMealPresets, saveMealPresets } from "../../lib/nutritionPlan.js";
 import { normalizePlans, savePlans } from "../../lib/nutritionV2.js";
 import { MEAL_KEYS, MEAL_NAMES, foodRefFromRow, normalizeFoodRow, unitGramsFor, newPlanItem, newPlanVersion, validatePlanVersion, fatSecretFoodRow } from "./nutritionV2Model.js";
-import { mealTotals, dayTotals, planVersionForDate, publishPlan, nextDraftFrom } from "./nutritionV2Math.js";
+import { mealTotals, dayTotals, planVersionForDate, publishPlan, nextDraftFrom, endPlans } from "./nutritionV2Math.js";
 import { useFatSecretResults } from "../../lib/fatsecret.js";
 import { FatSecretResultRow, FatSecretGroupLabel, FatSecretServingSheet } from "./FatSecretSearch.jsx";
 import { NT, MACRO_COLORS } from "./nutritionV2Theme.js";
@@ -269,6 +269,19 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
     showToast(`Published v${finalDraft.version} · live from ${fmtDate(fromDateISO)}`, "success");
   }
 
+  // Remove plan: ends the live plan from today (history kept). Its meals
+  // stay here as a draft so it can be re-published later.
+  async function removePlan() {
+    if (!livePlan) return;
+    const ok = await confirmDialog(`Remove ${client.name}'s nutrition plan from today? They'll log food freely with no targets. Past days keep the old plan, and it stays here as a draft you can publish again.`, { danger: true, confirmLabel: "Remove plan" });
+    if (!ok) return;
+    const ended = endPlans(plans, today);
+    const nextPlans = persistedDraft ? ended : [...ended, { ...draft, status: "draft", from: today }];
+    setPlans(nextPlans);
+    await flush(nextPlans);
+    showToast("Plan removed. The client now logs food without a plan.", "success");
+  }
+
   if (loading) return <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: 18, color: NT.muted, fontFamily: NT.sans }}>Loading the plan…</div>;
 
   const totals = dayTotals(draft);
@@ -287,8 +300,16 @@ export function CoachPlanBuilderV2({ client, updateClient }) {
           <div style={{ fontFamily: NT.display, fontSize: 20, fontWeight: 600, color: NT.text }}>Nutrition plan {persistedDraft ? `v${draft.version} (draft)` : livePlan ? `v${draft.version} draft` : "— new"}</div>
           <div style={{ color: statusPill[1], fontFamily: NT.sans, fontSize: 12, marginTop: 2 }}>{statusPill[0]}{livePlan && livePlan.version !== draft.version ? ` · live: v${livePlan.version}` : ""}</div>
         </div>
-        <button onClick={() => setPublishOpen(true)} style={{ background: NT.accent, color: NT.bg, border: "none", fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: "11px 20px", borderRadius: 999, cursor: "pointer" }}>Publish</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {livePlan && <button onClick={removePlan} style={{ background: "transparent", color: NT.bad, border: `1px solid ${NT.bad}`, fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: "10px 16px", borderRadius: 999, cursor: "pointer" }}>Remove plan</button>}
+          <button onClick={() => setPublishOpen(true)} style={{ background: NT.accent, color: NT.bg, border: "none", fontFamily: NT.sans, fontSize: 13, fontWeight: 700, padding: "11px 20px", borderRadius: 999, cursor: "pointer" }}>Publish</button>
+        </div>
       </div>
+      {!livePlan && history.length > 0 && (
+        <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: "12px 18px", color: NT.muted, fontFamily: NT.sans, fontSize: 12.5, lineHeight: 1.5 }}>
+          <span style={{ color: NT.text, fontWeight: 600 }}>No plan live · </span>{client.name} is logging food freely. Publish to give them a plan again.
+        </div>
+      )}
 
       {rotationDays.length > 0 && (
         <div style={{ background: NT.card, border: `1px solid ${NT.line}`, borderRadius: 20, padding: "14px 18px", color: NT.muted, fontFamily: NT.sans, fontSize: 12.5, lineHeight: 1.5 }}>
