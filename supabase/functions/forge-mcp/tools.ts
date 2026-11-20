@@ -5,7 +5,7 @@
 // like every other data-access path in this app (src/lib/clientData.js).
 // Never the service role key.
 import { z } from "npm:zod@^4.3.6";
-import { hydrateProgram, currentProgramWeek } from "./programModel.ts";
+import { hydrateProgram, currentProgramWeek, spliceWeeks, sessionsInWeeks } from "./programModel.ts";
 import { buildPlanItem, buildMeal, buildPlanVersion, publishPlan, planForDate, planVersionForDate, validatePlanVersion } from "./nutritionModel.ts";
 import { bestLiftsFrom, recentSessions } from "./trainingLogs.ts";
 import { libraryItems, searchLibrary, resolveProgramVideos } from "./exerciseLibrary.ts";
@@ -259,6 +259,40 @@ export function registerAllTools(server: any, supabase: any, token = "") {
     const { hydrated, summary } = await prepareProgram(supabase, await me(), program);
     await writeSection(supabase, client_id, "program", hydrated);
     return toolText({ saved: true, live: true, programId: hydrated.id, ...summary });
+  });
+
+  server.registerTool("save_program_weeks", {
+    title: "Write some weeks of a client's program",
+    description: "Writes weeks into a client's EXISTING program starting at start_week, without touching any other week. Use this instead of save_program to add or replace a block mid-program (e.g. weeks 20-28): weeks before start_week, and any after the ones you send, keep their ids, so the client's logged workout history stays linked. Weeks past the current end are appended. Same week shape and video rules as save_program (libraryExerciseId from search_exercises, or exact library names). If a week you'd replace already has logged sessions, the call is refused unless replace_logged_weeks is true. Goes LIVE immediately. Returns a short summary.",
+    inputSchema: z.object({
+      client_id: uuid(),
+      start_week: z.number().int().min(1).describe("1-based week number where the first week you send goes"),
+      weeks: z.array(WeekSchema).min(1),
+      replace_logged_weeks: z.boolean().optional().describe("Allow replacing weeks the client has already logged sessions in (those sessions stop showing against the new workouts)"),
+    }),
+  }, async ({ client_id, start_week, weeks, replace_logged_weeks }: { client_id: string; start_week: number; weeks: any[]; replace_logged_weeks?: boolean }) => {
+    await clientRow(supabase, client_id);
+    const [existing, trainingLogs] = await Promise.all([
+      sectionData(supabase, client_id, "program"),
+      sectionData(supabase, client_id, "training_logs"),
+    ]);
+    if (!existing?.weeks?.length) throw new Error("This client has no program yet - use save_program to create one.");
+    const replacedIds = existing.weeks.slice(start_week - 1, start_week - 1 + weeks.length).map((w: any) => w.id);
+    const logged = sessionsInWeeks(trainingLogs, replacedIds);
+    if (logged.length && !replace_logged_weeks) {
+      const nums = [...new Set(logged.map((s: any) => s.weekNum))].sort((a: any, b: any) => a - b);
+      throw new Error(`Week(s) ${nums.join(", ")} already have ${logged.length} logged session(s). Start after them, or pass replace_logged_weeks: true to replace anyway.`);
+    }
+    const { hydrated, summary } = await prepareProgram(supabase, await me(), { name: existing.name, weeks });
+    const next = spliceWeeks(existing, hydrated.weeks, start_week);
+    await writeSection(supabase, client_id, "program", next);
+    return toolText({
+      saved: true, live: true, programId: next.id,
+      wroteWeeks: `${start_week}-${start_week + weeks.length - 1}`, totalWeeks: next.weeks.length,
+      replacedWeeksWithLogs: logged.length ? [...new Set(logged.map((s: any) => s.weekNum))] : [],
+      workouts: summary.workouts, exercises: summary.exercises, unmatchedExercises: summary.unmatchedExercises,
+      ...(summary.unknownLibraryExerciseIds ? { unknownLibraryExerciseIds: summary.unknownLibraryExerciseIds } : {}),
+    });
   });
 
   server.registerTool("search_exercises", {
