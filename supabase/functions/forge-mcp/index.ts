@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
     });
     const handler = createMcpHandler(() => {
       const server = new McpServer({ name: "forge-mcp", version: "1.0.0" });
-      registerAllTools(server, supabase);
+      registerAllTools(server, supabase, token);
       return server;
     });
     const res = await handler.fetch(req);

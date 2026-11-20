@@ -60,7 +60,9 @@ export function hydrateProgram(raw: any, existingId?: string): any {
           tempo: ex?.tempo || "",
           rest: ex?.rest || "",
           note: ex?.note || "",
-          videoUrl: "",
+          // Filled from the coach's Exercise Library by resolveProgramVideos
+          // (exerciseLibrary.ts) before hydration; "" when nothing matched.
+          videoUrl: typeof ex?.videoUrl === "string" ? ex.videoUrl : "",
           sets: (ex?.sets?.length ? ex.sets : [{}]).map((s: any) => ({
             id: uid(), targetReps: s?.targetReps || "", targetLoad: s?.targetLoad || "", targetRpe: s?.targetRpe || "",
           })),
