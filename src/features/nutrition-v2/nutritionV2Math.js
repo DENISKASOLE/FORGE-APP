@@ -98,6 +98,18 @@ export function publishPlan(plans, draft, publishedAtISO) {
   const published = { ...draft, status: "published", to: null, published: publishedAtISO };
   return [...updated, published];
 }
+// Coach "Remove plan" (Nov 2026): no plan from `fromISO` on. Published
+// versions that would start then or later are archived; the one running
+// is ended the day before. Earlier days keep their plan, so history and
+// on-plan scores stay right. The client gets free logging from `fromISO`.
+export function endPlans(plans, fromISO) {
+  return (plans || []).map((p) => {
+    if (p.status !== "published") return p;
+    if (p.from >= fromISO) return { ...p, status: "archived" };
+    if (!p.to || p.to >= fromISO) return { ...p, to: addDaysISO(fromISO, -1) };
+    return p;
+  });
+}
 export function nextDraftFrom(draft, publishedVersionStatus) {
   // Called the first time a coach edits an already-published draft: bumps
   // the version exactly once, not on every keystroke (matches the

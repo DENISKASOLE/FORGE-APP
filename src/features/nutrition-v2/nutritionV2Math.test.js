@@ -522,3 +522,22 @@ describe("weeklyCheckinSuggestion - the coach dashboard's weekly check-in card",
     expect(weeklyCheckinSuggestion(points([70.5, 70, 70]), 0.8).action).toBe("keep");
   });
 });
+
+describe("endPlans (Remove plan)", () => {
+  it("ends the live plan yesterday, archives future ones, keeps history", async () => {
+    const { endPlans, planForDate } = await import("./nutritionV2Math.js");
+    const plans = [
+      { id: "a", version: 1, status: "published", from: "2026-10-01", to: "2026-10-31", meals: [] },
+      { id: "b", version: 2, status: "published", from: "2026-11-01", to: null, meals: [] },
+      { id: "c", version: 3, status: "published", from: "2026-11-25", to: null, meals: [] },
+      { id: "d", version: 4, status: "draft", from: "2026-11-20", meals: [] },
+    ];
+    const out = endPlans(plans, "2026-11-20");
+    expect(out.find((p) => p.id === "a").to).toBe("2026-10-31");
+    expect(out.find((p) => p.id === "b").to).toBe("2026-11-19");
+    expect(out.find((p) => p.id === "c").status).toBe("archived");
+    expect(out.find((p) => p.id === "d").status).toBe("draft");
+    expect(planForDate(out, "2026-11-20")).toBeNull();
+    expect(planForDate(out, "2026-11-19")).not.toBeNull();
+  });
+});
