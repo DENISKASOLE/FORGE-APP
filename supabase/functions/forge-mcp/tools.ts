@@ -8,6 +8,7 @@ import { z } from "npm:zod@^4.3.6";
 import { hydrateProgram, currentProgramWeek } from "./programModel.ts";
 import { buildPlanItem, buildMeal, buildPlanVersion, publishPlan, planForDate, planVersionForDate, validatePlanVersion } from "./nutritionModel.ts";
 import { bestLiftsFrom, recentSessions } from "./trainingLogs.ts";
+import { libraryItems, searchLibrary, resolveProgramVideos } from "./exerciseLibrary.ts";
 
 const uuid = () => z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, "must be a client_id (uuid)");
 const isoDateStr = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD");
@@ -31,6 +32,37 @@ async function writeSection(supabase: any, clientId: string, section: string, da
   const { error } = await supabase.from("client_data").upsert({ client_id: clientId, section, data }, { onConflict: "client_id,section" });
   if (error) throw new Error(error.message);
 }
+// The signed-in coach's user id (= trainer_data.trainer_id), checked
+// against Supabase Auth with the caller's own token.
+async function coachId(supabase: any, token: string): Promise<string> {
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) throw new Error("Couldn't identify the signed-in coach. Reconnect the Forge connector and try again.");
+  return data.user.id;
+}
+async function trainerSection(supabase: any, trainerId: string, section: string) {
+  const { data, error } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", section).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.data ?? null;
+}
+async function writeTrainerSection(supabase: any, trainerId: string, section: string, data: any) {
+  const { error } = await supabase.from("trainer_data").upsert({ trainer_id: trainerId, section, data }, { onConflict: "trainer_id,section" });
+  if (error) throw new Error(error.message);
+}
+// Resolve videos from the coach's library, hydrate, and build the short
+// summary every program/template write returns.
+async function prepareProgram(supabase: any, trainerId: string, program: any, existingId?: string) {
+  const items = libraryItems(await trainerSection(supabase, trainerId, "custom_exercise_library"));
+  const resolved = resolveProgramVideos(program, items);
+  const hydrated = hydrateProgram(resolved.program, existingId);
+  const summary: any = {
+    version: hydrated.version,
+    weeks: resolved.counts.weeks, workouts: resolved.counts.workouts, exercises: resolved.counts.exercises,
+    unmatchedExercises: resolved.unmatchedExercises,
+  };
+  if (resolved.unknownLibraryIds.length) summary.unknownLibraryExerciseIds = resolved.unknownLibraryIds;
+  return { hydrated, summary };
+}
+
 async function allClientsWithProfile(supabase: any) {
   const { data: clients, error } = await supabase.from("clients").select("id,name,email,created_at").order("name");
   if (error) throw new Error(error.message);
@@ -62,11 +94,13 @@ function daysSince(dateISO: string | null): number | null {
 // ---------- program write schema (mirrors forge-ai's coach_program_create output) ----------
 const SetSchema = z.object({ targetReps: z.string().optional(), targetLoad: z.string().optional(), targetRpe: z.string().optional() });
 const ExerciseSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1).optional().describe("Exercise name. Required unless libraryExerciseId is given. If it exactly matches (ignoring case) an exercise in the coach's Exercise Library, that exercise's video is attached automatically."),
+  libraryExerciseId: z.string().min(1).optional().describe("id from search_exercises. When given, the name and video come from the library (preferred way to attach a video)."),
+  videoUrl: z.string().optional().describe("Optional explicit video link. Overrides the library video. Normally leave this out."),
   loadType: z.enum(["kg", "%1RM", "RPE", "BW"]).optional(),
   tempo: z.string().optional(), rest: z.string().optional(), note: z.string().optional(),
   sets: z.array(SetSchema).min(1),
-});
+}).refine((ex) => !!(ex.name || ex.libraryExerciseId), { message: "each exercise needs a name or a libraryExerciseId" });
 const BlockSchema = z.object({
   type: z.enum(["straight", "superset", "circuit"]).optional(),
   rounds: z.number().int().positive().optional(),
@@ -106,7 +140,10 @@ const PlanDaySchema = z.object({
   meals: z.array(PlanMealSchema).optional().describe("Omit to use the plan's default meals"),
 });
 
-export function registerAllTools(server: any, supabase: any) {
+export function registerAllTools(server: any, supabase: any, token = "") {
+  let coachIdCache: string | null = null;
+  const me = async () => (coachIdCache ||= await coachId(supabase, token));
+
   server.registerTool("list_clients", {
     title: "List clients",
     description: "List every client belonging to the signed-in coach: name, client type (online/in-person), and payment status.",
@@ -215,13 +252,59 @@ export function registerAllTools(server: any, supabase: any) {
 
   server.registerTool("save_program", {
     title: "Create or replace a client's program",
-    description: "Writes a complete training program for a client. This REPLACES their current program entirely and goes LIVE immediately - exactly the same as the coach clicking Save in the Program Builder. Call get_program first if you're editing an existing program rather than starting from scratch, and include every week/workout you want to keep, not just the ones you're changing.",
+    description: "Writes a complete training program for a client. This REPLACES their current program entirely and goes LIVE immediately - exactly the same as the coach clicking Save in the Program Builder. Call get_program first if you're editing an existing program rather than starting from scratch, and include every week/workout you want to keep, not just the ones you're changing. Videos: call search_exercises first and pass each exercise's libraryExerciseId; a plain name that exactly matches a library exercise also gets its video. Returns a short summary (not the program); unmatchedExercises lists names that ended up with no video - fix those by searching the library for the right name.",
     inputSchema: z.object({ client_id: uuid(), program: ProgramSchema }),
   }, async ({ client_id, program }: { client_id: string; program: any }) => {
     await clientRow(supabase, client_id);
-    const hydrated = hydrateProgram(program);
+    const { hydrated, summary } = await prepareProgram(supabase, await me(), program);
     await writeSection(supabase, client_id, "program", hydrated);
-    return toolText({ saved: true, live: true, program: hydrated });
+    return toolText({ saved: true, live: true, programId: hydrated.id, ...summary });
+  });
+
+  server.registerTool("search_exercises", {
+    title: "Search the Exercise Library",
+    description: "Search the coach's own Exercise Library (the exercises with demo videos). Use this before save_program / save_template to get each exercise's id, then pass it as libraryExerciseId so the video is attached. query is a case-insensitive partial match on the name (e.g. \"goblet\", \"row\"); leave it out to list the whole library.",
+    inputSchema: z.object({
+      query: z.string().optional().describe("Part of the exercise name, any case"),
+      limit: z.number().int().min(1).max(500).optional().describe("Max results (default 50)"),
+    }),
+    annotations: { readOnlyHint: true },
+  }, async ({ query, limit }: { query?: string; limit?: number }) => {
+    const items = libraryItems(await trainerSection(supabase, await me(), "custom_exercise_library"));
+    const results = searchLibrary(items, query, limit ?? 50);
+    return toolText({ total_in_library: items.length, count: results.length, exercises: results });
+  });
+
+  server.registerTool("list_templates", {
+    title: "List program templates",
+    description: "List the coach's saved program templates (Programs > Templates in the app).",
+    inputSchema: z.object({}),
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    const raw = await trainerSection(supabase, await me(), "templates");
+    const list = Array.isArray(raw?.templates) ? raw.templates : [];
+    return toolText(list.map((t: any) => ({ id: t.id, name: t.name, weeks: t.weeks ?? t.program?.weeks?.length ?? 0, ...(t.goal ? { goal: t.goal } : {}), ...(t.savedAt ? { savedAt: t.savedAt } : {}) })));
+  });
+
+  server.registerTool("save_template", {
+    title: "Save a program template",
+    description: "Saves a program as a reusable template under Programs > Templates in the app (not assigned to any client, nothing goes live). Takes the same program shape and video rules as save_program: pass libraryExerciseId from search_exercises, or exact library names. Creates a NEW template by default; pass template_id (from list_templates) to replace that template instead. Returns a short summary with unmatchedExercises (names with no video).",
+    inputSchema: z.object({
+      program: ProgramSchema,
+      template_id: z.string().min(1).optional().describe("Replace this existing template instead of adding a new one"),
+    }),
+  }, async ({ program, template_id }: { program: any; template_id?: string }) => {
+    const trainerId = await me();
+    const raw = await trainerSection(supabase, trainerId, "templates");
+    const list = Array.isArray(raw?.templates) ? raw.templates : [];
+    const existing = template_id ? list.find((t: any) => t.id === template_id) : null;
+    if (template_id && !existing) throw new Error(`No template with id ${template_id}. Call list_templates to see the ids.`);
+    const { hydrated, summary } = await prepareProgram(supabase, trainerId, program);
+    // Same entry shape as the builder's "Save as Template".
+    const entry = { id: existing?.id || crypto.randomUUID(), name: hydrated.name, goal: hydrated.goal, weeks: hydrated.weeks.length, savedAt: new Date().toISOString(), program: hydrated };
+    const next = existing ? list.map((t: any) => (t.id === existing.id ? entry : t)) : [entry, ...list];
+    await writeTrainerSection(supabase, trainerId, "templates", { ...(raw || {}), templates: next });
+    return toolText({ saved: true, templateId: entry.id, name: entry.name, replaced: !!existing, ...summary });
   });
 
   server.registerTool("get_nutrition_plan", {
