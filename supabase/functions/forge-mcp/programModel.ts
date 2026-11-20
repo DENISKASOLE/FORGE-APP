@@ -80,6 +80,32 @@ export function hydrateProgram(raw: any, existingId?: string): any {
   });
 }
 
+// Writes `newWeeks` (already hydrated) into `existing` starting at
+// 1-based `startWeek`, replacing that many weeks and appending past the
+// end. Every week outside the range is kept as-is - same object, same ids -
+// so the client's logged sessions (keyed by weekId + workoutId) keep
+// pointing at them. A replaced week keeps its own week id. Throws if
+// startWeek would leave a gap after the last existing week.
+export function spliceWeeks(existing: any, newWeeks: any[], startWeek: number): any {
+  const old = existing?.weeks || [];
+  if (startWeek < 1 || startWeek > old.length + 1) {
+    throw new Error(`start_week must be between 1 and ${old.length + 1} (the program has ${old.length} weeks).`);
+  }
+  const at = startWeek - 1;
+  const weeks = old.slice();
+  newWeeks.forEach((w, i) => {
+    const idx = at + i;
+    weeks[idx] = { ...w, id: old[idx]?.id || w.id };
+  });
+  return { ...existing, weeks: weeks.map((w: any, i: number) => ({ ...w, weekNum: i + 1 })) };
+}
+
+// Logged sessions (any status) whose weekId is one of the given weeks.
+export function sessionsInWeeks(trainingLogs: any, weekIds: string[]): any[] {
+  const ids = new Set(weekIds);
+  return (trainingLogs?.sessions || []).filter((s: any) => ids.has(s.weekId));
+}
+
 // Note: "today" is computed in UTC (edge functions have no local
 // timezone) - only matters right at the UTC midnight boundary, and only
 // as a fallback when startDate/current-week aren't explicit.
