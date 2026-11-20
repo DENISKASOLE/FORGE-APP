@@ -23,7 +23,7 @@ import { ProgressHub, ProgressTab } from "../progress/ProgressTab.jsx";
 import { TransformPhotos } from "../progress/TransformPhotos.jsx";
 import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
-import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal, MeAvatarButton } from "./ClientShellUI.jsx";
+import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 import { QuickLogMenu } from "../quicklog/QuickLogMenu.jsx";
 import { HomeDaily } from "../home/HomeDaily.jsx";
 import { useEdgeSwipeBack, useTabScrollMemory } from "../../lib/gestures.js";
@@ -41,7 +41,6 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const tab = tabProp !== undefined ? tabProp : tabState;
   const setTab = setTabProp || setTabState;
   const [showSettings, setShowSettings] = useState(false);
-  const [plusOpen, setPlusOpen] = useState(false);
   const [quickView, setQuickView] = useState(null);
   // Native navigation feel (client side): swipe from the left edge to go
   // back from a sub-screen, and each tab remembers where you scrolled to.
@@ -145,7 +144,6 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   // Photo top-right on every main screen except Home (which has its own in
   // the greeting) and the Me screens themselves.
-  const showTopAvatar = tab !== "home" && !["me_hub", "payments", "profile", "ai_coach"].includes(tab);
 
   const trainCards = [
     { key: "program", icon: "program", color: BRAND.gold, title: "Program", sub: client.program ? `${client.program.goal || "Training"} · Week ${client.program.weeks?.[0]?.weekNum || 1}` : "No program yet" },
@@ -168,11 +166,6 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
             <NavIcon name="back" size={15} /> Back to {parentHubLabel}
           </button>
         )}
-        {showTopAvatar && (
-          <div className="me-top-row" style={{ display: "flex", justifyContent: "flex-end", padding: "0 2px 8px" }}>
-            <MeAvatarButton client={client} unread={unreadMessages} onClick={() => setTab("me_hub")} size={38} />
-          </div>
-        )}
         {/* Each tab change replays a short entrance; screens opened from a
             hub (Me > Profile, Train > Photos...) slide in like a pushed page. */}
         <div key={tab} ref={swipeRef} className={parentHub || ["checkins", "messages", "photos", "progress", "learn", "intake", "measurements"].includes(tab) ? "fx-push" : "fx-screen"}>
@@ -190,8 +183,8 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
         </div>
       </main>
       {showSettings && <ClientSettingsModal client={client} onClose={() => setShowSettings(false)} />}
-      <QuickLogMenu client={client} updateClient={updateClient} open={plusOpen} onClose={() => setPlusOpen(false)} view={quickView} setView={setQuickView} />
-      <ClientBottomNav tab={tab} setTab={(t) => { setPlusOpen(false); setTab(t); }} plusOpen={plusOpen} onPlus={() => setPlusOpen((o) => !o)} />
+      <QuickLogMenu client={client} updateClient={updateClient} open={false} onClose={() => {}} view={quickView} setView={setQuickView} />
+      <ClientBottomNav tab={tab} setTab={setTab} client={client} unread={unreadMessages} />
     </div>
   );
 }
