@@ -143,8 +143,11 @@ export function HomeDaily({ client, updateClient, goTo, openLog }) {
         <button onClick={goTo ? () => goTo("nutrition") : undefined} aria-label="Calories" style={{ ...card, padding: 14, textAlign: "center", color: BRAND.text, fontFamily: "inherit", cursor: goTo ? "pointer" : "default", width: "100%" }}>
           <div style={h4}>Calories</div>
           <div style={{ display: "grid", placeItems: "center", marginTop: 8 }}>
-            <Ring pct={kcalPct} color={BRAND.gold} size={96} stroke={8}>
-              <span style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 700 }}>{target?.kcal ? `${Math.round(kcalPct * 100)}%` : "—"}</span>
+            {/* Starts full, empties as food is logged (Denis, Nov 20 2026). */}
+            <Ring pct={target?.kcal ? 1 - Math.min(1, kcalPct) : 1} color={BRAND.gold} size={96} stroke={8}>
+              {target?.kcal
+                ? <span style={{ display: "grid", lineHeight: 1.05 }}><span style={{ fontFamily: BRAND.display, fontSize: 20, fontWeight: 700 }}>{fmt(Math.max(0, target.kcal - eaten.kcal))}</span><span style={{ fontSize: 11, color: BRAND.dim }}>kcal left</span></span>
+                : <span style={{ fontFamily: BRAND.display, fontSize: 22, fontWeight: 700 }}>—</span>}
             </Ring>
           </div>
           <div style={{ ...sub, marginTop: 8 }}><b style={{ color: BRAND.text, fontWeight: 600 }}>{fmt(eaten.kcal)}</b>{target?.kcal ? ` / ${fmt(target.kcal)} kcal` : " kcal"}</div>
@@ -152,10 +155,11 @@ export function HomeDaily({ client, updateClient, goTo, openLog }) {
         <button onClick={goTo ? () => goTo("nutrition") : undefined} aria-label="Macros" style={{ ...card, padding: 14, textAlign: "left", color: BRAND.text, fontFamily: "inherit", cursor: goTo ? "pointer" : "default", width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
           {[["Protein", "protein", "var(--green)"], ["Carbs", "carbs", "var(--blue)"], ["Fat", "fat", "var(--violet)"]].map(([l, k, c]) => {
             const a = Math.round(eaten[k] || 0), t = Math.round(target?.[k] || 0), pct = t ? a / t : 0;
+            const left = t ? Math.max(0, 1 - Math.min(1, pct)) : 1; // bar starts full, shrinks as logged
             return (
               <div key={k} style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}>{l}<span>{t ? `${Math.round(pct * 100)}%` : ""}</span></div>
-                <div style={{ height: 5, borderRadius: 9, background: "var(--line-strong)", marginTop: 6, overflow: "hidden" }}><div style={{ width: `${Math.min(100, pct * 100)}%`, height: "100%", borderRadius: 9, background: c }} /></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}>{l}<span>{t ? `${Math.round(left * 100)}% left` : ""}</span></div>
+                <div style={{ height: 5, borderRadius: 9, background: "var(--line-strong)", marginTop: 6, overflow: "hidden" }}><div style={{ width: `${left * 100}%`, height: "100%", borderRadius: 9, background: c }} /></div>
                 <div style={{ fontSize: 12, marginTop: 4 }}><span style={{ color: c, fontWeight: 600 }}>{a}</span><span style={{ color: BRAND.dim }}>{t ? ` / ${t} g` : " g"}</span></div>
               </div>
             );

@@ -7,7 +7,7 @@ import { FuelMealLog } from "./FuelMealLog.jsx";
 import { FuelPlanView } from "./FuelPlanView.jsx";
 import { FUEL, MACRO_COLOR } from "./fuelTheme.js";
 import { PlusIcon, CheckIcon } from "./fuelUi.jsx";
-import { PageHeader, PillSwitch, DayStrip } from "../../components/ui/Screen.jsx";
+import { DayStrip } from "../../components/ui/Screen.jsx";
 import { useCoachName } from "../../lib/useCoachName.js";
 import { screenCard, screenLabel, tint } from "../../components/ui/screenStyles.js";
 
@@ -15,11 +15,13 @@ import { screenCard, screenLabel, tint } from "../../components/ui/screenStyles.
 // with a plan, "kcal today" without one.
 function CaloriesCard({ kcalEaten, kcalGoal }) {
   const free = !(kcalGoal > 0);
-  const pct = free ? 0 : Math.max(0, Math.min(1, kcalEaten / kcalGoal));
+  // Starts full and empties as food is logged (Denis, Nov 20 2026); stays
+  // full when there's no target to count down from.
+  const pct = free ? 1 : Math.max(0, Math.min(1, 1 - kcalEaten / kcalGoal));
   const left = Math.max(Math.round(kcalGoal - kcalEaten), 0);
   const size = 118, sw = 9, r = (size - sw) / 2, C = 2 * Math.PI * r;
   return (
-    <div style={{ ...screenCard, padding: 14, textAlign: "center" }}>
+    <div style={{ padding: "4px 6px", textAlign: "center" }}>
       <div style={{ fontSize: 15, fontWeight: 600 }}>Calories</div>
       <div style={{ position: "relative", width: size, height: size, margin: "8px auto 0" }}>
         <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
@@ -37,11 +39,12 @@ function CaloriesCard({ kcalEaten, kcalGoal }) {
 }
 function MacrosCard({ now, target }) {
   return (
-    <div style={{ ...screenCard, padding: 14, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8 }}>
+    <div style={{ padding: "4px 6px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8 }}>
       {[["protein", "Protein"], ["carbs", "Carbs"], ["fat", "Fat"]].map(([key, label]) => {
         const t = Math.round(target[key] || 0);
         const n = Math.round(now[key] || 0);
-        const pct = t > 0 ? Math.min(100, (n / t) * 100) : 0;
+        // Full at the start of the day, shrinks as grams are logged.
+        const pct = t > 0 ? Math.max(0, 100 - Math.min(100, (n / t) * 100)) : 100;
         return (
           <div key={key} style={{ minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 600 }}>{label}</div>
@@ -119,7 +122,7 @@ function MealRow({ meal, outcome, isNext, mealEntries, onOpen, free = false }) {
           </div>
         </div>
         {logged ? (
-          <div aria-label="Logged" style={{ width: 34, height: 34, borderRadius: 99, background: FUEL.protein, display: "grid", placeItems: "center", flexShrink: 0 }}><CheckIcon color={FUEL.onColor} /></div>
+          <div aria-label="Logged" style={{ width: 34, height: 34, display: "grid", placeItems: "center", flexShrink: 0 }}><CheckIcon color="var(--accent)" size={24} /></div>
         ) : (
           <div aria-label={`Log ${meal.name}`} style={{ width: 34, height: 34, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", flexShrink: 0 }}><PlusIcon color={FUEL.red} /></div>
         )}
@@ -182,22 +185,39 @@ export function FuelToday({ client, updateClient, plans, logs, marks, notes, onW
   }
 
   const version = planVersionForDate(plans, dateISO);
-  const title = dateISO === todayISO ? "Today" : new Date(`${dateISO}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
   const sub = free ? "No plan yet - log what you eat" : `Plan v${version?.version || ""} from ${coachName ? `Coach ${coachName}` : "your coach"} · ${Math.round(target.kcal || 0).toLocaleString()} kcal`;
 
   return (
     <div style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", gap: 12, paddingBottom: 12 }}>
-      <PageHeader kicker="Nutrition" title={title} sub={sub} />
-      <PillSwitch value={view} onChange={(k) => (k === "week" ? onOpenWeek() : setView(k))} items={[["log", "Log"], ["plan", "Plan"], ["week", "Week"]]} />
+      {/* Nov 20 2026 (Denis): big bold "Nutrition", no "Today"; Log/Plan
+          back in one switch; Week became Progress, on the right. */}
+      <div>
+        <div style={{ fontFamily: BRAND.display, fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1, color: FUEL.text }}>Nutrition</div>
+        <div style={{ fontSize: 14, color: BRAND.muted, marginTop: 3 }}>{sub}</div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <div role="tablist" style={{ display: "flex", background: BRAND.card2, border: `1px solid ${BRAND.line}`, borderRadius: 999, padding: 3 }}>
+          {[["log", "Log"], ["plan", "Plan"]].map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={view === k} onClick={() => setView(k)}
+              style={{ padding: "8px 18px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".12em", background: view === k ? BRAND.btnBg : "transparent", color: view === k ? BRAND.btnInk : BRAND.muted }}>{label}</button>
+          ))}
+        </div>
+        <button type="button" onClick={onOpenWeek}
+          style={{ padding: "10px 16px", borderRadius: 999, border: `1px solid ${BRAND.line}`, background: BRAND.card2, color: BRAND.muted, cursor: "pointer", fontFamily: BRAND.sans, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".12em" }}>Progress</button>
+      </div>
 
       {view === "plan" ? (
         <FuelPlanView plans={plans} dateISO={dateISO} todayISO={todayISO} />
       ) : (
         <>
-          <DayStrip days={fuelStripDays(plans, logs, marks, dateISO, todayISO)} value={dateISO} todayISO={todayISO} onSelect={(d) => setDateISO(d.iso)} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <CaloriesCard kcalEaten={totals.kcal} kcalGoal={target.kcal || 0} />
-            <MacrosCard now={totals} target={target} />
+          {/* One box: the days on top, calories + macros under them. */}
+          <div style={{ ...screenCard, padding: "10px 10px 14px" }}>
+            <DayStrip days={fuelStripDays(plans, logs, marks, dateISO, todayISO)} value={dateISO} todayISO={todayISO} onSelect={(d) => setDateISO(d.iso)} />
+            <div style={{ height: 1, background: BRAND.line, margin: "10px 4px 12px" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <CaloriesCard kcalEaten={totals.kcal} kcalGoal={target.kcal || 0} />
+              <MacrosCard now={totals} target={target} />
+            </div>
           </div>
 
           {notes?.shared && (
