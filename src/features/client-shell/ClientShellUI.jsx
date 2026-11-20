@@ -139,17 +139,16 @@ export const CLIENT_BOTTOM_NAV = [
   { key: "progress_hub", label: "Progress", icon: "progress", group: ["progress_hub", "progress"] },
   { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "ai_coach", "photos", "checkins", "measurements"] },
 ];
-// Client bottom dock (Nov 2026): Home / Train / Fuel / Progress share one
-// capsule with a sliding pill behind the active tab; the round button on
-// the right is a + that opens the quick-log menu (QuickLogMenu). "Me" now
-// lives on the client's photo, top-right of every main screen
-// (MeAvatarButton) instead of in the dock.
-export function ClientBottomNav({ tab, setTab, plusOpen = false, onPlus }) {
-  const tabs = CLIENT_BOTTOM_NAV.filter((i) => i.key !== "me_hub");
+// Client bottom dock: Home / Train / Fuel / Progress / Me share one capsule
+// with a sliding pill behind the active tab. Me shows the client's photo
+// with the unread-messages badge (Nov 20 2026: the + button was removed and
+// Me moved down here from the top-right of every screen).
+export function ClientBottomNav({ tab, setTab, client, unread = 0 }) {
+  const tabs = CLIENT_BOTTOM_NAV;
   const activeIndex = tabs.findIndex((i) => i.group.includes(tab));
   return (
-    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: plusOpen ? 1100 : 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "10px 14px max(12px, env(safe-area-inset-bottom))", background: "var(--page)", borderTop: `1px solid ${BRAND.line}` }}>
-      <div className="glass-dock" style={{ position: "relative", flex: 1, maxWidth: 360, height: 64, borderRadius: 999, display: "flex", padding: 5 }}>
+    <nav aria-label="Main" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, padding: "10px 14px max(12px, env(safe-area-inset-bottom))", background: "var(--page)", borderTop: `1px solid ${BRAND.line}` }}>
+      <div className="glass-dock" style={{ position: "relative", flex: 1, maxWidth: 440, height: 64, borderRadius: 999, display: "flex", padding: 5 }}>
         {activeIndex >= 0 && (
           <div aria-hidden="true" className="glass-dock-pill" style={{ position: "absolute", top: 5, bottom: 5, left: `calc(5px + ${activeIndex} * (100% - 10px) / ${tabs.length})`, width: `calc((100% - 10px) / ${tabs.length})`, borderRadius: 999, transition: "left .32s cubic-bezier(.3,1.3,.5,1)" }} />
         )}
@@ -157,16 +156,25 @@ export function ClientBottomNav({ tab, setTab, plusOpen = false, onPlus }) {
           const active = i === activeIndex;
           return (
             <button key={item.key} onClick={() => setTab(item.key)} aria-current={active ? "page" : undefined} style={{ position: "relative", zIndex: 1, flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: BRAND.sans, color: active ? BRAND.gold : BRAND.muted }}>
-              <NavIcon name={item.icon} size={22} color={active ? BRAND.gold : BRAND.muted} />
+              {item.key === "me_hub" ? <NavAvatar client={client} unread={unread} active={active} /> : <NavIcon name={item.icon} size={22} color={active ? BRAND.gold : BRAND.muted} />}
               <span style={{ fontSize: 11, fontWeight: active ? 600 : 500, whiteSpace: "nowrap" }}>{item.label}</span>
             </button>
           );
         })}
       </div>
-      <button onClick={onPlus} aria-label={plusOpen ? "Close quick log" : "Quick log"} aria-expanded={plusOpen} style={{ width: 64, height: 64, borderRadius: "50%", border: "none", flexShrink: 0, cursor: "pointer", display: "grid", placeItems: "center", background: BRAND.gold, color: BRAND.btnInk, boxShadow: "0 10px 24px -8px color-mix(in srgb, var(--accent) 60%, transparent)" }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" style={{ transition: "transform .2s", transform: plusOpen ? "rotate(45deg)" : "none" }}><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
-      </button>
     </nav>
+  );
+}
+// The client's photo as the Me tab icon in the bottom dock.
+function NavAvatar({ client, unread, active }) {
+  const photoUrl = usePhotoUrl(client?.photo);
+  return (
+    <span style={{ position: "relative", width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${active ? BRAND.gold : "transparent"}`, background: photoUrl ? BRAND.card2 : (client?.color || BRAND.card2), color: inkOn(client?.color || "#888"), display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700, boxSizing: "border-box" }}>
+      <span style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", display: "grid", placeItems: "center" }}>
+        {photoUrl ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (client?.avatar || client?.name?.[0] || "?")}
+      </span>
+      {unread > 0 && <span style={{ position: "absolute", top: -5, right: -7, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 999, background: BRAND.yellow, color: "#000", fontSize: 9, fontWeight: 700, display: "grid", placeItems: "center", border: "2px solid var(--card)" }}>{unread > 9 ? "9+" : unread}</span>}
+    </span>
   );
 }
 // The client's photo, top-right: opens Me. Unread coach messages show as

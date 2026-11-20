@@ -5,7 +5,6 @@ import { isoDate } from "../../lib/dateUtils.js";
 import { upsertSection } from "../../lib/clientData.js";
 import { currentProgramWeek, workoutForDay, exerciseCountOf } from "../../lib/programModel.js";
 import { sessionForWorkout, parseSeconds } from "../../lib/trainingLogs.js";
-import { MeAvatarButton } from "../client-shell/ClientShellUI.jsx";
 import { NotificationBell } from "./NotificationBell.jsx";
 import { MOODS, weekOf, dayNutrition, habitsFor, habitGoals, weightInfo, measurementInfo, bodyFatInfo, proteinStreak, energyInfo, shortDate } from "./homeData.js";
 
@@ -65,7 +64,7 @@ function workoutToday(client) {
 // Tapping a tile opens the matching quick-log sheet (steps, water, sleep,
 // weight & measurements) or the related tab. Days after today are shown
 // but can't be selected; a past day shows that day's food, habits and mood.
-export function HomeDaily({ client, updateClient, goTo, unread = 0, openLog }) {
+export function HomeDaily({ client, updateClient, goTo, openLog }) {
   const todayISO = isoDate();
   const [dateISO, setDateISO] = useState(todayISO);
   const isToday = dateISO === todayISO;
@@ -106,10 +105,14 @@ export function HomeDaily({ client, updateClient, goTo, unread = 0, openLog }) {
     // Everything on Home drawn ~10% smaller (Denis, Nov 18 2026). zoom keeps
     // the layout full-width and scales text, rings and tiles together.
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, maxWidth: "100%", zoom: 0.9 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "42px 1fr 42px", alignItems: "center", paddingTop: 2 }}>
-        {goTo ? <NotificationBell client={client} goTo={goTo} /> : <div />}
+      {/* Nov 20 2026: brand left, bell right (Me moved to the bottom dock). */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", paddingTop: 2 }}>
+        <div style={{ lineHeight: 1.05 }}>
+          <div style={{ fontFamily: BRAND.display, fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", color: BRAND.text }}>Forge</div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "var(--accent)" }}>Performance</div>
+        </div>
         <div style={{ textAlign: "center", fontFamily: BRAND.display, fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>Today</div>
-        {goTo ? <MeAvatarButton client={client} unread={unread} onClick={() => goTo("me_hub")} size={42} /> : <div />}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>{goTo ? <NotificationBell client={client} goTo={goTo} /> : null}</div>
       </div>
       <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", color: BRAND.dim, marginTop: -4 }}>{monthLabel}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
