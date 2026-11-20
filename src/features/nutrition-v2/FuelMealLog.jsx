@@ -9,6 +9,7 @@ import { FuelSwap } from "./FuelSwap.jsx";
 import { mealOptionsFor } from "./fuelOptions.js";
 import { FUEL, fuelLbl, MACRO_COLOR } from "./fuelTheme.js";
 import { Chevron, PlusIcon } from "./fuelUi.jsx";
+import { FoodSearchSheet, BarcodeSheet } from "../quicklog/FoodQuickLog.jsx";
 
 function nowHHMM() {
   const d = new Date();
@@ -45,7 +46,69 @@ const OutIcon = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stro
 // options, "Log as planned", change amounts, eating out, or something
 // else (the existing FuelSwap sheet, for free text + photo). Writes go
 // through the same onWrite(entries, marks) path as before.
-export function FuelMealLog({ client, plan, meal, dateISO, entries, dateMarks, editable, onWrite, onBack }) {
+export function FuelMealLog(props) {
+  return props.free ? <FreeMealLog {...props} /> : <PlanMealLog {...props} />;
+}
+
+// No-plan logging (Nov 2026): same look, but the meal is just what the
+// client adds - food search, barcode, or a photo/description.
+function FreeMealLog({ client, updateClient, meal, dateISO, entries, dateMarks, editable, onWrite, onBack }) {
+  const [sheet, setSheet] = useState(null);
+  const swipeRef = useEdgeSwipeBack(onBack);
+  const mine = entries.filter((e) => e.meal === meal.key);
+  const t = mine.reduce((a, e) => ({ kcal: a.kcal + (e.macros?.kcal || 0), protein: a.protein + (e.macros?.protein || 0), carbs: a.carbs + (e.macros?.carbs || 0), fat: a.fat + (e.macros?.fat || 0) }), emptyMacros());
+  const dateLabel = new Date(`${dateISO}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  const SearchIco = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={FUEL.red} strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="M20 20l-4-4" /></svg>;
+  const BarIco = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={FUEL.red} strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7V5h3M17 5h3v2M4 17v2h3M17 19h3v-2M8 9v6M11 9v6M14 9v6M17 9v6" /></svg>;
+  return (
+    <div ref={swipeRef} className="fx-push" style={{ width: "100%", minWidth: 0, maxWidth: "100%", color: FUEL.text, fontFamily: BRAND.sans, display: "flex", flexDirection: "column", padding: "2px 0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 40px", alignItems: "center" }}>
+        <button onClick={onBack} aria-label="Back" style={{ width: 40, height: 40, borderRadius: 99, background: FUEL.card2, border: `1px solid ${FUEL.line}`, display: "grid", placeItems: "center", cursor: "pointer", color: FUEL.text }}><Chevron dir="left" /></button>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: BRAND.display, fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" }}>{cap(meal.name)}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: FUEL.red }}>{dateLabel}</div>
+        </div>
+        <div />
+      </div>
+
+      <div style={{ minWidth: 0, marginTop: 14, padding: "12px 14px", borderRadius: 18, background: FUEL.card, border: "1px solid var(--line-strong)", borderTop: `4px solid ${FUEL.red}` }}>
+        <div style={{ fontSize: 17, fontWeight: 600 }}>{mine.length ? "Logged" : "Nothing logged yet"}</div>
+        {mine.length > 0 && <MacroLine t={t} style={{ display: "block", marginTop: 2 }} />}
+        <div style={{ marginTop: 6 }}>
+          {mine.map((x) => (
+            <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: `1px solid ${FUEL.line}`, fontSize: 14 }}>
+              <span style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.name}{x.qty != null && x.unit ? <span style={{ color: FUEL.dim, fontSize: 12, fontWeight: 500 }}> · {qtyLabel(x.qty, x.unit)}</span> : null}</span>
+              <span style={{ fontWeight: 600, flexShrink: 0 }}>{x.estimate && !x.macros?.kcal ? "—" : Math.round(x.macros?.kcal || 0)}</span>
+              {editable && <button onClick={() => onWrite(entries.filter((e) => e.id !== x.id), dateMarks)} aria-label={`Remove ${x.name}`} style={{ width: 28, height: 28, borderRadius: 99, border: `1px solid ${FUEL.line}`, background: FUEL.card2, color: FUEL.muted, cursor: "pointer", fontSize: 13, padding: 0 }}>✕</button>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {editable ? (
+        <>
+          <div style={{ ...fuelLbl, color: FUEL.text, fontWeight: 600, margin: "18px 2px 8px" }}>Add to {meal.name.toLowerCase()}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <ActionRow title="Search food" sub="Find it and pick the amount" icon={SearchIco} onClick={() => setSheet("search")} />
+            <ActionRow title="Scan barcode" sub="Packaged food" icon={BarIco} onClick={() => setSheet("barcode")} />
+            <ActionRow title="Describe it or snap a photo" sub="Eating out, home cooking, no counting" icon={<PlusIcon color={FUEL.red} />} onClick={() => setSheet("else")} />
+          </div>
+        </>
+      ) : (
+        <div style={{ marginTop: 12, fontSize: 13, color: FUEL.muted, textAlign: "center" }}>You can log this meal on the day.</div>
+      )}
+
+      {sheet === "search" && <FoodSearchSheet client={client} updateClient={updateClient} mealKey={meal.key} dateISO={dateISO} onClose={() => setSheet(null)} />}
+      {sheet === "barcode" && <BarcodeSheet client={client} updateClient={updateClient} mealKey={meal.key} dateISO={dateISO} onClose={() => setSheet(null)} onSearchInstead={() => setSheet("search")} />}
+      {sheet === "else" && (
+        <FuelSwap only="else" client={client} plan={null} meal={meal} todayISO={dateISO} entries={entries} todayMarks={dateMarks}
+          onWrite={async (e, m) => { await onWrite(e, m); }} onClose={() => setSheet(null)} />
+      )}
+    </div>
+  );
+}
+
+function PlanMealLog({ client, plan, meal, dateISO, entries, dateMarks, editable, onWrite, onBack }) {
   const options = useMemo(() => mealOptionsFor(plan, meal, dateISO), [plan, meal, dateISO]);
   const [optId, setOptId] = useState("today");
   const [editing, setEditing] = useState(false);
