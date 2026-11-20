@@ -876,7 +876,8 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
 // ---------- Program calendar: shared bits ----------
 export function DayPill({ day, compact = false }) {
   const base = { fontSize: compact ? 8 : 9, fontWeight: 500, borderRadius: 6, padding: compact ? "3px 2px" : "4px 3px", width: "100%", textAlign: "center", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", boxSizing: "border-box" };
-  if (day.isRest) return <div style={{ ...base, background: "transparent", color: BRAND.dim, border: `${BRAND.hairline} solid ${BRAND.line}` }}>Rest</div>;
+  // Rest: same filled tag as a training day, in cream (Denis, Nov 20).
+  if (day.isRest) return <div style={{ ...base, background: BRAND.card2, color: BRAND.muted }}>Rest</div>;
   if (day.state === "completed") return <div style={{ ...base, background: "transparent", color: BRAND.green, border: `1px solid color-mix(in srgb, ${BRAND.green} 40%, transparent)` }}><span style={{ color: BRAND.green }}>✓</span> {day.workout.name}</div>;
   if (day.state === "missed") return <div style={{ ...base, background: "transparent", color: BRAND.red, border: `1px solid color-mix(in srgb, ${BRAND.red} 40%, transparent)` }}>{day.workout.name}</div>;
   if (day.state === "in_progress") return <div style={{ ...base, background: "transparent", color: BRAND.gold, border: `${BRAND.hairline} solid ${BRAND.gold}` }}>{day.workout.name}</div>;
@@ -936,7 +937,7 @@ export function ProgramWeekView({ program, days, weekNum, setWeekNum, onOpen }) 
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: isMobile ? 4 : 6 }}>
         {weekDaysList.map((d) => (
-          <button key={d.key} onClick={() => onOpen(d)} style={{ background: d.isRest ? "transparent" : BRAND.card, border: `${BRAND.hairline} ${d.isRest ? "dashed" : "solid"} ${dayBorder(d)}`, borderRadius: BRAND.radiusControl, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
+          <button key={d.key} onClick={() => onOpen(d)} style={{ background: BRAND.card, border: `${BRAND.hairline} solid ${dayBorder(d)}`, borderRadius: BRAND.radiusControl, padding: "8px 3px", minHeight: 88, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0 }}>
             <div style={{ color: BRAND.dim, fontSize: 9, fontWeight: 500 }}>{DOW_LETTER[d.dow - 1]}</div>
             <div style={{ fontSize: 14, fontWeight: 500, color: d.state === "today" ? BRAND.gold : BRAND.text }}>{d.date.getDate()}</div>
             <DayPill day={d} compact />
