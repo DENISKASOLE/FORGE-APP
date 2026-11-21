@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
-import { loadCoachRows } from "./lib/coachRows.js";
+import { loadCoachRows, legacyPhotoRows, moveLegacyProfilePhotos } from "./lib/coachRows.js";
 import { supabase } from "./supabaseClient.js";
 import { BRAND } from "./theme/tokens.js";
 import { ToastHost } from "./components/ui/Toast.jsx";
@@ -239,6 +239,7 @@ export default function App() {
       // Only rows that changed since the last sync are downloaded (see
       // coachRows.js); photos are still fetched lazily per client.
       dataRows = await loadCoachRows(user.id, ids);
+      if (legacyPhotoRows(dataRows).length) moveLegacyProfilePhotos(dataRows); // background, one-time
     }
     // Edits still waiting to upload are newer than what we just fetched -
     // lay them over the server data, section by section, so the coach's
