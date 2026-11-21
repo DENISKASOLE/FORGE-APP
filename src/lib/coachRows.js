@@ -9,6 +9,7 @@
 // database can't answer the "what changed" question.
 import { supabase } from "../supabaseClient.js";
 import { idbGet, idbSet } from "./idb.js";
+import { uploadClientPhoto } from "./storage.js";
 
 const STORE_PREFIX = "coach_rows_v1_";
 const FULL_EVERY_MS = 24 * 60 * 60 * 1000;
@@ -18,6 +19,10 @@ const OVERLAP_MS = 5 * 60 * 1000;
 const COLUMNS = "client_id,section,data,updated_at";
 
 const rowKey = (r) => `${r.client_id}|${r.section}`;
+// Sections never downloaded in bulk: progress photos load per client when
+// opened; "details" is a legacy section nothing in the app reads (3.7 MB of
+// old photos, Nov 2026).
+const SKIP = "(transformPhotos,details)";
 
 // Pure: merge fetched rows into the stored map, drop clients that are gone,
 // and work out the new sync point from the server's own timestamps.
@@ -52,7 +57,7 @@ export async function loadCoachRows(userId, clientIds) {
   let fetched = null;
   let full = !since;
   if (since) {
-    const res = await supabase.from("client_data").select(COLUMNS).in("client_id", clientIds).neq("section", "transformPhotos").gt("updated_at", since);
+    const res = await supabase.from("client_data").select(COLUMNS).in("client_id", clientIds).not("section", "in", SKIP).gt("updated_at", since);
     if (res.error) {
       // No updated_at column (or any other surprise): fall back to the old full download.
       if (!res.error.code || res.error.code === "PGRST301") throw res.error; // offline / auth: let the caller retry later
@@ -62,10 +67,10 @@ export async function loadCoachRows(userId, clientIds) {
     }
   }
   if (full) {
-    let res = await supabase.from("client_data").select(COLUMNS).in("client_id", clientIds).neq("section", "transformPhotos");
+    let res = await supabase.from("client_data").select(COLUMNS).in("client_id", clientIds).not("section", "in", SKIP);
     if (res.error && res.error.code === "42703") {
       // The table has no updated_at: old behaviour, nothing stored.
-      res = await supabase.from("client_data").select("*").in("client_id", clientIds).neq("section", "transformPhotos");
+      res = await supabase.from("client_data").select("*").in("client_id", clientIds).not("section", "in", SKIP);
       if (res.error) throw res.error;
       return res.data || [];
     }
@@ -75,4 +80,26 @@ export async function loadCoachRows(userId, clientIds) {
   const next = mergeRows(full ? null : store, fetched, clientIds, { full });
   await idbSet(key, next).catch(() => {});
   return Object.values(next.rows);
+}
+
+// One-time clean-up (Nov 21 2026): older versions saved client profile
+// photos as text inside the profile row (~240 KB each, 7.7 MB in total),
+// so every sync downloaded them. Move each one to file storage, like new
+// photos, and keep only the short storage path in the row. Runs quietly in
+// the background; anything that fails is simply tried again next time.
+export function legacyPhotoRows(rows) {
+  return (rows || []).filter((r) => r.section === "profile" && typeof r.data?.photo === "string" && r.data.photo.startsWith("data:image"));
+}
+export async function moveLegacyProfilePhotos(rows) {
+  for (const row of legacyPhotoRows(rows)) {
+    try {
+      const blob = await (await fetch(row.data.photo)).blob();
+      const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+      const path = await uploadClientPhoto(row.client_id, "profile", blob, ext);
+      const { error } = await supabase.from("client_data").upsert({ client_id: row.client_id, section: "profile", data: { ...row.data, photo: path } }, { onConflict: "client_id,section" });
+      if (error) throw error;
+    } catch (error) {
+      console.warn("Forge: couldn't move an old profile photo yet", error?.message || error);
+    }
+  }
 }

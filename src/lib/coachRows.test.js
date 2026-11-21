@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 vi.mock("../supabaseClient.js", () => ({ supabase: {} }));
+vi.mock("./storage.js", () => ({ uploadClientPhoto: async () => "p" }));
 vi.mock("./idb.js", () => ({ idbGet: async () => null, idbSet: async () => true }));
 import { mergeRows, sinceFor } from "./coachRows.js";
 
@@ -30,5 +31,17 @@ describe("coachRows", () => {
     expect(sinceFor(null, ["a"], now)).toBeNull();
     expect(sinceFor({ syncedAt: "x", fullAt: now, clientIds: ["a"] }, ["a", "b"], now)).toBeNull();
     expect(sinceFor({ syncedAt: "2026-11-20T00:00:00Z", fullAt: now - 25 * 3600e3, clientIds: ["a"] }, ["a"], now)).toBeNull();
+  });
+});
+import { legacyPhotoRows } from "./coachRows.js";
+describe("legacy photos", () => {
+  it("finds only profile rows with a photo stored as text", () => {
+    const rows = [
+      { client_id: "a", section: "profile", data: { photo: "data:image/jpeg;base64,xx" } },
+      { client_id: "b", section: "profile", data: { photo: "clients/b/profile/1.jpg" } },
+      { client_id: "c", section: "program", data: { photo: "data:image/png;base64,xx" } },
+      { client_id: "d", section: "profile", data: {} },
+    ];
+    expect(legacyPhotoRows(rows).map((r) => r.client_id)).toEqual(["a"]);
   });
 });
