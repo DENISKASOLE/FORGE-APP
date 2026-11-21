@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
+import { loadCoachRows } from "./lib/coachRows.js";
 import { supabase } from "./supabaseClient.js";
 import { BRAND } from "./theme/tokens.js";
 import { ToastHost } from "./components/ui/Toast.jsx";
@@ -75,7 +76,7 @@ export default function App() {
     // new data just replaces what's shown when it arrives.
     const goOnline = () => { if (userRef.current) refreshFromServer(userRef.current); };
     const onVisible = () => {
-      if (document.visibilityState === "visible" && userRef.current && Date.now() - lastRefreshRef.current > 60000) refreshFromServer(userRef.current);
+      if (document.visibilityState === "visible" && userRef.current && Date.now() - lastRefreshRef.current > 5 * 60000) refreshFromServer(userRef.current);
     };
     window.addEventListener("online", goOnline);
     document.addEventListener("visibilitychange", onVisible);
@@ -235,11 +236,9 @@ export default function App() {
     const ids = (clientRows || []).map((c) => c.id);
     let dataRows = [];
     if (ids.length) {
-      // Photos are fetched lazily per-client when their Photos tab is opened (see TransformPhotos) -
-      // excluding them here is what keeps a 16-client sync fast instead of downloading every photo up front.
-      const { data, error: dataErr } = await supabase.from("client_data").select("*").in("client_id", ids).neq("section", "transformPhotos");
-      if (dataErr) throw dataErr;
-      dataRows = data || [];
+      // Only rows that changed since the last sync are downloaded (see
+      // coachRows.js); photos are still fetched lazily per client.
+      dataRows = await loadCoachRows(user.id, ids);
     }
     // Edits still waiting to upload are newer than what we just fetched -
     // lay them over the server data, section by section, so the coach's
