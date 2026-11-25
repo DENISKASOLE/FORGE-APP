@@ -11,3 +11,7 @@ project_id = "rjzfyfgymkcaffazzpff"
 
 [functions.forge-mcp]
 verify_jwt = false
+
+# Called signed-out (sign-up / reset with a coach code); checks codes itself.
+[functions.forge-auth]
+verify_jwt = false

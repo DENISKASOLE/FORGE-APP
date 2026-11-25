@@ -1,11 +1,11 @@
-# Deploys the Forge connector (supabase/functions/forge-mcp) to Supabase
+# Deploys the Forge connector (supabase/functions/forge-mcp) and forge-auth to Supabase
 # whenever its code changes on main, so "push" also updates the connector.
 # Needs one repo secret: SUPABASE_ACCESS_TOKEN (Supabase > Account > Access Tokens).
 name: Deploy forge-mcp
 on:
   push:
     branches: [main]
-    paths: ["supabase/functions/forge-mcp/**", "supabase/config.toml"]
+    paths: ["supabase/functions/forge-mcp/**", "supabase/functions/forge-auth/**", "supabase/config.toml"]
   workflow_dispatch:
 jobs:
   deploy:
@@ -17,5 +17,9 @@ jobs:
           version: latest
       # --yes: CI has no terminal to answer the CLI's "deploy to production?" prompt
       - run: supabase functions deploy forge-mcp --project-ref rjzfyfgymkcaffazzpff --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # Sign-up / password reset with a coach code (no email needed).
+      - run: supabase functions deploy forge-auth --project-ref rjzfyfgymkcaffazzpff --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

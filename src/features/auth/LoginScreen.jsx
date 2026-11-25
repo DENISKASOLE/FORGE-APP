@@ -57,6 +57,7 @@ export function LoginScreen({ onReady, onBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState(urlInvite);
+  const [resetCode, setResetCode] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   async function login() {
@@ -66,32 +67,51 @@ export function LoginScreen({ onReady, onBack }) {
     else onReady?.();
     setLoading(false);
   }
+  // Sign-up and coach-code reset go through the forge-auth function, which
+  // confirms the login straight away - no email to wait for (Nov 2026).
+  async function callAuth(body) {
+    const { data, error } = await supabase.functions.invoke("forge-auth", { body });
+    if (error) {
+      let text = "";
+      try { text = (await error.context?.json())?.error || ""; } catch { /* not JSON */ }
+      throw new Error(text || "Couldn't reach Forge. Check your connection and try again.");
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+  async function signInAfter(emailToUse) {
+    const { error } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
+    if (error) throw error;
+    onReady?.();
+  }
   async function acceptInvite() {
     setLoading(true); setMsg("");
-    const code = inviteCode.trim().toUpperCase();
-    const { data: rows, error: findErr } = await supabase.rpc("lookup_invite", { p_code: code });
-    const found = rows?.[0];
-    if (findErr || !found) { setMsg("Invite code not found."); setLoading(false); return; }
-    const { data, error } = await supabase.auth.signUp({ email: found.email || email, password, options: { data: { name: found.name, role: "client" } } });
-    if (error) { setMsg(error.message); setLoading(false); return; }
-    if (data.user) {
-      const { error: claimErr } = await supabase.rpc("claim_invite", { p_code: code, p_email: found.email || email });
-      if (claimErr) { setMsg(claimErr.message); setLoading(false); return; }
-      setMsg("Client account connected. Log in with the password you created.");
-      setMode("login");
-    }
+    try {
+      const res = await callAuth({ action: "signup", code: inviteCode, password });
+      await signInAfter(res.email);
+    } catch (e) { setMsg(e.message); }
+    setLoading(false);
+  }
+  async function resetWithCode() {
+    if (!email.trim()) { setMsg("Enter your email."); return; }
+    setLoading(true); setMsg("");
+    try {
+      const res = await callAuth({ action: "reset", email, code: resetCode, password });
+      await signInAfter(res.email || email);
+    } catch (e) { setMsg(e.message); }
     setLoading(false);
   }
   async function forgotPassword() {
-    if (!email.trim()) { setMsg("Enter your email first, then tap Forgot Password."); return; }
+    if (!email.trim()) { setMsg("Enter your email first, then tap Email me a reset link."); return; }
     setLoading(true); setMsg("");
-    const redirectTo = "https://forgeappbydenis.vercel.app/";
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    setMsg(error ? error.message : "Password reset link sent to your email.");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/` });
+    setMsg(error ? error.message : "Reset link sent - check your inbox and spam. No email? Ask your coach for a reset code.");
     setLoading(false);
   }
   const isInvite = mode === "invite";
-  const msgIsGood = msg.includes("sent") || msg.includes("created") || msg.includes("connected");
+  const isForgot = mode === "forgot";
+  const isCode = mode === "code";
+  const msgIsGood = msg.startsWith("Reset link sent");
   const linkBtn = { background: "transparent", border: "none", padding: 0, cursor: "pointer", fontFamily: BRAND.sans, color: BRAND.text, fontWeight: 600, fontSize: 15 };
   return (
     <div className="fx-screen" style={{ minHeight: "100dvh", background: BRAND.bg, color: BRAND.text, display: "flex", justifyContent: "center" }}>
@@ -105,14 +125,15 @@ export function LoginScreen({ onReady, onBack }) {
         <div style={{ textAlign: "center", marginTop: isMobile ? 46 : 64 }}>
           <div style={{ fontFamily: BRAND.display, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", color: BRAND.text }}>Forge Performance</div>
           <div style={{ fontFamily: BRAND.sans, fontSize: 28, fontWeight: 400, letterSpacing: "-0.01em", lineHeight: 1.25, color: BRAND.dim, marginTop: 40 }}>
-            {isInvite ? <>Create your<br />account</> : <>Results that<br />matter</>}
+            {isInvite ? <>Create your<br />account</> : isForgot ? <>Forgot your<br />password?</> : isCode ? <>Set a new<br />password</> : <>Results that<br />matter</>}
           </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: isMobile ? 52 : 64 }}>
-          <AuthField label="Email" value={email} onChange={setEmail} placeholder="Enter your email" autoComplete="email" />
-          <AuthField label="Password" value={password} onChange={setPassword} type="password" placeholder={isInvite ? "Choose a password" : "Enter your password"} autoComplete={isInvite ? "new-password" : "current-password"} />
           {isInvite && <AuthField label="Invite code" value={inviteCode} onChange={setInviteCode} placeholder="ABC123" autoComplete="off" />}
+          {!isInvite && <AuthField label="Email" value={email} onChange={setEmail} placeholder="Enter your email" autoComplete="email" />}
+          {isCode && <AuthField label="Code from your coach" value={resetCode} onChange={(v) => setResetCode(v.toUpperCase())} placeholder="8 characters" autoComplete="one-time-code" />}
+          {!isForgot && <AuthField label={isCode ? "New password" : "Password"} value={password} onChange={setPassword} type="password" placeholder={isInvite || isCode ? "At least 6 characters" : "Enter your password"} autoComplete={isInvite || isCode ? "new-password" : "current-password"} />}
         </div>
 
         {msg && (
@@ -121,7 +142,7 @@ export function LoginScreen({ onReady, onBack }) {
 
         <button
           disabled={loading}
-          onClick={isInvite ? acceptInvite : login}
+          onClick={isInvite ? acceptInvite : isForgot ? forgotPassword : isCode ? resetWithCode : login}
           className="pressable"
           style={{
             width: "100%", height: 56, background: BRAND.btnBg, border: "none", borderRadius: 999,
@@ -129,15 +150,24 @@ export function LoginScreen({ onReady, onBack }) {
             cursor: loading ? "not-allowed" : "pointer", marginTop: 34, opacity: loading ? 0.6 : 1,
           }}
         >
-          {loading ? "…" : isInvite ? "Create account" : "Continue"}
+          {loading ? "…" : isInvite ? "Create account" : isForgot ? "Email me a reset link" : isCode ? "Save & log in" : "Continue"}
         </button>
 
         <div style={{ marginTop: 28, textAlign: "center" }}>
-          {isInvite
-            ? <button onClick={() => setMode("login")} style={linkBtn}>Already have an account? Log in</button>
-            : <button onClick={forgotPassword} style={linkBtn}>Forgot Password?</button>}
+          {isForgot ? (
+            <button onClick={() => { setMode("code"); setMsg(""); }} style={{ ...linkBtn, color: BRAND.gold }}>I have a code from my coach</button>
+          ) : isInvite || isCode ? (
+            <button onClick={() => { setMode("login"); setMsg(""); }} style={linkBtn}>{isInvite ? "Already have an account? Log in" : "Back to log in"}</button>
+          ) : (
+            <button onClick={() => { setMode("forgot"); setMsg(""); }} style={linkBtn}>Forgot Password?</button>
+          )}
         </div>
-        {!isInvite && (
+        {isForgot && (
+          <div style={{ marginTop: 14, textAlign: "center" }}>
+            <button onClick={() => { setMode("login"); setMsg(""); }} style={{ ...linkBtn, fontSize: 14, color: BRAND.muted }}>Back to log in</button>
+          </div>
+        )}
+        {mode === "login" && (
           <div style={{ marginTop: 14, textAlign: "center", fontFamily: BRAND.sans, fontSize: 14, color: BRAND.muted }}>
             New here? <button onClick={() => setMode("invite")} style={{ ...linkBtn, fontSize: 14, color: BRAND.gold }}>Create your account</button>
           </div>

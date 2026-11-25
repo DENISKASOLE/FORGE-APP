@@ -37,17 +37,62 @@ export function ScheduleTab({ client, updateClient }) {
     </Card>
   );
 }
+// WhatsApp share link to the client's number (or a plain share sheet).
+function waLink(phone, text) {
+  const digits = String(phone || "").replace(/[^\d]/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+// Reset codes are 8 characters (invite codes are 6) - the server only
+// accepts an 8-character code for a password reset (forge-auth).
+function makeResetCode() {
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => abc[b % 32]).join("");
+}
 export function InviteTab({ client, updateClient }) {
   const [code, setCode] = useState(client.inviteCode || makeInviteCode());
+  const [resetCode, setResetCode] = useState("");
+  const [busy, setBusy] = useState(false);
   async function saveInvite() { await updateClientRow(client.id, { invite_code: code, invite_status: "sent" }); updateClient({ ...client, inviteCode: code, inviteStatus: "sent" }); }
-  const link = `${window.location.origin}?invite=${code}`;
+  async function makeReset() {
+    setBusy(true);
+    const next = makeResetCode();
+    try {
+      await updateClientRow(client.id, { invite_code: next });
+      updateClient({ ...client, inviteCode: next });
+      setResetCode(next);
+    } finally { setBusy(false); }
+  }
+  const origin = window.location.origin;
+  const link = `${origin}?invite=${code}`;
+  const first = (client.name || "").split(" ")[0] || "there";
+  const inviteMsg = `Hi ${first}! Here's your Forge app invite: ${link}\nOpen it, choose a password and you're in.`;
+  const resetMsg = `Hi ${first}, here's your Forge password reset code: ${resetCode}\nOpen ${origin}, tap "Forgot Password?", then "I have a code from my coach", and enter your email (${client.email || "your email"}), this code and a new password.`;
+  const label = { fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, lineHeight: 1.6, marginBottom: 12 };
+  const wa = { display: "block", textAlign: "center", marginTop: 10, padding: "12px 16px", borderRadius: 999, background: "#25D366", color: "#fff", fontFamily: BRAND.sans, fontWeight: 600, fontSize: 15, textDecoration: "none" };
+  if (client.client_user_id) {
+    return (
+      <Card>
+        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 8 }}>Login & password</div>
+        <div style={label}>{client.name} has an account{client.email ? <> ({client.email})</> : null}. If they can't log in or the reset email didn't arrive, make a reset code and send it to them. It works once.</div>
+        <Button onClick={makeReset} disabled={busy}>{busy ? "…" : resetCode ? "Make a new code" : "Reset password"}</Button>
+        {resetCode && (
+          <>
+            <div style={{ fontFamily: BRAND.display, fontSize: 30, fontWeight: 700, letterSpacing: ".18em", textAlign: "center", color: BRAND.text, margin: "16px 0 4px" }}>{resetCode}</div>
+            <div style={{ ...label, textAlign: "center", marginBottom: 0 }}>They enter it under Forgot Password? → I have a code from my coach.</div>
+            {client.phone ? <a href={waLink(client.phone, resetMsg)} target="_blank" rel="noreferrer" style={wa}>Send on WhatsApp</a> : null}
+          </>
+        )}
+      </Card>
+    );
+  }
   return (
     <Card>
       <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", color: BRAND.text, marginBottom: 8 }}>Invite Client</div>
-      <div style={{ fontFamily: BRAND.sans, color: BRAND.muted, fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>Client uses this code to claim the profile you created.</div>
+      <div style={label}>Client opens this link, picks a password and is straight in - no confirmation email.</div>
       <Field label="Invite Code" value={code} onChange={(v) => setCode(v.toUpperCase())} />
       <Button onClick={saveInvite} style={{ marginTop: 10 }}>Save Invite</Button>
       <div style={{ fontFamily: BRAND.sans, marginTop: 12, color: BRAND.green, fontSize: 13, wordBreak: "break-all" }}>{link}</div>
+      {client.phone ? <a href={waLink(client.phone, inviteMsg)} target="_blank" rel="noreferrer" onClick={saveInvite} style={wa}>Send on WhatsApp</a> : null}
     </Card>
   );
 }
