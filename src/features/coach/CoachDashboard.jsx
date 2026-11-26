@@ -37,6 +37,7 @@ import { BuddyPairsScreen } from "./BuddyPairs.jsx";
 import { PackageDesigner } from "./PackageDesigner.jsx";
 import { loadTodaysAgenda } from "./coachHelpers.js";
 import { CoachSidebarShell } from "./CoachSidebarShell.jsx";
+import { WhatsAppHomeCard, WhatsAppMessagesScreen } from "./WhatsAppMessages.jsx";
 import { COACH_NAV, TOOLS } from "./coachNav.js";
 import { timeLabel } from "../../lib/clientData.js";
 import { inkOn } from "../../lib/colorUtils.js";
@@ -541,6 +542,7 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
         <Mini label="Adherence" value={adherence != null ? `${adherence}%` : "-"} color={BRAND.green} />
         <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.yellow : BRAND.text} />
       </div>
+      <WhatsAppHomeCard trainerId={user.id} clients={clients} onOpen={() => onTile("whatsapp")} />
       {agenda && (agenda.sessions.length > 0 || agenda.checkInsDue.length > 0 || agenda.paymentsDue.length > 0) && (
         <Card style={{ padding: 16 }}>
           <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 10 }}>Today</div>
@@ -927,6 +929,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "foods") body = <FoodsLibraryScreen trainerId={user.id} onBack={goHome} />;
+  else if (screen === "whatsapp") body = <WhatsAppMessagesScreen trainerId={user.id} clients={clients} onBack={goHome} />;
   else if (screen === "nutrition_dashboard") body = <CoachNutritionDashboard clients={clients} selectClient={selectClient} updateClient={updateClientLocal} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
