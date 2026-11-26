@@ -23,6 +23,7 @@ import { ProgressHub, ProgressTab } from "../progress/ProgressTab.jsx";
 import { TransformPhotos } from "../progress/TransformPhotos.jsx";
 import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
+import { ChallengeScreen } from "../challenges/ChallengeScreens.jsx";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 import { QuickLogMenu } from "../quicklog/QuickLogMenu.jsx";
 import { HomeDaily } from "../home/HomeDaily.jsx";
@@ -81,6 +82,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
     {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "challenge" && <ChallengeScreen client={client} updateClient={updateClient} isCoach={isCoach} onBack={() => setTab("home")} />}
     {tab === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "learn" && <LearnTab client={client} />}
     {tab === "intake" && <IntakeForm client={client} updateClient={updateClient} goTo={setTab} />}
