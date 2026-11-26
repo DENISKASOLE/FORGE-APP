@@ -13,10 +13,10 @@ import { BRAND } from "../theme/tokens.js";
 export class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, message: "" };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: String(error?.message || error || "").slice(0, 200) };
   }
   componentDidCatch(error, info) {
     console.error("Forge crashed:", error, info?.componentStack);
@@ -31,6 +31,8 @@ export class ErrorBoundary extends Component {
           <button onClick={() => window.location.reload()} style={{ width: "100%", background: BRAND.gold, color: BRAND.btnInk, border: "none", borderRadius: 14, padding: 14, fontFamily: BRAND.sans, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
             Reload Forge
           </button>
+          {/* Small error text so a screenshot tells us what broke. */}
+          {this.state.message ? <div style={{ marginTop: 18, color: BRAND.muted, fontSize: 11, lineHeight: 1.5, wordBreak: "break-word", opacity: 0.8 }}>{this.state.message}</div> : null}
         </div>
       </div>
     );
