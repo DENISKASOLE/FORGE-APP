@@ -25,7 +25,6 @@ export const TOOLS = [
   { key: "trials", name: "Trials", meta: "Consults & assessments", icon: "trials", color: BRAND.red },
   { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot", icon: "buddypairs", color: BRAND.orange },
   { key: "content", name: "Content", meta: "Forge Academy articles", icon: "content", color: BRAND.blue },
-  { key: "payments", name: "Payments", meta: "Plans & invoices", icon: "payments", color: BRAND.green },
   { key: "packages", name: "Packages", meta: "Design your offers", icon: "packages", color: BRAND.violet },
   { key: "forms", name: "Intake Forms", meta: "Onboarding & health", icon: "forms", color: BRAND.yellow },
   { key: "broadcast", name: "Broadcast", meta: "Message every client", icon: "broadcast", color: BRAND.red },
