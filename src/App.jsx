@@ -26,7 +26,7 @@ import { ClientView } from "./features/client-shell/ClientView.jsx";
   - Seamless trainer account creation
   - Forgot password via Supabase Auth
   - Coach dashboard: each trainer sees only their own clients
-  - Denis keeps existing unassigned clients if logged in with kendenisdubai@gmail.com
+  - Denis keeps existing unassigned clients if logged in with kendenis361@gmail.com
   - Invite-based client access: coach creates profile first, client claims it with invite code
   - Client portal: food log, workout log, progress photos, profile view
   - Program builder restored to previous week/day style, with AI builder and recap

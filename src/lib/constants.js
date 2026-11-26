@@ -1,4 +1,4 @@
-export const DENIS_EMAIL = "kendenisdubai@gmail.com";
+export const DENIS_EMAIL = "kendenis361@gmail.com"; // Denis's real coach login (Nov 26 2026)
 
 export const GOAL_OPTIONS = [
   "Fat Loss",
