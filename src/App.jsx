@@ -228,6 +228,9 @@ export default function App() {
     // above, or a plain refresh from an already-rendered coach dashboard -
     // means the role is settled as coach, so it's safe to render CoachRoutes.
     setIsCoachConfirmed(true);
+    // A login that was briefly a client (Nov 26 2026) can still have a
+    // client portal in its device cache - the coach app must replace it.
+    setClientPortal(null);
     const { data: trainerRow, error: trainerRowErr } = await supabase.from("trainers").select("*").eq("id", user.id).maybeSingle();
     if (trainerRowErr) throw trainerRowErr;
     setTrainer(trainerRow || { id: user.id, name: user.email?.split("@")[0], email: user.email });
