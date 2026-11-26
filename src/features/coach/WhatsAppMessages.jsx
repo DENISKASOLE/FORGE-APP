@@ -9,7 +9,10 @@ import { Card } from "../../components/ui/Card.jsx";
 import { textareaStyle } from "../../components/ui/Field.jsx";
 import { ClientAvatar } from "../client-shell/ClientShellUI.jsx";
 import { useWhatsAppState } from "./useWhatsAppState.js";
-import { KINDS, buildQueue, mergedSettings, waLink, DEFAULT_TEMPLATES } from "../../lib/whatsappQueue.js";
+import { updateClientRow } from "../../lib/cache.js";
+import { showToast } from "../../components/ui/Toast.jsx";
+import { inputStyle } from "../../components/ui/Field.jsx";
+import { KINDS, buildQueue, mergedSettings, waLink, waNumber, DEFAULT_TEMPLATES } from "../../lib/whatsappQueue.js";
 
 const WA_GREEN = "#25D366";
 const kindLabel = Object.fromEntries(KINDS.map((k) => [k.kind, k.label]));
@@ -36,7 +39,31 @@ export function WhatsAppHomeCard({ trainerId, clients, onOpen }) {
   );
 }
 
-function MessageRow({ item, onSent, onSkip }) {
+// Inline "add a phone number" for clients who don't have one (Nov 26 2026).
+function AddPhone({ client, updateClient }) {
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    const value = phone.trim();
+    if (!waNumber(value)) { showToast("That doesn't look like a phone number. Try e.g. 050 123 4567.", "warn"); return; }
+    setBusy(true);
+    try {
+      await updateClientRow(client.id, { phone: value });
+      updateClient?.({ ...client, phone: value });
+      showToast(`Saved ${client.name.split(" ")[0]}'s number`, "success");
+    } catch (e) {
+      showToast(e?.message || "Couldn't save the number", "error");
+    } finally { setBusy(false); }
+  }
+  return (
+    <div style={{ display: "flex", gap: 8, flex: 1 }}>
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} type="tel" inputMode="tel" placeholder="Add phone number" style={{ ...inputStyle(), flex: 1, minWidth: 0 }} />
+      <Button onClick={save} disabled={busy} style={{ padding: "10px 16px" }}>{busy ? "…" : "Save"}</Button>
+    </div>
+  );
+}
+
+function MessageRow({ item, onSent, onSkip, updateClient }) {
   const [text, setText] = useState(item.text);
   const [editing, setEditing] = useState(false);
   const link = waLink(item.phone, text);
@@ -59,7 +86,7 @@ function MessageRow({ item, onSent, onSkip }) {
           <a href={link} target="_blank" rel="noreferrer" onClick={() => setTimeout(() => onSent(item), 300)}
             style={{ flex: 1, textAlign: "center", padding: "12px 16px", borderRadius: 999, background: WA_GREEN, color: "#fff", fontFamily: BRAND.sans, fontWeight: 600, fontSize: 15, textDecoration: "none" }}>Send on WhatsApp</a>
         ) : (
-          <div style={{ flex: 1, textAlign: "center", padding: "12px 16px", borderRadius: 999, background: BRAND.card2, color: BRAND.muted, fontSize: 13 }}>No phone number saved</div>
+          <AddPhone client={item.client} updateClient={updateClient} />
         )}
         <Button variant="ghost" onClick={() => onSkip(item)} style={{ padding: "10px 16px" }}>Skip</Button>
       </div>
@@ -67,7 +94,7 @@ function MessageRow({ item, onSent, onSkip }) {
   );
 }
 
-function SettingsPanel({ settings, clients, onChange }) {
+function SettingsPanel({ settings, clients, onChange, updateClient }) {
   const s = mergedSettings(settings);
   const set = (patch) => onChange({ ...settings, ...patch });
   return (
@@ -96,11 +123,23 @@ function SettingsPanel({ settings, clients, onChange }) {
           </label>
         ))}
       </Card>
+      {(clients || []).some((c) => !waNumber(c.phone)) && (
+        <Card style={{ padding: 14 }}>
+          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Missing phone numbers</div>
+          <div style={{ color: BRAND.muted, fontSize: 12, marginBottom: 10 }}>Add one so their messages get a Send button.</div>
+          {(clients || []).filter((c) => !waNumber(c.phone)).sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((c) => (
+            <div key={c.id} style={{ padding: "8px 0", borderTop: `1px solid ${BRAND.line}` }}>
+              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>{c.name}</div>
+              <AddPhone client={c} updateClient={updateClient} />
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }
 
-export function WhatsAppMessagesScreen({ trainerId, clients, onBack }) {
+export function WhatsAppMessagesScreen({ trainerId, clients, onBack, updateClient }) {
   const [state, save] = useWhatsAppState(trainerId);
   const [showSettings, setShowSettings] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -121,13 +160,13 @@ export function WhatsAppMessagesScreen({ trainerId, clients, onBack }) {
         </div>
       </div>
       {!state ? <div style={{ color: BRAND.muted, fontSize: 14 }}>Loading…</div>
-        : showSettings ? <SettingsPanel settings={state.settings} clients={clients} onChange={(settings) => save({ ...state, settings })} />
+        : showSettings ? <SettingsPanel settings={state.settings} clients={clients} updateClient={updateClient} onChange={(settings) => save({ ...state, settings })} />
         : queue.length === 0 ? (
           <Card style={{ padding: 24, textAlign: "center" }}>
             <div style={{ fontWeight: 600, fontSize: 16 }}>All caught up ✓</div>
             <div style={{ color: BRAND.muted, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>New messages show up here as the day goes on: session reminders, follow-ups, missed workouts, check-ins and payments.</div>
           </Card>
-        ) : queue.map((item) => <MessageRow key={item.key} item={item} onSent={(i) => mark(i, "sent")} onSkip={(i) => mark(i, "skipped")} />)}
+        ) : queue.map((item) => <MessageRow key={item.key} item={item} updateClient={updateClient} onSent={(i) => mark(i, "sent")} onSkip={(i) => mark(i, "skipped")} />)}
     </div>
   );
 }
