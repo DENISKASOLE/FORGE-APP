@@ -51,6 +51,19 @@ async function loadExerciseLibraryData(trainerId) {
     const { data, error } = await supabase.from("trainer_data").select("data").eq("trainer_id", trainerId).eq("section", "custom_exercise_library").maybeSingle();
     if (error) throw error;
     const items = Array.isArray(data?.data?.items) ? data.data.items : [];
+    if (!data) {
+      // No library row on the server (it was wiped by mistake on Nov 26
+      // 2026): never overwrite the device copy with nothing. If this is the
+      // coach's own device, put the device copy back on the server.
+      const local = readJson(key, []) || [];
+      if (local.length) {
+        const { data: auth } = await supabase.auth.getUser();
+        if (auth?.user?.id === trainerId) {
+          await supabase.from("trainer_data").upsert({ trainer_id: trainerId, section: "custom_exercise_library", data: { items: local } }, { onConflict: "trainer_id,section" });
+        }
+        return local;
+      }
+    }
     writeJson(key, items);
     return items;
   } catch {
