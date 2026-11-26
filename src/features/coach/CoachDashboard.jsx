@@ -38,6 +38,7 @@ import { PackageDesigner } from "./PackageDesigner.jsx";
 import { loadTodaysAgenda } from "./coachHelpers.js";
 import { CoachSidebarShell } from "./CoachSidebarShell.jsx";
 import { WhatsAppHomeCard, WhatsAppMessagesScreen } from "./WhatsAppMessages.jsx";
+import { CoachChallengesScreen } from "../challenges/ChallengeScreens.jsx";
 import { COACH_NAV, TOOLS } from "./coachNav.js";
 import { timeLabel } from "../../lib/clientData.js";
 import { inkOn } from "../../lib/colorUtils.js";
@@ -933,6 +934,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients: allClients,
   else if (screen === "forms") body = <CoachIntakeFormsScreen user={user} clients={clients} selectClient={selectClient} onBack={goHome} />;
   else if (screen === "broadcast") body = <CoachBroadcastScreen clients={clients} refresh={refresh} onBack={goHome} />;
   else if (screen === "automations") body = <CoachAutomationsScreen user={user} onBack={goHome} />;
+  else if (screen === "challenges") body = <CoachChallengesScreen clients={clients} updateClient={updateClientLocal} coachName={trainer?.name ? `Coach ${String(trainer.name).split(" ")[0]}` : ""} onBack={goHome} />;
   else if (screen === "buddypairs") body = <BuddyPairsScreen user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "packages") body = <PackageDesigner user={user} clients={clients} updateClient={updateClientLocal} onBack={goHome} />;
   else if (screen === "foods") body = <FoodsLibraryScreen trainerId={user.id} onBack={goHome} />;

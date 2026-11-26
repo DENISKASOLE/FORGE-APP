@@ -15,6 +15,7 @@ import {
   Lightning,
   ForkKnife,
   NotePencil,
+  Flag,
 } from "@phosphor-icons/react";
 
 const COACH_ICON_COMPONENTS = {
@@ -34,6 +35,7 @@ const COACH_ICON_COMPONENTS = {
   automations: Lightning,
   foods: ForkKnife,
   nutrition_plans: NotePencil,
+  challenges: Flag,
 };
 
 export function CoachIcon({ name, size = 22, color = "currentColor" }) {

@@ -5,6 +5,7 @@ import { isoDate } from "../../lib/dateUtils.js";
 import { upsertSection } from "../../lib/clientData.js";
 import { currentProgramWeek, workoutForDay, exerciseCountOf } from "../../lib/programModel.js";
 import { sessionForWorkout, parseSeconds } from "../../lib/trainingLogs.js";
+import { ChallengeHomeCard } from "../challenges/ChallengeScreens.jsx";
 import { NotificationBell } from "./NotificationBell.jsx";
 import { MOODS, weekOf, dayNutrition, habitsFor, habitGoals, weightInfo, measurementInfo, bodyFatInfo, proteinStreak, energyInfo, shortDate } from "./homeData.js";
 
@@ -138,6 +139,9 @@ export function HomeDaily({ client, updateClient, goTo, openLog }) {
           })}
         </div>
       </div>
+
+      {/* Coach-set challenge (Nov 26 2026) - only shows when one is running. */}
+      <ChallengeHomeCard client={client} onOpen={goTo ? () => goTo("challenge") : undefined} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         <button onClick={goTo ? () => goTo("nutrition") : undefined} aria-label="Calories" style={{ ...card, padding: 14, textAlign: "center", color: BRAND.text, fontFamily: "inherit", cursor: goTo ? "pointer" : "default", width: "100%" }}>

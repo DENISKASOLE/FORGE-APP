@@ -23,6 +23,7 @@ export const TOOLS = [
   { key: "calendar", name: "Calendar", meta: "Sessions & bookings", icon: "calendar", color: BRAND.violet },
   { key: "analytics", name: "Analytics", meta: "Adherence & trends", icon: "analytics", color: BRAND.green },
   { key: "trials", name: "Trials", meta: "Consults & assessments", icon: "trials", color: BRAND.red },
+  { key: "challenges", name: "Challenges", meta: "Daily goals for 30-90 days", icon: "challenges", color: BRAND.orange },
   { key: "buddypairs", name: "Buddy Pairs", meta: "Two clients, one slot", icon: "buddypairs", color: BRAND.orange },
   { key: "content", name: "Content", meta: "Forge Academy articles", icon: "content", color: BRAND.blue },
   { key: "packages", name: "Packages", meta: "Design your offers", icon: "packages", color: BRAND.violet },

@@ -207,6 +207,8 @@ export function mapClient(row, dataRows = [], index = 0) {
     // Coach-only per-client notes (Nov 2026, replaces the coach Messages tab).
     coachNotes: sections.coach_notes?.list || [],
     progressReportHistory: sections.progress_report_history?.entries || [],
+    // Coach-set challenges (Nov 26 2026) - lib/challenges.js.
+    challenges: Array.isArray(sections.challenges?.items) ? sections.challenges.items : [],
     notes: profile.notes || row.notes || "",
   };
 }
