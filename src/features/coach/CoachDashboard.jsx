@@ -41,6 +41,7 @@ import { WhatsAppHomeCard, WhatsAppMessagesScreen } from "./WhatsAppMessages.jsx
 import { COACH_NAV, TOOLS } from "./coachNav.js";
 import { timeLabel } from "../../lib/clientData.js";
 import { inkOn } from "../../lib/colorUtils.js";
+import { usePrivateUnlocked, setPrivateUnlocked, isPrivateUnlocked, visibleClients, makeSecretTap } from "../../lib/privateMode.js";
 
 async function loadExerciseLibraryData(trainerId) {
   if (!trainerId) return [];
@@ -69,7 +70,7 @@ export function AddClientModal({ onClose, onCreate }) {
         </div>
         <div style={{ marginBottom: 14 }}>
           <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Client type</div>
-          <div style={{ display: "flex", gap: 8 }}>{CLIENT_TYPES.map((t) => <button key={t} onClick={() => setProfile("clientType", t)} style={{ fontFamily: BRAND.sans, border: `${BRAND.hairline} solid ${form.profile.clientType === t ? "transparent" : BRAND.line}`, background: form.profile.clientType === t ? BRAND.btnBg : BRAND.card2, color: form.profile.clientType === t ? BRAND.btnInk : BRAND.text, borderRadius: 999, padding: "8px 16px", fontWeight: 500, fontSize: 13, cursor: "pointer" }}>{t}</button>)}</div>
+          <div style={{ display: "flex", gap: 8 }}>{CLIENT_TYPES.filter((t) => t !== "Online" || isPrivateUnlocked()).map((t) => <button key={t} onClick={() => setProfile("clientType", t)} style={{ fontFamily: BRAND.sans, border: `${BRAND.hairline} solid ${form.profile.clientType === t ? "transparent" : BRAND.line}`, background: form.profile.clientType === t ? BRAND.btnBg : BRAND.card2, color: form.profile.clientType === t ? BRAND.btnInk : BRAND.text, borderRadius: 999, padding: "8px 16px", fontWeight: 500, fontSize: 13, cursor: "pointer" }}>{t}</button>)}</div>
           <div style={{ color: BRAND.muted, fontSize: 12, fontWeight: 400, marginTop: 6 }}>{form.profile.clientType === "Online" ? "Online clients get Check-ins and Payments instead of Schedule and Packages." : "1:1 clients keep the in-person Schedule and Packages tabs."}</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
@@ -835,8 +836,13 @@ export function CoachSettingsTab({ user, trainer, onEditProfile, clientsCount, s
 // them (e.g. from a router route) to drive navigation externally, or omit
 // them to fall back to this component's own internal state - unchanged
 // from how it always worked before routes existed.
-export function CoachDashboard({ user, trainer, setTrainer, clients, setClients, selectClient, refresh, syncStatus = "online", tab: tabProp, setTab: setTabProp, screen: screenProp, setScreen: setScreenProp }) {
+export function CoachDashboard({ user, trainer, setTrainer, clients: allClients, setClients, selectClient, refresh, syncStatus = "online", tab: tabProp, setTab: setTabProp, screen: screenProp, setScreen: setScreenProp }) {
   const trainerPhotoUrl = usePhotoUrl(trainer?.photo);
+  // Online clients stay hidden everywhere unless private mode is unlocked
+  // (5 taps on the "Clients" title) - see lib/privateMode.js.
+  const privateOn = usePrivateUnlocked();
+  const clients = visibleClients(allClients, privateOn);
+  const [secretTap] = useState(() => makeSecretTap(() => setPrivateUnlocked(!isPrivateUnlocked())));
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [tabState, setTabState] = useState("home");
@@ -856,7 +862,8 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   // Matches CoachSidebarShell's own breakpoint exactly (DESKTOP_SIDEBAR_MIN)
   // - whenever the sidebar is showing, the old bottom nav shouldn't be too.
   const isDesktop = !isMobile && !isTablet;
-  const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) && (c.clientType || "1:1") === clientTypeFilter);
+  const typeFilter = privateOn ? clientTypeFilter : "1:1";
+  const filtered = clients.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) && (c.clientType || "1:1") === typeFilter);
   function adherenceSortValue(c) { const a = overallAdherence(c.program, c.trainingLogs); return a.total > 0 ? a.pct : 101; }
   const sorted = sortBy === "name" ? [...filtered].sort((a, b) => a.name.localeCompare(b.name))
     : sortBy === "adherence" ? [...filtered].sort((a, b) => adherenceSortValue(a) - adherenceSortValue(b))
@@ -942,13 +949,21 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
   else if (tab === "clients") body = (
     <div style={{ display: "grid", gap: 14 }}>
       <div>
-        <div style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em" }}>Clients</div>
-        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{filtered.length} {clientTypeFilter === "1:1" ? "in-person" : "online"}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div onClick={secretTap} style={{ fontFamily: BRAND.display, fontSize: 26, fontWeight: 500, letterSpacing: "-0.01em", userSelect: "none", WebkitUserSelect: "none", WebkitTapHighlightColor: "transparent" }}>Clients</div>
+          {privateOn && (
+            <button type="button" aria-label="Lock" title="Hide online clients" onClick={() => { setPrivateUnlocked(false); setClientTypeFilter("1:1"); }}
+              style={{ width: 36, height: 36, borderRadius: 999, border: `${BRAND.hairline} solid ${BRAND.line}`, background: BRAND.card2, color: BRAND.muted, display: "grid", placeItems: "center", cursor: "pointer" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+            </button>
+          )}
+        </div>
+        <div style={{ color: BRAND.muted, fontSize: 13, fontWeight: 400, marginTop: 3 }}>{filtered.length} {typeFilter === "1:1" ? "in-person" : "online"}</div>
       </div>
-      <div style={{ display: "flex", gap: 8, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 4 }}>
+      {privateOn && <div style={{ display: "flex", gap: 8, background: BRAND.card2, border: `${BRAND.hairline} solid ${BRAND.line}`, borderRadius: 999, padding: 4 }}>
         <button onClick={() => setClientTypeFilter("1:1")} style={{ fontFamily: BRAND.sans, flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "1:1" ? BRAND.btnBg : "transparent", color: clientTypeFilter === "1:1" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>In-Person</button>
         <button onClick={() => setClientTypeFilter("Online")} style={{ fontFamily: BRAND.sans, flex: 1, padding: "10px 0", borderRadius: 999, border: "none", background: clientTypeFilter === "Online" ? BRAND.btnBg : "transparent", color: clientTypeFilter === "Online" ? BRAND.btnInk : BRAND.muted, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>Online</button>
-      </div>
+      </div>}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto auto", gap: 10 }}>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search clients..." style={inputStyle()} />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={inputStyle({ width: "auto" })}>
@@ -966,7 +981,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients, setClients,
       }}>
         {sorted.map((c, i) => <ClientCard key={c.id} client={c} onClick={() => selectClient(c)} index={i} />)}
       </div>
-      {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No {clientTypeFilter === "1:1" ? "in-person" : "online"} clients{query ? " match that search" : " yet"}.</div></Card>}
+      {filtered.length === 0 && <Card><div style={{ color: BRAND.muted }}>No {typeFilter === "1:1" ? "in-person" : "online"} clients{query ? " match that search" : " yet"}.</div></Card>}
     </div>
   );
   else if (tab === "tools") body = <CoachToolsTab onOpen={(k) => { setToolOrigin("tools"); setScreen(k); }} />;
