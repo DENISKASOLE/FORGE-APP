@@ -176,6 +176,9 @@ export default function App() {
     // Any failed request means "couldn't reach the server", never "this
     // account doesn't exist" - throwing keeps the on-device data on screen
     // instead of signing someone out on a bad signal.
+    // Denis's own login is always the coach - never treat it as a client,
+    // even if a client profile ends up linked to it (Nov 26 2026).
+    if ((user.email || "").toLowerCase() === DENIS_EMAIL) { await ensureTrainer(user); await loadCoach(user); return; }
     const first = await supabase.from("clients").select("*").eq("client_user_id", user.id).maybeSingle();
     if (first.error) throw first.error;
     let clientMatch = first.data;
