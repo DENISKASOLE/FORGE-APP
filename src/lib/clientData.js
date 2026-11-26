@@ -1,3 +1,4 @@
+import { injuriesText } from "./injuries.js";
 import { supabase } from "../supabaseClient.js";
 import { isoDate } from "./dateUtils.js";
 import "./cache.js"; // registers the Supabase sender for the outbox
@@ -132,6 +133,7 @@ export function mapClient(row, dataRows = [], index = 0) {
   const profile = { ...emptyProfile(), ...(sections.profile || {}) };
   profile.goals = normalizeGoals(profile.goals?.length ? profile.goals : row.goal);
   if (!profile.injuries && row.injuries) profile.injuries = normalizeInjuries(row.injuries).join("\n");
+  if (profile.injuries != null && typeof profile.injuries !== "string") profile.injuries = injuriesText(profile.injuries);
   return {
     id: row.id,
     trainer_id: row.trainer_id,

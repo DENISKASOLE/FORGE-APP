@@ -1,7 +1,8 @@
+import { injuriesText } from "../../lib/injuries.js";
 import { BRAND } from "../../theme/tokens.js";
 
 export function InjuryBanner({ client }) {
-  const text = (client.profile?.injuries || "").trim();
+  const text = injuriesText(client.profile?.injuries);
   if (!text || /^none\b/i.test(text) || /^no\b/i.test(text) || /^n\/a$/i.test(text)) return null;
   return (
     <div style={{ background: BRAND.yellowBg, borderBottom: `1px solid ${BRAND.yellow}`, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>

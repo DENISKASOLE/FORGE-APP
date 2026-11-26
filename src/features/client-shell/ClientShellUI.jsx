@@ -1,3 +1,4 @@
+import { injuriesText } from "../../lib/injuries.js";
 import { useState } from "react";
 import { DeleteAccountScreen } from "./DeleteAccount.jsx";
 import { supabase } from "../../supabaseClient.js";
@@ -53,7 +54,7 @@ export function ScheduledView({ clients, selectClient }) {
 export function ClientCard({ client, onClick }) {
   const isCompact = useIsMobile(520);
   const goals = client.goals?.join(" + ") || client.goal || "General Fitness";
-  const injuries = (client.profile?.injuries || "").trim();
+  const injuries = injuriesText(client.profile?.injuries);
   const isOnline = client.clientType === "Online";
   return (
     <button
