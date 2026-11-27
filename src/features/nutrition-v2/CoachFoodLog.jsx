@@ -28,9 +28,9 @@ function MealPhoto({ path, alt }) {
   return (
     <>
       <button onClick={() => url && setOpen(true)} aria-label={`Open photo of ${alt}`}
-        style={{ display: "block", marginTop: 8, padding: 0, border: "none", borderRadius: 14, overflow: "hidden", cursor: url ? "zoom-in" : "default", background: BRAND.card2, width: "100%", maxWidth: 260, aspectRatio: "4 / 3" }}>
+        style={{ display: "block", padding: 0, border: `1px solid ${BRAND.line}`, borderRadius: 8, overflow: "hidden", cursor: url ? "zoom-in" : "default", background: BRAND.card2, width: 44, height: 44, flexShrink: 0 }}>
         {url ? <img src={url} alt={alt} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          : <span style={{ display: "grid", placeItems: "center", height: "100%", color: BRAND.muted, fontSize: 12 }}>Loading photo…</span>}
+          : <span style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 14 }}>📷</span>}
       </button>
       {open && createPortal(
         <div onClick={() => setOpen(false)} role="dialog" aria-label="Meal photo"
@@ -106,7 +106,9 @@ export function CoachFoodLog({ plans, logs }) {
               <div style={{ color: BRAND.muted, fontSize: 13 }}>{r(t.kcal)} kcal · {r(t.protein)}P</div>
             </div>
             {[...g.items].sort(sortTime).map((e) => (
-              <div key={e.id} style={{ padding: "10px 0", borderTop: `1px solid ${BRAND.line}`, marginTop: 8 }}>
+              <div key={e.id} style={{ padding: "10px 0", borderTop: `1px solid ${BRAND.line}`, marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <MealPhoto path={e.photo} alt={e.name || "meal"} />
+                <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontSize: 15, fontWeight: 500, minWidth: 0 }}>
                     {e.name || "Food"}{e.qty ? <span style={{ color: BRAND.muted, fontWeight: 400 }}> · {e.qty}{e.unit ? ` ${e.unit}` : ""}</span> : null}
@@ -119,8 +121,8 @@ export function CoachFoodLog({ plans, logs }) {
                   </span>
                   <span style={{ whiteSpace: "nowrap" }}>P {r(e.macros?.protein)} · C {r(e.macros?.carbs)} · F {r(e.macros?.fat)}</span>
                 </div>
-                <MealPhoto path={e.photo} alt={e.name || "meal"} />
                 {e.reason ? <div style={{ ...screenLabel, textTransform: "none", letterSpacing: 0, fontSize: 12, marginTop: 4 }}>Note: {e.reason}</div> : null}
+                </div>
               </div>
             ))}
           </div>
