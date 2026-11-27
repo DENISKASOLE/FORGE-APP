@@ -3,6 +3,8 @@
 // scanned, photo/description estimates - with or without a nutrition plan.
 // Read-only.
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { usePhotoUrl } from "../../lib/storage.js";
 import { BRAND } from "../../theme/tokens.js";
 import { screenCard, screenLabel } from "../../components/ui/screenStyles.js";
 import { isoDate } from "../../lib/dateUtils.js";
@@ -17,6 +19,28 @@ const fmtDay = (iso, todayISO) => {
   return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 };
 const navBtn = { width: 40, height: 40, borderRadius: 999, border: `1px solid ${BRAND.line}`, background: BRAND.card2, color: BRAND.text, fontSize: 18, cursor: "pointer", display: "grid", placeItems: "center" };
+
+// The client's meal photo: thumbnail in the entry, full screen on tap.
+function MealPhoto({ path, alt }) {
+  const url = usePhotoUrl(path);
+  const [open, setOpen] = useState(false);
+  if (!path) return null;
+  return (
+    <>
+      <button onClick={() => url && setOpen(true)} aria-label={`Open photo of ${alt}`}
+        style={{ display: "block", marginTop: 8, padding: 0, border: "none", borderRadius: 14, overflow: "hidden", cursor: url ? "zoom-in" : "default", background: BRAND.card2, width: "100%", maxWidth: 260, aspectRatio: "4 / 3" }}>
+        {url ? <img src={url} alt={alt} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          : <span style={{ display: "grid", placeItems: "center", height: "100%", color: BRAND.muted, fontSize: 12 }}>Loading photo…</span>}
+      </button>
+      {open && createPortal(
+        <div onClick={() => setOpen(false)} role="dialog" aria-label="Meal photo"
+          style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,.92)", display: "grid", placeItems: "center", padding: 16, cursor: "zoom-out" }}>
+          <img src={url} alt={alt} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 12 }} />
+          <div style={{ position: "fixed", top: 16, right: 18, color: "#fff", fontSize: 28, lineHeight: 1 }}>×</div>
+        </div>, document.body)}
+    </>
+  );
+}
 
 export function CoachFoodLog({ plans, logs }) {
   const todayISO = isoDate();
@@ -91,10 +115,11 @@ export function CoachFoodLog({ plans, logs }) {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 3, color: BRAND.muted, fontSize: 12 }}>
                   <span>
-                    {[e.time, SOURCE[e.source] || e.source, e.estimate ? "estimate" : null, e.photo ? "📷" : null, e.enteredBy === "claude" ? "added by Claude" : null].filter(Boolean).join(" · ")}
+                    {[e.time, SOURCE[e.source] || e.source, e.estimate ? "estimate" : null, e.enteredBy === "claude" ? "added by Claude" : null].filter(Boolean).join(" · ")}
                   </span>
                   <span style={{ whiteSpace: "nowrap" }}>P {r(e.macros?.protein)} · C {r(e.macros?.carbs)} · F {r(e.macros?.fat)}</span>
                 </div>
+                <MealPhoto path={e.photo} alt={e.name || "meal"} />
                 {e.reason ? <div style={{ ...screenLabel, textTransform: "none", letterSpacing: 0, fontSize: 12, marginTop: 4 }}>Note: {e.reason}</div> : null}
               </div>
             ))}
