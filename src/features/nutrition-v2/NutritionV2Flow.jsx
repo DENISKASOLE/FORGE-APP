@@ -6,6 +6,7 @@ import { NutritionV2Progress } from "./NutritionV2Progress.jsx";
 import { FuelToday } from "./FuelToday.jsx";
 import { FuelWeek } from "./FuelWeek.jsx";
 import { FuelPlanView } from "./FuelPlanView.jsx";
+import { CoachFoodLog } from "./CoachFoodLog.jsx";
 import { isoDate } from "../../lib/dateUtils.js";
 
 // Unified replacement for food_log/macros/prescribed_plan (DECISIONS.md
@@ -16,7 +17,8 @@ import { isoDate } from "../../lib/dateUtils.js";
 // client-facing shell - FuelToday with FuelWeek pushed over it, the
 // coach Nutrition dashboard (Coach.dc.html) still to come.
 export function NutritionV2Flow({ client, updateClient, isCoach }) {
-  const [coachTab, setCoachTab] = useState("builder");
+  // Coach opens on the client's Food log (Nov 27 2026) - what they actually ate.
+  const [coachTab, setCoachTab] = useState("log");
   const [clientScreen, setClientScreen] = useState("today");
   const [logs, setLogs] = useState(() => normalizeLogs(client.nutritionV2Logs));
   const [marks, setMarks] = useState(() => normalizeMarks(client.nutritionV2Marks));
@@ -47,11 +49,13 @@ export function NutritionV2Flow({ client, updateClient, isCoach }) {
   if (isCoach) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Chip selected={coachTab === "log"} onClick={() => setCoachTab("log")}>Food log</Chip>
           <Chip selected={coachTab === "builder"} onClick={() => setCoachTab("builder")}>Plan builder</Chip>
           <Chip selected={coachTab === "week"} onClick={() => setCoachTab("week")}>Week plan</Chip>
           <Chip selected={coachTab === "review"} onClick={() => setCoachTab("review")}>Weekly review</Chip>
         </div>
+        {coachTab === "log" && <CoachFoodLog key={client.id} plans={plans} logs={logs} />}
         {coachTab === "builder" && <CoachPlanBuilderV2 client={client} updateClient={updateClient} />}
         {coachTab === "week" && <FuelPlanView coach plans={plans} dateISO={isoDate()} todayISO={isoDate()} />}
         {coachTab === "review" && <NutritionV2Progress key={client.id} client={client} updateClient={updateClient} isCoach plans={plans} logs={logs} marks={marks} />}
