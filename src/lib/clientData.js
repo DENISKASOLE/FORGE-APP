@@ -209,6 +209,8 @@ export function mapClient(row, dataRows = [], index = 0) {
     progressReportHistory: sections.progress_report_history?.entries || [],
     // Coach-set challenges (Nov 26 2026) - lib/challenges.js.
     challenges: Array.isArray(sections.challenges?.items) ? sections.challenges.items : [],
+    // Session usage + cancellations (Nov 28 2026) - lib/sessionLedger.js.
+    sessionLedger: sections.session_ledger || null,
     notes: profile.notes || row.notes || "",
   };
 }

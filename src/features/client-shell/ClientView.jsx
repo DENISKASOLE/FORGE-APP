@@ -24,6 +24,8 @@ import { TransformPhotos } from "../progress/TransformPhotos.jsx";
 import { ProgramTab } from "../train/TrainScreens.jsx";
 import { NutritionFlow } from "../nutrition/NutritionFlow.jsx";
 import { ChallengeScreen } from "../challenges/ChallengeScreens.jsx";
+import { SessionsScreen } from "../sessions/SessionsScreens.jsx";
+import { activePackage, packageLeft, upcomingSessions } from "../../lib/sessionLedger.js";
 import { ClientBottomNav, HubScreen, ClientAvatar, ClientSettingsModal } from "./ClientShellUI.jsx";
 import { QuickLogMenu } from "../quicklog/QuickLogMenu.jsx";
 import { HomeDaily } from "../home/HomeDaily.jsx";
@@ -37,6 +39,13 @@ import { inkOn } from "../../lib/colorUtils.js";
 // worked before routes existed.
 const MAIN_TABS = ["home", "program", "train_hub", "nutrition", "progress_hub"];
 
+function sessionsSub(client) {
+  const p = activePackage(client);
+  const next = upcomingSessions(client, new Date(), 14)[0];
+  const left = p ? `${packageLeft(p)} of ${p.total} left` : "Upcoming sessions";
+  return next ? `${left} · next ${new Date(`${next.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short" })} ${next.time}` : left;
+}
+
 export function ClientView({ client, updateClient, back, refresh, isCoach = true, tab: tabProp, setTab: setTabProp }) {
   const [tabState, setTabState] = useState(isCoach ? "profile" : "home");
   const tab = tabProp !== undefined ? tabProp : tabState;
@@ -45,7 +54,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const [quickView, setQuickView] = useState(null);
   // Native navigation feel (client side): swipe from the left edge to go
   // back from a sub-screen, and each tab remembers where you scrolled to.
-  const backTarget = isCoach ? null : ["payments", "profile", "ai_coach"].includes(tab) ? "me_hub" : tab === "me_hub" ? "home" : null;
+  const backTarget = isCoach ? null : ["payments", "profile", "ai_coach", "sessions"].includes(tab) ? "me_hub" : tab === "me_hub" ? "home" : null;
   const swipeRef = useEdgeSwipeBack(() => backTarget && setTab(backTarget), !!backTarget);
   useTabScrollMemory(tab, MAIN_TABS);
   const isMobile = useIsMobile(520);
@@ -55,6 +64,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const tabs = isCoach ? [
     ["profile", "Profile"], ["program", "Program"], ["nutrition", "Nutrition"], ["progress", "Progress"], ["photos", "Photos"],
     isOnline ? ["checkins", "Check-ins"] : ["schedule", "Schedule"],
+    ...(isOnline ? [] : [["sessions", "Sessions"]]),
     isOnline ? ["payments", "Payments"] : ["packages", "Packages"],
     ["notes", "Notes"], ["invite", "Invite"],
   ] : [
@@ -82,6 +92,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
     {tab === "photos" && <TransformPhotos client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "schedule" && <ScheduleTab client={client} updateClient={updateClient} />}
     {tab === "packages" && <PackagesTab client={client} updateClient={updateClient} isCoach={isCoach} />}
+    {tab === "sessions" && <SessionsScreen client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "challenge" && <ChallengeScreen client={client} updateClient={updateClient} isCoach={isCoach} onBack={() => setTab("home")} />}
     {tab === "checkins" && <CheckInsTab client={client} updateClient={updateClient} isCoach={isCoach} />}
     {tab === "learn" && <LearnTab client={client} />}
@@ -141,7 +152,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   // ---- CLIENT: bottom nav (Home / Nutrition / Train / Me) with hub screens, full-bleed content, no top bar ----
   // "Me" is reached from the photo top-right (Nov 2026), so Me itself goes
   // back to Home and its sub-screens go back to Me.
-  const parentHub = ["payments", "profile", "ai_coach"].includes(tab) ? "me_hub" : tab === "me_hub" ? "home" : null;
+  const parentHub = ["payments", "profile", "ai_coach", "sessions"].includes(tab) ? "me_hub" : tab === "me_hub" ? "home" : null;
   const parentHubLabel = tab === "me_hub" ? "Home" : "Me";
   const unreadMessages = (client.messages || []).filter((m) => m.from === "coach" && !m.read).length;
   // Photo top-right on every main screen except Home (which has its own in
@@ -155,6 +166,7 @@ export function ClientView({ client, updateClient, back, refresh, isCoach = true
   const meCards = [
     ...(isCoach ? [] : [{ key: "whatsapp", icon: "msg", color: BRAND.green, title: "Message your coach", sub: "Opens WhatsApp" }]),
     ...(isCoach ? [] : [{ key: "ai_coach", icon: "msg", color: BRAND.blue, title: "AI Coach", sub: "Chat with your AI coach" }]),
+    ...(isOnline ? [] : [{ key: "sessions", icon: "calendar", color: BRAND.gold, title: "My sessions", sub: sessionsSub(client) }]),
     { key: "profile", icon: "me", color: BRAND.violet, title: "Profile", sub: "Your details & settings" },
     { key: "payments", icon: "card", color: BRAND.yellow, title: "Payments", sub: paymentStatus(client).label },
     { key: "settings", icon: "gear", color: BRAND.dim, title: "Settings", sub: "Change password & log out" },

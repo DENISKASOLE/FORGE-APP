@@ -138,7 +138,7 @@ export const CLIENT_BOTTOM_NAV = [
   { key: "program", label: "Train", icon: "train", group: ["program", "train_hub"] },
   { key: "nutrition", label: "Fuel", icon: "food", group: ["nutrition"] },
   { key: "progress_hub", label: "Progress", icon: "progress", group: ["progress_hub", "progress"] },
-  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "ai_coach", "photos", "checkins", "measurements"] },
+  { key: "me_hub", label: "Me", icon: "me", group: ["me_hub", "payments", "profile", "ai_coach", "photos", "checkins", "measurements", "sessions"] },
 ];
 // Client bottom dock: Home / Train / Fuel / Progress / Me share one capsule
 // with a sliding pill behind the active tab. Me shows the client's photo
