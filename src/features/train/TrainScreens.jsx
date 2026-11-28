@@ -1,3 +1,4 @@
+import { UseSessionPrompt } from "../sessions/SessionsScreens.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../../supabaseClient.js";
@@ -591,7 +592,7 @@ export function ProgramBuilder({ client, program, onClose, onSave }) {
 }
 
 // ---------- Client: Live Workout Session ----------
-export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit, editing = false, isCoach = false }) {
+export function WorkoutSession({ client, program, week, workout, session, logsBefore, onUpdate, onFinish, onExit, editing = false, isCoach = false, updateClient }) {
   const isMobile = useIsMobile(520);
   const taxonomyMap = useExerciseTaxonomyMap();
   const trainerId = client?.trainer_id;
@@ -747,6 +748,8 @@ export function WorkoutSession({ client, program, week, workout, session, logsBe
           <Field label="Avg HR" value={finished.metrics?.avgHR || ""} onChange={(v) => { const next = { ...finished, metrics: { ...finished.metrics, avgHR: v } }; setFinished(next); onUpdate(next); }} type="number" />
         </div>
         <Field label="How did it feel?" value={finished.notes} onChange={(v) => { const next = { ...finished, notes: v }; setFinished(next); onUpdate(next); }} textarea />
+        {/* Coach only: ask before using a session - never automatic (Nov 28 2026). */}
+        {isCoach && updateClient && <div style={{ marginTop: 12 }}><UseSessionPrompt client={client} updateClient={updateClient} date={finished.date || isoDate(new Date())} /></div>}
         <Button onClick={() => onFinish(finished)} style={{ width: "100%", marginTop: 12 }}>Done</Button>
       </Card>
     );
@@ -1240,7 +1243,7 @@ export function ProgramTab({ client, updateClient, isCoach }) {
     const liveWeek = program.weeks.find((w) => w.id === live.weekId);
     const liveWorkout = liveWeek?.workouts.find((w) => w.id === live.workoutId);
     const logsBefore = { ...logs, sessions: (logs?.sessions || []).filter((s) => s.id !== live.id) };
-    return <WorkoutSession isCoach={isCoach} client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} editing={live.status === "completed"} />;
+    return <WorkoutSession isCoach={isCoach} updateClient={updateClient} client={client} program={program} week={liveWeek} workout={liveWorkout} session={live} logsBefore={logsBefore} onUpdate={updateLive} onFinish={() => { setLive(null); setOpenKey(null); }} onExit={() => setLive(null)} editing={live.status === "completed"} />;
   }
   const openDay = openKey ? days.find((d) => d.key === openKey) : null;
   const todayISO = isoDate(new Date());

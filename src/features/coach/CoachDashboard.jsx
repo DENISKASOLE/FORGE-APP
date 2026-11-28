@@ -39,6 +39,7 @@ import { loadTodaysAgenda } from "./coachHelpers.js";
 import { CoachSidebarShell } from "./CoachSidebarShell.jsx";
 import { WhatsAppHomeCard, WhatsAppMessagesScreen } from "./WhatsAppMessages.jsx";
 import { CoachChallengesScreen } from "../challenges/ChallengeScreens.jsx";
+import { CoachSessionsToday } from "../sessions/SessionsScreens.jsx";
 import { COACH_NAV, TOOLS } from "./coachNav.js";
 import { timeLabel } from "../../lib/clientData.js";
 import { inkOn } from "../../lib/colorUtils.js";
@@ -515,7 +516,7 @@ export function coachStats(clients) {
   }, 0);
   return { cold, adherence, sessionsToday, lastSessionOf };
 }
-export function CoachHome({ trainer, user, clients, notifications, templatesCount, trialsCount, onTile, onOpenClients, selectClient }) {
+export function CoachHome({ trainer, user, clients, notifications, templatesCount, trialsCount, onTile, onOpenClients, selectClient, updateClient }) {
   const isMobile = useIsMobile(520);
   const isTablet = useIsMobile(1180) && !isMobile;
   const { cold, adherence, sessionsToday } = coachStats(clients);
@@ -545,6 +546,7 @@ export function CoachHome({ trainer, user, clients, notifications, templatesCoun
         <Mini label="Alerts" value={String(notifications.length)} color={notifications.length > 0 ? BRAND.yellow : BRAND.text} />
       </div>
       <WhatsAppHomeCard trainerId={user.id} clients={clients} onOpen={() => onTile("whatsapp")} />
+      <CoachSessionsToday clients={clients} updateClient={updateClient} />
       {agenda && (agenda.sessions.length > 0 || agenda.checkInsDue.length > 0 || agenda.paymentsDue.length > 0) && (
         <Card style={{ padding: 16 }}>
           <div style={{ color: BRAND.dim, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 10 }}>Today</div>
@@ -942,6 +944,7 @@ export function CoachDashboard({ user, trainer, setTrainer, clients: allClients,
   else if (screen === "nutrition_dashboard") body = <CoachNutritionDashboard clients={clients} selectClient={selectClient} updateClient={updateClientLocal} onBack={goHome} />;
   else if (tab === "home") body = (
     <CoachHome
+      updateClient={updateClientLocal}
       trainer={trainer} user={user} clients={clients} notifications={notifications}
       templatesCount={templatesCount} trialsCount={trialsCount}
       onTile={(k) => { setToolOrigin("home"); setScreen(k); }} onOpenClients={() => setTab("clients")}
